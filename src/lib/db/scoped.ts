@@ -51,6 +51,7 @@ import { and, eq, sql } from 'drizzle-orm';
 export type {
   GiftTokenStatus,
   GiftTokenWithStatus,
+  UserActivityRow,
 } from '@/lib/db/scoped/admin';
 
 export type {

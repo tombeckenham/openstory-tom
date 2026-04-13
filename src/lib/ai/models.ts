@@ -83,6 +83,15 @@ export const IMAGE_TO_VIDEO_MODELS = {
     maxPromptLength: 4096,
     performance: { estimatedGenerationTime: 12, quality: 'best' as const },
   },
+  seedance_v2: {
+    id: 'bytedance/seedance-2.0/image-to-video',
+    name: 'Seedance 2',
+    provider: 'ByteDance',
+    license: 'proprietary' as const,
+    qualityRank: 2,
+    maxPromptLength: 4096,
+    performance: { estimatedGenerationTime: 20, quality: 'best' as const },
+  },
 } as const;
 
 /**
@@ -237,6 +246,7 @@ export const IMAGE_TO_VIDEO_MODEL_KEYS = [
   'ltx_2_3_pro',
   'minimax_hailuo_02',
   'seedance_v1_5_pro',
+  'seedance_v2',
   'veo3_1',
 ] as const satisfies readonly ImageToVideoModel[];
 

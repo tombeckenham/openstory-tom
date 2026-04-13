@@ -20,6 +20,7 @@ const QUALITY_OVERRIDES: Partial<
 > = {
   veo3_1: { resolution: '1080p' },
   seedance_v1_5_pro: { resolution: '1080p' },
+  seedance_v2: { resolution: '720p' },
 };
 
 export function buildModelInput(

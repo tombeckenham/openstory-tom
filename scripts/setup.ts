@@ -267,6 +267,7 @@ function getPrPreviewSecrets(vars: Map<string, string>): string[] {
 const PR_PREVIEW_VARIABLES = [
   'VITE_CONTACT_EMAIL',
   'VITE_PRIVACY_EMAIL',
+  'VITE_PUBLIC_POSTHOG_HOST',
   'VITE_R2_PUBLIC_ASSETS_DOMAIN',
   'R2_PUBLIC_STORAGE_DOMAIN',
 ] as const;

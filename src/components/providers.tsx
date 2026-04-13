@@ -55,17 +55,19 @@ const ObservabilityProvider: FC<{ children: React.ReactNode }> = ({
   const posthogToken =
     process.env.VITE_PUBLIC_POSTHOG_PROJECT_TOKEN ||
     import.meta.env.VITE_PUBLIC_POSTHOG_PROJECT_TOKEN;
+  const apiHost =
+    process.env.VITE_PUBLIC_POSTHOG_HOST ||
+    import.meta.env.VITE_PUBLIC_POSTHOG_HOST ||
+    'https://us.posthog.com';
 
-  if (!posthogToken) {
+  if (!posthogToken || !apiHost) {
     return children;
   }
   return (
     <PostHogProvider
       apiKey={posthogToken}
       options={{
-        api_host: '/ingest',
-        ui_host:
-          import.meta.env.VITE_PUBLIC_POSTHOG_HOST || 'https://us.posthog.com',
+        api_host: apiHost,
         defaults: '2025-05-24',
         capture_exceptions: true,
         debug: import.meta.env.DEV,

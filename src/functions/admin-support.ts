@@ -6,7 +6,7 @@ import { systemAdminMiddleware } from './middleware';
 
 export const searchUsersFn = createServerFn({ method: 'GET' })
   .middleware([systemAdminMiddleware])
-  .inputValidator(zodValidator(z.object({ query: z.string().min(2) })))
+  .inputValidator(zodValidator(z.object({ query: z.string().optional() })))
   .handler(async ({ context, data }) => {
     return context.adminScopedDb.admin.searchUsers(data.query);
   });

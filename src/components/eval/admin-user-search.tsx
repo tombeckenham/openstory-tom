@@ -3,8 +3,7 @@ import { useAdminUserSearch } from '@/hooks/use-admin-support';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Users } from 'lucide-react';
-import { EmptyState } from '@/components/ui/empty-state';
+import { Search } from 'lucide-react';
 
 type SelectedTeam = {
   teamId: string;
@@ -28,7 +27,7 @@ export const AdminUserSearch: React.FC<AdminUserSearchProps> = ({
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search users by email or name…"
+          placeholder="Filter users by email or name…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="pl-9"
@@ -38,7 +37,7 @@ export const AdminUserSearch: React.FC<AdminUserSearchProps> = ({
         />
       </div>
 
-      {query.length >= 2 && isLoading && (
+      {isLoading && (
         <div className="flex flex-col gap-2">
           {[1, 2, 3].map((n) => (
             <Skeleton key={`skeleton-${n}`} className="h-16 w-full" />
@@ -46,20 +45,12 @@ export const AdminUserSearch: React.FC<AdminUserSearchProps> = ({
         </div>
       )}
 
-      {query.length >= 2 && !isLoading && results?.length === 0 && (
+      {!isLoading && results?.length === 0 && (
         <Card className="p-6">
           <p className="text-center text-muted-foreground">
-            No users found matching "{query}"
+            {query ? `No users found matching "${query}"` : 'No users found'}
           </p>
         </Card>
-      )}
-
-      {query.length < 2 && (
-        <EmptyState
-          icon={<Users className="h-12 w-12" />}
-          title="Search for a user"
-          description="Enter at least 2 characters to search by name or email."
-        />
       )}
 
       {results && results.length > 0 && (

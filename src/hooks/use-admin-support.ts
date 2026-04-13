@@ -26,10 +26,11 @@ export function useAdminUserSearch(query: string) {
     return () => clearTimeout(timer);
   }, [query]);
 
+  const searchQuery = debouncedQuery.length >= 2 ? debouncedQuery : undefined;
+
   return useQuery({
-    queryKey: adminSupportKeys.userSearch(debouncedQuery),
-    queryFn: () => searchUsersFn({ data: { query: debouncedQuery } }),
-    enabled: debouncedQuery.length >= 2,
+    queryKey: adminSupportKeys.userSearch(searchQuery ?? ''),
+    queryFn: () => searchUsersFn({ data: { query: searchQuery } }),
     staleTime: 30_000,
   });
 }

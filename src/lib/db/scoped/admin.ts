@@ -120,9 +120,8 @@ export function createAdminMethods(db: Database) {
     role: string;
   };
 
-  async function searchUsers(query: string): Promise<UserSearchResult[]> {
-    const pattern = `%${query}%`;
-    const results = await db
+  async function searchUsers(query?: string): Promise<UserSearchResult[]> {
+    const baseQuery = db
       .select({
         userId: user.id,
         name: user.name,
@@ -134,12 +133,16 @@ export function createAdminMethods(db: Database) {
       })
       .from(user)
       .innerJoin(teamMembers, eq(user.id, teamMembers.userId))
-      .innerJoin(teams, eq(teamMembers.teamId, teams.id))
-      .where(or(like(user.email, pattern), like(user.name, pattern)))
-      .orderBy(asc(user.name))
-      .limit(20);
+      .innerJoin(teams, eq(teamMembers.teamId, teams.id));
 
-    return results;
+    if (query) {
+      const pattern = `%${query}%`;
+      return baseQuery
+        .where(or(like(user.email, pattern), like(user.name, pattern)))
+        .orderBy(asc(user.name));
+    }
+
+    return baseQuery.orderBy(asc(user.name));
   }
 
   async function getSequencesForTeam(teamId: string): Promise<Sequence[]> {

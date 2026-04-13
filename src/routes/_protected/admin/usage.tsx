@@ -18,8 +18,11 @@ type SortField =
   | 'name'
   | 'createdAt'
   | 'sequenceCount'
+  | 'failedCount'
+  | 'avgAnalysisDurationMs'
   | 'creditsSpentMicros'
-  | 'creditsToppedUpMicros'
+  | 'creditsPurchasedMicros'
+  | 'creditsGiftedMicros'
   | 'currentBalanceMicros';
 
 type SortDirection = 'asc' | 'desc';
@@ -74,10 +77,19 @@ function UsageContent() {
           );
         case 'sequenceCount':
           return dir * (a.sequenceCount - b.sequenceCount);
+        case 'failedCount':
+          return dir * (a.failedCount - b.failedCount);
+        case 'avgAnalysisDurationMs':
+          return (
+            dir *
+            ((a.avgAnalysisDurationMs ?? 0) - (b.avgAnalysisDurationMs ?? 0))
+          );
         case 'creditsSpentMicros':
           return dir * (a.creditsSpentMicros - b.creditsSpentMicros);
-        case 'creditsToppedUpMicros':
-          return dir * (a.creditsToppedUpMicros - b.creditsToppedUpMicros);
+        case 'creditsPurchasedMicros':
+          return dir * (a.creditsPurchasedMicros - b.creditsPurchasedMicros);
+        case 'creditsGiftedMicros':
+          return dir * (a.creditsGiftedMicros - b.creditsGiftedMicros);
         case 'currentBalanceMicros':
           return dir * (a.currentBalanceMicros - b.currentBalanceMicros);
         default:
@@ -99,23 +111,30 @@ function UsageContent() {
     return {
       users: rows.length,
       sequences: rows.reduce((sum, r) => sum + r.sequenceCount, 0),
+      failed: rows.reduce((sum, r) => sum + r.failedCount, 0),
       spent: rows.reduce((sum, r) => sum + r.creditsSpentMicros, 0),
-      toppedUp: rows.reduce((sum, r) => sum + r.creditsToppedUpMicros, 0),
+      purchased: rows.reduce((sum, r) => sum + r.creditsPurchasedMicros, 0),
+      gifted: rows.reduce((sum, r) => sum + r.creditsGiftedMicros, 0),
     };
   }, [rows]);
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <SummaryCard label="Total Users" value={String(totals.users)} />
         <SummaryCard label="Total Sequences" value={String(totals.sequences)} />
+        <SummaryCard label="Failed" value={String(totals.failed)} />
         <SummaryCard
           label="Total Spent"
           value={microsToDisplayUsd(micros(totals.spent))}
         />
         <SummaryCard
-          label="Total Added"
-          value={microsToDisplayUsd(micros(totals.toppedUp))}
+          label="Purchased"
+          value={microsToDisplayUsd(micros(totals.purchased))}
+        />
+        <SummaryCard
+          label="Gifted"
+          value={microsToDisplayUsd(micros(totals.gifted))}
         />
       </div>
 
@@ -167,6 +186,22 @@ function UsageContent() {
                 align="right"
               />
               <SortableHeader
+                label="Errors"
+                field="failedCount"
+                current={sortField}
+                direction={sortDir}
+                onSort={toggleSort}
+                align="right"
+              />
+              <SortableHeader
+                label="Avg Time"
+                field="avgAnalysisDurationMs"
+                current={sortField}
+                direction={sortDir}
+                onSort={toggleSort}
+                align="right"
+              />
+              <SortableHeader
                 label="Spent"
                 field="creditsSpentMicros"
                 current={sortField}
@@ -175,8 +210,16 @@ function UsageContent() {
                 align="right"
               />
               <SortableHeader
-                label="Added"
-                field="creditsToppedUpMicros"
+                label="Purchased"
+                field="creditsPurchasedMicros"
+                current={sortField}
+                direction={sortDir}
+                onSort={toggleSort}
+                align="right"
+              />
+              <SortableHeader
+                label="Gifted"
+                field="creditsGiftedMicros"
                 current={sortField}
                 direction={sortDir}
                 onSort={toggleSort}
@@ -196,7 +239,7 @@ function UsageContent() {
             {sorted.length === 0 ? (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={11}
                   className="px-4 py-8 text-center text-muted-foreground"
                 >
                   {search ? 'No users match your search.' : 'No users found.'}
@@ -263,6 +306,15 @@ function formatDate(date: Date | string): string {
   return d.toISOString().slice(0, 10);
 }
 
+function formatDuration(ms: number | null): string {
+  if (ms === null || ms === 0) return '-';
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remaining = seconds % 60;
+  return `${minutes}m${remaining > 0 ? ` ${remaining}s` : ''}`;
+}
+
 const UserRow: React.FC<{ row: UserActivityRow }> = ({ row }) => {
   const statusVariant =
     row.status === 'active'
@@ -288,10 +340,23 @@ const UserRow: React.FC<{ row: UserActivityRow }> = ({ row }) => {
       <td className="px-4 py-3 text-muted-foreground">{row.teamName}</td>
       <td className="px-4 py-3 text-right tabular-nums">{row.sequenceCount}</td>
       <td className="px-4 py-3 text-right tabular-nums">
+        {row.failedCount > 0 ? (
+          <span className="text-destructive">{row.failedCount}</span>
+        ) : (
+          0
+        )}
+      </td>
+      <td className="px-4 py-3 text-right tabular-nums">
+        {formatDuration(row.avgAnalysisDurationMs)}
+      </td>
+      <td className="px-4 py-3 text-right tabular-nums">
         {microsToDisplayUsd(micros(row.creditsSpentMicros))}
       </td>
       <td className="px-4 py-3 text-right tabular-nums">
-        {microsToDisplayUsd(micros(row.creditsToppedUpMicros))}
+        {microsToDisplayUsd(micros(row.creditsPurchasedMicros))}
+      </td>
+      <td className="px-4 py-3 text-right tabular-nums">
+        {microsToDisplayUsd(micros(row.creditsGiftedMicros))}
       </td>
       <td className="px-4 py-3 text-right tabular-nums">
         {microsToDisplayUsd(micros(row.currentBalanceMicros))}

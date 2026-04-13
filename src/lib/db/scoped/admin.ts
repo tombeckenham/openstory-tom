@@ -7,10 +7,14 @@
 import { micros, microsToUsd, usdToMicros } from '@/lib/billing/money';
 import type { Database } from '@/lib/db/client';
 import { generateId } from '@/lib/db/id';
-import { frames, sequences, user } from '@/lib/db/schema';
-import type { Frame, Sequence } from '@/lib/db/schema';
+import { user } from '@/lib/db/schema/auth';
+import { credits, transactions } from '@/lib/db/schema/credits';
+import { frames } from '@/lib/db/schema/frames';
 import { giftTokenRedemptions, giftTokens } from '@/lib/db/schema/gift-tokens';
 import type { GiftToken } from '@/lib/db/schema/gift-tokens';
+import { sequences } from '@/lib/db/schema/sequences';
+import type { Frame, Sequence } from '@/lib/db/schema';
+import { teamMembers, teams } from '@/lib/db/schema/teams';
 import { ValidationError } from '@/lib/errors';
 import { asc, count, desc, eq, not, sql } from 'drizzle-orm';
 
@@ -40,6 +44,23 @@ export type GiftTokenWithStatus = GiftToken & {
   status: GiftTokenStatus;
   amountUsd: number;
   redemptionCount: number;
+};
+
+export type UserActivityRow = {
+  userId: string;
+  name: string;
+  email: string;
+  createdAt: Date;
+  status: string | null;
+  teamId: string;
+  teamName: string;
+  sequenceCount: number;
+  failedCount: number;
+  avgAnalysisDurationMs: number | null;
+  creditsSpentMicros: number;
+  creditsPurchasedMicros: number;
+  creditsGiftedMicros: number;
+  currentBalanceMicros: number;
 };
 
 export function createAdminMethods(db: Database) {
@@ -144,10 +165,83 @@ export function createAdminMethods(db: Database) {
       .orderBy(asc(frames.orderIndex));
   }
 
+  // ---- User activity reporting ----
+
+  async function listUserActivity(): Promise<UserActivityRow[]> {
+    // Subquery: sequence stats per team (count, failures, avg duration)
+    const seqStatsSq = db
+      .select({
+        teamId: sequences.teamId,
+        count: count().as('seq_count'),
+        failedCount:
+          sql<number>`sum(case when ${sequences.status} = 'failed' then 1 else 0 end)`.as(
+            'failed_count'
+          ),
+        avgAnalysisDurationMs:
+          sql<number>`avg(case when ${sequences.analysisDurationMs} > 0 then ${sequences.analysisDurationMs} else null end)`.as(
+            'avg_analysis_duration_ms'
+          ),
+      })
+      .from(sequences)
+      .groupBy(sequences.teamId)
+      .as('seq_stats');
+
+    // Subquery: credit spending, purchases, and gifts per team
+    const txSumsSq = db
+      .select({
+        teamId: transactions.teamId,
+        spent:
+          sql<number>`coalesce(sum(case when ${transactions.type} = 'credit_usage' then abs(${transactions.amount}) else 0 end), 0)`.as(
+            'spent'
+          ),
+        purchased:
+          sql<number>`coalesce(sum(case when ${transactions.type} = 'credit_purchase' then ${transactions.amount} else 0 end), 0)`.as(
+            'purchased'
+          ),
+        gifted:
+          sql<number>`coalesce(sum(case when ${transactions.type} = 'credit_adjustment' then ${transactions.amount} else 0 end), 0)`.as(
+            'gifted'
+          ),
+      })
+      .from(transactions)
+      .groupBy(transactions.teamId)
+      .as('tx_sums');
+
+    const rows = await db
+      .select({
+        userId: user.id,
+        name: user.name,
+        email: user.email,
+        createdAt: user.createdAt,
+        status: user.status,
+        teamId: teams.id,
+        teamName: teams.name,
+        sequenceCount: sql<number>`coalesce(${seqStatsSq.count}, 0)`,
+        failedCount: sql<number>`coalesce(${seqStatsSq.failedCount}, 0)`,
+        avgAnalysisDurationMs: sql<
+          number | null
+        >`${seqStatsSq.avgAnalysisDurationMs}`,
+        creditsSpentMicros: sql<number>`coalesce(${txSumsSq.spent}, 0)`,
+        creditsPurchasedMicros: sql<number>`coalesce(${txSumsSq.purchased}, 0)`,
+        creditsGiftedMicros: sql<number>`coalesce(${txSumsSq.gifted}, 0)`,
+        currentBalanceMicros: sql<number>`coalesce(${credits.balance}, 0)`,
+      })
+      .from(user)
+      .innerJoin(teamMembers, eq(user.id, teamMembers.userId))
+      .innerJoin(teams, eq(teamMembers.teamId, teams.id))
+      .leftJoin(seqStatsSq, eq(teams.id, seqStatsSq.teamId))
+      .leftJoin(txSumsSq, eq(teams.id, txSumsSq.teamId))
+      .leftJoin(credits, eq(teams.id, credits.teamId))
+      .orderBy(desc(user.createdAt));
+
+    return rows;
+  }
+
   return {
     createGiftToken,
     listGiftTokens,
     getAllSequences,
     getFramesForSequence,
+    listUserActivity,
   };
 }

@@ -26,8 +26,9 @@ export const MotionModelSelector: React.FC<MotionModelSelectorProps> = ({
   const models = useMemo(
     () =>
       Object.entries(IMAGE_TO_VIDEO_MODELS)
-        .filter(([key]) => {
+        .filter(([key, m]) => {
           if (!isValidImageToVideoModel(key)) return false;
+          if ('hidden' in m) return false;
           return aspectRatio
             ? isModelCompatibleWithAspectRatio(key, aspectRatio)
             : true;

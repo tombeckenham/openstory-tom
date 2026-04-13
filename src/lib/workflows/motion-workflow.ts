@@ -7,6 +7,7 @@
  * This reduces QStash steps by ~10x vs one-step-per-poll.
  */
 
+import { extractFalErrorMessage } from '@/lib/ai/fal-error';
 import { DEFAULT_VIDEO_MODEL, IMAGE_TO_VIDEO_MODELS } from '@/lib/ai/models';
 import { microsToUsd, type Microdollars } from '@/lib/billing/money';
 import { ensureImageUnderLimit } from '@/lib/image/image-compress';
@@ -185,7 +186,7 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
           error.status === 422
         ) {
           throw new WorkflowNonRetryableError(
-            `Motion job submission rejected (422): ${error.message}`
+            `Motion job submission rejected (422): ${extractFalErrorMessage(error)}`
           );
         }
         // If the error is not a 422, throw it. We'll retry
@@ -221,7 +222,7 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
               error.status === 422
             ) {
               throw new WorkflowNonRetryableError(
-                `Motion job polling failed (422): ${error.message}`
+                `Motion job polling failed (422): ${extractFalErrorMessage(error)}`
               );
             }
             // If the error is not a 422, throw it. We'll retry

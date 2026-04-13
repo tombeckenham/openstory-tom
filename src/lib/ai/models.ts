@@ -91,6 +91,7 @@ export const IMAGE_TO_VIDEO_MODELS = {
     qualityRank: 2,
     maxPromptLength: 4096,
     performance: { estimatedGenerationTime: 20, quality: 'best' as const },
+    hidden: true,
   },
 } as const;
 
@@ -196,7 +197,7 @@ export const IMAGE_MODELS = {
     qualityRank: 99,
     description: 'Ultra-fast preview generation',
     maxPromptLength: 2000,
-    previewOnly: true,
+    hidden: true,
   },
 } as const;
 

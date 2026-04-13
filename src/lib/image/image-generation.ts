@@ -1,4 +1,5 @@
 import { calculateImageCost } from '@/lib/ai/fal-cost';
+import { extractFalErrorMessage } from '@/lib/ai/fal-error';
 import {
   getEditEndpoint,
   getTextToImageModelId,
@@ -135,12 +136,18 @@ export async function generateImageWithProvider(
       .end();
     return result;
   } catch (error) {
+    const errorMessage = extractFalErrorMessage(error);
     span
       .update({
         level: 'ERROR',
-        statusMessage: error instanceof Error ? error.message : String(error),
+        statusMessage: errorMessage,
       })
       .end();
+
+    // Re-throw with the full detail so workflow failure handlers get the real message
+    if (errorMessage !== (error instanceof Error ? error.message : '')) {
+      throw new Error(errorMessage, { cause: error });
+    }
     throw error;
   }
 }

@@ -1,5 +1,6 @@
 import { getEnv } from '#env';
 import { calculateAudioCost } from '@/lib/ai/fal-cost';
+import { extractFalErrorMessage } from '@/lib/ai/fal-error';
 import {
   AUDIO_MODEL_KEYS,
   AUDIO_MODELS,
@@ -171,7 +172,7 @@ export async function generateMusic(
     span
       .update({
         level: 'ERROR',
-        statusMessage: error instanceof Error ? error.message : String(error),
+        statusMessage: extractFalErrorMessage(error),
       })
       .end();
     throw error;

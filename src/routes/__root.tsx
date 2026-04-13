@@ -35,6 +35,12 @@ const getCanonicalOriginFn = createIsomorphicFn().server(() => {
   const host = headers.get('x-forwarded-host') ?? headers.get('host');
   if (!host) return null;
 
+  // Don't redirect localhost or IP addresses (local/network dev access)
+  const hostname = host.split(':')[0];
+  if (hostname === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
+    return null;
+  }
+
   const canonical = new URL(getProductionDeploymentAppUrl(headers));
   if (host === canonical.host) return null;
   return canonical.origin;

@@ -27,6 +27,7 @@ import { Route as MarketingPrivacyRouteImport } from './routes/_marketing/privac
 import { Route as AuthVerifyRouteImport } from './routes/_auth/verify'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as ProtectedSettingsRouteRouteImport } from './routes/_protected/settings/route'
+import { Route as ProtectedAdminRouteRouteImport } from './routes/_protected/admin/route'
 import { Route as ProtectedTalentIndexRouteImport } from './routes/_protected/talent/index'
 import { Route as ProtectedSettingsIndexRouteImport } from './routes/_protected/settings/index'
 import { Route as ProtectedSequencesIndexRouteImport } from './routes/_protected/sequences/index'
@@ -43,6 +44,7 @@ import { Route as ProtectedSettingsPasskeysRouteImport } from './routes/_protect
 import { Route as ProtectedSettingsApiKeysRouteImport } from './routes/_protected/settings/api-keys'
 import { Route as ProtectedSequencesNewRouteImport } from './routes/_protected/sequences/new'
 import { Route as ProtectedLocationsLocationIdRouteImport } from './routes/_protected/locations/$locationId'
+import { Route as ProtectedAdminUsageRouteImport } from './routes/_protected/admin/usage'
 import { Route as ProtectedSequencesIdRouteRouteImport } from './routes/_protected/sequences/$id/route'
 import { Route as ProtectedSequencesIdTheatreRouteImport } from './routes/_protected/sequences/$id/theatre'
 import { Route as ProtectedSequencesIdScriptRouteImport } from './routes/_protected/sequences/$id/script'
@@ -140,6 +142,11 @@ const ProtectedSettingsRouteRoute = ProtectedSettingsRouteRouteImport.update({
   path: '/settings',
   getParentRoute: () => ProtectedRouteRoute,
 } as any)
+const ProtectedAdminRouteRoute = ProtectedAdminRouteRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => ProtectedRouteRoute,
+} as any)
 const ProtectedTalentIndexRoute = ProtectedTalentIndexRouteImport.update({
   id: '/talent/',
   path: '/talent/',
@@ -223,6 +230,11 @@ const ProtectedLocationsLocationIdRoute =
     path: '/locations/$locationId',
     getParentRoute: () => ProtectedRouteRoute,
   } as any)
+const ProtectedAdminUsageRoute = ProtectedAdminUsageRouteImport.update({
+  id: '/usage',
+  path: '/usage',
+  getParentRoute: () => ProtectedAdminRouteRoute,
+} as any)
 const ProtectedSequencesIdRouteRoute =
   ProtectedSequencesIdRouteRouteImport.update({
     id: '/sequences/$id',
@@ -283,6 +295,7 @@ export interface FileRoutesByFullPath {
   '/llms.txt': typeof LlmsDottxtRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin': typeof ProtectedAdminRouteRouteWithChildren
   '/settings': typeof ProtectedSettingsRouteRouteWithChildren
   '/login': typeof AuthLoginRoute
   '/verify': typeof AuthVerifyRoute
@@ -295,6 +308,7 @@ export interface FileRoutesByFullPath {
   '/meta/og': typeof MetaOgRoute
   '/meta/og-linkedin': typeof MetaOgLinkedinRoute
   '/sequences/$id': typeof ProtectedSequencesIdRouteRouteWithChildren
+  '/admin/usage': typeof ProtectedAdminUsageRoute
   '/locations/$locationId': typeof ProtectedLocationsLocationIdRoute
   '/sequences/new': typeof ProtectedSequencesNewRoute
   '/settings/api-keys': typeof ProtectedSettingsApiKeysRoute
@@ -325,6 +339,7 @@ export interface FileRoutesByTo {
   '/llms.txt': typeof LlmsDottxtRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin': typeof ProtectedAdminRouteRouteWithChildren
   '/login': typeof AuthLoginRoute
   '/verify': typeof AuthVerifyRoute
   '/privacy': typeof MarketingPrivacyRoute
@@ -336,6 +351,7 @@ export interface FileRoutesByTo {
   '/meta/og': typeof MetaOgRoute
   '/meta/og-linkedin': typeof MetaOgLinkedinRoute
   '/sequences/$id': typeof ProtectedSequencesIdRouteRouteWithChildren
+  '/admin/usage': typeof ProtectedAdminUsageRoute
   '/locations/$locationId': typeof ProtectedLocationsLocationIdRoute
   '/sequences/new': typeof ProtectedSequencesNewRoute
   '/settings/api-keys': typeof ProtectedSettingsApiKeysRoute
@@ -369,6 +385,7 @@ export interface FileRoutesById {
   '/llms.txt': typeof LlmsDottxtRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/_protected/admin': typeof ProtectedAdminRouteRouteWithChildren
   '/_protected/settings': typeof ProtectedSettingsRouteRouteWithChildren
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/verify': typeof AuthVerifyRoute
@@ -382,6 +399,7 @@ export interface FileRoutesById {
   '/meta/og-linkedin': typeof MetaOgLinkedinRoute
   '/_marketing/': typeof MarketingIndexRoute
   '/_protected/sequences/$id': typeof ProtectedSequencesIdRouteRouteWithChildren
+  '/_protected/admin/usage': typeof ProtectedAdminUsageRoute
   '/_protected/locations/$locationId': typeof ProtectedLocationsLocationIdRoute
   '/_protected/sequences/new': typeof ProtectedSequencesNewRoute
   '/_protected/settings/api-keys': typeof ProtectedSettingsApiKeysRoute
@@ -414,6 +432,7 @@ export interface FileRouteTypes {
     | '/llms.txt'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/admin'
     | '/settings'
     | '/login'
     | '/verify'
@@ -426,6 +445,7 @@ export interface FileRouteTypes {
     | '/meta/og'
     | '/meta/og-linkedin'
     | '/sequences/$id'
+    | '/admin/usage'
     | '/locations/$locationId'
     | '/sequences/new'
     | '/settings/api-keys'
@@ -456,6 +476,7 @@ export interface FileRouteTypes {
     | '/llms.txt'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/admin'
     | '/login'
     | '/verify'
     | '/privacy'
@@ -467,6 +488,7 @@ export interface FileRouteTypes {
     | '/meta/og'
     | '/meta/og-linkedin'
     | '/sequences/$id'
+    | '/admin/usage'
     | '/locations/$locationId'
     | '/sequences/new'
     | '/settings/api-keys'
@@ -499,6 +521,7 @@ export interface FileRouteTypes {
     | '/llms.txt'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/_protected/admin'
     | '/_protected/settings'
     | '/_auth/login'
     | '/_auth/verify'
@@ -512,6 +535,7 @@ export interface FileRouteTypes {
     | '/meta/og-linkedin'
     | '/_marketing/'
     | '/_protected/sequences/$id'
+    | '/_protected/admin/usage'
     | '/_protected/locations/$locationId'
     | '/_protected/sequences/new'
     | '/_protected/settings/api-keys'
@@ -686,6 +710,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedSettingsRouteRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
+    '/_protected/admin': {
+      id: '/_protected/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof ProtectedAdminRouteRouteImport
+      parentRoute: typeof ProtectedRouteRoute
+    }
     '/_protected/talent/': {
       id: '/_protected/talent/'
       path: '/talent'
@@ -798,6 +829,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedLocationsLocationIdRouteImport
       parentRoute: typeof ProtectedRouteRoute
     }
+    '/_protected/admin/usage': {
+      id: '/_protected/admin/usage'
+      path: '/usage'
+      fullPath: '/admin/usage'
+      preLoaderRoute: typeof ProtectedAdminUsageRouteImport
+      parentRoute: typeof ProtectedAdminRouteRoute
+    }
     '/_protected/sequences/$id': {
       id: '/_protected/sequences/$id'
       path: '/sequences/$id'
@@ -878,6 +916,17 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
   AuthRouteRouteChildren,
 )
 
+interface ProtectedAdminRouteRouteChildren {
+  ProtectedAdminUsageRoute: typeof ProtectedAdminUsageRoute
+}
+
+const ProtectedAdminRouteRouteChildren: ProtectedAdminRouteRouteChildren = {
+  ProtectedAdminUsageRoute: ProtectedAdminUsageRoute,
+}
+
+const ProtectedAdminRouteRouteWithChildren =
+  ProtectedAdminRouteRoute._addFileChildren(ProtectedAdminRouteRouteChildren)
+
 interface ProtectedSettingsRouteRouteChildren {
   ProtectedSettingsApiKeysRoute: typeof ProtectedSettingsApiKeysRoute
   ProtectedSettingsPasskeysRoute: typeof ProtectedSettingsPasskeysRoute
@@ -928,6 +977,7 @@ const ProtectedSequencesIdRouteRouteWithChildren =
   )
 
 interface ProtectedRouteRouteChildren {
+  ProtectedAdminRouteRoute: typeof ProtectedAdminRouteRouteWithChildren
   ProtectedSettingsRouteRoute: typeof ProtectedSettingsRouteRouteWithChildren
   ProtectedCreditsRoute: typeof ProtectedCreditsRoute
   ProtectedEvalRoute: typeof ProtectedEvalRoute
@@ -941,6 +991,7 @@ interface ProtectedRouteRouteChildren {
 }
 
 const ProtectedRouteRouteChildren: ProtectedRouteRouteChildren = {
+  ProtectedAdminRouteRoute: ProtectedAdminRouteRouteWithChildren,
   ProtectedSettingsRouteRoute: ProtectedSettingsRouteRouteWithChildren,
   ProtectedCreditsRoute: ProtectedCreditsRoute,
   ProtectedEvalRoute: ProtectedEvalRoute,

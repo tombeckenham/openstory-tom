@@ -1,4 +1,4 @@
-import { DEFAULT_IMAGE_MODEL } from '@/lib/ai/models';
+import { DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from '@/lib/ai/models';
 import { ZERO_MICROS, microsToUsd } from '@/lib/billing/money';
 import { DEFAULT_IMAGE_SIZE } from '@/lib/constants/aspect-ratios';
 import {
@@ -72,7 +72,8 @@ export const generateImageWorkflow = createScopedWorkflow<
           model,
           prompt: buildReferenceImagePrompt(
             input.prompt,
-            input.referenceImages ?? []
+            input.referenceImages ?? [],
+            IMAGE_MODELS[model].maxPromptLength
           ).prompt,
           imageSize: input.imageSize ?? DEFAULT_IMAGE_SIZE,
           numImages: input.numImages ?? 1,

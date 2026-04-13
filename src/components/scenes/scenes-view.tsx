@@ -131,9 +131,8 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
   const realtimeFailed = realtimeStatus === 'error';
   const shouldPoll = isProcessing && realtimeFailed;
 
-  // Fetch frames — only override refetchInterval when we need explicit polling
-  // (realtime failed during image generation). Otherwise let useFramesBySequence's
-  // smart polling handle it (auto-polls at 2s when any frame has generating status).
+  // Fetch frames — only poll when processing AND realtime has failed.
+  // Otherwise realtime events keep the cache fresh via updateQueryCacheFromEvent.
   const { data: frames } = useFramesBySequence(
     sequenceId,
     shouldPoll ? { refetchInterval: 2000 } : undefined

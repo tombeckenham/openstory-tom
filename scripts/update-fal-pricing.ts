@@ -87,9 +87,7 @@ const endpoints = getFalEndpointIds();
 // ============================================================================
 
 const imageEndpointIds = new Set<string>(
-  Object.values(IMAGE_MODELS)
-    .map((m) => m.id)
-    .filter((id) => id !== 'letzai/image')
+  Object.values(IMAGE_MODELS).map((m) => m.id)
 );
 // Include edit endpoints from the single source of truth
 for (const editId of Object.values(EDIT_ENDPOINTS)) {

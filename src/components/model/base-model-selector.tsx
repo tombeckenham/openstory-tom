@@ -15,6 +15,7 @@ type ModelItem = {
   id: string;
   name: string;
   group: string;
+  badge?: 'open-source' | 'proprietary';
 };
 
 type BaseModelSelectorProps = {
@@ -98,6 +99,8 @@ export const BaseModelSelector: React.FC<BaseModelSelectorProps> = ({
       .join(' ');
   };
 
+  const showGroupHeaders = groupOrder.length > 1;
+
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
@@ -120,9 +123,11 @@ export const BaseModelSelector: React.FC<BaseModelSelectorProps> = ({
           return (
             <DropdownMenuGroup key={groupKey}>
               {groupIndex > 0 && <DropdownMenuSeparator />}
-              <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider font-normal">
-                {formatGroupLabel(groupKey)}
-              </DropdownMenuLabel>
+              {showGroupHeaders && (
+                <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider font-normal">
+                  {formatGroupLabel(groupKey)}
+                </DropdownMenuLabel>
+              )}
               {groupModels.map((model) => {
                 const isSelected = selectedIds.includes(model.id);
                 const isLastSelected = isSelected && selectedIds.length === 1;
@@ -139,7 +144,14 @@ export const BaseModelSelector: React.FC<BaseModelSelectorProps> = ({
                     disabled={isDisabled}
                     className="cursor-pointer"
                   >
-                    <span className="text-sm">{model.name}</span>
+                    <span className="flex items-center gap-2 text-sm">
+                      <span className="truncate">{model.name}</span>
+                      {model.badge === 'open-source' && (
+                        <span className="shrink-0 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-500">
+                          Open Source
+                        </span>
+                      )}
+                    </span>
                   </DropdownMenuCheckboxItem>
                 );
               })}

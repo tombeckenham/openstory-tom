@@ -137,10 +137,12 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
 
   const imageModelOptions = [
     { value: 'all', label: 'All Image Models' },
-    ...Object.values(IMAGE_MODELS).map((model) => ({
-      value: model.id,
-      label: model.name,
-    })),
+    ...Object.values(IMAGE_MODELS)
+      .filter((m) => !('hidden' in m))
+      .map((model) => ({
+        value: model.id,
+        label: model.name,
+      })),
   ];
 
   const workflowOptions = [

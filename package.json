@@ -41,7 +41,7 @@
     "build": "vite build",
     "build:cf": "BUILD_CLOUDFLARE=1 vite build",
     "start": "bun --bun run .output/server/index.mjs",
-    "preview": "BUILD_CLOUDFLARE=1 VITE_APP_URL=http://localhost:8788 bun run build && BUILD_CLOUDFLARE=1 VITE_APP_URL=http://localhost:8788 wrangler dev",
+    "preview": "BUILD_CLOUDFLARE=1 VITE_APP_URL=http://localhost:8787 bun run build && BUILD_CLOUDFLARE=1 VITE_APP_URL=http://localhost:8787 wrangler dev",
     "preview:nitro": "vite preview",
     "preview:cloudflare": "BUILD_CLOUDFLARE=1 vite preview",
     "build:bun": "bun run --bun vite build",

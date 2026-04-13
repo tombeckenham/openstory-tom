@@ -55,28 +55,16 @@ describe('buildModelInput', () => {
     });
   });
 
-  describe('Kling v3 Pro no audio', () => {
-    it('defaults generate_audio to true (same endpoint as audio variant)', () => {
-      const result = build('kling_v3_pro_no_audio');
-      expect(result.generate_audio).toBe(true);
-    });
-
-    it('still uses start_image_url', () => {
-      const result = build('kling_v3_pro_no_audio');
-      expect(result).toHaveProperty('start_image_url', baseOptions.imageUrl);
-    });
-  });
-
-  describe('Kling v2.5 Turbo Pro', () => {
-    it('uses image_url (not start_image_url)', () => {
-      const result = build('kling_v2_5_turbo_pro');
+  describe('Grok Imagine Video', () => {
+    it('uses image_url', () => {
+      const result = build('grok_imagine_video');
       expect(result).toHaveProperty('image_url', baseOptions.imageUrl);
-      expect(result).not.toHaveProperty('start_image_url');
     });
 
-    it('snaps duration to enum [5, 10]', () => {
-      const result = build('kling_v2_5_turbo_pro', { duration: 7 });
-      expect(result.duration).toBe('5');
+    it('keeps duration as integer', () => {
+      const result = build('grok_imagine_video');
+      expect(result.duration).toBe(5);
+      expect(typeof result.duration).toBe('number');
     });
   });
 
@@ -102,65 +90,47 @@ describe('buildModelInput', () => {
     });
   });
 
-  describe('Sora 2 (audio)', () => {
-    it('keeps duration as integer', () => {
-      const result = build('sora_2');
-      expect(result.duration).toBe(4); // snaps 5 → 4 (nearest in [4, 8, 12, 16, 20])
-      expect(typeof result.duration).toBe('number');
+  describe('MiniMax Hailuo 02', () => {
+    it('uses image_url', () => {
+      const result = build('minimax_hailuo_02');
+      expect(result).toHaveProperty('image_url', baseOptions.imageUrl);
     });
 
-    it('uses image_url', () => {
-      const result = build('sora_2');
-      expect(result).toHaveProperty('image_url', baseOptions.imageUrl);
+    it('includes prompt', () => {
+      const result = build('minimax_hailuo_02');
+      expect(result.prompt).toBe(baseOptions.prompt);
     });
   });
 
-  describe('Grok Imagine Video', () => {
-    it('keeps duration as integer', () => {
-      const result = build('grok_imagine_video');
-      expect(result.duration).toBe(5);
-      expect(typeof result.duration).toBe('number');
+  describe('LTX 2.3 Pro', () => {
+    it('uses image_url', () => {
+      const result = build('ltx_2_3_pro');
+      expect(result).toHaveProperty('image_url', baseOptions.imageUrl);
     });
 
-    it('uses image_url', () => {
-      const result = build('grok_imagine_video');
-      expect(result).toHaveProperty('image_url', baseOptions.imageUrl);
+    it('includes prompt', () => {
+      const result = build('ltx_2_3_pro');
+      expect(result.prompt).toBe(baseOptions.prompt);
+    });
+
+    it('snaps duration to nearest supported value (6/8/10)', () => {
+      expect(build('ltx_2_3_pro', { duration: 3 }).duration).toBe(6);
+      expect(build('ltx_2_3_pro', { duration: 5 }).duration).toBe(6);
+      expect(build('ltx_2_3_pro', { duration: 7 }).duration).toBe(6);
+      expect(build('ltx_2_3_pro', { duration: 8 }).duration).toBe(8);
+      expect(build('ltx_2_3_pro', { duration: 12 }).duration).toBe(10);
     });
   });
 
-  describe('Wan v2.6 Flash', () => {
-    it('formats duration as string (fixes previous bug)', () => {
-      const result = build('wan_v2_6_flash');
-      expect(result.duration).toBe('5');
-      expect(typeof result.duration).toBe('string');
-    });
-
-    it('applies enable_prompt_expansion default', () => {
-      const result = build('wan_v2_6_flash');
-      expect(result.enable_prompt_expansion).toBe(true);
-    });
-
+  describe('Seedance v1.5 Pro', () => {
     it('uses image_url', () => {
-      const result = build('wan_v2_6_flash');
+      const result = build('seedance_v1_5_pro');
       expect(result).toHaveProperty('image_url', baseOptions.imageUrl);
     });
-  });
 
-  describe('Seedance v1 Pro', () => {
-    it('formats duration as string', () => {
-      const result = build('seedance_v1_pro');
-      expect(result.duration).toBe('5');
-      expect(typeof result.duration).toBe('string');
-    });
-
-    it('overrides resolution to 1080p', () => {
-      const result = build('seedance_v1_pro');
-      expect(result.resolution).toBe('1080p');
-    });
-
-    it('applies enable_safety_checker default', () => {
-      const result = build('seedance_v1_pro');
-      expect(result.enable_safety_checker).toBe(true);
+    it('includes prompt', () => {
+      const result = build('seedance_v1_5_pro');
+      expect(result.prompt).toBe(baseOptions.prompt);
     });
   });
 
@@ -173,12 +143,12 @@ describe('buildModelInput', () => {
     });
 
     it('passes aspect_ratio from options', () => {
-      const result = build('seedance_v1_pro', { aspectRatio: '9:16' });
+      const result = build('seedance_v1_5_pro', { aspectRatio: '9:16' });
       expect(result.aspect_ratio).toBe('9:16');
     });
 
     it('omits aspect_ratio when not provided (API uses its own default)', () => {
-      const result = build('seedance_v1_pro', { aspectRatio: undefined });
+      const result = build('seedance_v1_5_pro', { aspectRatio: undefined });
       expect(result.aspect_ratio).toBeUndefined();
     });
   });

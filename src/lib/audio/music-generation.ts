@@ -1,5 +1,6 @@
 import { getEnv } from '#env';
 import { calculateAudioCost } from '@/lib/ai/fal-cost';
+import { extractFalErrorMessage } from '@/lib/ai/fal-error';
 import {
   AUDIO_MODEL_KEYS,
   AUDIO_MODELS,
@@ -64,14 +65,13 @@ function clampDuration(
   return Math.min(requested, config.capabilities.maxDuration);
 }
 
-const AUDIO_PROVIDER_INPUT_BUILDERS: Record<
-  string,
-  (
-    options: GenerateMusicOptions,
-    config: AudioModelConfig
-  ) => Record<string, unknown>
-> = {
-  'ace-step': (options, config) => {
+type AudioInputBuilder = (
+  options: GenerateMusicOptions,
+  config: AudioModelConfig
+) => Record<string, unknown>;
+
+const AUDIO_INPUT_BUILDERS: Partial<Record<AudioModel, AudioInputBuilder>> = {
+  ace_step: (options, config) => {
     const lyrics =
       options.instrumental && !options.lyrics
         ? '[inst]'
@@ -88,24 +88,18 @@ const AUDIO_PROVIDER_INPUT_BUILDERS: Record<
     };
   },
 
-  elevenlabs: (options, config) => ({
-    text: options.prompt,
-    duration_seconds: clampDuration(options.duration, config),
-  }),
-
-  mmaudio: (options, config) => ({
-    prompt: options.prompt,
-    duration: clampDuration(options.duration, config),
-    num_steps: 25,
-  }),
-
-  'elevenlabs-music': (options, config) => ({
+  elevenlabs_music: (options, config) => ({
     prompt: options.prompt,
     music_length_ms: clampDuration(options.duration, config) * 1000,
     force_instrumental: options.instrumental ?? true,
   }),
 
-  beatoven: (options, config) => ({
+  minimax_music_v2: (options, config) => ({
+    prompt: options.prompt,
+    duration: clampDuration(options.duration, config),
+  }),
+
+  lyria_2: (options, config) => ({
     prompt: options.prompt,
     duration: clampDuration(options.duration, config),
   }),
@@ -178,7 +172,7 @@ export async function generateMusic(
     span
       .update({
         level: 'ERROR',
-        statusMessage: error instanceof Error ? error.message : String(error),
+        statusMessage: extractFalErrorMessage(error),
       })
       .end();
     throw error;
@@ -189,11 +183,10 @@ async function callFalAudio(
   options: GenerateMusicOptions,
   modelConfig: AudioModelConfig
 ): Promise<MusicResult> {
-  const inputBuilder = AUDIO_PROVIDER_INPUT_BUILDERS[modelConfig.provider];
+  const modelKey = options.model || DEFAULT_MUSIC_MODEL;
+  const inputBuilder = AUDIO_INPUT_BUILDERS[modelKey];
   if (!inputBuilder) {
-    throw new Error(
-      `No input builder for audio provider: ${modelConfig.provider}`
-    );
+    throw new Error(`No input builder for audio model: ${modelKey}`);
   }
 
   const input = inputBuilder(options, modelConfig);

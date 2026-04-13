@@ -18,7 +18,7 @@ export const ModelBadge = ({ model }: { model?: string }) => {
   return (
     <Badge
       variant={
-        getAnalysisModelById(model)?.tier === 'premium'
+        (getAnalysisModelById(model)?.qualityRank ?? 99) <= 4
           ? 'default'
           : 'secondary'
       }

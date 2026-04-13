@@ -30,7 +30,7 @@ function unwrapAnyOf(prop: JSONProp, key: string): JSONProp | undefined {
 }
 
 /** Extract valid duration values from the JSON Schema duration property. */
-function getDurationValues<T extends MotionJSONSchema>(
+export function getDurationValues<T extends MotionJSONSchema>(
   schema: T
 ): (string | number)[] {
   const props = schema.properties;
@@ -77,11 +77,11 @@ const zMotionInput = z.looseObject({
   aspectRatio: z.string().optional(),
 });
 
-function numericOf(v: string | number): number {
+export function numericOf(v: string | number): number {
   return typeof v === 'number' ? v : parseFloat(v);
 }
 
-function snapTo(
+export function snapTo(
   n: number,
   values: readonly (string | number)[]
 ): string | number {

@@ -55,6 +55,8 @@ export function getVariantImagePrompt(
 
 Visual Parameters:
 
+Character Consistency: Every panel must show the EXACT SAME character(s) as Image 1 — identical face, hair color, hair style, skin tone, body type, and clothing. If character reference sheets are provided, match their likeness precisely in every panel. Do NOT change, substitute, or alter any character's appearance between panels.
+
 Lighting: Match Image 1's lighting setup exactly.
 
 Texture: Match Image 1's texture and grain characteristics.
@@ -67,7 +69,7 @@ Aspect Ratio: ${aspectDescription}
 
 ${sceneContext}
 
-CRITICAL: All ${count} panels must depict variant shots of the SAME scene shown in Image 1. Any additional reference images (characters, locations) are provided solely for likeness and environment consistency — do NOT turn them into separate panels or subjects.
+CRITICAL: All ${count} panels must depict variant shots of the SAME scene shown in Image 1 with the SAME character(s). Any additional reference images (characters, locations) are provided solely for likeness and environment consistency — do NOT turn them into separate panels or subjects. The character's appearance must be identical across all ${count} panels.
 
 `;
 }

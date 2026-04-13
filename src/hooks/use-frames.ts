@@ -86,38 +86,11 @@ export function useFramesBySequence(
       const data = await getFramesFn({ data: { sequenceId } });
       return data;
     },
-    staleTime: options?.staleTime ?? 1000, // Default to 1 second for better responsiveness
-    // If refetchInterval is explicitly passed, use it; otherwise use smart polling
-    refetchInterval:
-      options?.refetchInterval !== undefined
-        ? options.refetchInterval
-        : (query) => {
-            if (!query.state.data) return 1000;
-
-            const frames = query.state.data;
-
-            // Phase-aware polling using frame status fields:
-            // - Phase 6 (Images): Any frame.thumbnailStatus === 'generating'
-            // - Phase 7 (Videos): Any frame.videoStatus === 'generating'
-            const isGeneratingImages = frames.some(
-              (f: Frame) => f.thumbnailStatus === 'generating'
-            );
-            const isGeneratingVideos = frames.some(
-              (f: Frame) => f.videoStatus === 'generating'
-            );
-
-            // Phases 6-7: Image/video generation (rapid parallel updates)
-            // Poll faster for snappier UI updates as thumbnails/videos complete
-            if (
-              frames.length > 0 &&
-              !isGeneratingImages &&
-              !isGeneratingVideos
-            ) {
-              return false;
-            }
-
-            return 2000;
-          },
+    staleTime: options?.staleTime ?? 30_000, // Realtime events update the cache; polling is a fallback
+    // Callers pass an explicit refetchInterval when needed (e.g. scenes-view
+    // passes 2000 when realtime has failed). No default polling — realtime
+    // events keep the cache fresh via updateQueryCacheFromEvent.
+    refetchInterval: options?.refetchInterval ?? false,
     refetchOnMount: 'always', // Always refetch on mount to ensure fresh data
     refetchOnWindowFocus: true, // Refetch when window regains focus
     enabled: !!sequenceId,
@@ -563,7 +536,7 @@ export function useFramePreviewStatus(frames: Frame[]) {
   const { data: refreshedFrames = frames } = useFramesBySequence(
     frames.length > 0 ? frames[0].sequenceId : '',
     {
-      refetchInterval: framesNeedingPreviews.length > 0 ? 2000 : false, // Faster refresh
+      refetchInterval: framesNeedingPreviews.length > 0 ? 5000 : false, // Fallback poll
       staleTime: 500, // Shorter stale time for preview updates
     }
   );

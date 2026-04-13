@@ -1,4 +1,4 @@
-import { getChannelLastEventFn } from '@/functions/realtime-history';
+import { getChannelHistoryFn } from '@/functions/realtime-history';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useReducer } from 'react';
 import { useRealtime } from './client';
@@ -252,16 +252,17 @@ export function useGenerationStream(
     [queryClient, sequenceId]
   );
 
-  // Seed reducer from channel history on mount so progress survives page refresh.
+  // Replay channel history on mount so progress survives page refresh.
   // The realtime client doesn't replay past events on reconnect, so we fetch
-  // the last event from server-side history and dispatch it to restore state.
+  // all events from server-side history and replay them through the reducer.
   useEffect(() => {
-    getChannelLastEventFn({ data: { channel: sequenceId } })
-      .then((lastEvent: { event: string; data: string } | null) => {
-        if (!lastEvent) return;
-        const parsed = JSON.parse(lastEvent.data);
-        const action = mapEventToAction(lastEvent.event, parsed);
-        if (action) dispatch(action);
+    getChannelHistoryFn({ data: { channel: sequenceId } })
+      .then((events: { event: string; data: string }[]) => {
+        for (const evt of events) {
+          const parsed = JSON.parse(evt.data);
+          const action = mapEventToAction(evt.event, parsed);
+          if (action) dispatch(action);
+        }
       })
       .catch(() => {
         // Best-effort: if history fetch fails, live events still work

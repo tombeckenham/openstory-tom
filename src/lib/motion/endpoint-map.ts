@@ -232,6 +232,19 @@ export type MotionInputFor<T extends MotionEndpointId> = z.infer<
   (typeof MOTION_INPUT_SCHEMAS)[T]
 >;
 
+export const MOTION_JSON_SCHEMAS = {
+  'fal-ai/veo3.1/image-to-video': Veo31ImageToVideoInputSchema,
+  'fal-ai/kling-video/v3/pro/image-to-video':
+    KlingVideoV3ProImageToVideoInputSchema,
+  'xai/grok-imagine-video/image-to-video':
+    GrokImagineVideoImageToVideoInputSchema,
+  'fal-ai/ltx-2.3/image-to-video': Ltx23ImageToVideoInputSchema,
+  'fal-ai/minimax/hailuo-02/pro/image-to-video':
+    MinimaxHailuo02ImageToVideoInputSchema,
+  'fal-ai/bytedance/seedance/v1.5/pro/image-to-video':
+    BytedanceSeedanceV15ProImageToVideoInputSchema,
+} satisfies Record<MotionEndpointId, MotionJSONSchema>;
+
 export const MOTION_TRANSFORMS = {
   'fal-ai/veo3.1/image-to-video': motionTransform(
     zVeo31ImageToVideoInput,

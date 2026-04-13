@@ -112,6 +112,14 @@ describe('buildModelInput', () => {
       const result = build('ltx_2_3_pro');
       expect(result.prompt).toBe(baseOptions.prompt);
     });
+
+    it('snaps duration to nearest supported value (6/8/10)', () => {
+      expect(build('ltx_2_3_pro', { duration: 3 }).duration).toBe('6');
+      expect(build('ltx_2_3_pro', { duration: 5 }).duration).toBe('6');
+      expect(build('ltx_2_3_pro', { duration: 7 }).duration).toBe('6');
+      expect(build('ltx_2_3_pro', { duration: 8 }).duration).toBe('8');
+      expect(build('ltx_2_3_pro', { duration: 12 }).duration).toBe('10');
+    });
   });
 
   describe('Seedance v1.5 Pro', () => {

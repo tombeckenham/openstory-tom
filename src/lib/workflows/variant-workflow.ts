@@ -1,4 +1,4 @@
-import { DEFAULT_IMAGE_MODEL } from '@/lib/ai/models';
+import { DEFAULT_IMAGE_MODEL, IMAGE_MODELS } from '@/lib/ai/models';
 import {
   deductWorkflowCredits,
   extractImageCost,
@@ -113,7 +113,11 @@ export const generateVariantWorkflow = createScopedWorkflow<
         ];
 
         const { prompt: enhancedPrompt, referenceUrls } =
-          buildReferenceImagePrompt(basePrompt, allReferences);
+          buildReferenceImagePrompt(
+            basePrompt,
+            allReferences,
+            IMAGE_MODELS[model].maxPromptLength
+          );
 
         // Return the generation params so it shows in the workflow context for debugging
         return {

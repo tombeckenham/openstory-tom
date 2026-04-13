@@ -132,7 +132,7 @@ export const IMAGE_MODELS = {
     license: 'proprietary' as const,
     qualityRank: 5,
     description: 'Character consistency via profiles',
-    maxPromptLength: 2000,
+    maxPromptLength: 8000,
   },
   hunyuan_image_v3: {
     id: 'fal-ai/hunyuan-image/v3/text-to-image' as const,
@@ -572,6 +572,7 @@ export const EDIT_ENDPOINTS: Partial<Record<TextToImageModel, string>> = {
   phota: 'fal-ai/phota/edit',
   hunyuan_image_v3: 'fal-ai/hunyuan-image/v3/instruct/edit',
   flux_2_dev: 'fal-ai/flux-2/edit',
+  flux_2_turbo: 'fal-ai/flux-2/turbo/edit',
   qwen_image: 'fal-ai/qwen-image-2/pro/edit',
   seedream_v5: 'fal-ai/bytedance/seedream/v5/lite/edit',
 };

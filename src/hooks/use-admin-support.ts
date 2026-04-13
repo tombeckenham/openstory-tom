@@ -1,76 +1,78 @@
-import { useMemo, useState, useEffect } from 'react';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { useInfiniteQuery, useQueries } from '@tanstack/react-query';
 import {
   getAdminFramesFn,
-  getAdminSequencesFn,
-  searchUsersFn,
+  getAllAdminSequencesFn,
 } from '@/functions/admin-support';
 import type { SequenceWithFrames } from './use-sequences-with-frames';
 import type { Frame, Sequence } from '@/types/database';
 
+const PAGE_SIZE = 50;
+
 export const adminSupportKeys = {
   all: ['admin-support'] as const,
-  userSearch: (query: string) =>
-    [...adminSupportKeys.all, 'search', query] as const,
-  sequences: (teamId: string) =>
-    [...adminSupportKeys.all, 'sequences', teamId] as const,
+  sequences: () => [...adminSupportKeys.all, 'sequences'] as const,
   frames: (sequenceId: string) =>
     [...adminSupportKeys.all, 'frames', sequenceId] as const,
 };
 
-export function useAdminUserSearch(query: string) {
-  const [debouncedQuery, setDebouncedQuery] = useState(query);
+export type AdminSequenceWithFrames = SequenceWithFrames & {
+  creatorName: string | null;
+};
 
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), 300);
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  const searchQuery = debouncedQuery.length >= 2 ? debouncedQuery : undefined;
-
-  return useQuery({
-    queryKey: adminSupportKeys.userSearch(searchQuery ?? ''),
-    queryFn: () => searchUsersFn({ data: { query: searchQuery } }),
-    staleTime: 30_000,
-  });
-}
-
-export function useAdminSequencesWithFrames(teamId: string | null) {
+export function useAdminAllSequencesWithFrames(enabled: boolean) {
   const {
-    data: sequences,
+    data: infiniteData,
     isLoading: seqLoading,
     error: seqError,
-  } = useQuery({
-    queryKey: adminSupportKeys.sequences(teamId ?? ''),
-    queryFn: () => getAdminSequencesFn({ data: { teamId: teamId ?? '' } }),
-    enabled: !!teamId,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: adminSupportKeys.sequences(),
+    queryFn: ({ pageParam = 0 }) =>
+      getAllAdminSequencesFn({
+        data: {
+          limit: PAGE_SIZE,
+          offset: pageParam * PAGE_SIZE,
+        },
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, _allPages, lastPageParam) =>
+      lastPage.length === PAGE_SIZE ? lastPageParam + 1 : undefined,
+    enabled,
     staleTime: 60_000,
   });
 
+  const allSequences = useMemo(
+    () => infiniteData?.pages.flat() ?? [],
+    [infiniteData]
+  );
+
   const framesQueries = useQueries({
-    queries: (sequences ?? []).map((seq: Sequence) => ({
+    queries: allSequences.map((seq: Sequence) => ({
       queryKey: adminSupportKeys.frames(seq.id),
       queryFn: async (): Promise<Frame[]> => {
         return getAdminFramesFn({ data: { sequenceId: seq.id } });
       },
       staleTime: 60_000,
-      enabled: !!sequences && sequences.length > 0,
+      enabled: allSequences.length > 0,
     })),
   });
 
-  const data = useMemo<SequenceWithFrames[]>(() => {
-    if (!sequences) return [];
-    return sequences.map((seq: Sequence, i: number) => ({
-      ...seq,
-      frames: framesQueries[i]?.data ?? [],
-    }));
-  }, [sequences, framesQueries]);
+  const data = useMemo<AdminSequenceWithFrames[]>(() => {
+    if (allSequences.length === 0) return [];
+    return allSequences.map(
+      (seq: Sequence & { creatorName: string | null }, i: number) => ({
+        ...seq,
+        frames: framesQueries[i]?.data ?? [],
+      })
+    );
+  }, [allSequences, framesQueries]);
 
   const isLoading =
     seqLoading ||
-    (sequences &&
-      sequences.length > 0 &&
-      framesQueries.some((q) => q.isLoading));
+    (allSequences.length > 0 && framesQueries.some((q) => q.isLoading));
 
   const error = seqError || framesQueries.find((q) => q.error)?.error;
 
@@ -78,5 +80,8 @@ export function useAdminSequencesWithFrames(teamId: string | null) {
     data: isLoading ? undefined : data,
     isLoading,
     error,
+    fetchNextPage,
+    hasNextPage: hasNextPage ?? false,
+    isFetchingNextPage,
   };
 }

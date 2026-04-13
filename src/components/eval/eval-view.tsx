@@ -1,27 +1,30 @@
 import type React from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { EvalToolbar } from './eval-toolbar';
 import { EvalMatrix } from './eval-matrix';
-import { AdminUserSearch } from './admin-user-search';
 import {
   useSequencesWithFrames,
   type SequenceWithFrames,
 } from '@/hooks/use-sequences-with-frames';
-import { useAdminSequencesWithFrames } from '@/hooks/use-admin-support';
+import { useAdminAllSequencesWithFrames } from '@/hooks/use-admin-support';
 import { isSystemAdminFn } from '@/functions/gift-tokens';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { ShieldCheck, X, VideoIcon } from 'lucide-react';
+import { ShieldCheck, VideoIcon } from 'lucide-react';
 
-export type ViewMode = 'script' | 'prompts' | 'images';
+export type ViewMode = 'script' | 'prompts' | 'images' | 'motion';
 
 export function isValidViewMode(value: string): value is ViewMode {
-  return value === 'script' || value === 'prompts' || value === 'images';
+  return (
+    value === 'script' ||
+    value === 'prompts' ||
+    value === 'images' ||
+    value === 'motion'
+  );
 }
 
 export function isValidSortField(
@@ -59,13 +62,6 @@ const defaultFilters: FilterState = {
   workflow: null,
 };
 
-type SelectedTeam = {
-  teamId: string;
-  teamName: string;
-  userName: string;
-  userEmail: string;
-};
-
 export const EvalView: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('prompts');
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
@@ -73,7 +69,6 @@ export const EvalView: React.FC = () => {
     { field: 'createdAt', direction: 'desc' },
   ]);
   const [supportMode, setSupportMode] = useState(false);
-  const [selectedTeam, setSelectedTeam] = useState<SelectedTeam | null>(null);
 
   const { data: adminStatus } = useQuery({
     queryKey: ['system-admin-status'],
@@ -84,71 +79,43 @@ export const EvalView: React.FC = () => {
   const isAdmin = adminStatus?.isAdmin ?? false;
 
   const ownData = useSequencesWithFrames();
-  const adminData = useAdminSequencesWithFrames(
-    supportMode && selectedTeam ? selectedTeam.teamId : null
+  const adminData = useAdminAllSequencesWithFrames(supportMode);
+
+  const sequences: SequenceWithFrames[] | undefined = supportMode
+    ? adminData.data
+    : ownData.data;
+  const isLoading = supportMode ? adminData.isLoading : ownData.isLoading;
+  const error = supportMode ? adminData.error : ownData.error;
+
+  // Client-side filtering for both modes
+  const filteredAndSorted = useMemo(
+    () => applyFiltersAndSort(sequences || [], filters, sortCriteria),
+    [sequences, filters, sortCriteria]
   );
 
-  const activeData = supportMode && selectedTeam ? adminData : ownData;
-  const { data: sequences, isLoading, error } = activeData;
-
-  // Apply filters and sorting
-  const filteredAndSorted = applyFiltersAndSort(
-    sequences || [],
-    filters,
-    sortCriteria
-  );
+  const handleLoadMore = supportMode
+    ? () => {
+        if (adminData.hasNextPage && !adminData.isFetchingNextPage) {
+          void adminData.fetchNextPage();
+        }
+      }
+    : undefined;
 
   const supportModeToggle = isAdmin ? (
     <Card className="p-3">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-          <Label htmlFor="support-mode" className="text-sm font-medium">
-            Support Mode
-          </Label>
-          <Switch
-            id="support-mode"
-            checked={supportMode}
-            onCheckedChange={(checked) => {
-              setSupportMode(checked);
-              if (!checked) setSelectedTeam(null);
-            }}
-          />
-        </div>
-        {supportMode && selectedTeam && (
-          <div className="flex items-center gap-2 rounded-md bg-accent px-3 py-1.5">
-            <span className="text-sm">
-              Viewing{' '}
-              <span className="font-medium">{selectedTeam.userName}</span>
-              <span className="text-muted-foreground">
-                {' '}
-                ({selectedTeam.teamName})
-              </span>
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5"
-              onClick={() => setSelectedTeam(null)}
-              aria-label="Clear selected user"
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
-        )}
+      <div className="flex items-center gap-2">
+        <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+        <Label htmlFor="support-mode" className="text-sm font-medium">
+          Support Mode
+        </Label>
+        <Switch
+          id="support-mode"
+          checked={supportMode}
+          onCheckedChange={setSupportMode}
+        />
       </div>
     </Card>
   ) : null;
-
-  // In support mode without a selected team, show user search
-  if (supportMode && !selectedTeam) {
-    return (
-      <div className="flex-1 overflow-hidden flex flex-col gap-4">
-        {supportModeToggle}
-        <AdminUserSearch onSelect={setSelectedTeam} />
-      </div>
-    );
-  }
 
   if (isLoading) {
     return (
@@ -192,27 +159,12 @@ export const EvalView: React.FC = () => {
     );
   }
 
-  if (!sequences || sequences.length === 0) {
-    return (
-      <div className="flex-1 overflow-hidden flex flex-col gap-4">
-        {supportModeToggle}
-        <EmptyState
-          icon={<VideoIcon className="h-12 w-12" />}
-          title="No sequences yet"
-          description={
-            supportMode
-              ? 'This user has no sequences.'
-              : 'Create some sequences to start evaluating prompts.'
-          }
-        />
-      </div>
-    );
-  }
-
   // Get unique workflows for filter dropdown
   const availableWorkflows = [
     ...new Set(
-      sequences.map((s) => s.workflow).filter((w): w is string => w !== null)
+      (sequences ?? [])
+        .map((s) => s.workflow)
+        .filter((w): w is string => w !== null)
     ),
   ].sort();
 
@@ -229,13 +181,24 @@ export const EvalView: React.FC = () => {
         availableWorkflows={availableWorkflows}
       />
       {filteredAndSorted.length === 0 ? (
-        <Card className="p-8 text-center">
-          <p className="text-muted-foreground">
-            No sequences match your filters.
-          </p>
-        </Card>
+        <EmptyState
+          icon={<VideoIcon className="h-12 w-12" />}
+          title={filters.search ? 'No matching sequences' : 'No sequences yet'}
+          description={
+            filters.search
+              ? `No sequences match "${filters.search}".`
+              : supportMode
+                ? 'No sequences found across any users.'
+                : 'Create some sequences to start evaluating prompts.'
+          }
+        />
       ) : (
-        <EvalMatrix sequences={filteredAndSorted} viewMode={viewMode} />
+        <EvalMatrix
+          sequences={filteredAndSorted}
+          viewMode={viewMode}
+          onLoadMore={handleLoadMore}
+          hasMore={supportMode ? adminData.hasNextPage : false}
+        />
       )}
     </div>
   );
@@ -251,7 +214,16 @@ function applyFiltersAndSort(
   // Apply filters
   if (filters.search) {
     const searchLower = filters.search.toLowerCase();
-    result = result.filter((s) => s.title.toLowerCase().includes(searchLower));
+    result = result.filter((s) => {
+      if (s.title.toLowerCase().includes(searchLower)) return true;
+      if (
+        'creatorName' in s &&
+        typeof s.creatorName === 'string' &&
+        s.creatorName.toLowerCase().includes(searchLower)
+      )
+        return true;
+      return false;
+    });
   }
 
   const { dateFrom, dateTo } = filters;

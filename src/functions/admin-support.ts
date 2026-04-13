@@ -4,18 +4,18 @@ import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 import { systemAdminMiddleware } from './middleware';
 
-export const searchUsersFn = createServerFn({ method: 'GET' })
+export const getAllAdminSequencesFn = createServerFn({ method: 'GET' })
   .middleware([systemAdminMiddleware])
-  .inputValidator(zodValidator(z.object({ query: z.string().optional() })))
+  .inputValidator(
+    zodValidator(
+      z.object({
+        limit: z.number().int().min(1).max(200).optional(),
+        offset: z.number().int().min(0).optional(),
+      })
+    )
+  )
   .handler(async ({ context, data }) => {
-    return context.adminScopedDb.admin.searchUsers(data.query);
-  });
-
-export const getAdminSequencesFn = createServerFn({ method: 'GET' })
-  .middleware([systemAdminMiddleware])
-  .inputValidator(zodValidator(z.object({ teamId: ulidSchema })))
-  .handler(async ({ context, data }) => {
-    return context.adminScopedDb.admin.getSequencesForTeam(data.teamId);
+    return context.adminScopedDb.admin.getAllSequences(data);
   });
 
 export const getAdminFramesFn = createServerFn({ method: 'GET' })

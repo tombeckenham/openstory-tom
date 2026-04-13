@@ -8,7 +8,14 @@ import { formatDistanceToNow } from '@/lib/utils';
 import { formatDuration } from '@/lib/utils/format-duration';
 import { Route as sequencesScenesRoute } from '@/routes/_protected/sequences/$id/scenes';
 import { Link } from '@tanstack/react-router';
-import { Calendar, ImageIcon, Timer, Workflow } from 'lucide-react';
+import {
+  AlertTriangle,
+  Calendar,
+  ImageIcon,
+  Timer,
+  User,
+  Workflow,
+} from 'lucide-react';
 
 type EvalSequenceMetadataProps = {
   sequence: SequenceWithFrames;
@@ -31,6 +38,15 @@ export const EvalSequenceMetadata: React.FC<EvalSequenceMetadataProps> = ({
       >
         {sequence.title || 'Untitled Sequence'}
       </Link>
+
+      {/* Creator Name (in support mode) */}
+      {'creatorName' in sequence &&
+        typeof sequence.creatorName === 'string' && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <User className="h-3 w-3" />
+            <span className="truncate">{sequence.creatorName}</span>
+          </div>
+        )}
 
       {/* Analysis Model */}
       <ModelBadge model={sequence.analysisModel} />
@@ -84,6 +100,55 @@ export const EvalSequenceMetadata: React.FC<EvalSequenceMetadataProps> = ({
       <div className="text-xs text-muted-foreground">
         {sequence.frames.length} scene{sequence.frames.length !== 1 ? 's' : ''}
       </div>
+
+      {/* Errors */}
+      <SequenceErrors sequence={sequence} />
+    </div>
+  );
+};
+
+const SequenceErrors: React.FC<{ sequence: SequenceWithFrames }> = ({
+  sequence,
+}) => {
+  const errors: string[] = [];
+
+  if (sequence.status === 'failed') {
+    errors.push(sequence.statusError ?? 'Sequence failed');
+  }
+  if (sequence.mergedVideoError) {
+    errors.push(`Merge: ${sequence.mergedVideoError}`);
+  }
+  if (sequence.musicError) {
+    errors.push(`Music: ${sequence.musicError}`);
+  }
+
+  const failedImages = sequence.frames.filter(
+    (f) => f.thumbnailStatus === 'failed'
+  ).length;
+  const failedVideos = sequence.frames.filter(
+    (f) => f.videoStatus === 'failed'
+  ).length;
+
+  if (failedImages > 0) {
+    errors.push(`${failedImages} image${failedImages > 1 ? 's' : ''} failed`);
+  }
+  if (failedVideos > 0) {
+    errors.push(`${failedVideos} video${failedVideos > 1 ? 's' : ''} failed`);
+  }
+
+  if (errors.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-1">
+      {errors.map((err) => (
+        <div
+          key={err}
+          className="flex items-start gap-1 text-xs text-destructive"
+        >
+          <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+          <span className="line-clamp-2">{err}</span>
+        </div>
+      ))}
     </div>
   );
 };

@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { SCRIPT_ANALYSIS_MODELS } from '@/lib/ai/models.config';
 import { IMAGE_MODELS } from '@/lib/ai/models';
 import {
+  Clapperboard,
   ImageIcon,
   TextIcon,
   FileTextIcon,
@@ -158,7 +159,7 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
       <div className="flex flex-wrap items-center gap-4">
         {/* Search */}
         <Input
-          placeholder="Search by title..."
+          placeholder="Search by title…"
           value={filters.search}
           onChange={handleSearchChange}
           className="w-48"
@@ -287,6 +288,10 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
           <ToggleGroupItem value="images" aria-label="Show images">
             <ImageIcon className="h-4 w-4 mr-2" />
             Images
+          </ToggleGroupItem>
+          <ToggleGroupItem value="motion" aria-label="Show frame videos">
+            <Clapperboard className="h-4 w-4 mr-2" />
+            Motion
           </ToggleGroupItem>
         </ToggleGroup>
       </div>

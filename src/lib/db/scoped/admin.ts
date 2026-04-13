@@ -7,12 +7,12 @@
 import { micros, microsToUsd, usdToMicros } from '@/lib/billing/money';
 import type { Database } from '@/lib/db/client';
 import { generateId } from '@/lib/db/id';
-import { frames, sequences, teamMembers, teams, user } from '@/lib/db/schema';
+import { frames, sequences, user } from '@/lib/db/schema';
 import type { Frame, Sequence } from '@/lib/db/schema';
 import { giftTokenRedemptions, giftTokens } from '@/lib/db/schema/gift-tokens';
 import type { GiftToken } from '@/lib/db/schema/gift-tokens';
 import { ValidationError } from '@/lib/errors';
-import { and, asc, count, desc, eq, like, not, or, sql } from 'drizzle-orm';
+import { asc, count, desc, eq, not, sql } from 'drizzle-orm';
 
 // Ambiguity-free alphabet (no 0/O/1/I) -- 32 chars -> 32^6 ~ 1B combinations
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -108,51 +108,32 @@ export function createAdminMethods(db: Database) {
     }));
   }
 
-  // ---- Support: user search + cross-team sequence/frame access ----
+  // ---- Support: cross-team sequence/frame access ----
 
-  type UserSearchResult = {
-    userId: string;
-    name: string;
-    email: string;
-    image: string | null;
-    teamId: string;
-    teamName: string;
-    role: string;
-  };
+  type SequenceWithCreator = Sequence & { creatorName: string | null };
 
-  async function searchUsers(query?: string): Promise<UserSearchResult[]> {
-    const baseQuery = db
+  async function getAllSequences(opts?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<SequenceWithCreator[]> {
+    const { limit = 50, offset = 0 } = opts ?? {};
+
+    const rows = await db
       .select({
-        userId: user.id,
-        name: user.name,
-        email: user.email,
-        image: user.image,
-        teamId: teams.id,
-        teamName: teams.name,
-        role: teamMembers.role,
+        sequence: sequences,
+        creatorName: user.name,
       })
-      .from(user)
-      .innerJoin(teamMembers, eq(user.id, teamMembers.userId))
-      .innerJoin(teams, eq(teamMembers.teamId, teams.id));
-
-    if (query) {
-      const pattern = `%${query}%`;
-      return baseQuery
-        .where(or(like(user.email, pattern), like(user.name, pattern)))
-        .orderBy(asc(user.name));
-    }
-
-    return baseQuery.orderBy(asc(user.name));
-  }
-
-  async function getSequencesForTeam(teamId: string): Promise<Sequence[]> {
-    return await db
-      .select()
       .from(sequences)
-      .where(
-        and(eq(sequences.teamId, teamId), not(eq(sequences.status, 'archived')))
-      )
-      .orderBy(desc(sequences.updatedAt));
+      .leftJoin(user, eq(sequences.createdBy, user.id))
+      .where(not(eq(sequences.status, 'archived')))
+      .orderBy(desc(sequences.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    return rows.map(({ sequence, creatorName }) => ({
+      ...sequence,
+      creatorName,
+    }));
   }
 
   async function getFramesForSequence(sequenceId: string): Promise<Frame[]> {
@@ -166,8 +147,7 @@ export function createAdminMethods(db: Database) {
   return {
     createGiftToken,
     listGiftTokens,
-    searchUsers,
-    getSequencesForTeam,
+    getAllSequences,
     getFramesForSequence,
   };
 }

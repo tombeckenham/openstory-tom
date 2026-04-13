@@ -6,7 +6,7 @@ import { EvalSequenceRow } from './eval-sequence-row';
 import type { SequenceWithFrames } from '@/hooks/use-sequences-with-frames';
 import type { ViewMode } from './eval-view';
 
-const ROW_HEIGHT = 160; // Cell height (128px) + padding (32px)
+const ROW_HEIGHT = 240;
 const METADATA_WIDTH = 280;
 const VIDEO_WIDTH = 200;
 const CELL_WIDTH = 200;

@@ -33,7 +33,7 @@ export const EvalSequenceMetadata: React.FC<EvalSequenceMetadataProps> = ({
       <Link
         to={sequencesScenesRoute.fullPath}
         params={{ id: sequence.id }}
-        className="font-medium text-sm text-foreground line-clamp-2 hover:underline"
+        className="font-medium text-sm text-foreground line-clamp-2 hover:underline shrink-0"
         title={sequence.title || 'Untitled Sequence'}
       >
         {sequence.title || 'Untitled Sequence'}

@@ -1,3 +1,4 @@
+import { PostHogIdentify } from '@/components/observability/posthog-identify';
 import { Toaster } from '@/components/ui/sonner';
 import { PostHogProvider } from '@posthog/react';
 import type { QueryClient } from '@tanstack/react-query';
@@ -82,6 +83,7 @@ export function Providers({ children, queryClient }: ProvidersProps) {
   return (
     <ObservabilityProvider>
       <QueryClientProvider client={queryClient}>
+        <PostHogIdentify />
         <RealtimeProvider
           api={{ url: '/api/realtime' }}
           maxReconnectAttempts={10}

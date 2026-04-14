@@ -57,7 +57,6 @@ export function VerifyForm({
             return;
           }
 
-          posthog.identify(email, { email });
           posthog.capture('user_signed_in', { method: 'email_otp' });
 
           await navigate({ to: redirectTo });

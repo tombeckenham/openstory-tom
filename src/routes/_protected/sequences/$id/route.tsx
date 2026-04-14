@@ -6,6 +6,7 @@ import {
   VideoModelBadge,
 } from '@/components/model/model-badge';
 import { getSequenceImageModelsFn } from '@/functions/frames';
+import { frameKeys } from '@/hooks/use-frames';
 import {
   SequenceTabs,
   useSequenceTabItems,
@@ -57,7 +58,7 @@ function SequenceLayout() {
   const { data: sequence } = useSequence(sequenceId);
 
   const { data: imageModels } = useQuery({
-    queryKey: ['sequence-image-models', sequenceId],
+    queryKey: frameKeys.imageModels(sequenceId),
     queryFn: () => getSequenceImageModelsFn({ data: { sequenceId } }),
     staleTime: 30_000,
   });

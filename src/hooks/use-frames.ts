@@ -70,6 +70,8 @@ export const frameKeys = {
   list: (sequenceId: string) => [...frameKeys.lists(), sequenceId] as const,
   details: () => [...frameKeys.all, 'detail'] as const,
   detail: (id: string) => [...frameKeys.details(), id] as const,
+  imageModels: (sequenceId: string) =>
+    [...frameKeys.all, 'image-models', sequenceId] as const,
 };
 
 // Hook for listing frames by sequence with optional auto-refresh

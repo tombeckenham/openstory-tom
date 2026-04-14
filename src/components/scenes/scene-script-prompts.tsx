@@ -34,7 +34,8 @@ import { resolveMotionPrompt } from '@/lib/motion/resolve-motion-prompt';
 import type { Frame } from '@/types/database';
 import { useQueryClient } from '@tanstack/react-query';
 import { CopyIcon, Loader2, Minimize2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { SceneCastTab } from './scene-cast-tab';
 import { SceneLocationTab } from './scene-location-tab';
 import { VariantSelector } from './variant-selector';
@@ -81,9 +82,8 @@ type SceneScriptPromptsProps = {
     type: 'image' | 'motion' | 'scene-variants'
   ) => void;
   aspectRatio?: AspectRatio;
-  frameVariants?: FrameVariant[];
-  onPreviewVariantChange?: (url: string | null) => void;
-  onBadgeMessageChange?: (message: string | null) => void;
+  variantForSelectedModel?: FrameVariant;
+  onImageModelChange?: (model: string) => void;
   /** Current style category, used to show/hide style-restricted motion models */
   styleCategory?: string;
 };
@@ -158,9 +158,8 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
   regeneratingSceneVariants,
   onRegenerateStart,
   aspectRatio,
-  frameVariants,
-  onPreviewVariantChange,
-  onBadgeMessageChange,
+  variantForSelectedModel,
+  onImageModelChange,
   styleCategory,
 }) => {
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
@@ -191,6 +190,14 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
     setEditPrompts((s) => ({ ...s, motionPrompt: v }));
   const setSelectedMotionModel = (v: ImageToVideoModel | undefined) =>
     setEditPrompts((s) => ({ ...s, motionModel: v }));
+
+  const handleImageModelChange = useCallback(
+    (model: TextToImageModel) => {
+      setSelectedImageModel(model);
+      onImageModelChange?.(model);
+    },
+    [onImageModelChange]
+  );
 
   // Previous value tracking for prop-to-state sync (refs avoid extra re-renders)
   const prevImagePromptRef = useRef<string | undefined>(undefined);
@@ -233,50 +240,12 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
   const imagePrompt =
     frame?.imagePrompt || frame?.metadata?.prompts?.visual?.fullPrompt;
 
-  // Look up existing variant for the currently selected model
-  const variantForSelectedModel = useMemo(() => {
-    if (!frameVariants || !selectedImageModel) return undefined;
-    return frameVariants.find(
-      (v) => v.model === selectedImageModel && v.variantType === 'image'
-    );
-  }, [frameVariants, selectedImageModel]);
-
   const variantIsCompleted =
     variantForSelectedModel?.status === 'completed' &&
     !!variantForSelectedModel.url;
   const variantIsGenerating = variantForSelectedModel?.status === 'generating';
   const variantAlreadySet =
     variantIsCompleted && variantForSelectedModel.url === frame?.thumbnailUrl;
-  const isSelectedModelDifferent =
-    !!selectedImageModel && selectedImageModel !== imageModel;
-
-  // Notify parent of variant preview URL and badge message
-  useEffect(() => {
-    if (selectedTab !== 'image-prompt') {
-      onPreviewVariantChange?.(null);
-      onBadgeMessageChange?.(null);
-      return;
-    }
-
-    if (variantIsCompleted && !variantAlreadySet) {
-      onPreviewVariantChange?.(variantForSelectedModel.url);
-      onBadgeMessageChange?.('Click Set Image to use');
-    } else if (isSelectedModelDifferent && !variantForSelectedModel) {
-      onPreviewVariantChange?.(null);
-      onBadgeMessageChange?.('Click Generate Image to create');
-    } else {
-      onPreviewVariantChange?.(null);
-      onBadgeMessageChange?.(null);
-    }
-  }, [
-    selectedTab,
-    variantIsCompleted,
-    variantAlreadySet,
-    variantForSelectedModel,
-    isSelectedModelDifferent,
-    onPreviewVariantChange,
-    onBadgeMessageChange,
-  ]);
 
   const handleSetImageFromVariant = useCallback(async () => {
     if (!frame?.id || !frame?.sequenceId || !selectedImageModel) return;
@@ -288,7 +257,9 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
         model: selectedImageModel,
       });
     } catch (error) {
-      console.error('Failed to set image from variant:', error);
+      toast.error('Failed to set image', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }, [frame, selectedImageModel, setImageFromVariant]);
 
@@ -686,7 +657,7 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
             <span className="text-sm font-medium">Model</span>
             <ImageModelSelector
               selectedModel={selectedImageModel || imageModel}
-              onModelChange={setSelectedImageModel}
+              onModelChange={handleImageModelChange}
               disabled={isGenerating}
             />
           </div>
@@ -899,7 +870,7 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
             <span className="text-sm font-medium">Model</span>
             <ImageModelSelector
               selectedModel={selectedImageModel || imageModel}
-              onModelChange={setSelectedImageModel}
+              onModelChange={handleImageModelChange}
               disabled={isGenerating || isGeneratingSceneVariants}
             />
           </div>

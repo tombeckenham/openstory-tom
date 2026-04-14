@@ -15,6 +15,7 @@ import { BILLING_BALANCE_KEY } from '@/hooks/use-billing-balance';
 import { useFramesBySequence } from '@/hooks/use-frames';
 import { useSequence } from '@/hooks/use-sequences';
 import { useStyle } from '@/hooks/use-styles';
+import { safeTextToImageModel, DEFAULT_IMAGE_MODEL } from '@/lib/ai/models';
 import {
   DEFAULT_ASPECT_RATIO,
   type AspectRatio,
@@ -97,10 +98,7 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
     Set<string>
   >(() => new Set());
 
-  const [previewVariantUrl, setPreviewVariantUrl] = useState<string | null>(
-    null
-  );
-  const [playerBadgeMessage, setPlayerBadgeMessage] = useState<string | null>(
+  const [imageModelOverride, setImageModelOverride] = useState<string | null>(
     null
   );
 
@@ -171,6 +169,55 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
       (v) => v.frameId === curSelectedFrameId && v.variantType === 'image'
     );
   }, [imageVariants, curSelectedFrameId]);
+
+  // Reset model override when switching frames
+  useEffect(() => {
+    setImageModelOverride(null);
+  }, [curSelectedFrameId]);
+
+  // Derive variant preview state from model override + variants
+  const effectiveImageModel =
+    imageModelOverride ??
+    safeTextToImageModel(selectedFrame?.imageModel, DEFAULT_IMAGE_MODEL);
+
+  const variantForSelectedModel = useMemo(() => {
+    if (!selectedFrameVariants) return undefined;
+    return selectedFrameVariants.find((v) => v.model === effectiveImageModel);
+  }, [selectedFrameVariants, effectiveImageModel]);
+
+  const { previewVariantUrl, playerBadgeMessage } = useMemo(() => {
+    const none = { previewVariantUrl: null, playerBadgeMessage: null };
+    if (selectedTab !== 'image-prompt' || !selectedFrame) return none;
+
+    if (
+      variantForSelectedModel?.status === 'completed' &&
+      variantForSelectedModel.url &&
+      variantForSelectedModel.url !== selectedFrame.thumbnailUrl
+    ) {
+      return {
+        previewVariantUrl: variantForSelectedModel.url,
+        playerBadgeMessage: 'Click Set Image to use',
+      };
+    }
+
+    const frameImageModel = safeTextToImageModel(
+      selectedFrame.imageModel,
+      DEFAULT_IMAGE_MODEL
+    );
+    if (effectiveImageModel !== frameImageModel && !variantForSelectedModel) {
+      return {
+        previewVariantUrl: null,
+        playerBadgeMessage: 'Click Generate Image to create',
+      };
+    }
+
+    return none;
+  }, [
+    selectedTab,
+    selectedFrame,
+    effectiveImageModel,
+    variantForSelectedModel,
+  ]);
 
   const setterForType = useCallback((type: RegenerationType) => {
     switch (type) {
@@ -401,12 +448,8 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
               aspectRatio={aspectRatio}
               onSelectFrame={setSelectedFrameId}
               selectedTab={selectedTab}
-              overrideImageUrl={
-                selectedTab === 'image-prompt' ? previewVariantUrl : null
-              }
-              badgeMessage={
-                selectedTab === 'image-prompt' ? playerBadgeMessage : null
-              }
+              overrideImageUrl={previewVariantUrl}
+              badgeMessage={playerBadgeMessage}
               progressMessage={
                 generationState.phases.find((p) => p.status === 'active')
                   ?.phaseName
@@ -426,9 +469,8 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
             regeneratingSceneVariants={regeneratingSceneVariants}
             onRegenerateStart={handleRegenerateStart}
             aspectRatio={aspectRatio}
-            frameVariants={selectedFrameVariants}
-            onPreviewVariantChange={setPreviewVariantUrl}
-            onBadgeMessageChange={setPlayerBadgeMessage}
+            variantForSelectedModel={variantForSelectedModel}
+            onImageModelChange={setImageModelOverride}
             styleCategory={styleCategory}
           />
         </ScrollArea>

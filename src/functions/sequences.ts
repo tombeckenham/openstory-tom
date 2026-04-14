@@ -10,6 +10,7 @@ import {
   DEFAULT_ANALYSIS_MODEL,
   getAnalysisModelById,
 } from '@/lib/ai/models.config';
+import { resolveImageModels } from '@/lib/ai/resolve-image-models';
 import { requireTeamMemberAccess } from '@/lib/auth/action-utils';
 import { estimateStoryboardCost } from '@/lib/billing/cost-estimation';
 import { usdToMicros } from '@/lib/billing/money';
@@ -75,13 +76,14 @@ export const createSequenceFn = createServerFn({ method: 'POST' })
       suggestedLocationIds,
     } = data;
 
-    // Resolve image models: prefer imageModels[], fall back to imageModel
-    const imageModels =
-      imageModelsInput && imageModelsInput.length > 0
-        ? imageModelsInput.map((m) =>
-            safeTextToImageModel(m, DEFAULT_IMAGE_MODEL)
-          )
-        : [safeTextToImageModel(imageModelLegacy, DEFAULT_IMAGE_MODEL)];
+    // Validate and resolve image models
+    const validatedModels = imageModelsInput.map((m) =>
+      safeTextToImageModel(m)
+    );
+    const imageModels = resolveImageModels(
+      validatedModels,
+      imageModelLegacy ? safeTextToImageModel(imageModelLegacy) : undefined
+    );
     const primaryImageModel = imageModels[0];
 
     if (!styleId || !aspectRatio) {
@@ -322,7 +324,7 @@ export function buildSceneSummaries(frames: Frame[]): MusicSceneSummary[] {
       musicStyle: md?.style || legacyMusic?.style || '',
       musicMood: md?.mood || legacyMusic?.mood || '',
       musicPresence: md?.presence || legacyMusic?.presence || 'none',
-      atmosphere: prompts?.visual?.components?.atmosphere,
+      atmosphere: prompts?.visual?.components.atmosphere,
     };
   });
 }

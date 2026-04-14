@@ -10,7 +10,11 @@ function getStorageKey(sequenceId: string) {
 
 function getSnapshot(sequenceId: string): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(getStorageKey(sequenceId));
+  try {
+    return localStorage.getItem(getStorageKey(sequenceId));
+  } catch {
+    return null;
+  }
 }
 
 function subscribe(callback: () => void): () => void {
@@ -39,9 +43,16 @@ export function useActiveImageModel(sequenceId: string) {
 
   const setActiveModel = useCallback(
     (model: string) => {
-      localStorage.setItem(getStorageKey(sequenceId), model);
-      // Dispatch storage event for cross-tab sync
-      window.dispatchEvent(new StorageEvent('storage'));
+      try {
+        localStorage.setItem(getStorageKey(sequenceId), model);
+        // Dispatch storage event for cross-tab sync
+        window.dispatchEvent(new StorageEvent('storage'));
+      } catch (err: unknown) {
+        console.warn(
+          '[useActiveImageModel]',
+          `Failed to persist model preference: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
     },
     [sequenceId]
   );

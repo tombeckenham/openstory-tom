@@ -4,6 +4,7 @@
  */
 
 import { sanitizeScriptContent } from '@/lib/ai/prompt-validation';
+import { resolveImageModels } from '@/lib/ai/resolve-image-models';
 import type { Scene } from '@/lib/ai/scene-analysis.schema';
 import { recordWorkflowTrace } from '@/lib/observability/langfuse';
 import { getGenerationChannel } from '@/lib/realtime';
@@ -53,11 +54,7 @@ export const analyzeScriptWorkflow = createScopedWorkflow<
       suggestedLocationIds,
     } = input;
 
-    // Resolve model list: use imageModels[] if provided, fall back to single imageModel
-    const imageModels =
-      imageModelsInput && imageModelsInput.length > 0
-        ? imageModelsInput
-        : [imageModel];
+    const imageModels = resolveImageModels(imageModelsInput, imageModel);
 
     const label = buildWorkflowLabel(sequenceId);
 

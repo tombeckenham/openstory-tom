@@ -5,11 +5,13 @@
  * Runs as one strand in parallel with motion-music-prompts-workflow.
  */
 
+import { resolveImageModels } from '@/lib/ai/resolve-image-models';
 import { aspectRatioToImageSize } from '@/lib/constants/aspect-ratios';
 import { buildCharacterReferenceImages } from '@/lib/prompts/character-prompt';
 import { buildLocationReferenceImages } from '@/lib/prompts/location-prompt';
 import { WorkflowValidationError } from '@/lib/workflow/errors';
 import { buildWorkflowLabel } from '@/lib/workflow/labels';
+import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
 import type {
   FrameImagesWorkflowInput,
@@ -42,13 +44,7 @@ export const frameImagesWorkflow = createScopedWorkflow<
       sequenceId,
     } = input;
 
-    // Resolve model list: use imageModels[] if provided, fall back to single imageModel
-    const imageModels =
-      imageModelsInput && imageModelsInput.length > 0
-        ? imageModelsInput
-        : imageModel
-          ? [imageModel]
-          : [];
+    const imageModels = resolveImageModels(imageModelsInput, imageModel);
 
     const label = buildWorkflowLabel(sequenceId);
 
@@ -169,8 +165,14 @@ export const frameImagesWorkflow = createScopedWorkflow<
     return { imageUrls };
   },
   {
-    failureFunction: async () => {
-      return 'Frame image generation failed';
+    failureFunction: async ({ context, failResponse }) => {
+      const input = context.requestPayload;
+      const error = sanitizeFailResponse(failResponse);
+      console.error(
+        '[FrameImagesWorkflow]',
+        `Frame image generation failed for sequence ${input.sequenceId}: ${error}`
+      );
+      return `Frame image generation failed for sequence ${input.sequenceId}: ${error}`;
     },
   }
 );

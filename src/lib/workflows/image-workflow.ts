@@ -30,7 +30,7 @@ export const generateImageWorkflow = createScopedWorkflow<
     const generationParams = await context.run(
       'set-generating-status',
       async (): Promise<ImageGenerationParams | null> => {
-        if (!input.prompt?.trim()) {
+        if (!input.prompt.trim()) {
           throw new WorkflowValidationError(
             'Prompt is required for image generation'
           );
@@ -75,7 +75,7 @@ export const generateImageWorkflow = createScopedWorkflow<
             });
           }
 
-          await getGenerationChannel(input.sequenceId)?.emit(
+          await getGenerationChannel(input.sequenceId).emit(
             'generation.image:progress',
             { frameId: input.frameId, status: 'generating', model }
           );
@@ -176,25 +176,22 @@ export const generateImageWorkflow = createScopedWorkflow<
           return;
         }
 
-        // Dual-write: update frame_variants row
-        await scopedDb.frameVariants
-          .updateByFrameAndModel(frameId, 'image', generationParams.model, {
+        // Dual-write: update frame_variants row (returns null if row doesn't exist)
+        await scopedDb.frameVariants.updateByFrameAndModel(
+          frameId,
+          'image',
+          generationParams.model,
+          {
             url: result.url,
             storagePath: result.path || null,
             status: 'completed',
             generatedAt: new Date(),
             error: null,
             promptHash: input.prompt ? simpleHash(input.prompt) : null,
-          })
-          .catch((err) => {
-            // Non-fatal: variant row may not exist yet for legacy single-model flows
-            console.warn(
-              '[ImageWorkflow]',
-              `Failed to update variant: ${err instanceof Error ? err.message : err}`
-            );
-          });
+          }
+        );
 
-        await getGenerationChannel(sequenceId)?.emit(
+        await getGenerationChannel(sequenceId).emit(
           'generation.image:progress',
           {
             frameId,
@@ -231,7 +228,7 @@ export const generateImageWorkflow = createScopedWorkflow<
         }
 
         if (sequenceId) {
-          await getGenerationChannel(sequenceId)?.emit(
+          await getGenerationChannel(sequenceId).emit(
             'generation.image:progress',
             { frameId, previewThumbnailUrl: imageUrl }
           );
@@ -259,22 +256,20 @@ export const generateImageWorkflow = createScopedWorkflow<
             { throwOnMissing: false }
           );
 
-          // Dual-write: update frame_variants row
+          // Dual-write: update frame_variants row (returns null if row doesn't exist)
           const model = input.model ?? DEFAULT_IMAGE_MODEL;
           if (input.sequenceId) {
-            await scopedDb.frameVariants
-              .updateByFrameAndModel(input.frameId, 'image', model, {
-                status: 'failed',
-                error,
-              })
-              .catch(() => {
-                // Non-fatal: variant row may not exist
-              });
+            await scopedDb.frameVariants.updateByFrameAndModel(
+              input.frameId,
+              'image',
+              model,
+              { status: 'failed', error }
+            );
           }
 
           if (input.sequenceId) {
             try {
-              await getGenerationChannel(input.sequenceId)?.emit(
+              await getGenerationChannel(input.sequenceId).emit(
                 'generation.image:progress',
                 { frameId: input.frameId, status: 'failed', model }
               );

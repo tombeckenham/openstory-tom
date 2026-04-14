@@ -4,8 +4,8 @@
  */
 
 import type { Database } from '@/lib/db/client';
-import { frameVariants } from '@/lib/db/schema';
 import type { FrameVariant, NewFrameVariant } from '@/lib/db/schema';
+import { frameVariants } from '@/lib/db/schema';
 import type { VariantType } from '@/lib/db/schema/frame-variants';
 import { and, eq, sql } from 'drizzle-orm';
 
@@ -105,11 +105,12 @@ export function createFrameVariantsMethods(db: Database) {
       variantId: string,
       data: Partial<NewFrameVariant>
     ): Promise<FrameVariant> => {
-      const [variant] = await db
+      const result = await db
         .update(frameVariants)
         .set({ ...data, updatedAt: new Date() })
         .where(eq(frameVariants.id, variantId))
         .returning();
+      const variant = result.at(0);
       if (!variant) {
         throw new Error(`FrameVariant ${variantId} not found`);
       }
@@ -121,8 +122,8 @@ export function createFrameVariantsMethods(db: Database) {
       variantType: VariantType,
       model: string,
       data: Partial<NewFrameVariant>
-    ): Promise<FrameVariant> => {
-      const [variant] = await db
+    ): Promise<FrameVariant | null> => {
+      const result = await db
         .update(frameVariants)
         .set({ ...data, updatedAt: new Date() })
         .where(
@@ -133,26 +134,21 @@ export function createFrameVariantsMethods(db: Database) {
           )
         )
         .returning();
-      if (!variant) {
-        throw new Error(
-          `FrameVariant not found for frame=${frameId} type=${variantType} model=${model}`
-        );
-      }
-      return variant;
+      return result.at(0) ?? null;
     },
 
     deleteByFrame: async (frameId: string): Promise<number> => {
       const result = await db
         .delete(frameVariants)
         .where(eq(frameVariants.frameId, frameId));
-      return result.rowsAffected ?? 0;
+      return result.rowsAffected;
     },
 
     deleteBySequence: async (sequenceId: string): Promise<number> => {
       const result = await db
         .delete(frameVariants)
         .where(eq(frameVariants.sequenceId, sequenceId));
-      return result.rowsAffected ?? 0;
+      return result.rowsAffected;
     },
   };
 }

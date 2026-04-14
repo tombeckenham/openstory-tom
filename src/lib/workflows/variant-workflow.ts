@@ -33,13 +33,6 @@ export const generateVariantWorkflow = createScopedWorkflow<
   async (context, scopedDb) => {
     const input = context.requestPayload;
 
-    // Guard against undefined payload (can happen with stale workflow retries)
-    if (!input) {
-      throw new WorkflowValidationError(
-        'Invalid workflow payload: requestPayload is undefined'
-      );
-    }
-
     // Step 1: Set status to generating if frameId is provided
     const generationParams: ImageGenerationParams | null = await context.run(
       'set-generating-status',
@@ -82,20 +75,21 @@ export const generateVariantWorkflow = createScopedWorkflow<
             return null; // Signal to skip
           }
 
-          // Dual-write: update shot variant status on frame_variants row
+          // Dual-write: update shot variant status on frame_variants row (returns null if row doesn't exist)
           if (input.sequenceId) {
-            await scopedDb.frameVariants
-              .updateByFrameAndModel(input.frameId, 'image', model, {
+            await scopedDb.frameVariants.updateByFrameAndModel(
+              input.frameId,
+              'image',
+              model,
+              {
                 shotVariantStatus: 'generating',
                 shotVariantWorkflowRunId: context.workflowRunId,
-              })
-              .catch(() => {
-                // Non-fatal: variant row may not exist yet
-              });
+              }
+            );
           }
 
           // Emit realtime progress
-          await getGenerationChannel(input.sequenceId)?.emit(
+          await getGenerationChannel(input.sequenceId).emit(
             'generation.variant-image:progress',
             {
               frameId: input.frameId,
@@ -220,23 +214,21 @@ export const generateVariantWorkflow = createScopedWorkflow<
           return { url: result.url, path: result.path };
         }
 
-        // Dual-write: update shot variant on frame_variants row
+        // Dual-write: update shot variant on frame_variants row (returns null if row doesn't exist)
         const variantModel = input.model || DEFAULT_IMAGE_MODEL;
-        await scopedDb.frameVariants
-          .updateByFrameAndModel(input.frameId, 'image', variantModel, {
+        await scopedDb.frameVariants.updateByFrameAndModel(
+          input.frameId,
+          'image',
+          variantModel,
+          {
             shotVariantUrl: result.url,
             shotVariantPath: result.path || null,
             shotVariantStatus: 'completed',
-          })
-          .catch((err) => {
-            console.warn(
-              '[VariantWorkflow]',
-              `Failed to update variant: ${err instanceof Error ? err.message : err}`
-            );
-          });
+          }
+        );
 
         // Emit completion progress
-        await getGenerationChannel(input.sequenceId)?.emit(
+        await getGenerationChannel(input.sequenceId).emit(
           'generation.variant-image:progress',
           {
             frameId: input.frameId,
@@ -278,22 +270,21 @@ export const generateVariantWorkflow = createScopedWorkflow<
           { throwOnMissing: false }
         );
 
-        // Dual-write: update shot variant status on frame_variants row
+        // Dual-write: update shot variant status on frame_variants row (returns null if row doesn't exist)
         const model = input.model || DEFAULT_IMAGE_MODEL;
         if (input.sequenceId) {
-          await scopedDb.frameVariants
-            .updateByFrameAndModel(input.frameId, 'image', model, {
-              shotVariantStatus: 'failed',
-            })
-            .catch(() => {
-              // Non-fatal
-            });
+          await scopedDb.frameVariants.updateByFrameAndModel(
+            input.frameId,
+            'image',
+            model,
+            { shotVariantStatus: 'failed' }
+          );
         }
 
         // Emit failure progress
         if (input.sequenceId) {
           try {
-            await getGenerationChannel(input.sequenceId)?.emit(
+            await getGenerationChannel(input.sequenceId).emit(
               'generation.variant-image:progress',
               {
                 frameId: input.frameId,

@@ -11,6 +11,7 @@ import { FailureSummaryBanner } from '@/components/sequence/failure-summary-bann
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { batchGenerateMotionFn } from '@/functions/motion-functions';
 import { smartRetryFn } from '@/functions/smart-retry';
+import { useActiveImageModel } from '@/hooks/use-active-model';
 import { BILLING_BALANCE_KEY } from '@/hooks/use-billing-balance';
 import { useFramesBySequence } from '@/hooks/use-frames';
 import { useSequence } from '@/hooks/use-sequences';
@@ -21,8 +22,10 @@ import {
 import { analyzeFailures } from '@/lib/failures/failure-analysis';
 import type { GenerationPhaseConfig } from '@/lib/realtime/generation-stream.reducer';
 import { useGenerationStream } from '@/lib/realtime/use-generation-stream';
+import { getSequenceImageVariantsFn } from '@/functions/frames';
+import type { FrameVariant } from '@/lib/db/schema';
 import { usePostHog } from '@posthog/react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -133,10 +136,52 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
 
   // Fetch frames — only poll when processing AND realtime has failed.
   // Otherwise realtime events keep the cache fresh via updateQueryCacheFromEvent.
-  const { data: frames } = useFramesBySequence(
+  const { data: rawFrames } = useFramesBySequence(
     sequenceId,
     shouldPoll ? { refetchInterval: 2000 } : undefined
   );
+
+  // Fetch image variants for this sequence
+  const { data: imageVariants } = useQuery<FrameVariant[]>({
+    queryKey: ['sequence-image-variants', sequenceId],
+    queryFn: () => getSequenceImageVariantsFn({ data: { sequenceId } }),
+    staleTime: 30_000,
+    enabled: !!sequenceId,
+  });
+
+  const { activeModel } = useActiveImageModel(sequenceId);
+
+  // Resolve frames: overlay active model's variant data onto frame fields
+  const frames = useMemo(() => {
+    if (!rawFrames) return rawFrames;
+    if (!imageVariants || !activeModel) return rawFrames;
+
+    // Build lookup: frameId → variant for the active model
+    const variantMap = new Map<string, FrameVariant>();
+    for (const v of imageVariants) {
+      if (v.model === activeModel) {
+        variantMap.set(v.frameId, v);
+      }
+    }
+
+    // If no variants match (e.g. single-model legacy), return frames as-is
+    if (variantMap.size === 0) return rawFrames;
+
+    return rawFrames.map((frame) => {
+      const variant = variantMap.get(frame.id);
+      if (!variant) return frame;
+      return {
+        ...frame,
+        thumbnailUrl: variant.url ?? frame.thumbnailUrl,
+        thumbnailPath: variant.storagePath ?? frame.thumbnailPath,
+        thumbnailStatus: variant.status ?? frame.thumbnailStatus,
+        previewThumbnailUrl: variant.previewUrl ?? frame.previewThumbnailUrl,
+        variantImageUrl: variant.shotVariantUrl ?? frame.variantImageUrl,
+        variantImageStatus:
+          variant.shotVariantStatus ?? frame.variantImageStatus,
+      };
+    });
+  }, [rawFrames, imageVariants, activeModel]);
 
   const curSelectedFrameId = selectedFrameId || frames?.[0]?.id;
   const selectedFrame = useMemo(

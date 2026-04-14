@@ -92,6 +92,8 @@ export interface StoryboardWorkflowInput extends SequenceWorkflowContext {
     aiProvider?: 'openai' | 'anthropic' | 'openrouter';
     regenerateAll?: boolean;
   };
+  /** Multiple image models for variant generation (first is primary) */
+  imageModels?: TextToImageModel[];
   autoGenerateMotion?: boolean;
   autoGenerateMusic?: boolean;
   musicModel?: keyof typeof AUDIO_MODELS;
@@ -111,6 +113,8 @@ export interface AnalyzeScriptWorkflowInput extends SequenceWorkflowContext {
   styleConfig: StyleConfig;
   analysisModelId: AnalysisModelId;
   imageModel: TextToImageModel;
+  /** Multiple image models for variant generation (first is primary) */
+  imageModels?: TextToImageModel[];
   videoModel?: ImageToVideoModel;
   autoGenerateMotion?: boolean;
   autoGenerateMusic?: boolean;
@@ -644,6 +648,8 @@ export interface FrameImagesWorkflowInput extends SequenceWorkflowContext {
   locationsWithSheets: SequenceLocationMinimal[];
   frameMapping: FrameMapping;
   imageModel?: TextToImageModel;
+  /** Multiple image models for variant generation (first is primary) */
+  imageModels?: TextToImageModel[];
   aspectRatio: AspectRatio;
 }
 

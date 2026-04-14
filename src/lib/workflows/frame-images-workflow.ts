@@ -37,9 +37,18 @@ export const frameImagesWorkflow = createScopedWorkflow<
       locationsWithSheets,
       frameMapping,
       imageModel,
+      imageModels: imageModelsInput,
       aspectRatio,
       sequenceId,
     } = input;
+
+    // Resolve model list: use imageModels[] if provided, fall back to single imageModel
+    const imageModels =
+      imageModelsInput && imageModelsInput.length > 0
+        ? imageModelsInput
+        : imageModel
+          ? [imageModel]
+          : [];
 
     const label = buildWorkflowLabel(sequenceId);
 
@@ -71,7 +80,7 @@ export const frameImagesWorkflow = createScopedWorkflow<
 
     const imageSize = aspectRatioToImageSize(aspectRatio);
 
-    // Generate frame images in parallel
+    // Generate frame images in parallel (for each scene, for each model)
     const imageUrls = await Promise.all(
       scenesWithVisualPrompts.map(async (scene) => {
         const visualPrompt = scene.prompts?.visual?.fullPrompt;
@@ -93,56 +102,67 @@ export const frameImagesWorkflow = createScopedWorkflow<
         );
         const allReferences = [...characterRefs, ...locationRefs];
 
-        const result = await context.invoke('image', {
-          workflow: generateImageWorkflow,
-          label,
-          body: {
-            userId: input.userId,
-            teamId: input.teamId,
-            prompt: visualPrompt,
-            model: imageModel,
-            imageSize,
-            numImages: 1,
-            frameId: matchedFrame?.frameId,
-            sequenceId,
-            referenceImages:
-              allReferences.length > 0 ? allReferences : undefined,
-          } satisfies ImageWorkflowInput,
-          retries: 3,
-          retryDelay: 'pow(2, retried) * 1000',
-          flowControl: getFalFlowControl(),
-        });
+        // Generate with each selected model in parallel
+        const modelResults = await Promise.all(
+          imageModels.map(async (model) => {
+            const result = await context.invoke(
+              `image-${scene.sceneId}-${model}`,
+              {
+                workflow: generateImageWorkflow,
+                label,
+                body: {
+                  userId: input.userId,
+                  teamId: input.teamId,
+                  prompt: visualPrompt,
+                  model,
+                  imageSize,
+                  numImages: 1,
+                  frameId: matchedFrame?.frameId,
+                  sequenceId,
+                  referenceImages:
+                    allReferences.length > 0 ? allReferences : undefined,
+                } satisfies ImageWorkflowInput,
+                retries: 3,
+                retryDelay: 'pow(2, retried) * 1000',
+                flowControl: getFalFlowControl(),
+              }
+            );
 
-        if (result.isFailed || result.isCanceled || !result.body.imageUrl) {
-          throw new WorkflowValidationError(
-            `Image generation failed for scene ${scene.sceneId}`
-          );
-        }
+            if (result.isFailed || result.isCanceled || !result.body.imageUrl) {
+              throw new WorkflowValidationError(
+                `Image generation failed for scene ${scene.sceneId} model ${model}`
+              );
+            }
 
-        // Now invoke the variant workflow
-        await context.invoke('variant-image', {
-          workflow: generateVariantWorkflow,
-          label,
-          body: {
-            userId: input.userId,
-            teamId: input.teamId,
-            sequenceId,
-            frameId: matchedFrame?.frameId,
-            thumbnailUrl: result.body.imageUrl,
-            scenePrompt: scene.prompts?.visual?.fullPrompt,
-            characterReferences:
-              characterRefs.length > 0 ? characterRefs : undefined,
-            locationReferences:
-              locationRefs.length > 0 ? locationRefs : undefined,
-            aspectRatio,
-            model: imageModel,
-          } satisfies VariantWorkflowInput,
-          retries: 3,
-          retryDelay: 'pow(2, retried) * 1000',
-          flowControl: getFalFlowControl(),
-        });
+            // Invoke variant (shot grid) workflow for this model's output
+            await context.invoke(`variant-image-${scene.sceneId}-${model}`, {
+              workflow: generateVariantWorkflow,
+              label,
+              body: {
+                userId: input.userId,
+                teamId: input.teamId,
+                sequenceId,
+                frameId: matchedFrame?.frameId,
+                thumbnailUrl: result.body.imageUrl,
+                scenePrompt: scene.prompts?.visual?.fullPrompt,
+                characterReferences:
+                  characterRefs.length > 0 ? characterRefs : undefined,
+                locationReferences:
+                  locationRefs.length > 0 ? locationRefs : undefined,
+                aspectRatio,
+                model,
+              } satisfies VariantWorkflowInput,
+              retries: 3,
+              retryDelay: 'pow(2, retried) * 1000',
+              flowControl: getFalFlowControl(),
+            });
 
-        return result.body.imageUrl;
+            return result.body.imageUrl;
+          })
+        );
+
+        // Return the primary (first) model's image URL
+        return modelResults[0];
       })
     );
 

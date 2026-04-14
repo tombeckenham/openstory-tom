@@ -1,6 +1,6 @@
 import { RouteErrorFallback } from '@/components/error/route-error-fallback';
+import { ImageModelDropdown } from '@/components/model/image-model-dropdown';
 import {
-  ImageModelBadge,
   ModelBadge,
   MusicModelBadge,
   VideoModelBadge,
@@ -68,9 +68,9 @@ function SequenceLayout() {
       <div className="mx-auto w-full max-w-[1920px] shrink-0 space-y-1 px-6 pt-4">
         <PageHeader>
           <PageHeading>{sequence?.title}</PageHeading>
-          <div className="hidden md:flex flex-row flex-wrap gap-2">
+          <div className="hidden md:flex flex-row flex-wrap items-center gap-2">
             <ModelBadge model={sequence?.analysisModel} />
-            <ImageModelBadge model={sequence?.imageModel} />
+            <ImageModelDropdown sequenceId={sequenceId} />
             <VideoModelBadge model={sequence?.videoModel} />
             <MusicModelBadge model={sequence?.musicModel ?? undefined} />
           </div>

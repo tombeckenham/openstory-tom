@@ -122,7 +122,7 @@ export const ScriptView: FC<{
   const [genSettings, setGenSettings] = useState<{
     analysisModels: AnalysisModelId[];
     aspectRatio: AspectRatio;
-    imageModel: TextToImageModel;
+    imageModels: TextToImageModel[];
     motionModel: ImageToVideoModel;
     autoGenerateMotion: boolean;
     musicModel: AudioModel;
@@ -133,10 +133,10 @@ export const ScriptView: FC<{
       isEditing && sequence?.aspectRatio
         ? sequence.aspectRatio
         : savedSettings.aspectRatio,
-    imageModel:
+    imageModels:
       isEditing && sequence?.imageModel
-        ? safeTextToImageModel(sequence.imageModel, DEFAULT_IMAGE_MODEL)
-        : savedSettings.imageModel,
+        ? [safeTextToImageModel(sequence.imageModel, DEFAULT_IMAGE_MODEL)]
+        : (savedSettings.imageModels ?? [savedSettings.imageModel]),
     motionModel:
       isEditing && sequence?.videoModel
         ? safeImageToVideoModel(sequence.videoModel, DEFAULT_VIDEO_MODEL)
@@ -151,7 +151,7 @@ export const ScriptView: FC<{
   const {
     analysisModels,
     aspectRatio,
-    imageModel,
+    imageModels,
     motionModel,
     autoGenerateMotion,
     musicModel,
@@ -229,7 +229,7 @@ export const ScriptView: FC<{
       setGenSettings({
         aspectRatio: savedSettings.aspectRatio,
         analysisModels: savedSettings.analysisModels,
-        imageModel: savedSettings.imageModel,
+        imageModels: savedSettings.imageModels ?? [savedSettings.imageModel],
         motionModel: savedSettings.motionModel,
         autoGenerateMotion: savedSettings.autoGenerateMotion,
         musicModel: savedSettings.musicModel,
@@ -306,7 +306,7 @@ export const ScriptView: FC<{
     posthog.capture('sequence_generated', {
       is_editing: isEditing,
       aspect_ratio: aspectRatio,
-      image_model: imageModel,
+      image_models: imageModels,
       motion_model: motionModel,
       auto_generate_motion: autoGenerateMotion,
       auto_generate_music: autoGenerateMusic,
@@ -321,7 +321,7 @@ export const ScriptView: FC<{
         styleId: styleId || sequence?.styleId || undefined,
         aspectRatio,
         analysisModels,
-        imageModel,
+        imageModels,
         videoModel: motionModel,
         autoGenerateMotion,
         autoGenerateMusic,
@@ -469,14 +469,14 @@ export const ScriptView: FC<{
           <GenerationSettings
             aspectRatio={aspectRatio}
             analysisModels={analysisModels}
-            imageModel={imageModel}
+            imageModels={imageModels}
             motionModel={motionModel}
             autoGenerateMotion={autoGenerateMotion}
             musicModel={musicModel}
             autoGenerateMusic={autoGenerateMusic}
             onAspectRatioChange={(v) => updateGen('aspectRatio', v)}
             onAnalysisModelsChange={(v) => updateGen('analysisModels', v)}
-            onImageModelChange={(v) => updateGen('imageModel', v)}
+            onImageModelsChange={(v) => updateGen('imageModels', v)}
             onMotionModelChange={(v) => updateGen('motionModel', v)}
             onAutoGenerateMotionChange={(v) =>
               updateGen('autoGenerateMotion', v)

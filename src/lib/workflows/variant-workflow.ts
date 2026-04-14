@@ -82,6 +82,18 @@ export const generateVariantWorkflow = createScopedWorkflow<
             return null; // Signal to skip
           }
 
+          // Dual-write: update shot variant status on frame_variants row
+          if (input.sequenceId) {
+            await scopedDb.frameVariants
+              .updateByFrameAndModel(input.frameId, 'image', model, {
+                shotVariantStatus: 'generating',
+                shotVariantWorkflowRunId: context.workflowRunId,
+              })
+              .catch(() => {
+                // Non-fatal: variant row may not exist yet
+              });
+          }
+
           // Emit realtime progress
           await getGenerationChannel(input.sequenceId)?.emit(
             'generation.variant-image:progress',
@@ -208,6 +220,21 @@ export const generateVariantWorkflow = createScopedWorkflow<
           return { url: result.url, path: result.path };
         }
 
+        // Dual-write: update shot variant on frame_variants row
+        const variantModel = input.model || DEFAULT_IMAGE_MODEL;
+        await scopedDb.frameVariants
+          .updateByFrameAndModel(input.frameId, 'image', variantModel, {
+            shotVariantUrl: result.url,
+            shotVariantPath: result.path || null,
+            shotVariantStatus: 'completed',
+          })
+          .catch((err) => {
+            console.warn(
+              '[VariantWorkflow]',
+              `Failed to update variant: ${err instanceof Error ? err.message : err}`
+            );
+          });
+
         // Emit completion progress
         await getGenerationChannel(input.sequenceId)?.emit(
           'generation.variant-image:progress',
@@ -250,6 +277,18 @@ export const generateVariantWorkflow = createScopedWorkflow<
           },
           { throwOnMissing: false }
         );
+
+        // Dual-write: update shot variant status on frame_variants row
+        const model = input.model || DEFAULT_IMAGE_MODEL;
+        if (input.sequenceId) {
+          await scopedDb.frameVariants
+            .updateByFrameAndModel(input.frameId, 'image', model, {
+              shotVariantStatus: 'failed',
+            })
+            .catch(() => {
+              // Non-fatal
+            });
+        }
 
         // Emit failure progress
         if (input.sequenceId) {

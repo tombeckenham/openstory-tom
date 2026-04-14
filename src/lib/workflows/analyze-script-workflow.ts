@@ -44,6 +44,7 @@ export const analyzeScriptWorkflow = createScopedWorkflow<
       styleConfig,
       analysisModelId,
       imageModel,
+      imageModels: imageModelsInput,
       videoModel,
       autoGenerateMotion = false,
       autoGenerateMusic = false,
@@ -51,6 +52,12 @@ export const analyzeScriptWorkflow = createScopedWorkflow<
       suggestedTalentIds,
       suggestedLocationIds,
     } = input;
+
+    // Resolve model list: use imageModels[] if provided, fall back to single imageModel
+    const imageModels =
+      imageModelsInput && imageModelsInput.length > 0
+        ? imageModelsInput
+        : [imageModel];
 
     const label = buildWorkflowLabel(sequenceId);
 
@@ -227,6 +234,7 @@ export const analyzeScriptWorkflow = createScopedWorkflow<
           locationsWithSheets,
           frameMapping,
           imageModel,
+          imageModels,
           aspectRatio,
         } satisfies FrameImagesWorkflowInput,
       }),

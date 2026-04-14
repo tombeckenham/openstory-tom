@@ -8,18 +8,8 @@ import { useMemo } from 'react';
 
 const GROUP_ORDER = ['all'] as const;
 
-type ImageModelSelectorProps = {
-  selectedModel: TextToImageModel;
-  onModelChange: (model: TextToImageModel) => void;
-  disabled?: boolean;
-};
-
-export const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
-  selectedModel,
-  onModelChange,
-  disabled = false,
-}) => {
-  const models = useMemo(
+function useImageModels() {
+  return useMemo(
     () =>
       Object.entries(IMAGE_MODELS)
         .filter(([, m]) => !('hidden' in m))
@@ -32,6 +22,28 @@ export const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
         })),
     []
   );
+}
+
+type ImageModelSelectorProps = {
+  selectedModel: TextToImageModel;
+  onModelChange: (model: TextToImageModel) => void;
+  disabled?: boolean;
+  /** When set, only show these models instead of all available models */
+  filterModels?: TextToImageModel[];
+};
+
+export const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
+  selectedModel,
+  onModelChange,
+  disabled = false,
+  filterModels,
+}) => {
+  const allModels = useImageModels();
+  const models = filterModels
+    ? allModels.filter(
+        (m) => isValidTextToImageModel(m.id) && filterModels.includes(m.id)
+      )
+    : allModels;
 
   return (
     <BaseModelSelector
@@ -47,6 +59,35 @@ export const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
       }}
       disabled={disabled}
       multiSelect={false}
+    />
+  );
+};
+
+type ImageModelMultiSelectorProps = {
+  selectedModels: TextToImageModel[];
+  onModelsChange: (models: TextToImageModel[]) => void;
+  disabled?: boolean;
+};
+
+export const ImageModelMultiSelector: React.FC<
+  ImageModelMultiSelectorProps
+> = ({ selectedModels, onModelsChange, disabled = false }) => {
+  const models = useImageModels();
+
+  return (
+    <BaseModelSelector
+      label="Image Models"
+      models={models}
+      groupOrder={GROUP_ORDER}
+      selectedIds={selectedModels}
+      onSelectionChange={(ids) => {
+        const validIds = ids.filter(isValidTextToImageModel);
+        if (validIds.length > 0) {
+          onModelsChange(validIds);
+        }
+      }}
+      disabled={disabled}
+      multiSelect={true}
     />
   );
 };

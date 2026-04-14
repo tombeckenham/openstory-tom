@@ -19,6 +19,7 @@ import {
   createBillingReadMethods,
 } from '@/lib/db/scoped/billing';
 import { createCharactersMethods } from '@/lib/db/scoped/characters';
+import { createFrameVariantsMethods } from '@/lib/db/scoped/frame-variants';
 import { createFramesMethods } from '@/lib/db/scoped/frames';
 import { createLibraryMethods } from '@/lib/db/scoped/library';
 import {
@@ -233,6 +234,7 @@ export function createScopedDb(teamId: string, userId: string) {
     library: createLibraryMethods(db, teamId),
 
     frames: createFramesMethods(db),
+    frameVariants: createFrameVariantsMethods(db),
 
     characters: createCharactersMethods(db),
     sequenceLocations: createSequenceLocationsMethods(db),
@@ -265,6 +267,7 @@ export function createReadOnlyScopedDb(teamId: string) {
     library: createLibraryMethods(db, teamId),
 
     frames: createFramesMethods(db),
+    frameVariants: createFrameVariantsMethods(db),
 
     characters: createCharactersMethods(db),
     sequenceLocations: createSequenceLocationsMethods(db),

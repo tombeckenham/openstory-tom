@@ -21,10 +21,13 @@ export async function startAimockServer(): Promise<string> {
     port: AIMOCK_PORT,
     strict: true,
     logLevel: 'info',
-    record: {
-      providers: { openai: 'https://openrouter.ai/api/v1' },
-      fixturePath: FIXTURE_DIR,
-    },
+    // Record locally (real key from .env.local), replay-only on CI (dummy key)
+    ...(!process.env.CI && {
+      record: {
+        providers: { openai: 'https://openrouter.ai/api/v1' },
+        fixturePath: FIXTURE_DIR,
+      },
+    }),
   });
 
   // Load any previously recorded fixtures

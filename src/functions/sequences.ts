@@ -122,6 +122,12 @@ export const createSequenceFn = createServerFn({ method: 'POST' })
               : DEFAULT_MUSIC_MODEL,
           autoGenerateMotion,
           autoGenerateMusic,
+          suggestedTalentIds: suggestedTalentIds?.length
+            ? suggestedTalentIds
+            : undefined,
+          suggestedLocationIds: suggestedLocationIds?.length
+            ? suggestedLocationIds
+            : undefined,
         });
 
         const workflowInput: StoryboardWorkflowInput = {

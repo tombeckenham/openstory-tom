@@ -54,6 +54,7 @@ export function AuthForm({
         autoFill: true,
       });
 
+      // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- cancelled can be set true by cleanup between awaits
       if (!cancelled && result.data) {
         void navigate({ to: redirectTo });
       }

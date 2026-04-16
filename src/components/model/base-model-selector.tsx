@@ -118,7 +118,7 @@ export const BaseModelSelector: React.FC<BaseModelSelectorProps> = ({
         <DropdownMenuSeparator />
         {groupOrder.map((groupKey, groupIndex) => {
           const groupModels = groupedModels[groupKey];
-          if (!groupModels || groupModels.length === 0) return null;
+          if (groupModels.length === 0) return null;
 
           return (
             <DropdownMenuGroup key={groupKey}>

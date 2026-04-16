@@ -30,6 +30,7 @@ export function buildModelInput(
 ) {
   const endpointId = modelConfig.id satisfies MotionEndpointId;
   const transform = MOTION_TRANSFORMS[endpointId];
+  // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- defensive guard for exhaustiveness
   if (!transform) {
     throw new Error(
       `No motion transform registered for endpoint: ${endpointId}`

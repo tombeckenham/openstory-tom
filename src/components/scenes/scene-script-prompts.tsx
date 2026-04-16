@@ -232,7 +232,7 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
   );
 
   // Get imagePrompt early so it can be used in handleShortenPrompt
-  const scriptText = frame?.metadata?.originalScript?.extract;
+  const scriptText = frame?.metadata?.originalScript.extract;
   const imageModel = safeTextToImageModel(
     frame?.imageModel,
     DEFAULT_IMAGE_MODEL

@@ -49,6 +49,7 @@ export const EvalMatrix: React.FC<EvalMatrixProps> = ({
   const lastItemIndex = virtualItems[virtualItems.length - 1]?.index;
   useEffect(() => {
     if (!onLoadMore || !hasMore) return;
+    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- lastItemIndex can be undefined when virtualItems is empty
     if (lastItemIndex == null || lastItemIndex >= sequences.length - 5) {
       onLoadMore();
     }

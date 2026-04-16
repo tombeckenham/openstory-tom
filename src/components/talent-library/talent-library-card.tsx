@@ -81,12 +81,16 @@ export const TalentLibraryCard: React.FC<TalentLibraryCardProps> = ({
           />
         </Button>
 
-        {/* Human badge */}
-        {talent.isHuman && (
+        {/* Badge */}
+        {talent.isPublic ? (
+          <div className="absolute top-2 left-2 px-2 py-1 bg-background/80 backdrop-blur-sm rounded text-xs font-medium text-muted-foreground">
+            System
+          </div>
+        ) : talent.isHuman ? (
           <div className="absolute top-2 left-2 px-2 py-1 bg-background/80 backdrop-blur-sm rounded text-xs font-medium">
             Human
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Info section */}

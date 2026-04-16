@@ -67,6 +67,11 @@ const TalentPickerCard: React.FC<TalentPickerCardProps> = ({
         )}
       </div>
       <span className="text-sm font-medium truncate w-full">{talent.name}</span>
+      {talent.isPublic && (
+        <div className="absolute left-2 top-2 rounded bg-background/80 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground backdrop-blur-sm">
+          System
+        </div>
+      )}
       {isSelected && (
         <div className="absolute right-2 top-2 rounded-full bg-primary p-1">
           <Check className="h-3 w-3 text-primary-foreground" />

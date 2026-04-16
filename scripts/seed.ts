@@ -213,6 +213,7 @@ async function seed() {
             isPublic: template.isPublic,
             isTemplate: template.isTemplate,
             isHuman: template.isHuman,
+            imageUrl: template.imageUrl,
             updatedAt: new Date(),
           })
           .where(eq(talent.id, existing.id));
@@ -255,6 +256,7 @@ async function seed() {
             description: template.description,
             isPublic: template.isPublic,
             isTemplate: template.isTemplate,
+            referenceImageUrl: template.referenceImageUrl,
             updatedAt: new Date(),
           })
           .where(eq(locationLibrary.id, existing.id));

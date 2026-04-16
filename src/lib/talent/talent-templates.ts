@@ -1,4 +1,23 @@
+import { getEnv } from '#env';
 import type { Talent } from '@/lib/db/schema';
+
+function getPublicAssetsDomain(): string {
+  return getEnv().VITE_R2_PUBLIC_ASSETS_DOMAIN ?? '';
+}
+
+function sanitizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+export function getTalentPreviewUrl(name: string): string {
+  return `https://${getPublicAssetsDomain()}/talent/${sanitizeName(name)}/thumbnail.webp`;
+}
 
 // Default talent templates available to all teams
 export const DEFAULT_TALENT_TEMPLATES: Array<
@@ -13,7 +32,7 @@ export const DEFAULT_TALENT_TEMPLATES: Array<
     isInTeamLibrary: false,
     isPublic: true,
     isTemplate: true,
-    imageUrl: null,
+    imageUrl: getTalentPreviewUrl('Sienna Blake'),
     imagePath: null,
   },
   {
@@ -25,7 +44,7 @@ export const DEFAULT_TALENT_TEMPLATES: Array<
     isInTeamLibrary: false,
     isPublic: true,
     isTemplate: true,
-    imageUrl: null,
+    imageUrl: getTalentPreviewUrl('Jude Calloway'),
     imagePath: null,
   },
   {
@@ -37,7 +56,7 @@ export const DEFAULT_TALENT_TEMPLATES: Array<
     isInTeamLibrary: false,
     isPublic: true,
     isTemplate: true,
-    imageUrl: null,
+    imageUrl: getTalentPreviewUrl('Rani Sharma'),
     imagePath: null,
   },
 ];

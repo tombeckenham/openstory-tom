@@ -37,6 +37,13 @@ export const LocationLibraryCard: React.FC<LocationLibraryCardProps> = ({
             <MapPin className="h-12 w-12 text-muted-foreground/30" />
           </div>
         )}
+
+        {/* System badge */}
+        {location.isPublic && (
+          <div className="absolute top-2 left-2 rounded bg-background/80 px-2 py-1 text-xs font-medium text-muted-foreground backdrop-blur-sm">
+            System
+          </div>
+        )}
       </div>
 
       {/* Info section */}

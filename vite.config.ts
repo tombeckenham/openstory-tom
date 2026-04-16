@@ -1,5 +1,6 @@
 // vite.config.ts
 import { cloudflare } from '@cloudflare/vite-plugin';
+import contentCollections from '@content-collections/vite';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import { nitro } from 'nitro/vite';
 import { visualizer } from 'rollup-plugin-visualizer';
@@ -62,6 +63,7 @@ export default defineConfig({
     host: true,
   },
   plugins: [
+    contentCollections(),
     isDev && devtools(),
     reflectMetadataPolyfill(),
     tailwindcss(),

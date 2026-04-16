@@ -120,6 +120,8 @@ export function createSequencesMethods(
       musicModel?: string;
       autoGenerateMotion?: boolean;
       autoGenerateMusic?: boolean;
+      suggestedTalentIds?: string[];
+      suggestedLocationIds?: string[];
     }): Promise<Sequence> => {
       const sequenceData: NewSequence = {
         teamId,
@@ -135,6 +137,8 @@ export function createSequencesMethods(
         musicModel: params.musicModel,
         autoGenerateMotion: params.autoGenerateMotion ?? false,
         autoGenerateMusic: params.autoGenerateMusic ?? false,
+        suggestedTalentIds: params.suggestedTalentIds ?? null,
+        suggestedLocationIds: params.suggestedLocationIds ?? null,
         status: 'draft',
       };
 

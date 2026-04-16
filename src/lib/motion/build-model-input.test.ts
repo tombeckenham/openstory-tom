@@ -4,6 +4,7 @@ import {
   safeImageToVideoModel,
   type ImageToVideoModel,
 } from '../ai/models';
+import { typedEntries } from '../utils/typed-object';
 import { buildModelInput } from './build-model-input';
 import type { GenerateMotionOptions } from './motion-generation';
 
@@ -14,11 +15,11 @@ const baseOptions: GenerateMotionOptions = {
   aspectRatio: '16:9',
 };
 
-function build(
-  modelKey: ImageToVideoModel,
+function build<T extends ImageToVideoModel>(
+  modelKey: T,
   overrides: Partial<GenerateMotionOptions> = {}
-): Record<string, unknown> {
-  return buildModelInput(
+) {
+  return buildModelInput<T>(
     { ...baseOptions, ...overrides },
     IMAGE_TO_VIDEO_MODELS[modelKey],
     modelKey
@@ -31,16 +32,6 @@ describe('buildModelInput', () => {
       const result = build('kling_v3_pro');
       expect(result).toHaveProperty('start_image_url', baseOptions.imageUrl);
       expect(result).not.toHaveProperty('image_url');
-    });
-
-    it('formats duration as string', () => {
-      const result = build('kling_v3_pro');
-      expect(result.duration).toBe('5');
-    });
-
-    it('snaps duration to nearest supported value', () => {
-      const result = build('kling_v3_pro', { duration: 7.3 });
-      expect(result.duration).toBe('7');
     });
 
     it('applies schema defaults for cfg_scale and negative_prompt', () => {
@@ -60,20 +51,9 @@ describe('buildModelInput', () => {
       const result = build('grok_imagine_video');
       expect(result).toHaveProperty('image_url', baseOptions.imageUrl);
     });
-
-    it('keeps duration as integer', () => {
-      const result = build('grok_imagine_video');
-      expect(result.duration).toBe(5);
-      expect(typeof result.duration).toBe('number');
-    });
   });
 
   describe('Veo 3.1 (audio)', () => {
-    it('formats duration with s suffix', () => {
-      const result = build('veo3_1', { duration: 8 });
-      expect(result.duration).toBe('8s');
-    });
-
     it('overrides resolution to 1080p', () => {
       const result = build('veo3_1');
       expect(result.resolution).toBe('1080p');
@@ -112,14 +92,6 @@ describe('buildModelInput', () => {
       const result = build('ltx_2_3_pro');
       expect(result.prompt).toBe(baseOptions.prompt);
     });
-
-    it('snaps duration to nearest supported value (6/8/10)', () => {
-      expect(build('ltx_2_3_pro', { duration: 3 }).duration).toBe(6);
-      expect(build('ltx_2_3_pro', { duration: 5 }).duration).toBe(6);
-      expect(build('ltx_2_3_pro', { duration: 7 }).duration).toBe(6);
-      expect(build('ltx_2_3_pro', { duration: 8 }).duration).toBe(8);
-      expect(build('ltx_2_3_pro', { duration: 12 }).duration).toBe(10);
-    });
   });
 
   describe('Seedance v1.5 Pro', () => {
@@ -132,6 +104,70 @@ describe('buildModelInput', () => {
       const result = build('seedance_v1_5_pro');
       expect(result.prompt).toBe(baseOptions.prompt);
     });
+  });
+
+  describe('Seedance v2', () => {
+    it('uses image_url', () => {
+      const result = build('seedance_v2');
+      expect(result).toHaveProperty('image_url', baseOptions.imageUrl);
+    });
+  });
+
+  describe('duration snapping (1–30s)', () => {
+    const valid: Record<ImageToVideoModel, readonly (string | number)[]> = {
+      kling_v3_pro: [
+        '3',
+        '4',
+        '5',
+        '6',
+        '7',
+        '8',
+        '9',
+        '10',
+        '11',
+        '12',
+        '13',
+        '14',
+        '15',
+      ],
+      grok_imagine_video: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+      veo3_1: ['4s', '6s', '8s'],
+      ltx_2_3_pro: [6, 8, 10],
+      seedance_v1_5_pro: ['4', '5', '6', '7', '8', '9', '10', '11', '12'],
+      seedance_v2: [
+        '4',
+        '5',
+        '6',
+        '7',
+        '8',
+        '9',
+        '10',
+        '11',
+        '12',
+        '13',
+        '14',
+        '15',
+      ],
+      minimax_hailuo_02: [],
+    };
+
+    for (const [model, allowed] of typedEntries(valid)) {
+      it(model, () => {
+        for (let d = 1; d <= 30; d++) {
+          const modelInputResult = build(model, { duration: d });
+          const duration =
+            'duration' in modelInputResult
+              ? modelInputResult.duration
+              : undefined;
+
+          if (typeof duration === 'undefined') {
+            expect(allowed).toBeEmpty();
+          } else {
+            expect(allowed).toContain(duration);
+          }
+        }
+      });
+    }
   });
 
   describe('common behavior', () => {

@@ -8,15 +8,17 @@
 
 import { getEnv } from '#env';
 import { LangfuseSpanProcessor } from '@langfuse/otel';
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
-import { NodeSDK } from '@opentelemetry/sdk-node';
+import { trace } from '@opentelemetry/api';
+import {
+  BasicTracerProvider,
+  BatchSpanProcessor,
+} from '@opentelemetry/sdk-trace-base';
 import { PostHogTraceExporter } from '@posthog/ai/otel';
 import type { SpanProcessor } from '@opentelemetry/sdk-trace-base';
 
 import { endSpanSuccess, startGenAISpan, withTraceContext } from './tracer';
 
 const processors: SpanProcessor[] = [];
-let sdk: NodeSDK | null = null;
 
 /** Whether Langfuse is enabled — derived from both keys being set. */
 export function isLangfuseEnabled(): boolean {
@@ -72,8 +74,13 @@ export function initTracing(): void {
     return;
   }
 
-  sdk = new NodeSDK({ spanProcessors: processors });
-  sdk.start();
+  try {
+    const provider = new BasicTracerProvider({ spanProcessors: processors });
+    trace.setGlobalTracerProvider(provider);
+  } catch (error) {
+    console.error('[Tracing] Failed to register provider:', error);
+    return;
+  }
   console.log('[Tracing] Initialized with %d exporter(s)', processors.length);
 }
 

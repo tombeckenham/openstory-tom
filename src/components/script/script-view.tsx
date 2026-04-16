@@ -160,8 +160,8 @@ export const ScriptView: FC<{
     value: (typeof genSettings)[K]
   ) => setGenSettings((s) => ({ ...s, [key]: value }));
   const [selections, setSelections] = useState({
-    talentIds: [] as string[],
-    locationIds: [] as string[],
+    talentIds: sequence?.suggestedTalentIds ?? [],
+    locationIds: sequence?.suggestedLocationIds ?? [],
   });
   const { talentIds: selectedTalentIds, locationIds: selectedLocationIds } =
     selections;
@@ -462,9 +462,7 @@ export const ScriptView: FC<{
     analysisModels.length > 0;
 
   const isSubmitting = createSequenceMutation.isPending;
-  const isProcessing = sequence?.status === 'processing';
-  const isDisabled =
-    !isFormValid || isSubmitting || isProcessing || isEnhancing;
+  const isDisabled = !isFormValid || isSubmitting || isEnhancing;
 
   const scriptValue = script ?? sequence?.script ?? '';
   const { ref: textareaRef } = useAutoScroll({
@@ -580,10 +578,7 @@ export const ScriptView: FC<{
                       size="sm"
                       className="gap-1.5 text-muted-foreground"
                       disabled={
-                        !scriptValue ||
-                        scriptValue.length < 10 ||
-                        isSubmitting ||
-                        isProcessing
+                        !scriptValue || scriptValue.length < 10 || isSubmitting
                       }
                     >
                       <Sparkles className="size-3.5" />
@@ -661,33 +656,35 @@ export const ScriptView: FC<{
             </div>
 
             {/* Action buttons */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-              <span className="hidden sm:block text-xs text-muted-foreground">
+            <div className="flex flex-col items-stretch gap-1 w-full sm:w-auto">
+              <div className="flex flex-row items-center gap-3 justify-end">
+                {sequence?.id && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleCancel}
+                  >
+                    Cancel
+                  </Button>
+                )}
+                <Button
+                  type="submit"
+                  disabled={isDisabled}
+                  className="group relative px-6 bg-linear-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground font-semibold tracking-wide shadow-lg shadow-primary/20 hover:shadow-primary/30 overflow-hidden"
+                >
+                  <span className="relative z-10 flex items-center justify-center gap-2">
+                    <GenerateSequenceIcon className="size-4" />
+                    Generate
+                  </span>
+                  {/* Shine effect */}
+                  <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 pointer-events-none" />
+                </Button>
+              </div>
+              <span className="hidden sm:block text-xs text-muted-foreground text-right">
                 {analysisModels.length === 1
                   ? '1 sequence will be created'
                   : `${analysisModels.length} sequences will be created`}
               </span>
-              {sequence?.id && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleCancel}
-                >
-                  Cancel
-                </Button>
-              )}
-              <Button
-                type="submit"
-                disabled={isDisabled}
-                className="group relative px-6 bg-linear-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground font-semibold tracking-wide shadow-lg shadow-primary/20 hover:shadow-primary/30 overflow-hidden"
-              >
-                <span className="relative z-10 flex items-center justify-center gap-2">
-                  <GenerateSequenceIcon className="size-4" />
-                  {sequence?.id ? 'Regenerate Sequence' : 'Generate Sequence'}
-                </span>
-                {/* Shine effect */}
-                <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 pointer-events-none" />
-              </Button>
             </div>
           </div>
         </CardFooter>
@@ -705,7 +702,7 @@ export const ScriptView: FC<{
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Regenerate sequence?</AlertDialogTitle>
+            <AlertDialogTitle>Generate new sequence?</AlertDialogTitle>
             <AlertDialogDescription>
               A new sequence will be created from this script.
             </AlertDialogDescription>
@@ -718,7 +715,7 @@ export const ScriptView: FC<{
                 executeRegeneration();
               }}
             >
-              Regenerate
+              Generate
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

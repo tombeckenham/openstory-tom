@@ -9,41 +9,42 @@ import { lazy, type FC } from 'react';
 // Wrap the entire lazy() in import.meta.env.DEV so Vite dead-code-eliminates
 // the dynamic imports before rollup tries to resolve them. This prevents
 // @tanstack/ai-devtools-core's Solid.js transitive imports from breaking the build.
-const TanStackDevtoolsLazy: FC = import.meta.env.DEV
-  ? lazy(async () => {
-      const [
-        { TanStackDevtools },
-        { ReactQueryDevtoolsPanel },
-        { TanStackRouterDevtoolsPanel },
-        { aiDevtoolsPlugin },
-      ] = await Promise.all([
-        import('@tanstack/react-devtools'),
-        import('@tanstack/react-query-devtools'),
-        import('@tanstack/react-router-devtools'),
-        import('@tanstack/react-ai-devtools'),
-      ]);
+const TanStackDevtoolsLazy: FC =
+  import.meta.env.DEV && !import.meta.env.VITE_DISABLE_DEVTOOLS
+    ? lazy(async () => {
+        const [
+          { TanStackDevtools },
+          { ReactQueryDevtoolsPanel },
+          { TanStackRouterDevtoolsPanel },
+          { aiDevtoolsPlugin },
+        ] = await Promise.all([
+          import('@tanstack/react-devtools'),
+          import('@tanstack/react-query-devtools'),
+          import('@tanstack/react-router-devtools'),
+          import('@tanstack/react-ai-devtools'),
+        ]);
 
-      return {
-        default: () => (
-          <TanStackDevtools
-            plugins={[
-              {
-                name: 'TanStack Query',
-                render: <ReactQueryDevtoolsPanel />,
-                defaultOpen: true,
-              },
-              {
-                name: 'TanStack Router',
-                render: <TanStackRouterDevtoolsPanel />,
-                defaultOpen: false,
-              },
-              aiDevtoolsPlugin(),
-            ]}
-          />
-        ),
-      };
-    })
-  : () => null;
+        return {
+          default: () => (
+            <TanStackDevtools
+              plugins={[
+                {
+                  name: 'TanStack Query',
+                  render: <ReactQueryDevtoolsPanel />,
+                  defaultOpen: true,
+                },
+                {
+                  name: 'TanStack Router',
+                  render: <TanStackRouterDevtoolsPanel />,
+                  defaultOpen: false,
+                },
+                aiDevtoolsPlugin(),
+              ]}
+            />
+          ),
+        };
+      })
+    : () => null;
 
 type ProvidersProps = {
   children: React.ReactNode;

@@ -42,6 +42,8 @@ export function AuthForm({
 
     const preloadPasskeys = async () => {
       if (
+        // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: method may not exist in all browsers
+        !window.PublicKeyCredential?.isConditionalMediationAvailable ||
         !(await window.PublicKeyCredential.isConditionalMediationAvailable())
       ) {
         return;

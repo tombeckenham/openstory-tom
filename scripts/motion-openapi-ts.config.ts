@@ -229,8 +229,19 @@ function resolveMissingRefs(spec: OpenAPISpec): {
   for (const missingRef of missingRefs) {
     spec.components.schemas ??= {};
 
-    spec.components.schemas[missingRef] = KNOWN_MISSING_SCHEMAS[missingRef];
-    fixed++;
+    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- Record lookup returns undefined for missing keys
+    if (KNOWN_MISSING_SCHEMAS[missingRef]) {
+      spec.components.schemas[missingRef] = KNOWN_MISSING_SCHEMAS[missingRef];
+      fixed++;
+    } else {
+      spec.components.schemas[missingRef] = {
+        type: 'object',
+        description:
+          'Schema referenced but not defined by fal.ai (missing from source OpenAPI spec)',
+        additionalProperties: true,
+      };
+      unknown.push(missingRef);
+    }
   }
 
   return { fixed, unknown };
@@ -416,6 +427,7 @@ function getFalGroupedCategoryFilenames(): Array<{
         /fal\.models\.([^-.]+-to-([^.]+)|([^-.]+))\.json/,
         '$2$3'
       );
+      acc[category] ??= [];
       acc[category].push(filename);
       return acc;
     }, {})

@@ -13,8 +13,10 @@ export type ImagePricing = {
   basePrice: Microdollars;
   unit: ImagePricingUnit;
   resolutionMultipliers?: Partial<Record<'0.5K' | '1K' | '2K' | '4K', number>>;
-  styleMultipliers?: Record<string, number>;
-  qualitySizeMatrix?: Record<string, Record<string, Microdollars>>;
+  styleMultipliers?: Partial<Record<string, number>>;
+  qualitySizeMatrix?: Partial<
+    Record<string, Partial<Record<string, Microdollars>>>
+  >;
   surcharges?: { webSearch?: Microdollars };
   pricingNotes?: string;
 };
@@ -164,10 +166,9 @@ type VideoPricingPerSecond = VideoPricingBase & {
   noAudioMultiplier?: number;
   audioMultiplier?: number;
   voiceControlMultiplier?: number;
-  resolutionPricing?: Record<string, Microdollars>;
-  resolutionAudioPricing?: Record<
-    string,
-    { noAudio: Microdollars; withAudio: Microdollars }
+  resolutionPricing?: Partial<Record<string, Microdollars>>;
+  resolutionAudioPricing?: Partial<
+    Record<string, { noAudio: Microdollars; withAudio: Microdollars }>
   >;
   surcharges?: { imageInput?: Microdollars };
 };

@@ -45,8 +45,13 @@ export function calculateImageCost(params: ImageCostParams): Microdollars {
   // Quality/size matrix (e.g. GPT Image 1.5)
   if (pricing.qualitySizeMatrix && params.quality && params.imageSize) {
     const qualityPrices = pricing.qualitySizeMatrix[params.quality];
-    const price = qualityPrices[params.imageSize];
-    return multiplyMicros(price, params.numImages);
+    if (qualityPrices) {
+      const price = qualityPrices[params.imageSize];
+      if (price !== undefined) {
+        return multiplyMicros(price, params.numImages);
+      }
+    }
+    // Fall through to base price if matrix doesn't match
   }
 
   if (pricing.unit === 'per_megapixel') {
@@ -75,7 +80,7 @@ export function calculateImageCost(params: ImageCostParams): Microdollars {
   // Apply style multiplier
   if (pricing.styleMultipliers && params.style) {
     const mult = pricing.styleMultipliers[params.style];
-    cost = multiplyMicros(cost, mult);
+    if (mult !== undefined) cost = multiplyMicros(cost, mult);
   }
 
   return cost;
@@ -129,18 +134,20 @@ function calculateSecondBasedVideoCost(
   // Resolution+audio matrix (e.g. Veo 3.1)
   if (pricing.resolutionAudioPricing && params.resolution) {
     const resPricing = pricing.resolutionAudioPricing[params.resolution];
-    rate = params.audioEnabled ? resPricing.withAudio : resPricing.noAudio;
-    let cost = multiplyMicros(rate, params.durationSeconds);
-    if (pricing.surcharges?.imageInput) {
-      cost = addMicros(cost, pricing.surcharges.imageInput);
+    if (resPricing) {
+      rate = params.audioEnabled ? resPricing.withAudio : resPricing.noAudio;
+      let cost = multiplyMicros(rate, params.durationSeconds);
+      if (pricing.surcharges?.imageInput) {
+        cost = addMicros(cost, pricing.surcharges.imageInput);
+      }
+      return cost;
     }
-    return cost;
   }
 
   // Resolution-only pricing (e.g. Wan Flash, Grok Video)
   if (pricing.resolutionPricing && params.resolution) {
     const resRate = pricing.resolutionPricing[params.resolution];
-    rate = resRate;
+    if (resRate !== undefined) rate = resRate;
   }
 
   // Audio/voice multipliers (e.g. Kling v3 Pro, Veo3)

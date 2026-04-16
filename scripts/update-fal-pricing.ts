@@ -286,15 +286,18 @@ for (const p of data.prices.sort((a, b) =>
     case 'image': {
       const override = IMAGE_OVERRIDES[p.endpoint_id];
       imagePricing[p.endpoint_id] = {
-        basePrice: override.basePrice ?? m(p.unit_price),
-        unit: override.unit ?? mapImageUnit(p.unit),
+        // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- Record lookup returns undefined for missing keys
+        basePrice: override?.basePrice ?? m(p.unit_price),
+        // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- Record lookup returns undefined for missing keys
+        unit: override?.unit ?? mapImageUnit(p.unit),
         ...override,
       };
       break;
     }
     case 'video': {
       const override = VIDEO_OVERRIDES[p.endpoint_id];
-      if ('mode' in override && override.mode === 'per_token') {
+      // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- Record lookup returns undefined for missing keys
+      if (override && 'mode' in override && override.mode === 'per_token') {
         videoPricing[p.endpoint_id] = {
           mode: 'per_token',
           pricePerMillionTokens: m(p.unit_price),
@@ -315,7 +318,8 @@ for (const p of data.prices.sort((a, b) =>
       const override = AUDIO_OVERRIDES[p.endpoint_id];
       audioPricing[p.endpoint_id] = {
         basePrice: m(p.unit_price),
-        unit: override.unit ?? mapAudioUnit(p.unit),
+        // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- Record lookup returns undefined for missing keys
+        unit: override?.unit ?? mapAudioUnit(p.unit),
         ...override,
       };
       break;
@@ -389,19 +393,22 @@ if (fetchLlmsTxt) {
 if (!fetchLlmsTxt) {
   for (const [id, entry] of typedEntries(imagePricing)) {
     const old = oldImagePricing[id];
-    if (old.pricingNotes && !entry.pricingNotes) {
+    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- Record lookup returns undefined for missing keys
+    if (old?.pricingNotes && !entry.pricingNotes) {
       entry.pricingNotes = old.pricingNotes;
     }
   }
   for (const [id, entry] of typedEntries(videoPricing)) {
     const old = oldVideoPricing[id];
-    if (old.pricingNotes && !entry.pricingNotes) {
+    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- Record lookup returns undefined for missing keys
+    if (old?.pricingNotes && !entry.pricingNotes) {
       entry.pricingNotes = old.pricingNotes;
     }
   }
   for (const [id, entry] of typedEntries(audioPricing)) {
     const old = oldAudioPricing[id];
-    if (old.pricingNotes && !entry.pricingNotes) {
+    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- Record lookup returns undefined for missing keys
+    if (old?.pricingNotes && !entry.pricingNotes) {
       entry.pricingNotes = old.pricingNotes;
     }
   }
@@ -457,21 +464,24 @@ diffMap(
   Object.keys(imagePricing),
   Object.keys(oldImagePricing),
   (id) => getMicrosBasePrice(imagePricing[id]),
-  (id) => getBasePrice(oldImagePricing[id])
+  // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- Record lookup returns undefined for missing keys
+  (id) => (oldImagePricing[id] ? getBasePrice(oldImagePricing[id]) : undefined)
 );
 diffMap(
   'video',
   Object.keys(videoPricing),
   Object.keys(oldVideoPricing),
   (id) => getMicrosBasePrice(videoPricing[id]),
-  (id) => getBasePrice(oldVideoPricing[id])
+  // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- Record lookup returns undefined for missing keys
+  (id) => (oldVideoPricing[id] ? getBasePrice(oldVideoPricing[id]) : undefined)
 );
 diffMap(
   'audio',
   Object.keys(audioPricing),
   Object.keys(oldAudioPricing),
   (id) => getMicrosBasePrice(audioPricing[id]),
-  (id) => getBasePrice(oldAudioPricing[id])
+  // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- Record lookup returns undefined for missing keys
+  (id) => (oldAudioPricing[id] ? getBasePrice(oldAudioPricing[id]) : undefined)
 );
 
 // ============================================================================

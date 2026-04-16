@@ -35,9 +35,12 @@ export async function cleanupLocationByName(
     .where(
       and(eq(locationLibrary.teamId, teamId), eq(locationLibrary.name, name))
     );
-  await testDb
-    .delete(locationLibrary)
-    .where(eq(locationLibrary.id, created.id));
+  // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- DB query returns undefined when no rows match
+  if (created) {
+    await testDb
+      .delete(locationLibrary)
+      .where(eq(locationLibrary.id, created.id));
+  }
 }
 
 /**
@@ -52,5 +55,8 @@ export async function cleanupTalentByName(
     .select({ id: talent.id })
     .from(talent)
     .where(and(eq(talent.teamId, teamId), eq(talent.name, name)));
-  await testDb.delete(talent).where(eq(talent.id, created.id));
+  // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- DB query returns undefined when no rows match
+  if (created) {
+    await testDb.delete(talent).where(eq(talent.id, created.id));
+  }
 }

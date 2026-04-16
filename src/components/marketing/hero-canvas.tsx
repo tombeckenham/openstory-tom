@@ -300,6 +300,7 @@ export function HeroCanvas() {
 
     // Build program
     const prog = gl.createProgram();
+    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- WebGL can return null at runtime
     if (!prog) return;
 
     const vs = compileShader(gl, gl.VERTEX_SHADER, VERT_SRC);
@@ -379,6 +380,7 @@ export function HeroCanvas() {
     }
     function onTouchMove(e: TouchEvent) {
       const touch = e.touches[0];
+      // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- touches can be empty at runtime
       if (!touch) return;
       const rect = canvas.getBoundingClientRect();
       mouseX = (touch.clientX - rect.left) * dpr;

@@ -64,10 +64,11 @@ export const EvalSequenceRow: React.FC<EvalSequenceRowProps> = ({
         const sceneIndex = i;
         const isDialogOpen =
           openDialog?.sequenceIndex === sequenceIndex &&
-          openDialog?.sceneIndex === sceneIndex;
+          openDialog.sceneIndex === sceneIndex;
 
         return (
           <div
+            // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- frame is undefined when sequence has fewer frames than maxSceneCount
             key={frame?.id ?? `empty-${i}`}
             className="shrink-0 h-full"
             style={{ width: CELL_WIDTH }}

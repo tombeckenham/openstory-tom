@@ -12,6 +12,7 @@ export const PostHogIdentify: React.FC = () => {
   const identifiedRef = useRef<string | null>(null);
 
   useEffect(() => {
+    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: posthog is undefined when VITE_PUBLIC_POSTHOG_PROJECT_TOKEN is unset
     if (!posthog) return;
 
     if (user && identifiedRef.current !== user.id) {

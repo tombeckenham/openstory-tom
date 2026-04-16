@@ -48,8 +48,9 @@ export const EvalMatrix: React.FC<EvalMatrixProps> = ({
   const virtualItems = rowVirtualizer.getVirtualItems();
   const lastItemIndex = virtualItems[virtualItems.length - 1]?.index;
   useEffect(() => {
-    if (lastItemIndex == null || !onLoadMore || !hasMore) return;
-    if (lastItemIndex >= sequences.length - 5) {
+    if (!onLoadMore || !hasMore) return;
+    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- lastItemIndex can be undefined when virtualItems is empty
+    if (lastItemIndex == null || lastItemIndex >= sequences.length - 5) {
       onLoadMore();
     }
   }, [lastItemIndex, sequences.length, onLoadMore, hasMore]);
@@ -64,12 +65,7 @@ export const EvalMatrix: React.FC<EvalMatrixProps> = ({
       sceneIndex >= 0 &&
       sceneIndex < maxSceneCount
     ) {
-      const sequence = sequences[sequenceIndex];
-      const frame = sequence?.frames[sceneIndex];
-      // Only navigate if the target cell has a frame
-      if (frame) {
-        setOpenDialog({ sequenceIndex, sceneIndex });
-      }
+      setOpenDialog({ sequenceIndex, sceneIndex });
     }
   };
 

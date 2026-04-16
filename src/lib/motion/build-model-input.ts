@@ -33,8 +33,11 @@ export function buildModelInput<T extends ImageToVideoModel>(
 ): ModelOutputMap[T] {
   const endpointId: (typeof IMAGE_TO_VIDEO_MODELS)[T]['id'] = modelConfig.id;
   const transform = MOTION_TRANSFORMS[endpointId];
+  // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- defensive guard for exhaustiveness
   if (!transform) {
-    throw new Error(`No transform found for model: ${modelConfig.id}`);
+    throw new Error(
+      `No motion transform registered for endpoint: ${endpointId}`
+    );
   }
   // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion safe to cast here because we know the transform is valid
   const result = transform.parse({

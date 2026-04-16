@@ -42,6 +42,7 @@ export function AuthForm({
 
     const preloadPasskeys = async () => {
       if (
+        // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: method may not exist in all browsers
         !window.PublicKeyCredential?.isConditionalMediationAvailable ||
         !(await window.PublicKeyCredential.isConditionalMediationAvailable())
       ) {
@@ -53,7 +54,8 @@ export function AuthForm({
         autoFill: true,
       });
 
-      if (!cancelled && result?.data) {
+      // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- cancelled can be set true by cleanup between awaits
+      if (!cancelled && result.data) {
         void navigate({ to: redirectTo });
       }
     };

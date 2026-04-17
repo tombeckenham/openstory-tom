@@ -84,7 +84,7 @@ function FollowOnXCard() {
               </span>
             </div>
             <CardDescription>
-              Follow @openstory on X and we'll DM you a gift code worth $10
+              Follow @openstory_so on X and we'll DM you a gift code worth $10
             </CardDescription>
           </div>
         </div>
@@ -92,11 +92,11 @@ function FollowOnXCard() {
       <CardContent>
         <Button asChild>
           <a
-            href="https://twitter.com/openstory"
+            href="https://x.com/openstory_so"
             target="_blank"
             rel="noopener noreferrer"
           >
-            Follow @openstory on X
+            Follow @openstory_so on X
           </a>
         </Button>
       </CardContent>

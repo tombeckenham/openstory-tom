@@ -189,22 +189,20 @@ export const BillingGateDialog: React.FC<BillingGateDialogProps> = ({
         </DialogHeader>
 
         <div className="flex flex-col gap-2 pt-1">
-          {context === 'onboarding' && (
-            <OptionCard
-              href="https://twitter.com/openstory"
-              icon={<XIcon className="size-4" />}
-              title="Follow us on X"
-              description="Follow @openstory and we'll DM you a $10 gift code"
-              variant="primary"
-              badge={
-                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                  <Sparkles className="size-2.5" />
-                  Free credits
-                </span>
-              }
-              onClick={() => {}}
-            />
-          )}
+          <OptionCard
+            href="https://x.com/openstory_so"
+            icon={<XIcon className="size-4" />}
+            title="Follow us on X"
+            description="Follow @openstory_so and we'll DM you a $10 gift code"
+            variant="primary"
+            badge={
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                <Sparkles className="size-2.5" />
+                Free credits
+              </span>
+            }
+            onClick={() => {}}
+          />
 
           {stripeEnabled && (
             <OptionCard
@@ -212,15 +210,7 @@ export const BillingGateDialog: React.FC<BillingGateDialogProps> = ({
               icon={<CreditCard className="size-4" />}
               title="Add Credits"
               description="Pay as you go. Auto top-up keeps you generating."
-              variant={context === 'onboarding' ? 'warm' : 'primary'}
-              badge={
-                context !== 'onboarding' ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                    <Sparkles className="size-2.5" />
-                    Recommended
-                  </span>
-                ) : undefined
-              }
+              variant="warm"
               onClick={handleNav}
             />
           )}

@@ -4,6 +4,7 @@
  */
 
 import { composeAudioVideo } from '@/lib/audio/compose-audio-video';
+import { normalizeAudioLoudness } from '@/lib/audio/loudness-normalize';
 import { getGenerationChannel } from '@/lib/realtime';
 import { usdToMicros } from '@/lib/billing/money';
 import { deductWorkflowCredits } from '@/lib/billing/workflow-deduction';
@@ -58,10 +59,21 @@ export const mergeAudioVideoWorkflow = createScopedWorkflow<
       }
     );
 
+    const normalizedMusicUrl = await context.run(
+      'normalize-music-loudness',
+      async () => {
+        const result = await normalizeAudioLoudness({
+          audioUrl: musicUrl,
+          scopedDb,
+        });
+        return result.audioUrl;
+      }
+    );
+
     const muxResult = await context.run('compose-audio-video', async () => {
       return composeAudioVideo({
         videoUrl: mergedVideoUrl,
-        musicUrl: musicUrl,
+        musicUrl: normalizedMusicUrl,
         durationMs: videoDurationMs,
         scopedDb,
       });

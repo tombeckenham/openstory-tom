@@ -2256,6 +2256,44 @@ async function main() {
   }
 
   // -------------------------------------------------------------------------
+  // System Talent & Location Previews
+  // -------------------------------------------------------------------------
+  if (vars.has('FAL_KEY') && vars.has('R2_ACCOUNT_ID')) {
+    const setupSystemPreviews = checkCancel(
+      await p.confirm({
+        message: 'Generate and upload system talent & location preview images?',
+        initialValue: false,
+      })
+    );
+
+    if (setupSystemPreviews) {
+      p.log.step(chalk.bold('Generating system talent & location previews…'));
+      try {
+        execFileSync('bun', ['scripts/generate-system-previews.ts'], {
+          stdio: 'inherit',
+          cwd: process.cwd(),
+        });
+        p.log.step(chalk.bold('Uploading system previews to R2…'));
+        execFileSync('bun', ['scripts/upload-system-previews-to-r2.ts'], {
+          stdio: 'inherit',
+          cwd: process.cwd(),
+        });
+        p.log.success(
+          'System talent & location previews generated and uploaded'
+        );
+      } catch {
+        p.log.warn(
+          'System preview setup failed. Run manually later: bun setup:system-previews'
+        );
+      }
+    }
+  } else {
+    p.log.info(
+      'System previews skipped (requires FAL_KEY + R2). Run later: bun setup:system-previews'
+    );
+  }
+
+  // -------------------------------------------------------------------------
   // Google OAuth
   // -------------------------------------------------------------------------
   const googleKeys = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'] as const;

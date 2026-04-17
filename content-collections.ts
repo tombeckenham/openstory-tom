@@ -11,6 +11,7 @@ const docs = defineCollection({
     description: z.string(),
     section: z.string(),
     order: z.number(),
+    content: z.string(),
   }),
   transform: (data) => {
     const { content: body } = matter(data.content);

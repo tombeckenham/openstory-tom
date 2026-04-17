@@ -23,6 +23,7 @@ function GitHubIcon({ className }: { className?: string }) {
 
 const navLinks = [
   { href: '#how-it-works', label: 'How It Works', external: false },
+  { href: '/docs', label: 'Docs', external: false, internal: true },
   {
     href: SITE_CONFIG.githubHref,
     label: 'GitHub',
@@ -76,36 +77,44 @@ export function SiteHeader() {
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">
-          {navLinks.map((link) =>
-            link.external ? (
-              <a
-                key={link.label}
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`inline-flex items-center gap-1.5 text-sm font-medium tracking-wide transition-colors ${
-                  isTransparent
-                    ? 'text-white/70 hover:text-white'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {'icon' in link && <GitHubIcon className="size-4" />}
+          {navLinks.map((link) => {
+            const className = `text-sm font-medium tracking-wide transition-colors ${
+              isTransparent
+                ? 'text-white/70 hover:text-white'
+                : 'text-muted-foreground hover:text-foreground'
+            }`;
+
+            if (link.external) {
+              return (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`inline-flex items-center gap-1.5 ${className}`}
+                >
+                  {'icon' in link && link.icon && (
+                    <GitHubIcon className="size-4" />
+                  )}
+                  {link.label}
+                </a>
+              );
+            }
+
+            if ('internal' in link && link.internal) {
+              return (
+                <Link key={link.label} to={link.href} className={className}>
+                  {link.label}
+                </Link>
+              );
+            }
+
+            return (
+              <a key={link.label} href={link.href} className={className}>
                 {link.label}
               </a>
-            ) : (
-              <a
-                key={link.label}
-                href={link.href}
-                className={`text-sm font-medium tracking-wide transition-colors ${
-                  isTransparent
-                    ? 'text-white/70 hover:text-white'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {link.label}
-              </a>
-            )
-          )}
+            );
+          })}
         </nav>
 
         <div className="hidden md:block">
@@ -138,30 +147,52 @@ export function SiteHeader() {
             <SheetTitle>Navigation</SheetTitle>
           </SheetHeader>
           <nav className="flex flex-col gap-2 px-4">
-            {navLinks.map((link) =>
-              link.external ? (
+            {navLinks.map((link) => {
+              const mobileClassName =
+                'rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground';
+
+              if (link.external) {
+                return (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`inline-flex items-center gap-1.5 ${mobileClassName}`}
+                    onClick={() => setSheetOpen(false)}
+                  >
+                    {'icon' in link && link.icon && (
+                      <GitHubIcon className="size-4" />
+                    )}
+                    {link.label}
+                  </a>
+                );
+              }
+
+              if ('internal' in link && link.internal) {
+                return (
+                  <Link
+                    key={link.label}
+                    to={link.href}
+                    className={mobileClassName}
+                    onClick={() => setSheetOpen(false)}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              }
+
+              return (
                 <a
                   key={link.label}
                   href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                  onClick={() => setSheetOpen(false)}
-                >
-                  {'icon' in link && <GitHubIcon className="size-4" />}
-                  {link.label}
-                </a>
-              ) : (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className={mobileClassName}
                   onClick={() => setSheetOpen(false)}
                 >
                   {link.label}
                 </a>
-              )
-            )}
+              );
+            })}
             <Button asChild className="mt-2">
               <Link to={ctaHref} onClick={() => setSheetOpen(false)}>
                 {ctaLabel}

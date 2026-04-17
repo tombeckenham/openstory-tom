@@ -49,6 +49,12 @@ function buildLlmsTxt(): string {
     lines.push('');
   }
 
+  lines.push('## Documentation');
+  lines.push('');
+  lines.push(`- Docs: ${SITE_CONFIG.url}/docs`);
+  lines.push(`- Full docs (markdown): ${SITE_CONFIG.url}/docs/llms.md`);
+  lines.push('');
+
   lines.push('## Links');
   lines.push('');
   lines.push(`- Website: ${SITE_CONFIG.url}`);

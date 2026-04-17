@@ -22,6 +22,7 @@ import { Route as MetaOgLinkedinRouteImport } from './routes/meta/og-linkedin'
 import { Route as MetaOgGithubRouteImport } from './routes/meta/og-github'
 import { Route as MetaOgRouteImport } from './routes/meta/og'
 import { Route as GiftCodeRouteImport } from './routes/gift/$code'
+import { Route as DocsLlmsDotmdRouteImport } from './routes/docs/llms[.]md'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
 import { Route as ApiRealtimeRouteImport } from './routes/api/realtime'
 import { Route as ProtectedCreditsRouteImport } from './routes/_protected/credits'
@@ -121,6 +122,11 @@ const GiftCodeRoute = GiftCodeRouteImport.update({
   id: '/gift/$code',
   path: '/gift/$code',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DocsLlmsDotmdRoute = DocsLlmsDotmdRouteImport.update({
+  id: '/llms.md',
+  path: '/llms.md',
+  getParentRoute: () => DocsRoute,
 } as any)
 const DocsSplatRoute = DocsSplatRouteImport.update({
   id: '/$',
@@ -336,6 +342,7 @@ export interface FileRoutesByFullPath {
   '/credits': typeof ProtectedCreditsRoute
   '/api/realtime': typeof ApiRealtimeRoute
   '/docs/$': typeof DocsSplatRoute
+  '/docs/llms.md': typeof DocsLlmsDotmdRoute
   '/gift/$code': typeof GiftCodeRoute
   '/meta/og': typeof MetaOgRoute
   '/meta/og-github': typeof MetaOgGithubRoute
@@ -383,6 +390,7 @@ export interface FileRoutesByTo {
   '/credits': typeof ProtectedCreditsRoute
   '/api/realtime': typeof ApiRealtimeRoute
   '/docs/$': typeof DocsSplatRoute
+  '/docs/llms.md': typeof DocsLlmsDotmdRoute
   '/gift/$code': typeof GiftCodeRoute
   '/meta/og': typeof MetaOgRoute
   '/meta/og-github': typeof MetaOgGithubRoute
@@ -435,6 +443,7 @@ export interface FileRoutesById {
   '/_protected/credits': typeof ProtectedCreditsRoute
   '/api/realtime': typeof ApiRealtimeRoute
   '/docs/$': typeof DocsSplatRoute
+  '/docs/llms.md': typeof DocsLlmsDotmdRoute
   '/gift/$code': typeof GiftCodeRoute
   '/meta/og': typeof MetaOgRoute
   '/meta/og-github': typeof MetaOgGithubRoute
@@ -487,6 +496,7 @@ export interface FileRouteTypes {
     | '/credits'
     | '/api/realtime'
     | '/docs/$'
+    | '/docs/llms.md'
     | '/gift/$code'
     | '/meta/og'
     | '/meta/og-github'
@@ -534,6 +544,7 @@ export interface FileRouteTypes {
     | '/credits'
     | '/api/realtime'
     | '/docs/$'
+    | '/docs/llms.md'
     | '/gift/$code'
     | '/meta/og'
     | '/meta/og-github'
@@ -585,6 +596,7 @@ export interface FileRouteTypes {
     | '/_protected/credits'
     | '/api/realtime'
     | '/docs/$'
+    | '/docs/llms.md'
     | '/gift/$code'
     | '/meta/og'
     | '/meta/og-github'
@@ -735,6 +747,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/gift/$code'
       preLoaderRoute: typeof GiftCodeRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/docs/llms.md': {
+      id: '/docs/llms.md'
+      path: '/llms.md'
+      fullPath: '/docs/llms.md'
+      preLoaderRoute: typeof DocsLlmsDotmdRouteImport
+      parentRoute: typeof DocsRoute
     }
     '/docs/$': {
       id: '/docs/$'
@@ -1124,11 +1143,13 @@ const MarketingRouteWithChildren = MarketingRoute._addFileChildren(
 
 interface DocsRouteChildren {
   DocsSplatRoute: typeof DocsSplatRoute
+  DocsLlmsDotmdRoute: typeof DocsLlmsDotmdRoute
   DocsIndexRoute: typeof DocsIndexRoute
 }
 
 const DocsRouteChildren: DocsRouteChildren = {
   DocsSplatRoute: DocsSplatRoute,
+  DocsLlmsDotmdRoute: DocsLlmsDotmdRoute,
   DocsIndexRoute: DocsIndexRoute,
 }
 

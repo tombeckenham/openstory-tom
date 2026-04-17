@@ -15,9 +15,51 @@ import {
   getMimeTypeFromExtension,
 } from '@/lib/utils/file';
 import { WorkflowValidationError } from '@/lib/workflow/errors';
+import { buildWorkflowLabel } from '@/lib/workflow/labels';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
-import type { MergeVideoWorkflowInput } from '@/lib/workflow/types';
+import type { ScopedDb } from '@/lib/db/scoped';
+import type {
+  MergeAudioVideoWorkflowInput,
+  MergeVideoWorkflowInput,
+} from '@/lib/workflow/types';
+import type { WorkflowContext } from '@upstash/workflow';
+import { mergeAudioVideoWorkflow } from './merge-audio-video-workflow';
+
+/**
+ * Chain to merge-audio-video if the sequence has a ready music track.
+ * This keeps the UI "Merge with Video" CTA honest — it restitches frames
+ * and also muxes the existing music onto the fresh output.
+ */
+async function chainAudioMux(
+  context: WorkflowContext<MergeVideoWorkflowInput>,
+  scopedDb: ScopedDb,
+  input: MergeVideoWorkflowInput & { sequenceId: string },
+  mergedVideoUrl: string
+): Promise<void> {
+  const musicUrl = await context.run('fetch-music-for-mux', async () => {
+    const status = await scopedDb.sequence(input.sequenceId).getMusicStatus();
+    return status?.musicStatus === 'completed'
+      ? (status.musicUrl ?? null)
+      : null;
+  });
+
+  if (!musicUrl) {
+    return;
+  }
+
+  await context.invoke('merge-audio-video', {
+    workflow: mergeAudioVideoWorkflow,
+    label: buildWorkflowLabel(input.sequenceId),
+    body: {
+      userId: input.userId,
+      teamId: input.teamId,
+      sequenceId: input.sequenceId,
+      mergedVideoUrl,
+      musicUrl,
+    } satisfies MergeAudioVideoWorkflowInput,
+  });
+}
 
 export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
   async (context, scopedDb) => {
@@ -31,6 +73,7 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
       throw new WorkflowValidationError('At least one video URL is required');
     }
 
+    const narrowedInput = { ...input, sequenceId: input.sequenceId };
     const seq = scopedDb.sequence(input.sequenceId);
 
     console.log(
@@ -56,6 +99,7 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
         );
       });
 
+      await chainAudioMux(context, scopedDb, narrowedInput, singleUrl);
       return { mergedVideoUrl: singleUrl, mergedVideoPath: null };
     }
 
@@ -136,6 +180,8 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
     console.log(
       `[MergeVideoWorkflow] Completed merge for sequence ${input.sequenceId}`
     );
+
+    await chainAudioMux(context, scopedDb, narrowedInput, storageResult.url);
 
     return {
       mergedVideoUrl: storageResult.url,

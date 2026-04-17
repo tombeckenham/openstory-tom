@@ -313,7 +313,6 @@ export const ScriptView: FC<{
     gateProps,
     hasFalKey,
     hasOpenRouterKey,
-    hasCredits,
     stripeEnabled,
   } = useBillingGate();
 
@@ -693,7 +692,6 @@ export const ScriptView: FC<{
         {...gateProps}
         hasFalKey={hasFalKey}
         hasOpenRouterKey={hasOpenRouterKey}
-        hasCredits={hasCredits}
         stripeEnabled={stripeEnabled}
       />
       <AlertDialog

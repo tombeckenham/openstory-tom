@@ -34,6 +34,10 @@ import { aspectRatioToImageSize } from '../constants/aspect-ratios';
 import { buildPreviewPrompt } from '../prompts/poster-prompt';
 import { triggerWorkflow } from '../workflow/client';
 import { buildWorkflowLabel } from '../workflow/labels';
+import {
+  isOpenRouterAuthError,
+  sanitizeFailResponse,
+} from '@/lib/workflow/sanitize-fail-response';
 
 export const sceneSplitWorkflow = createScopedWorkflow<
   SceneSplitWorkflowInput,
@@ -407,16 +411,28 @@ export const sceneSplitWorkflow = createScopedWorkflow<
     return { scenes, title, frameMapping, characterBible, locationBible };
   },
   {
-    failureFunction: async ({ context, failResponse }) => {
+    failureFunction: async ({ context, scopedDb, failResponse }) => {
       const { sequenceId } = context.requestPayload;
-      if (!sequenceId) return;
+      const error = sanitizeFailResponse(failResponse);
+      console.error('[SceneSplitWorkflow] Failure:', error);
 
-      console.error('[SceneSplitWorkflow] Failure:', failResponse);
-      await getGenerationChannel(sequenceId).emit('generation.error', {
-        message: 'Scene splitting failed',
-      });
+      let userMessage = 'Scene splitting failed';
+      if (
+        isOpenRouterAuthError(error) &&
+        (await scopedDb.apiKeys.hasKey('openrouter'))
+      ) {
+        await scopedDb.apiKeys.markKeyInvalid('openrouter', error);
+        userMessage =
+          'Your OpenRouter API key is invalid — update it in Settings.';
+      }
 
-      return `Scene split workflow failed: ${failResponse}`;
+      if (sequenceId) {
+        await getGenerationChannel(sequenceId).emit('generation.error', {
+          message: userMessage,
+        });
+      }
+
+      return `Scene split workflow failed: ${error}`;
     },
   }
 );

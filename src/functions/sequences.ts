@@ -34,6 +34,7 @@ import { createServerFn } from '@tanstack/react-start';
 import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 import { authWithTeamMiddleware, sequenceAccessMiddleware } from './middleware';
+import { copySequenceElements } from '@/lib/sequence-elements/copy-sequence-elements';
 import { promoteTempElements } from '@/lib/sequence-elements/promote-temp-elements';
 
 export const getSequencesFn = createServerFn({ method: 'GET' })
@@ -76,7 +77,16 @@ export const createSequenceFn = createServerFn({ method: 'POST' })
       suggestedTalentIds,
       suggestedLocationIds,
       elementUploads,
+      sourceSequenceId,
     } = data;
+
+    // Verify source sequence access (scoped read returns null for other teams)
+    if (sourceSequenceId) {
+      const source = await context.scopedDb.sequences.getById(sourceSequenceId);
+      if (!source) {
+        throw new Error('Source sequence not found');
+      }
+    }
 
     // Validate and resolve image models
     const validatedModels = imageModelsInput.map((m) =>
@@ -142,6 +152,20 @@ export const createSequenceFn = createServerFn({ method: 'POST' })
             userId: context.user.id,
             sequenceId: sequence.id,
             uploads: elementUploads,
+          });
+        }
+
+        // Carry forward elements from the source sequence when regenerating.
+        // The script detail tab always creates a new sequence on Generate, so
+        // without this the user's uploaded references (logos, products) would
+        // silently disappear from the new run.
+        if (sourceSequenceId) {
+          await copySequenceElements({
+            scopedDb: context.scopedDb,
+            teamId,
+            userId: context.user.id,
+            sourceSequenceId,
+            targetSequenceId: sequence.id,
           });
         }
 

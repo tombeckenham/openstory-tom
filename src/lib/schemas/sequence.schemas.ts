@@ -124,6 +124,9 @@ export const createSequenceSchema = createInsertSchema(sequences, {
         })
       )
       .optional(),
+    // When regenerating from an existing sequence, copy its elements onto the
+    // newly created sequence so the user doesn't have to re-upload references.
+    sourceSequenceId: ulidSchemaOptional,
   });
 
 export const updateSequenceSchema = createUpdateSchema(sequences, {

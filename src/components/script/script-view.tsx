@@ -413,6 +413,7 @@ export const ScriptView: FC<{
                 filename: el.filename,
               }))
             : undefined,
+        sourceSequenceId: isEditing ? sequence.id : undefined,
       },
       {
         onSuccess: (result) => {

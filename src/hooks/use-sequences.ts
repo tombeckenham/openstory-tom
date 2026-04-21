@@ -86,6 +86,7 @@ export function useCreateSequence() {
           suggestedTalentIds: input.suggestedTalentIds,
           suggestedLocationIds: input.suggestedLocationIds,
           elementUploads: input.elementUploads,
+          sourceSequenceId: input.sourceSequenceId,
         },
       });
 

@@ -207,7 +207,7 @@ export async function* callLLMStream(
     metadata: buildChatMetadata(params),
     modelOptions: {
       ...buildModelOptions(params),
-      streamOptions: { include_usage: true },
+      streamOptions: { includeUsage: true },
     },
     stream: true,
   });
@@ -218,7 +218,7 @@ export async function* callLLMStream(
       yield { delta: event.delta, accumulated, done: false };
     }
     if (event.type === 'RUN_ERROR') {
-      throw new Error(`LLM stream error: ${event.error.message}`);
+      throw new Error(`LLM stream error: ${event.message}`);
     }
   }
 

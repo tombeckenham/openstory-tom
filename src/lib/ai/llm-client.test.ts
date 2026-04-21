@@ -94,7 +94,7 @@ describe('llm-client', () => {
           yield { type: 'TEXT_MESSAGE_CONTENT', delta: 'partial' };
           yield {
             type: 'RUN_ERROR',
-            error: { message: 'Connection lost' },
+            message: 'Connection lost',
           };
         })()
       );

@@ -4,9 +4,15 @@ import {
   type AspectRatio,
 } from '@/lib/constants/aspect-ratios';
 import { cn } from '@/lib/utils';
+import type { Media, Video as VideoMedia } from '@videojs/core';
 import { createPlayer, Poster, useMedia } from '@videojs/react';
 import { Video, VideoSkin, videoFeatures } from '@videojs/react/video';
 import { useEffect, useRef } from 'react';
+
+// useMedia() returns the base Media capability set; the <Video> component
+// renders an instance with the full Video capability set (seek/source/etc.).
+const isVideoMedia = (media: Media): media is VideoMedia =>
+  'duration' in media && 'currentTime' in media;
 
 const Player = createPlayer({ features: videoFeatures });
 
@@ -45,7 +51,7 @@ const VideoPlayerInner: React.FC<
   callbacksRef.current = { onLoadedMetadata, onTimeUpdate, onPause, onEnded };
 
   useEffect(() => {
-    if (!media) return;
+    if (!media || !isVideoMedia(media)) return;
     const el = media;
 
     const handleLoadedMetadata = () => {

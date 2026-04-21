@@ -30,7 +30,7 @@ export function useAdminAllSequencesWithFrames(enabled: boolean) {
     isFetchingNextPage,
   } = useInfiniteQuery({
     queryKey: adminSupportKeys.sequences(),
-    queryFn: ({ pageParam = 0 }) =>
+    queryFn: ({ pageParam }) =>
       getAllAdminSequencesFn({
         data: {
           limit: PAGE_SIZE,

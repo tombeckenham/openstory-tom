@@ -42,8 +42,11 @@ const inputAccumulator = new Map<
     messages: Array<{ role: string; content: string }>;
   }
 >();
+let initialized = false;
 
 export function initAIEventBridge(): void {
+  if (initialized) return;
+  initialized = true;
   aiEventClient.on(
     'text:request:started',
     (event) => {

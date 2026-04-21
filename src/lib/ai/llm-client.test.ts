@@ -88,6 +88,34 @@ describe('llm-client', () => {
       expect(chunks).toEqual(['A', 'B']);
     });
 
+    it('forwards userId and sessionId to chat metadata', async () => {
+      mockChat.mockReturnValue(
+        (async function* () {
+          yield { type: 'TEXT_MESSAGE_CONTENT', delta: 'ok' };
+        })()
+      );
+
+      const generator = callLLMStream({
+        model: 'anthropic/claude-sonnet-4.6',
+        messages: [{ role: 'user', content: 'test' }],
+        userId: 'user-123',
+        sessionId: 'seq-456',
+        observationName: 'unit-test',
+      });
+
+      for await (const _chunk of generator) {
+        // drain
+      }
+
+      expect(mockChat).toHaveBeenCalledTimes(1);
+      const callArgs = mockChat.mock.calls[0][0];
+      expect(callArgs.metadata).toMatchObject({
+        userId: 'user-123',
+        sessionId: 'seq-456',
+        observationName: 'unit-test',
+      });
+    });
+
     it('handles stream errors', async () => {
       mockChat.mockReturnValue(
         (async function* () {

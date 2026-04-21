@@ -11,8 +11,17 @@ import {
   context,
   trace,
 } from '@opentelemetry/api';
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 const tracer = trace.getTracer('openstory');
+
+type TraceStore = { userId?: string; sessionId?: string; tags?: string[] };
+
+const traceStore = new AsyncLocalStorage<TraceStore>();
+
+function currentTraceStore(): TraceStore | undefined {
+  return traceStore.getStore();
+}
 
 type GenAISpanAttrs = {
   model: string;
@@ -38,6 +47,9 @@ type GenAISpanAttrs = {
 export function startGenAISpan(name: string, attrs: GenAISpanAttrs): Span {
   const operation = attrs.operation ?? 'generate_content';
   const spanName = `${operation} ${attrs.model}`;
+  const store = currentTraceStore();
+  const userId = attrs.userId ?? store?.userId;
+  const sessionId = attrs.sessionId ?? store?.sessionId;
 
   const span = tracer.startSpan(
     spanName,
@@ -51,8 +63,8 @@ export function startGenAISpan(name: string, attrs: GenAISpanAttrs): Span {
           ? { 'gen_ai.input.messages': JSON.stringify(attrs.input) }
           : {}),
         // Langfuse-specific attributes for session/user/prompt linking
-        ...(attrs.sessionId && { 'langfuse.session.id': attrs.sessionId }),
-        ...(attrs.userId && { 'langfuse.user.id': attrs.userId }),
+        ...(sessionId && { 'langfuse.session.id': sessionId }),
+        ...(userId && { 'langfuse.user.id': userId }),
         ...(attrs.prompt && {
           'langfuse.observation.prompt.name': attrs.prompt.name,
           'langfuse.observation.prompt.version': attrs.prompt.version,
@@ -130,6 +142,34 @@ export function withTraceContext<T>(
   const ctx = trace.setSpan(context.active(), rootSpan);
   try {
     return context.with(ctx, fn);
+  } finally {
+    rootSpan.end();
+  }
+}
+
+/**
+ * Async variant of {@link withTraceContext}: keeps the root span open until
+ * the promise returned by `fn` settles. Records errors on the root span.
+ */
+export async function withTraceContextAsync<T>(
+  attrs: { sessionId?: string; userId?: string; tags?: string[] },
+  fn: () => Promise<T>
+): Promise<T> {
+  const rootSpan = tracer.startSpan('trace-context', {
+    attributes: {
+      ...(attrs.sessionId && { 'langfuse.session.id': attrs.sessionId }),
+      ...(attrs.userId && { 'langfuse.user.id': attrs.userId }),
+      ...(attrs.tags && { 'langfuse.trace.tags': attrs.tags }),
+    },
+  });
+
+  const ctx = trace.setSpan(context.active(), rootSpan);
+  try {
+    return await traceStore.run(attrs, () => context.with(ctx, fn));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    rootSpan.setStatus({ code: SpanStatusCode.ERROR, message });
+    throw error;
   } finally {
     rootSpan.end();
   }

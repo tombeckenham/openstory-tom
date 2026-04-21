@@ -22,7 +22,10 @@ import {
   type ScopedDb,
 } from '@/lib/db/scoped';
 import { NotFoundError, OpenStoryError } from '@/lib/errors';
+import '@/lib/observability/init';
+import { flushTracing } from '@/lib/observability/langfuse';
 import { emitLog } from '@/lib/observability/structured-log';
+import { withTraceContextAsync } from '@/lib/observability/tracer';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
 import type { Frame, Sequence } from '@/types/database';
 import { createMiddleware } from '@tanstack/react-start';
@@ -319,11 +322,34 @@ export const authMiddleware = createMiddleware({ type: 'function' })
   });
 
 /**
+ * Tracing middleware — wraps the request in an OTel trace-context with the
+ * authenticated user's id and flushes tracing after the handler returns so
+ * spans ship before serverless isolates suspend.
+ */
+export const tracingMiddleware = createMiddleware({ type: 'function' })
+  .middleware([authMiddleware])
+  .server(async ({ next, context, serverFnMeta }) => {
+    return withTraceContextAsync(
+      {
+        userId: context.user.id,
+        tags: [`fn:${serverFnMeta.name}`],
+      },
+      async () => {
+        try {
+          return await next();
+        } finally {
+          await flushTracing();
+        }
+      }
+    );
+  });
+
+/**
  * Auth with default team context
  * Automatically resolves user's default team
  */
 export const authWithTeamMiddleware = createMiddleware({ type: 'function' })
-  .middleware([authMiddleware])
+  .middleware([tracingMiddleware])
   .server(async ({ next, context }) => {
     const team = await resolveUserTeam(context.user.id);
 

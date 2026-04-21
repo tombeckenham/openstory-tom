@@ -19,6 +19,7 @@ import type { SpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { endSpanSuccess, startGenAISpan, withTraceContext } from './tracer';
 
 const processors: SpanProcessor[] = [];
+let initialized = false;
 
 /** Whether Langfuse is enabled — derived from both keys being set. */
 export function isLangfuseEnabled(): boolean {
@@ -38,6 +39,8 @@ export function isLangfusePromptsEnabled(): boolean {
  * Silently skips if no exporters are configured.
  */
 export function initTracing(): void {
+  if (initialized) return;
+  initialized = true;
   const env = getEnv();
 
   // Langfuse exporter

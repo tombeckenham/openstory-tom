@@ -50,6 +50,10 @@ export type LLMRequestParams = {
   tags?: string[];
   /** Additional metadata for Langfuse */
   metadata?: Record<string, unknown>;
+  /** User id for Langfuse/PostHog user attribution */
+  userId?: string;
+  /** Session id for Langfuse trace grouping (typically sequenceId) */
+  sessionId?: string;
   responseSchema?: z.ZodTypeAny;
   apiKey?: string;
   /** OpenRouter plugins (e.g. web search) to enable for this request */
@@ -167,6 +171,8 @@ function buildChatMetadata(params: LLMRequestParams) {
     prompt: params.prompt,
     tags: params.tags,
     metadata: params.metadata,
+    userId: params.userId,
+    sessionId: params.sessionId,
   };
 }
 

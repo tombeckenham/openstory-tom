@@ -126,6 +126,8 @@ export const shortenPromptFn = createServerFn({ method: 'POST' })
       ],
       max_tokens: 500,
       temperature: 0.3,
+      observationName: 'shortenPrompt',
+      userId: context.user.id,
     });
 
     await deduct?.();
@@ -201,6 +203,8 @@ export const enhanceScriptStreamFn = createServerFn({ method: 'POST' })
       max_tokens: 4000,
       temperature: 0.7,
       plugins: [{ id: 'web' }],
+      observationName: 'enhanceScript',
+      userId: context.user.id,
     })) {
       if (chunk.delta) {
         yield { delta: chunk.delta };

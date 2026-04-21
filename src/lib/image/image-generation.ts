@@ -55,6 +55,10 @@ export type ImageGenerationOptions = {
     logs?: string[];
     progress?: number;
   }) => void;
+  /** User id for span attribution (Langfuse user.id, PostHog distinct_id) */
+  userId?: string;
+  /** Session id for Langfuse trace grouping (typically sequenceId) */
+  sessionId?: string;
 };
 
 export type ImageGenerationResult = {
@@ -114,6 +118,8 @@ export async function generateImageWithProvider(
     model: params.model,
     provider: 'fal',
     operation: 'generate_content',
+    userId: options?.userId,
+    sessionId: options?.sessionId,
     input: {
       prompt: params.prompt,
       imageSize: params.imageSize,

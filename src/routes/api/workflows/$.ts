@@ -3,9 +3,9 @@
  * Serves all QStash workflows for async AI task processing
  */
 
-import { initAIEventBridge } from '@/lib/observability/ai-event-bridge';
+import '@/lib/observability/init';
 import { withApiLogging } from '@/lib/observability/api-logger';
-import { flushTracing, initTracing } from '@/lib/observability/langfuse';
+import { flushTracing } from '@/lib/observability/langfuse';
 import {
   initMemoryProfiler,
   recordMemorySample,
@@ -46,9 +46,6 @@ import { serveMany } from '@upstash/workflow/tanstack';
 let _handler: ReturnType<typeof serveMany> | null = null;
 function getHandler() {
   if (!_handler) {
-    // Initialize Langfuse tracing and AI event bridge at load
-    initTracing();
-    initAIEventBridge();
     initMemoryProfiler();
 
     _handler = serveMany(

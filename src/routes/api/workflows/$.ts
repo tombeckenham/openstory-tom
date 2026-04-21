@@ -4,7 +4,6 @@
  */
 
 import { withApiLogging } from '@/lib/observability/api-logger';
-import { ensureObservability } from '@/lib/observability/init';
 import { flushTracing } from '@/lib/observability/langfuse';
 import {
   initMemoryProfiler,
@@ -92,7 +91,6 @@ export const Route = createFileRoute('/api/workflows/$')({
   server: {
     handlers: {
       POST: withApiLogging('workflows', async ({ request }) => {
-        ensureObservability();
         const workflowName =
           new URL(request.url).pathname.split('/api/workflows/')[1] ??
           'unknown';

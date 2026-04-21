@@ -22,7 +22,6 @@ import {
   type ScopedDb,
 } from '@/lib/db/scoped';
 import { NotFoundError, OpenStoryError } from '@/lib/errors';
-import { ensureObservability } from '@/lib/observability/init';
 import { flushTracing } from '@/lib/observability/langfuse';
 import { emitLog } from '@/lib/observability/structured-log';
 import { withTraceContextAsync } from '@/lib/observability/tracer';
@@ -329,7 +328,6 @@ export const authMiddleware = createMiddleware({ type: 'function' })
 export const tracingMiddleware = createMiddleware({ type: 'function' })
   .middleware([authMiddleware])
   .server(async ({ next, context, serverFnMeta }) => {
-    ensureObservability();
     return withTraceContextAsync(
       {
         userId: context.user.id,

@@ -25,7 +25,6 @@ import {
   regenerateFrameSchema,
 } from '@/lib/schemas/frame.schemas';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
-import { matchElementsToScene } from '@/lib/workflows/scene-matching';
 import { triggerWorkflow } from '@/lib/workflow/client';
 import { buildWorkflowLabel } from '@/lib/workflow/labels';
 import type {
@@ -34,6 +33,7 @@ import type {
   UpscaleVariantWorkflowInput,
   VariantWorkflowInput,
 } from '@/lib/workflow/types';
+import { matchElementsToScene } from '@/lib/workflows/scene-matching';
 import { createServerFn } from '@tanstack/react-start';
 import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
@@ -183,7 +183,7 @@ export const generateFrameImageFn = createServerFn({ method: 'POST' })
       matchElementsToScene(
         allElements,
         frame.metadata?.continuity?.elementTags ?? [],
-        frame.metadata?.originalScript?.extract ?? ''
+        frame.metadata?.originalScript.extract ?? ''
       )
     );
 

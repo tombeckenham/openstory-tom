@@ -8,13 +8,6 @@ import { LocationSuggestionSelector } from '@/components/location-library/locati
 import { GenerationSettings } from '@/components/settings/generation-settings';
 import { StyleSelector } from '@/components/style/style-selector';
 import { TalentSuggestionSelector } from '@/components/talent/talent-suggestion-selector';
-import type { DraftElementUpload } from '@/hooks/use-sequence-elements';
-import {
-  dataTransferHasImages,
-  extractImagesFromSnapshot,
-  snapshotDataTransfer,
-  toastDragImportCorsError,
-} from '@/lib/utils/drag-images';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,6 +37,7 @@ import { useAutoScroll } from '@/hooks/use-auto-scroll';
 import { useBillingGate } from '@/hooks/use-billing-gate';
 import { useGenerationSettings } from '@/hooks/use-generation-settings';
 import { useSequenceDraft } from '@/hooks/use-sequence-draft';
+import type { DraftElementUpload } from '@/hooks/use-sequence-elements';
 import { useCreateSequence } from '@/hooks/use-sequences';
 import { useStyles } from '@/hooks/use-styles';
 import {
@@ -65,6 +59,12 @@ import {
 } from '@/lib/ai/models.config';
 import type { AspectRatio } from '@/lib/constants/aspect-ratios';
 import { cn } from '@/lib/utils';
+import {
+  dataTransferHasImages,
+  extractImagesFromSnapshot,
+  snapshotDataTransfer,
+  toastDragImportCorsError,
+} from '@/lib/utils/drag-images';
 import type { Sequence } from '@/types/database';
 import { usePostHog } from '@posthog/react';
 import { ImagePlus, Loader2, Sparkles, Square, Undo2 } from 'lucide-react';
@@ -181,10 +181,10 @@ export const ScriptView: FC<{
   const dragCounterRef = useRef(0);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
 
-  const allowElementDrop = !loading && (!isEditing || !!sequence?.id);
+  const allowElementDrop = !loading && (!isEditing || !!sequence);
 
   const hasDraggedImages = (e: React.DragEvent<HTMLElement>) =>
-    !!e.dataTransfer && dataTransferHasImages(e.dataTransfer);
+    dataTransferHasImages(e.dataTransfer);
 
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
     if (!allowElementDrop || !hasDraggedImages(e)) return;

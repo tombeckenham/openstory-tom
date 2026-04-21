@@ -88,7 +88,7 @@ export const frameImagesWorkflow = createScopedWorkflow<
               matchElementsToScene(
                 elements,
                 scene.continuity?.elementTags || [],
-                scene.originalScript?.extract || ''
+                scene.originalScript.extract || ''
               ),
             ])
           ),

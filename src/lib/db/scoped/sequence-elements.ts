@@ -3,7 +3,7 @@
  * Element CRUD for per-sequence uploaded reference images.
  */
 
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, like, or, sql } from 'drizzle-orm';
 import type { Database } from '@/lib/db/client';
 import type {
   ElementVisionStatus,
@@ -31,6 +31,22 @@ export function createSequenceElementsMethods(db: Database) {
     return element;
   };
 
+  const getByToken = async (
+    sequenceId: string,
+    token: string
+  ): Promise<SequenceElement | null> => {
+    const result = await db
+      .select()
+      .from(sequenceElements)
+      .where(
+        and(
+          eq(sequenceElements.sequenceId, sequenceId),
+          eq(sequenceElements.token, token)
+        )
+      );
+    return result[0] ?? null;
+  };
+
   return {
     getById: async (id: string): Promise<SequenceElement | null> => {
       const result = await db
@@ -40,20 +56,35 @@ export function createSequenceElementsMethods(db: Database) {
       return result[0] ?? null;
     },
 
-    getByToken: async (
+    getByToken,
+
+    ensureUniqueToken: async (
       sequenceId: string,
       token: string
-    ): Promise<SequenceElement | null> => {
-      const result = await db
-        .select()
+    ): Promise<string> => {
+      // Escape LIKE wildcards (%, _, \) so `foo_bar` doesn't match `foo1bar`.
+      const escaped = token.replace(/[\\%_]/g, (c) => `\\${c}`);
+      const rows = await db
+        .select({ token: sequenceElements.token })
         .from(sequenceElements)
         .where(
           and(
             eq(sequenceElements.sequenceId, sequenceId),
-            eq(sequenceElements.token, token)
+            or(
+              eq(sequenceElements.token, token),
+              like(sequenceElements.token, sql`${`${escaped}\\_%`} ESCAPE '\\'`)
+            )
           )
         );
-      return result[0] ?? null;
+
+      const taken = new Set(rows.map((r) => r.token));
+      if (!taken.has(token)) return token;
+
+      for (let suffix = 2; suffix <= 100; suffix += 1) {
+        const candidate = `${token}_${suffix}`;
+        if (!taken.has(candidate)) return candidate;
+      }
+      throw new Error('Unable to generate unique element token');
     },
 
     list: async (sequenceId: string): Promise<SequenceElement[]> => {

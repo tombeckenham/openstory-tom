@@ -16,34 +16,6 @@ import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 import { authWithTeamMiddleware, sequenceAccessMiddleware } from './middleware';
 
-/**
- * Ensure a token is unique within a sequence. Appends `_2`, `_3` if taken.
- */
-async function ensureUniqueToken(
-  scopedDb: {
-    sequenceElements: {
-      getByToken: (
-        sequenceId: string,
-        token: string
-      ) => Promise<unknown | null>;
-    };
-  },
-  sequenceId: string,
-  token: string
-): Promise<string> {
-  let candidate = token;
-  let suffix = 2;
-  while (
-    (await scopedDb.sequenceElements.getByToken(sequenceId, candidate)) !== null
-  ) {
-    candidate = `${token}_${suffix}`;
-    suffix += 1;
-    if (suffix > 100)
-      throw new Error('Unable to generate unique element token');
-  }
-  return candidate;
-}
-
 async function triggerElementVision(
   elementId: string,
   sequenceId: string,
@@ -117,8 +89,7 @@ export const finalizeElementUploadFn = createServerFn({ method: 'POST' })
     }
 
     const rawToken = deriveTokenFromFilename(data.filename);
-    const token = await ensureUniqueToken(
-      context.scopedDb,
+    const token = await context.scopedDb.sequenceElements.ensureUniqueToken(
       data.sequenceId,
       rawToken
     );
@@ -195,8 +166,7 @@ export const renameSequenceElementTokenFn = createServerFn({ method: 'POST' })
     }
 
     const cleaned = deriveTokenFromFilename(data.token);
-    const unique = await ensureUniqueToken(
-      context.scopedDb,
+    const unique = await context.scopedDb.sequenceElements.ensureUniqueToken(
       context.sequence.id,
       cleaned
     );

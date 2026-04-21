@@ -50,6 +50,7 @@ function parseHtmlImageSources(raw: string): string[] {
   const srcRegex = /<img[^>]+src=(?:"([^"]+)"|'([^']+)'|([^\s>]+))/gi;
   let match: RegExpExecArray | null = srcRegex.exec(raw);
   while (match !== null) {
+    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- match length could be < 2
     const src = match[1] ?? match[2] ?? match[3];
     if (src) urls.push(src);
     match = srcRegex.exec(raw);

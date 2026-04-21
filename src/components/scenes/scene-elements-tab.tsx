@@ -93,7 +93,7 @@ export const SceneElementsTab: React.FC<SceneElementsTabProps> = ({
                 alt={el.token}
                 className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-105"
               />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-3">
+              <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 via-black/20 to-transparent p-3">
                 <span className="font-mono text-xs font-semibold tracking-wider text-white">
                   {el.token}
                 </span>

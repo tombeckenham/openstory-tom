@@ -18,24 +18,6 @@ const tempUploadSchema = z.object({
 
 export type TempElementUpload = z.infer<typeof tempUploadSchema>;
 
-async function ensureUniqueToken(
-  scopedDb: ScopedDb,
-  sequenceId: string,
-  token: string
-): Promise<string> {
-  let candidate = token;
-  let suffix = 2;
-  while (
-    (await scopedDb.sequenceElements.getByToken(sequenceId, candidate)) !== null
-  ) {
-    candidate = `${token}_${suffix}`;
-    suffix += 1;
-    if (suffix > 100)
-      throw new Error('Unable to generate unique element token');
-  }
-  return candidate;
-}
-
 async function triggerElementVision(
   elementId: string,
   sequenceId: string,
@@ -105,7 +87,10 @@ export async function promoteTempElements(params: {
         : getPublicUrl(STORAGE_BUCKETS.ELEMENTS, permanentRelative);
 
     const rawToken = deriveTokenFromFilename(upload.filename);
-    const token = await ensureUniqueToken(scopedDb, sequenceId, rawToken);
+    const token = await scopedDb.sequenceElements.ensureUniqueToken(
+      sequenceId,
+      rawToken
+    );
 
     const element = await scopedDb.sequenceElements.create({
       id: newId,

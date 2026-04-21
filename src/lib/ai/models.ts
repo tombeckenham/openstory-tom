@@ -117,6 +117,15 @@ export const IMAGE_MODELS = {
     description: 'Enhanced realism and typography',
     maxPromptLength: 50000,
   },
+  gpt_image_2: {
+    id: 'openai/gpt-image-2' as const,
+    name: 'GPT Image 2',
+    provider: 'OpenAI',
+    license: 'proprietary' as const,
+    qualityRank: 2,
+    description: 'Near-perfect text rendering, UI fidelity, up to 4K',
+    maxPromptLength: 32000,
+  },
   grok_imagine_image: {
     id: 'xai/grok-imagine-image' as const,
     name: 'Grok Imagine Image',
@@ -578,6 +587,7 @@ export function safeAudioModel(
 export const EDIT_ENDPOINTS: Partial<Record<TextToImageModel, string>> = {
   nano_banana_2: 'fal-ai/nano-banana-2/edit',
   nano_banana_pro: 'fal-ai/nano-banana-pro/edit',
+  gpt_image_2: 'openai/gpt-image-2/edit',
   grok_imagine_image: 'xai/grok-imagine-image/edit',
   flux_2_max: 'fal-ai/flux-2-max/edit',
   phota: 'fal-ai/phota/edit',

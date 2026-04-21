@@ -8,9 +8,12 @@
  *     populate files). We fetch the URL client-side and wrap the blob as a
  *     File so the rest of the upload flow is unchanged.
  *
- * CORS-protected URLs will fail silently — nothing we can do client-side
- * without a server proxy.
+ * CORS-protected URLs cannot be fetched client-side (no server proxy), so
+ * those URLs are reported in `failedUrls` — callers should surface a message
+ * when every dragged URL fails so the user knows why nothing was imported.
  */
+
+import { toast } from 'sonner';
 
 const FILENAME_FALLBACK = 'image';
 
@@ -57,12 +60,25 @@ function parseHtmlImageSources(raw: string): string[] {
 async function fetchAsImageFile(url: string): Promise<File | null> {
   try {
     const response = await fetch(url, { mode: 'cors', credentials: 'omit' });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.warn('[drag-images] fetch returned non-ok status', {
+        url,
+        status: response.status,
+      });
+      return null;
+    }
     const blob = await response.blob();
-    if (!blob.type.startsWith('image/')) return null;
+    if (!blob.type.startsWith('image/')) {
+      console.warn('[drag-images] fetched resource is not an image', {
+        url,
+        type: blob.type,
+      });
+      return null;
+    }
     const name = filenameFromUrl(url, blob.type);
     return new File([blob], name, { type: blob.type });
-  } catch {
+  } catch (err) {
+    console.warn('[drag-images] fetch failed (likely CORS)', { url, err });
     return null;
   }
 }
@@ -100,10 +116,17 @@ export function snapshotDataTransfer(
   };
 }
 
+export type ExtractImagesResult = {
+  files: File[];
+  failedUrls: string[];
+};
+
 export async function extractImagesFromSnapshot(
   snapshot: DragImageSnapshot
-): Promise<File[]> {
-  if (snapshot.files.length > 0) return snapshot.files;
+): Promise<ExtractImagesResult> {
+  if (snapshot.files.length > 0) {
+    return { files: snapshot.files, failedUrls: [] };
+  }
 
   const urls = new Set<string>();
   for (const url of parseUriList(snapshot.uriList)) urls.add(url);
@@ -113,10 +136,27 @@ export async function extractImagesFromSnapshot(
     if (/^(https?:|data:image\/|blob:)/i.test(plain)) urls.add(plain);
   }
 
-  if (urls.size === 0) return [];
+  if (urls.size === 0) return { files: [], failedUrls: [] };
 
+  const urlList = Array.from(urls);
   const results = await Promise.all(
-    Array.from(urls).map((url) => fetchAsImageFile(url))
+    urlList.map((url) => fetchAsImageFile(url))
   );
-  return results.filter((f): f is File => f !== null);
+  const files: File[] = [];
+  const failedUrls: string[] = [];
+  results.forEach((result, index) => {
+    if (result) {
+      files.push(result);
+    } else {
+      failedUrls.push(urlList[index]);
+    }
+  });
+  return { files, failedUrls };
+}
+
+export function toastDragImportCorsError() {
+  toast.error("Couldn't import dragged image", {
+    description:
+      'The source blocked cross-site access (CORS). Save it locally and drag from Finder.',
+  });
 }

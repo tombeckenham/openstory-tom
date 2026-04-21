@@ -27,6 +27,12 @@ type ApiKeyInfo = {
   createdAt: Date;
 };
 
+// `fallbackReason` is set when a team key existed but was skipped (invalid
+// or undecryptable); callers use it to surface the BYOK fallback.
+export type ResolvedApiKey =
+  | { key: string; source: 'team' }
+  | { key: string; source: 'platform'; fallbackReason?: string };
+
 export function createApiKeysReadMethods(db: Database, teamId: string) {
   async function listKeys(): Promise<ApiKeyInfo[]> {
     const rows = await db
@@ -81,15 +87,24 @@ export function createApiKeysReadMethods(db: Database, teamId: string) {
     return !!row;
   }
 
-  async function resolveKey(
-    provider: ApiKeyProvider
-  ): Promise<{ key: string; source: 'team' | 'platform' }> {
+  async function resolveKey(provider: ApiKeyProvider): Promise<ResolvedApiKey> {
+    const platformFallback = (fallbackReason?: string): ResolvedApiKey => {
+      const env = getEnv();
+      const platformKey =
+        provider === 'openrouter' ? env.OPENROUTER_KEY : env.FAL_KEY;
+      if (!platformKey) {
+        throw new Error(`No API key available for provider: ${provider}`);
+      }
+      return { key: platformKey, source: 'platform', fallbackReason };
+    };
+
     const [row] = await db
       .select({
         encryptedKey: teamApiKeys.encryptedKey,
         keyIv: teamApiKeys.keyIv,
         keyTag: teamApiKeys.keyTag,
         isInvalid: teamApiKeys.isInvalid,
+        invalidReason: teamApiKeys.invalidReason,
       })
       .from(teamApiKeys)
       .where(
@@ -101,50 +116,54 @@ export function createApiKeysReadMethods(db: Database, teamId: string) {
       )
       .limit(1);
 
-    // Skip team key if previously marked invalid — fall back to platform
-    // so generations keep working while the user fixes the key.
-    if (row && !row.isInvalid) {
-      try {
-        const decrypted = await decryptApiKey({
-          encryptedKey: row.encryptedKey,
-          keyIv: row.keyIv,
-          keyTag: row.keyTag,
-        });
-        return { key: decrypted, source: 'team' };
-      } catch (err) {
-        // Decryption failed — encryption secret rotated or ciphertext corrupt.
-        // Mark the row invalid inline so the banner surfaces and subsequent
-        // calls skip straight to the platform key.
-        const reason =
-          err instanceof Error
-            ? `Could not decrypt stored key: ${err.message}`
-            : 'Could not decrypt stored key';
-        await db
-          .update(teamApiKeys)
-          .set({
-            isInvalid: true,
-            invalidReason: reason,
-            lastValidatedAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(teamApiKeys.teamId, teamId),
-              eq(teamApiKeys.provider, provider)
-            )
-          );
-      }
+    if (!row) return platformFallback();
+
+    if (row.isInvalid) {
+      const reason = row.invalidReason ?? 'Team API key marked invalid';
+      console.warn('[api-keys] Falling back to platform key', {
+        provider,
+        teamId,
+        reason,
+      });
+      return platformFallback(reason);
     }
 
-    const env = getEnv();
-    const platformKey =
-      provider === 'openrouter' ? env.OPENROUTER_KEY : env.FAL_KEY;
-
-    if (!platformKey) {
-      throw new Error(`No API key available for provider: ${provider}`);
+    try {
+      const decrypted = await decryptApiKey({
+        encryptedKey: row.encryptedKey,
+        keyIv: row.keyIv,
+        keyTag: row.keyTag,
+      });
+      return { key: decrypted, source: 'team' };
+    } catch (err) {
+      // Mark the row invalid inline so the invalid-key banner surfaces and
+      // subsequent calls skip straight to the platform key without retrying
+      // decryption (covers secret rotation and corrupt ciphertext).
+      const reason =
+        err instanceof Error
+          ? `Could not decrypt stored key: ${err.message}`
+          : 'Could not decrypt stored key';
+      console.error('[api-keys] Decryption failed, marking key invalid', {
+        provider,
+        teamId,
+        error: err,
+      });
+      await db
+        .update(teamApiKeys)
+        .set({
+          isInvalid: true,
+          invalidReason: reason,
+          lastValidatedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(teamApiKeys.teamId, teamId),
+            eq(teamApiKeys.provider, provider)
+          )
+        );
+      return platformFallback(reason);
     }
-
-    return { key: platformKey, source: 'platform' };
   }
 
   async function validateKey(

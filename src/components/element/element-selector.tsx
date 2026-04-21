@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 import {
   extractImagesFromSnapshot,
   snapshotDataTransfer,
+  toastDragImportCorsError,
 } from '@/lib/utils/drag-images';
 import { getFileKey } from '@/lib/utils/upload';
 import { ImagePlus, Loader2, Upload, X } from 'lucide-react';
@@ -41,6 +42,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { toast } from 'sonner';
 
 export type ElementSelectorHandle = {
   addFiles: (files: File[]) => void;
@@ -73,6 +75,7 @@ type LocalEntry = {
   previewUrl: string;
   status: 'uploading' | 'done' | 'error';
   uploaded?: DraftElementUpload;
+  errorMessage?: string;
 };
 
 type DisplayItem = {
@@ -84,7 +87,7 @@ type DisplayItem = {
 };
 
 export const ElementSelector: React.FC<ElementSelectorProps> = (props) => {
-  const { ref, disabled = false, sequenceId } = props;
+  const { ref, disabled = false, sequenceId, onDraftElementsChange } = props;
   const isPersisted = !!sequenceId;
 
   const [open, setOpen] = useState(false);
@@ -107,25 +110,15 @@ export const ElementSelector: React.FC<ElementSelectorProps> = (props) => {
     [entries]
   );
 
-  // Report drafts to parent (draft mode only)
-  useEffect(() => {
-    if (isPersisted) return;
-    props.onDraftElementsChange?.(uploaded);
-  }, [isPersisted, uploaded, props.onDraftElementsChange]);
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
 
   useEffect(() => {
-    return () => {
-      for (const entry of entries.values()) {
-        URL.revokeObjectURL(entry.previewUrl);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // In persisted mode, drop local entries once they appear as persisted
-  // elements (to avoid rendering duplicates).
-  useEffect(() => {
-    if (!isPersisted || persistedElements.length === 0) return;
+    if (!isPersisted) {
+      onDraftElementsChange?.(uploaded);
+      return;
+    }
+    if (persistedElements.length === 0) return;
     const persistedFilenames = new Set(
       persistedElements.map((el) => el.uploadedFilename)
     );
@@ -144,7 +137,15 @@ export const ElementSelector: React.FC<ElementSelectorProps> = (props) => {
       }
       return changed ? next : prev;
     });
-  }, [isPersisted, persistedElements]);
+  }, [isPersisted, uploaded, persistedElements, onDraftElementsChange]);
+
+  useEffect(() => {
+    return () => {
+      for (const entry of entriesRef.current.values()) {
+        URL.revokeObjectURL(entry.previewUrl);
+      }
+    };
+  }, []);
 
   const currentCount = isPersisted
     ? persistedElements.length + entries.size
@@ -205,12 +206,25 @@ export const ElementSelector: React.FC<ElementSelectorProps> = (props) => {
                 return next;
               });
             }
-          } catch {
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : 'Upload failed';
+            console.error('[ElementSelector] Upload failed', {
+              filename: file.name,
+              error: err,
+            });
+            toast.error(`Couldn't upload ${file.name}`, {
+              description: message,
+            });
             setEntries((prev) => {
               const current = prev.get(key);
               if (!current) return prev;
               const next = new Map(prev);
-              next.set(key, { ...current, status: 'error' });
+              next.set(key, {
+                ...current,
+                status: 'error',
+                errorMessage: message,
+              });
               return next;
             });
           }
@@ -269,8 +283,12 @@ export const ElementSelector: React.FC<ElementSelectorProps> = (props) => {
       event.preventDefault();
       setDragOver(false);
       const snapshot = snapshotDataTransfer(event.dataTransfer);
-      void extractImagesFromSnapshot(snapshot).then((files) => {
-        if (files.length > 0) void processFiles(files);
+      void extractImagesFromSnapshot(snapshot).then(({ files, failedUrls }) => {
+        if (files.length > 0) {
+          void processFiles(files);
+        } else if (failedUrls.length > 0) {
+          toastDragImportCorsError();
+        }
       });
     },
     [processFiles]
@@ -331,6 +349,7 @@ export const ElementSelector: React.FC<ElementSelectorProps> = (props) => {
         imageUrl: entry.previewUrl,
         token: entry.uploaded?.token,
         status: entry.status,
+        errorMessage: entry.errorMessage,
       },
     });
   }

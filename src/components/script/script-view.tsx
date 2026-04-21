@@ -13,6 +13,7 @@ import {
   dataTransferHasImages,
   extractImagesFromSnapshot,
   snapshotDataTransfer,
+  toastDragImportCorsError,
 } from '@/lib/utils/drag-images';
 import {
   AlertDialog,
@@ -213,10 +214,15 @@ export const ScriptView: FC<{
     dragCounterRef.current = 0;
     setIsDraggingFiles(false);
     const snapshot = snapshotDataTransfer(e.dataTransfer);
-    void extractImagesFromSnapshot(snapshot).then((files) => {
-      if (files.length === 0) return;
-      elementSelectorRef.current?.addFiles(files);
-      elementSelectorRef.current?.open();
+    void extractImagesFromSnapshot(snapshot).then(({ files, failedUrls }) => {
+      if (files.length > 0) {
+        elementSelectorRef.current?.addFiles(files);
+        elementSelectorRef.current?.open();
+        return;
+      }
+      if (failedUrls.length > 0) {
+        toastDragImportCorsError();
+      }
     });
   };
 

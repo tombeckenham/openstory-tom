@@ -51,7 +51,10 @@ export function startGenAISpan(name: string, attrs: GenAISpanAttrs): Span {
         ...(attrs.input !== undefined
           ? { 'gen_ai.input.messages': JSON.stringify(attrs.input) }
           : {}),
-        // Langfuse-specific attributes for session/user/prompt linking
+        // OTel semconv attributes — understood by Langfuse, Datadog, etc.
+        ...(userId && { 'user.id': userId }),
+        ...(sessionId && { 'session.id': sessionId }),
+        // Langfuse back-compat aliases (older ingestion paths still read these).
         ...(sessionId && { 'langfuse.session.id': sessionId }),
         ...(userId && { 'langfuse.user.id': userId }),
         ...(attrs.prompt && {
@@ -122,6 +125,8 @@ export function withTraceContext<T>(
 ): T {
   const rootSpan = tracer.startSpan('trace-context', {
     attributes: {
+      ...(attrs.userId && { 'user.id': attrs.userId }),
+      ...(attrs.sessionId && { 'session.id': attrs.sessionId }),
       ...(attrs.sessionId && { 'langfuse.session.id': attrs.sessionId }),
       ...(attrs.userId && { 'langfuse.user.id': attrs.userId }),
       ...(attrs.tags && { 'langfuse.trace.tags': attrs.tags }),
@@ -146,6 +151,8 @@ export async function withTraceContextAsync<T>(
 ): Promise<T> {
   const rootSpan = tracer.startSpan('trace-context', {
     attributes: {
+      ...(attrs.userId && { 'user.id': attrs.userId }),
+      ...(attrs.sessionId && { 'session.id': attrs.sessionId }),
       ...(attrs.sessionId && { 'langfuse.session.id': attrs.sessionId }),
       ...(attrs.userId && { 'langfuse.user.id': attrs.userId }),
       ...(attrs.tags && { 'langfuse.trace.tags': attrs.tags }),

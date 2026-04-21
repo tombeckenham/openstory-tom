@@ -1,21 +1,21 @@
 /**
  * Tracing initialization and workflow trace recording.
- * Uses standard OpenTelemetry with pluggable exporters:
- * - Langfuse (LangfuseSpanProcessor) — optional
- * - PostHog (PostHogTraceExporter) — optional
- * Any OTel-compatible backend can be added as another span processor.
+ *
+ * OTel is wired up with a {@link LangfuseSpanProcessor} for Langfuse.
+ * PostHog LLM analytics are NOT handled via OTel because PostHog's OTLP
+ * ingest reads `distinct_id` from Resource attributes only (provider-global,
+ * not per-request). Instead, {@link ai-event-bridge} captures
+ * `$ai_generation` events via the `posthog-node` SDK with the correct
+ * per-request `distinctId`.
  */
 
 import { getEnv } from '#env';
 import { LangfuseSpanProcessor } from '@langfuse/otel';
 import { trace } from '@opentelemetry/api';
-import {
-  BasicTracerProvider,
-  BatchSpanProcessor,
-} from '@opentelemetry/sdk-trace-base';
-import { PostHogTraceExporter } from '@posthog/ai/otel';
+import { BasicTracerProvider } from '@opentelemetry/sdk-trace-base';
 import type { SpanProcessor } from '@opentelemetry/sdk-trace-base';
 
+import { getPostHogClient } from '@/lib/posthog-server';
 import { endSpanSuccess, startGenAISpan, withTraceContext } from './tracer';
 
 const processors: SpanProcessor[] = [];
@@ -59,19 +59,6 @@ export function initTracing(): void {
     console.log('[Tracing] Langfuse exporter enabled');
   }
 
-  // PostHog exporter
-  const posthogToken = env.VITE_PUBLIC_POSTHOG_PROJECT_TOKEN;
-
-  if (posthogToken) {
-    const host = env.VITE_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
-    processors.push(
-      new BatchSpanProcessor(
-        new PostHogTraceExporter({ apiKey: posthogToken, host })
-      )
-    );
-    console.log('[Tracing] PostHog exporter enabled');
-  }
-
   if (processors.length === 0) {
     console.log('[Tracing] Disabled — no exporters configured');
     return;
@@ -88,11 +75,16 @@ export function initTracing(): void {
 }
 
 /**
- * Flush all pending traces to configured exporters.
+ * Flush all pending traces to configured exporters and the PostHog SDK.
  * Call at the end of request handling in serverless environments.
  */
 export async function flushTracing(): Promise<void> {
-  await Promise.all(processors.map((p) => p.forceFlush()));
+  const flushes: Array<Promise<unknown>> = processors.map((p) =>
+    p.forceFlush()
+  );
+  const posthog = getPostHogClient();
+  if (posthog) flushes.push(posthog.flush());
+  await Promise.all(flushes);
 }
 
 /**

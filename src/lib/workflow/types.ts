@@ -12,12 +12,14 @@ import type {
 import type { AnalysisModelId } from '@/lib/ai/models.config';
 import type {
   CharacterBibleEntry,
+  ElementBibleEntry,
   LocationBibleEntry,
   Scene,
 } from '@/lib/ai/scene-analysis.schema';
 import type { AspectRatio, ImageSize } from '@/lib/constants/aspect-ratios';
 import type {
   CharacterMinimal,
+  SequenceElementMinimal,
   SequenceLocationMinimal,
   StyleConfig,
 } from '@/lib/db/schema';
@@ -75,6 +77,8 @@ export interface VariantWorkflowInput extends SequenceWorkflowContext {
   characterReferences?: ReferenceImageDescription[];
   /** Location reference images for environment consistency */
   locationReferences?: ReferenceImageDescription[];
+  /** Element reference images (uploaded logos/products) for identity consistency */
+  elementReferences?: ReferenceImageDescription[];
 }
 
 export interface VariantWorkflowResult {
@@ -134,6 +138,8 @@ export type SceneSplitWorkflowInput = SequenceWorkflowContext & {
   styleConfig: StyleConfig;
   aspectRatio: AspectRatio;
   script: string;
+  /** User-uploaded elements to make the model aware of uppercase tokens */
+  elements?: SequenceElementMinimal[];
 };
 
 export type SceneSplitWorkflowResult = {
@@ -142,6 +148,7 @@ export type SceneSplitWorkflowResult = {
   frameMapping: Array<{ sceneId: string; frameId: string }>;
   characterBible: CharacterBibleEntry[];
   locationBible: LocationBibleEntry[];
+  elementBible: ElementBibleEntry[];
 };
 
 /**
@@ -250,15 +257,13 @@ export type TalentMatchResult = {
  * Talent matching workflow input
  */
 export interface TalentMatchingWorkflowInput extends SequenceWorkflowContext {
-  scenes: Scene[];
   analysisModelId: AnalysisModelId;
   suggestedTalentIds?: string[];
   /** Pre-extracted character bible from scene splitting. Skips extraction LLM call when provided. */
-  characterBible?: CharacterBibleEntry[];
+  characterBible: CharacterBibleEntry[];
 }
 
 export interface TalentMatchingWorkflowOutput {
-  characterBible: CharacterBibleEntry[];
   matches: TalentCharacterMatch[];
 }
 
@@ -286,6 +291,7 @@ export interface VisualPromptWorkflowInput extends SequenceWorkflowContext {
   aspectRatio: AspectRatio;
   characterBible: CharacterBibleEntry[];
   locationBible: LocationBibleEntry[];
+  elementBible?: ElementBibleEntry[];
   styleConfig: StyleConfig;
   analysisModelId: AnalysisModelId;
   /** Maps sceneId to frameId for DB persistence after visual prompt generation */
@@ -299,6 +305,7 @@ export interface VisualPromptSceneWorkflowInput extends SequenceWorkflowContext 
   aspectRatio: AspectRatio;
   characterBible: CharacterBibleEntry[];
   locationBible: LocationBibleEntry[];
+  elementBible?: ElementBibleEntry[];
   styleConfig: StyleConfig;
   analysisModelId: AnalysisModelId;
   frameId?: string;
@@ -507,15 +514,13 @@ export type LibraryLocationMatch = {
  * Location matching workflow input
  */
 export interface LocationMatchingWorkflowInput extends SequenceWorkflowContext {
-  scenes: Scene[];
   analysisModelId: AnalysisModelId;
   suggestedLocationIds?: string[];
   /** Pre-extracted location bible from scene splitting. Skips extraction LLM call when provided. */
-  locationBible?: LocationBibleEntry[];
+  locationBible: LocationBibleEntry[];
 }
 
 export interface LocationMatchingWorkflowOutput {
-  locationBible: LocationBibleEntry[];
   matches: LibraryLocationMatch[];
 }
 /**
@@ -655,6 +660,8 @@ export interface FrameImagesWorkflowInput extends SequenceWorkflowContext {
   scenesWithVisualPrompts: Scene[];
   charactersWithSheets: CharacterMinimal[];
   locationsWithSheets: SequenceLocationMinimal[];
+  /** User-uploaded elements (logos, products) for reference-image consistency */
+  elements?: SequenceElementMinimal[];
   frameMapping: FrameMapping;
   imageModel?: TextToImageModel;
   /** Multiple image models for variant generation (first is primary) */
@@ -685,4 +692,20 @@ export interface MotionMusicPromptsWorkflowResult {
   completeScenes: Scene[];
   musicPrompt: string;
   musicTags: string;
+}
+
+/**
+ * Element vision workflow input
+ * Describes a single uploaded element image using a vision LLM
+ */
+export interface ElementVisionWorkflowInput extends SequenceWorkflowContext {
+  elementId: string;
+  imageUrl: string;
+  filename: string;
+}
+
+export interface ElementVisionWorkflowResult {
+  elementId: string;
+  description: string;
+  consistencyTag: string;
 }

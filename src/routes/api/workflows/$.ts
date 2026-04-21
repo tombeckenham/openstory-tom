@@ -14,6 +14,7 @@ import { getQStashClient } from '@/lib/workflow/client';
 import { analyzeScriptWorkflow } from '@/lib/workflows/analyze-script-workflow';
 import { characterBibleWorkflow } from '@/lib/workflows/character-bible-workflow';
 import { characterSheetWorkflow } from '@/lib/workflows/character-sheet-workflow';
+import { elementVisionWorkflow } from '@/lib/workflows/element-vision-workflow';
 import { frameImagesWorkflow } from '@/lib/workflows/frame-images-workflow';
 import { generateImageWorkflow } from '@/lib/workflows/image-workflow';
 import { libraryLocationSheetWorkflow } from '@/lib/workflows/library-location-sheet-workflow';
@@ -57,6 +58,7 @@ function getHandler() {
         'motion-batch': motionBatchWorkflow,
         'character-sheet-from-bible': characterBibleWorkflow,
         'character-sheet': characterSheetWorkflow,
+        'element-vision': elementVisionWorkflow,
         'frame-images': frameImagesWorkflow,
         image: generateImageWorkflow,
         'library-location-sheet': libraryLocationSheetWorkflow,

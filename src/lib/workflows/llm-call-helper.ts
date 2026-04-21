@@ -96,10 +96,17 @@ export async function durableLLMCall<TInput, TSchema extends z.ZodType>(
     }> = [];
 
     for (const msg of messages) {
+      const flat =
+        typeof msg.content === 'string'
+          ? msg.content
+          : msg.content
+              .map((part) => (part.type === 'text' ? part.content : ''))
+              .filter(Boolean)
+              .join('\n');
       if (msg.role === 'system') {
-        systemPrompts.push(msg.content);
+        systemPrompts.push(flat);
       } else {
-        chatMessages.push({ role: msg.role, content: msg.content });
+        chatMessages.push({ role: msg.role, content: flat });
       }
     }
 

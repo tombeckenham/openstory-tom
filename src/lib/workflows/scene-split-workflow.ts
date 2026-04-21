@@ -45,7 +45,13 @@ export const sceneSplitWorkflow = createScopedWorkflow<
 >(
   async (context, scopedDb) => {
     const input = context.requestPayload;
-    const { sequenceId, modelId, styleConfig, aspectRatio } = input;
+    const {
+      sequenceId,
+      modelId,
+      styleConfig,
+      aspectRatio,
+      elements = [],
+    } = input;
 
     const phase = { number: 1, name: 'Analyzing script\u2026' };
     const name = 'scene-splitting';
@@ -57,9 +63,21 @@ export const sceneSplitWorkflow = createScopedWorkflow<
     const { messages, promptReference } = await context.run(
       'prepare-scene-splitting',
       async () => {
+        const elementsBlock =
+          elements.length > 0
+            ? elements
+                .map((el) => {
+                  const desc = el.description
+                    ? `: ${el.description}`
+                    : ' (vision description pending)';
+                  return `- ${el.token}${desc}`;
+                })
+                .join('\n')
+            : '(none)';
         const promptVariables = {
           aspectRatio,
           script: input.script,
+          elements: elementsBlock,
         };
         const { prompt, messages } = await getChatPrompt(
           input.promptName,
@@ -308,89 +326,116 @@ export const sceneSplitWorkflow = createScopedWorkflow<
           frameMapping,
           characterBible: parsed.characterBible,
           locationBible: parsed.locationBible,
+          elementBible: parsed.elementBible,
         };
       }
     );
 
     // Step 3: Reconcile — ensure all frames exist (handles QStash cached result replay)
-    const { scenes, title, frameMapping, characterBible, locationBible } =
-      await context.run('reconcile-frames', async () => {
-        const { scenes, projectMetadata } = streamResult;
-        // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
-        const resolvedTitle = projectMetadata?.title || 'Untitled';
+    const {
+      scenes,
+      title,
+      frameMapping,
+      characterBible,
+      locationBible,
+      elementBible,
+    } = await context.run('reconcile-frames', async () => {
+      const { scenes, projectMetadata } = streamResult;
+      // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
+      const resolvedTitle = projectMetadata?.title || 'Untitled';
 
-        if (!sequenceId) {
-          return {
-            scenes,
-            title: resolvedTitle,
-            frameMapping: streamResult.frameMapping,
-            characterBible: streamResult.characterBible,
-            locationBible: streamResult.locationBible,
-          };
-        }
-
-        // Bulk upsert all frames to catch any missed during streaming
-        // (e.g., QStash replays a cached step 2 result without re-firing side effects)
-        const frameInserts = scenes.map(
-          (scene, index) =>
-            ({
-              sequenceId,
-              // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
-              description: scene.originalScript?.extract || '',
-              orderIndex: index,
-              metadata: scene,
-              durationMs: Math.round(
-                // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
-                (scene.metadata?.durationSeconds || 3) * 1000
-              ),
-              thumbnailStatus: 'generating',
-              videoStatus: 'pending',
-            }) satisfies NewFrame
-        );
-
-        const reconciledFrames = await scopedDb.frames.bulkUpsert(frameInserts);
-        const reconciledMapping = reconciledFrames.map((f) => ({
-          // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: metadata is JSONB, can be null despite Drizzle types
-          sceneId: f.metadata?.sceneId || '',
-          frameId: f.id,
-        }));
-
-        // Ensure title and workflow are set (status stays 'processing'
-        // until storyboard-workflow completes all phases)
-        await scopedDb.sequences.updateTitle(sequenceId, resolvedTitle);
-        await scopedDb.sequences.updateWorkflow(
-          sequenceId,
-          'analyze-script-shorter-prompts-batch-size-1'
-        );
-
-        // Emit frame:created for any frames the streaming step didn't cover
-        const streamedSceneIds = new Set(
-          streamResult.frameMapping.map((f) => f.sceneId)
-        );
-        for (const { sceneId, frameId } of reconciledMapping) {
-          if (!streamedSceneIds.has(sceneId)) {
-            const scene = scenes.find((s) => s.sceneId === sceneId);
-            await getGenerationChannel(sequenceId).emit(
-              'generation.frame:created',
-              {
-                frameId,
-                sceneId,
-                orderIndex: scene?.sceneNumber ? scene.sceneNumber - 1 : 0,
-              }
-            );
-          }
-        }
-
+      if (!sequenceId) {
         return {
           scenes,
           title: resolvedTitle,
-          frameMapping: reconciledMapping,
+          frameMapping: streamResult.frameMapping,
           characterBible: streamResult.characterBible,
           locationBible: streamResult.locationBible,
+          elementBible: streamResult.elementBible,
         };
-      });
+      }
 
-    // Step 4: Deduct credits
+      // Bulk upsert all frames to catch any missed during streaming
+      // (e.g., QStash replays a cached step 2 result without re-firing side effects)
+      const frameInserts = scenes.map(
+        (scene, index) =>
+          ({
+            sequenceId,
+            // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
+            description: scene.originalScript?.extract || '',
+            orderIndex: index,
+            metadata: scene,
+            durationMs: Math.round(
+              // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
+              (scene.metadata?.durationSeconds || 3) * 1000
+            ),
+            thumbnailStatus: 'generating',
+            videoStatus: 'pending',
+          }) satisfies NewFrame
+      );
+
+      const reconciledFrames = await scopedDb.frames.bulkUpsert(frameInserts);
+      const reconciledMapping = reconciledFrames.map((f) => ({
+        // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: metadata is JSONB, can be null despite Drizzle types
+        sceneId: f.metadata?.sceneId || '',
+        frameId: f.id,
+      }));
+
+      // Ensure title and workflow are set (status stays 'processing'
+      // until storyboard-workflow completes all phases)
+      await scopedDb.sequences.updateTitle(sequenceId, resolvedTitle);
+      await scopedDb.sequences.updateWorkflow(
+        sequenceId,
+        'analyze-script-shorter-prompts-batch-size-1'
+      );
+
+      // Emit frame:created for any frames the streaming step didn't cover
+      const streamedSceneIds = new Set(
+        streamResult.frameMapping.map((f) => f.sceneId)
+      );
+      for (const { sceneId, frameId } of reconciledMapping) {
+        if (!streamedSceneIds.has(sceneId)) {
+          const scene = scenes.find((s) => s.sceneId === sceneId);
+          await getGenerationChannel(sequenceId).emit(
+            'generation.frame:created',
+            {
+              frameId,
+              sceneId,
+              orderIndex: scene?.sceneNumber ? scene.sceneNumber - 1 : 0,
+            }
+          );
+        }
+      }
+
+      return {
+        scenes,
+        title: resolvedTitle,
+        frameMapping: reconciledMapping,
+        characterBible: streamResult.characterBible,
+        locationBible: streamResult.locationBible,
+        elementBible: streamResult.elementBible,
+      };
+    });
+
+    // Step 4: Reconcile element bible → update firstMention on existing rows
+    if (sequenceId && elementBible.length > 0) {
+      await context.run('reconcile-element-bible', async () => {
+        for (const entry of elementBible) {
+          const existing = await scopedDb.sequenceElements.getByToken(
+            sequenceId,
+            entry.token
+          );
+          if (!existing) continue;
+          await scopedDb.sequenceElements.updateFirstMention(existing.id, {
+            sceneId: entry.firstMention.sceneId,
+            text: entry.firstMention.text,
+            lineNumber: entry.firstMention.lineNumber,
+          });
+        }
+      });
+    }
+
+    // Step 5: Deduct credits
     const openRouterKeyInfo = await scopedDb.apiKeys.resolveKey('openrouter');
     await context.run('deduct-llm-credits-scene-splitting', async () => {
       await deductWorkflowCredits({
@@ -408,7 +453,14 @@ export const sceneSplitWorkflow = createScopedWorkflow<
       });
     });
 
-    return { scenes, title, frameMapping, characterBible, locationBible };
+    return {
+      scenes,
+      title,
+      frameMapping,
+      characterBible,
+      locationBible,
+      elementBible,
+    };
   },
   {
     failureFunction: async ({ context, scopedDb, failResponse }) => {

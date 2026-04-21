@@ -41,6 +41,32 @@ export const characterBibleEntrySchema = z.object({
 });
 
 // ============================================================================
+// Element Bible Schemas (user-uploaded reference images)
+// ============================================================================
+
+export const elementBibleEntrySchema = z.object({
+  token: z.string().meta({
+    description:
+      'Uppercase token used in the script to reference this element (e.g. "LOGO", "BOTTLE")',
+  }),
+  description: z.string().catch('').meta({
+    description:
+      'Concise visual description of the element for prompt guidance',
+  }),
+  consistencyTag: z.string().catch('').meta({
+    description: 'Short slug tag for image generation (e.g. "red-hex-logo")',
+  }),
+  firstMention: z
+    .object({
+      sceneId: z.string().catch(''),
+      text: z.string().catch(''),
+      lineNumber: z.number().catch(0),
+    })
+    .catch({ sceneId: '', text: '', lineNumber: 0 })
+    .meta({ description: 'First appearance of this element in the script' }),
+});
+
+// ============================================================================
 // Location Bible Schemas
 // ============================================================================
 
@@ -536,6 +562,10 @@ export const continuitySchema = z.object({
     .string()
     .catch('')
     .meta({ description: 'Location/setting tag for environment consistency' }),
+  elementTags: z.array(z.string()).optional().catch([]).meta({
+    description:
+      'UPPERCASE tokens for user-uploaded elements referenced in this scene',
+  }),
   colorPalette: z
     .string()
     .catch('')
@@ -660,6 +690,10 @@ export const sceneAnalysisSchema = z.object({
     .array(locationBibleEntrySchema)
     .catch([])
     .meta({ description: 'Location descriptions for visual consistency' }),
+  elementBible: z.array(elementBibleEntrySchema).optional().catch([]).meta({
+    description:
+      'User-uploaded element descriptions (logos, products) with UPPERCASE script tokens',
+  }),
   scenes: z
     .array(sceneSchema)
     .meta({ description: 'Array of analyzed scenes from the script' }),
@@ -673,6 +707,7 @@ export type SceneAnalysis = z.infer<typeof sceneAnalysisSchema>;
 export type Scene = z.infer<typeof sceneSchema>;
 export type CharacterBibleEntry = z.infer<typeof characterBibleEntrySchema>;
 export type LocationBibleEntry = z.infer<typeof locationBibleEntrySchema>;
+export type ElementBibleEntry = z.infer<typeof elementBibleEntrySchema>;
 export type ProjectMetadata = z.infer<typeof projectMetadataSchema>;
 export type VisualPrompt = z.infer<typeof visualPromptSchema>;
 export type VisualPromptWithContinuity = z.infer<

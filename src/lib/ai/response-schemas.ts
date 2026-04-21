@@ -9,6 +9,7 @@ import { z } from 'zod';
 import {
   characterBibleEntrySchema,
   continuitySchema,
+  elementBibleEntrySchema,
   locationBibleEntrySchema,
   motionPromptSchema,
   musicDesignSchema,
@@ -76,6 +77,10 @@ export const sceneSplittingResultSchema = z.object({
   locationBible: z.array(locationBibleEntrySchema).catch([]).meta({
     description:
       'Location descriptions extracted from the script for visual consistency',
+  }),
+  elementBible: z.array(elementBibleEntrySchema).catch([]).meta({
+    description:
+      'User-uploaded elements referenced in the script by UPPERCASE token',
   }),
 });
 

@@ -1,21 +1,34 @@
 import { useCallback, useEffect, useState } from 'react';
+import { z } from 'zod';
 
 const STORAGE_KEY = 'openstory:sequence-draft:v1';
 const EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-type SequenceDraft = {
-  script: string;
-  styleId: string | null;
-  selectedTalentIds: string[];
-  selectedLocationIds: string[];
-  savedAt: number;
-};
+const draftElementSchema = z.object({
+  tempPath: z.string(),
+  tempPublicUrl: z.string(),
+  filename: z.string(),
+  token: z.string(),
+});
+
+const sequenceDraftSchema = z.object({
+  script: z.string().default(''),
+  styleId: z.string().nullable().default(null),
+  selectedTalentIds: z.array(z.string()).default([]),
+  selectedLocationIds: z.array(z.string()).default([]),
+  elementUploads: z.array(draftElementSchema).default([]),
+  savedAt: z.number().default(0),
+});
+
+export type DraftElement = z.infer<typeof draftElementSchema>;
+type SequenceDraft = z.infer<typeof sequenceDraftSchema>;
 
 const EMPTY_DRAFT: SequenceDraft = {
   script: '',
   styleId: null,
   selectedTalentIds: [],
   selectedLocationIds: [],
+  elementUploads: [],
   savedAt: 0,
 };
 
@@ -28,28 +41,9 @@ function loadDraft(): SequenceDraft | null {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return null;
 
-    const parsed: unknown = JSON.parse(stored);
-    if (
-      !parsed ||
-      typeof parsed !== 'object' ||
-      !('script' in parsed) ||
-      !('savedAt' in parsed)
-    ) {
-      return null;
-    }
-
-    const p = parsed as Record<string, unknown>;
-    const draft: SequenceDraft = {
-      script: typeof p.script === 'string' ? p.script : '',
-      styleId: typeof p.styleId === 'string' ? p.styleId : null,
-      selectedTalentIds: Array.isArray(p.selectedTalentIds)
-        ? p.selectedTalentIds
-        : [],
-      selectedLocationIds: Array.isArray(p.selectedLocationIds)
-        ? p.selectedLocationIds
-        : [],
-      savedAt: typeof p.savedAt === 'number' ? p.savedAt : 0,
-    };
+    const result = sequenceDraftSchema.safeParse(JSON.parse(stored));
+    if (!result.success) return null;
+    const draft = result.data;
 
     // Check expiry
     if (Date.now() - draft.savedAt > EXPIRY_MS) {

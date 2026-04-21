@@ -12,7 +12,7 @@ export type ReferenceImageDescription = {
   referenceImageUrl: string;
   description: string;
   /** Role distinguishes the primary scene from supporting reference images */
-  role?: 'primary' | 'character' | 'location';
+  role?: 'primary' | 'character' | 'location' | 'element';
 };
 
 /**
@@ -54,10 +54,17 @@ export function buildReferenceImagePrompt(
     const primary = references.filter((r) => r.role === 'primary');
     const characters = references.filter((r) => r.role === 'character');
     const locations = references.filter((r) => r.role === 'location');
+    const elements = references.filter((r) => r.role === 'element');
     const other = references.filter((r) => !r.role);
 
-    // Build ordered list: primary first, then characters, locations, other
-    const ordered = [...primary, ...characters, ...locations, ...other];
+    // Build ordered list: primary first, then characters, locations, elements, other
+    const ordered = [
+      ...primary,
+      ...characters,
+      ...locations,
+      ...elements,
+      ...other,
+    ];
 
     const lines: string[] = [];
 
@@ -73,15 +80,25 @@ export function buildReferenceImagePrompt(
         case 'location':
           lines.push(`- Image ${idx} [LOCATION REF]: ${ref.description}`);
           break;
+        case 'element':
+          lines.push(`- Image ${idx} [ELEMENT REF]: ${ref.description}`);
+          break;
         default:
           lines.push(`- Image ${idx}: ${ref.description}`);
       }
     }
 
     const instructionLines: string[] = [];
-    if (primary.length > 0 && (characters.length > 0 || locations.length > 0)) {
+    if (
+      primary.length > 0 &&
+      (characters.length > 0 || locations.length > 0 || elements.length > 0)
+    ) {
       instructionLines.push(
-        'IMPORTANT: Character and location reference images are for LIKENESS CONSISTENCY ONLY. Do NOT reproduce them as separate panels or subjects. All output panels must depict the scene from the PRIMARY SOURCE image.'
+        'IMPORTANT: Character, location, and element reference images are for IDENTITY CONSISTENCY ONLY. Do NOT reproduce them as separate panels or subjects. Elements (logos, products) must render faithfully when referenced but should appear naturally within the scene. All output panels must depict the scene from the PRIMARY SOURCE image.'
+      );
+    } else if (elements.length > 0 || locations.length > 0) {
+      instructionLines.push(
+        'IMPORTANT: Reference images CARRY the visual identity of their labeled objects. When the prompt names an UPPERCASE element token, render it faithfully from its ELEMENT REF image — do not generate a new version from the prose. When the prompt names a LOCATION REF, use that image for the environment, lighting, and architectural identity. Prose describes how things are framed, lit, and positioned in the shot — it does not redefine what the reference already shows.'
       );
     }
 

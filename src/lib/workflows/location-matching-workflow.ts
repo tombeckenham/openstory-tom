@@ -1,8 +1,5 @@
 import { buildLocationMatchingPromptVariables } from '../ai/location-matching-prompt';
-import {
-  locationExtractionResultSchema,
-  locationMatchResponseSchema,
-} from '../ai/response-schemas';
+import { locationMatchResponseSchema } from '../ai/response-schemas';
 import { getGenerationChannel } from '../realtime';
 import { sanitizeFailResponse } from '../workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '../workflow/scoped-workflow';
@@ -19,7 +16,7 @@ export const locationMatchingWorkflow = createScopedWorkflow<
 >(
   async (context, scopedDb) => {
     const input = context.requestPayload;
-    const { scenes, analysisModelId, suggestedLocationIds } = input;
+    const { analysisModelId, suggestedLocationIds } = input;
     const { sequenceId, userId, teamId } = input;
 
     const llmCallContext = {
@@ -29,27 +26,7 @@ export const locationMatchingWorkflow = createScopedWorkflow<
     };
 
     // Use pre-extracted bible from scene splitting, or fall back to LLM extraction
-    const locationBible =
-      input.locationBible && input.locationBible.length > 0
-        ? input.locationBible
-        : (
-            await durableLLMCall(
-              context,
-              {
-                name: 'location-extraction',
-                phase: { number: 2, name: 'Finding locations…' },
-
-                promptName: 'phase/location-extraction-chat',
-                promptVariables: {
-                  scenes: JSON.stringify(scenes, null, 2),
-                },
-
-                modelId: analysisModelId,
-                responseSchema: locationExtractionResultSchema,
-              },
-              llmCallContext
-            )
-          ).locationBible;
+    const locationBible = input.locationBible;
 
     // Location matching (conditional)
     const { libraryLocationList, locationMatchingPromptVariables } =

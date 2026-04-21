@@ -1,4 +1,8 @@
 import { BillingGateDialog } from '@/components/billing/billing-gate-dialog';
+import {
+  ElementSelector,
+  type ElementSelectorHandle,
+} from '@/components/element/element-selector';
 import { GenerateSequenceIcon } from '@/components/icons/generate-sequence-icon';
 import { LocationSuggestionSelector } from '@/components/location-library/location-suggestion-selector';
 import { GenerationSettings } from '@/components/settings/generation-settings';
@@ -33,6 +37,7 @@ import { useAutoScroll } from '@/hooks/use-auto-scroll';
 import { useBillingGate } from '@/hooks/use-billing-gate';
 import { useGenerationSettings } from '@/hooks/use-generation-settings';
 import { useSequenceDraft } from '@/hooks/use-sequence-draft';
+import type { DraftElementUpload } from '@/hooks/use-sequence-elements';
 import { useCreateSequence } from '@/hooks/use-sequences';
 import { useStyles } from '@/hooks/use-styles';
 import {
@@ -54,9 +59,15 @@ import {
 } from '@/lib/ai/models.config';
 import type { AspectRatio } from '@/lib/constants/aspect-ratios';
 import { cn } from '@/lib/utils';
+import {
+  dataTransferHasImages,
+  extractImagesFromSnapshot,
+  snapshotDataTransfer,
+  toastDragImportCorsError,
+} from '@/lib/utils/drag-images';
 import type { Sequence } from '@/types/database';
 import { usePostHog } from '@posthog/react';
-import { Loader2, Sparkles, Square, Undo2 } from 'lucide-react';
+import { ImagePlus, Loader2, Sparkles, Square, Undo2 } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState, type FC } from 'react';
 import { ScriptEditor } from './script-editor';
 
@@ -165,6 +176,55 @@ export const ScriptView: FC<{
   });
   const { talentIds: selectedTalentIds, locationIds: selectedLocationIds } =
     selections;
+  const [draftElements, setDraftElements] = useState<DraftElementUpload[]>([]);
+  const elementSelectorRef = useRef<ElementSelectorHandle>(null);
+  const dragCounterRef = useRef(0);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+
+  const allowElementDrop = !loading && (!isEditing || !!sequence);
+
+  const hasDraggedImages = (e: React.DragEvent<HTMLElement>) =>
+    dataTransferHasImages(e.dataTransfer);
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!allowElementDrop || !hasDraggedImages(e)) return;
+    e.preventDefault();
+    dragCounterRef.current += 1;
+    if (dragCounterRef.current === 1) setIsDraggingFiles(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!allowElementDrop || !hasDraggedImages(e)) return;
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setIsDraggingFiles(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!allowElementDrop || !hasDraggedImages(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!allowElementDrop || !hasDraggedImages(e)) return;
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDraggingFiles(false);
+    const snapshot = snapshotDataTransfer(e.dataTransfer);
+    void extractImagesFromSnapshot(snapshot).then(({ files, failedUrls }) => {
+      if (files.length > 0) {
+        elementSelectorRef.current?.addFiles(files);
+        elementSelectorRef.current?.open();
+        return;
+      }
+      if (failedUrls.length > 0) {
+        toastDragImportCorsError();
+      }
+    });
+  };
 
   const posthog = usePostHog();
 
@@ -213,6 +273,9 @@ export const ScriptView: FC<{
             ? draft.selectedLocationIds
             : s.locationIds,
       }));
+      if (draft.elementUploads.length > 0) {
+        setDraftElements(draft.elementUploads);
+      }
       hasSyncedDraftRef.current = true;
     }
   }, [isEditing, loading, draftLoaded, draft]);
@@ -261,6 +324,7 @@ export const ScriptView: FC<{
         styleId,
         selectedTalentIds,
         selectedLocationIds,
+        elementUploads: draftElements,
       });
     }
   }, [
@@ -270,6 +334,7 @@ export const ScriptView: FC<{
     styleId,
     selectedTalentIds,
     selectedLocationIds,
+    draftElements,
     saveDraft,
   ]);
 
@@ -346,6 +411,15 @@ export const ScriptView: FC<{
           selectedTalentIds.length > 0 ? selectedTalentIds : undefined,
         suggestedLocationIds:
           selectedLocationIds.length > 0 ? selectedLocationIds : undefined,
+        elementUploads:
+          draftElements.length > 0
+            ? draftElements.map((el) => ({
+                tempPath: el.tempPath,
+                tempPublicUrl: el.tempPublicUrl,
+                filename: el.filename,
+              }))
+            : undefined,
+        sourceSequenceId: isEditing ? sequence.id : undefined,
       },
       {
         onSuccess: (result) => {
@@ -413,6 +487,13 @@ export const ScriptView: FC<{
           styleConfig: selectedStyle?.config ?? undefined,
           analysisModel: analysisModels[0],
           aspectRatio,
+          elements:
+            draftElements.length > 0
+              ? draftElements.map((el) => ({
+                  token: el.token,
+                  imageUrl: el.tempPublicUrl,
+                }))
+              : undefined,
         },
       })) {
         if (abortController.signal.aborted) break;
@@ -472,8 +553,26 @@ export const ScriptView: FC<{
   return (
     <Card
       variant="premium"
-      className={cn('flex flex-col min-h-0 max-h-full', flat && 'border-none')}
+      className={cn(
+        'relative flex flex-col min-h-0 max-h-full',
+        flat && 'border-none'
+      )}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
+      {isDraggingFiles && (
+        <div className="pointer-events-none absolute inset-2 z-50 flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-primary/60 bg-background/80 backdrop-blur-sm">
+          <ImagePlus className="size-10 text-primary" />
+          <p className="text-base font-medium">
+            Drop images to add as elements
+          </p>
+          <p className="text-xs text-muted-foreground">
+            They'll be referenced by UPPERCASE tokens in your script
+          </p>
+        </div>
+      )}
       <form
         onSubmit={(e) => void handleSubmit(e)}
         className="flex flex-col min-h-0 max-h-full"
@@ -521,6 +620,20 @@ export const ScriptView: FC<{
               }
               disabled={loading}
             />
+            {isEditing && sequence?.id ? (
+              <ElementSelector
+                ref={elementSelectorRef}
+                sequenceId={sequence.id}
+                disabled={loading}
+              />
+            ) : (
+              <ElementSelector
+                ref={elementSelectorRef}
+                draftElements={draftElements}
+                onDraftElementsChange={setDraftElements}
+                disabled={loading}
+              />
+            )}
           </div>
         </CardHeader>
 

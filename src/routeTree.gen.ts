@@ -51,6 +51,7 @@ import { Route as ProtectedSequencesIdTheatreRouteImport } from './routes/_prote
 import { Route as ProtectedSequencesIdScriptRouteImport } from './routes/_protected/sequences/$id/script'
 import { Route as ProtectedSequencesIdScenesRouteImport } from './routes/_protected/sequences/$id/scenes'
 import { Route as ProtectedSequencesIdMusicRouteImport } from './routes/_protected/sequences/$id/music'
+import { Route as ProtectedSequencesIdElementsRouteImport } from './routes/_protected/sequences/$id/elements'
 import { Route as ProtectedSequencesIdLocationsIndexRouteImport } from './routes/_protected/sequences/$id/locations/index'
 import { Route as ProtectedSequencesIdCastIndexRouteImport } from './routes/_protected/sequences/$id/cast/index'
 import { Route as ProtectedSequencesIdLocationsLocationIdRouteImport } from './routes/_protected/sequences/$id/locations/$locationId'
@@ -271,6 +272,12 @@ const ProtectedSequencesIdMusicRoute =
     path: '/music',
     getParentRoute: () => ProtectedSequencesIdRouteRoute,
   } as any)
+const ProtectedSequencesIdElementsRoute =
+  ProtectedSequencesIdElementsRouteImport.update({
+    id: '/elements',
+    path: '/elements',
+    getParentRoute: () => ProtectedSequencesIdRouteRoute,
+  } as any)
 const ProtectedSequencesIdLocationsIndexRoute =
   ProtectedSequencesIdLocationsIndexRouteImport.update({
     id: '/locations/',
@@ -332,6 +339,7 @@ export interface FileRoutesByFullPath {
   '/sequences/': typeof ProtectedSequencesIndexRoute
   '/settings/': typeof ProtectedSettingsIndexRoute
   '/talent/': typeof ProtectedTalentIndexRoute
+  '/sequences/$id/elements': typeof ProtectedSequencesIdElementsRoute
   '/sequences/$id/music': typeof ProtectedSequencesIdMusicRoute
   '/sequences/$id/scenes': typeof ProtectedSequencesIdScenesRoute
   '/sequences/$id/script': typeof ProtectedSequencesIdScriptRoute
@@ -376,6 +384,7 @@ export interface FileRoutesByTo {
   '/sequences': typeof ProtectedSequencesIndexRoute
   '/settings': typeof ProtectedSettingsIndexRoute
   '/talent': typeof ProtectedTalentIndexRoute
+  '/sequences/$id/elements': typeof ProtectedSequencesIdElementsRoute
   '/sequences/$id/music': typeof ProtectedSequencesIdMusicRoute
   '/sequences/$id/scenes': typeof ProtectedSequencesIdScenesRoute
   '/sequences/$id/script': typeof ProtectedSequencesIdScriptRoute
@@ -425,6 +434,7 @@ export interface FileRoutesById {
   '/_protected/sequences/': typeof ProtectedSequencesIndexRoute
   '/_protected/settings/': typeof ProtectedSettingsIndexRoute
   '/_protected/talent/': typeof ProtectedTalentIndexRoute
+  '/_protected/sequences/$id/elements': typeof ProtectedSequencesIdElementsRoute
   '/_protected/sequences/$id/music': typeof ProtectedSequencesIdMusicRoute
   '/_protected/sequences/$id/scenes': typeof ProtectedSequencesIdScenesRoute
   '/_protected/sequences/$id/script': typeof ProtectedSequencesIdScriptRoute
@@ -472,6 +482,7 @@ export interface FileRouteTypes {
     | '/sequences/'
     | '/settings/'
     | '/talent/'
+    | '/sequences/$id/elements'
     | '/sequences/$id/music'
     | '/sequences/$id/scenes'
     | '/sequences/$id/script'
@@ -516,6 +527,7 @@ export interface FileRouteTypes {
     | '/sequences'
     | '/settings'
     | '/talent'
+    | '/sequences/$id/elements'
     | '/sequences/$id/music'
     | '/sequences/$id/scenes'
     | '/sequences/$id/script'
@@ -564,6 +576,7 @@ export interface FileRouteTypes {
     | '/_protected/sequences/'
     | '/_protected/settings/'
     | '/_protected/talent/'
+    | '/_protected/sequences/$id/elements'
     | '/_protected/sequences/$id/music'
     | '/_protected/sequences/$id/scenes'
     | '/_protected/sequences/$id/script'
@@ -891,6 +904,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedSequencesIdMusicRouteImport
       parentRoute: typeof ProtectedSequencesIdRouteRoute
     }
+    '/_protected/sequences/$id/elements': {
+      id: '/_protected/sequences/$id/elements'
+      path: '/elements'
+      fullPath: '/sequences/$id/elements'
+      preLoaderRoute: typeof ProtectedSequencesIdElementsRouteImport
+      parentRoute: typeof ProtectedSequencesIdRouteRoute
+    }
     '/_protected/sequences/$id/locations/': {
       id: '/_protected/sequences/$id/locations/'
       path: '/locations'
@@ -966,6 +986,7 @@ const ProtectedSettingsRouteRouteWithChildren =
   )
 
 interface ProtectedSequencesIdRouteRouteChildren {
+  ProtectedSequencesIdElementsRoute: typeof ProtectedSequencesIdElementsRoute
   ProtectedSequencesIdMusicRoute: typeof ProtectedSequencesIdMusicRoute
   ProtectedSequencesIdScenesRoute: typeof ProtectedSequencesIdScenesRoute
   ProtectedSequencesIdScriptRoute: typeof ProtectedSequencesIdScriptRoute
@@ -978,6 +999,7 @@ interface ProtectedSequencesIdRouteRouteChildren {
 
 const ProtectedSequencesIdRouteRouteChildren: ProtectedSequencesIdRouteRouteChildren =
   {
+    ProtectedSequencesIdElementsRoute: ProtectedSequencesIdElementsRoute,
     ProtectedSequencesIdMusicRoute: ProtectedSequencesIdMusicRoute,
     ProtectedSequencesIdScenesRoute: ProtectedSequencesIdScenesRoute,
     ProtectedSequencesIdScriptRoute: ProtectedSequencesIdScriptRoute,

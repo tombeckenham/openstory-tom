@@ -1,7 +1,15 @@
 import { Link, useMatchRoute, useNavigate } from '@tanstack/react-router';
 import { cn } from '@/lib/utils';
 import { Select } from '@/components/ui/select';
-import { FileText, Film, Grid3X3, MapPin, Music, Users } from 'lucide-react';
+import {
+  FileText,
+  Film,
+  Grid3X3,
+  ImagePlus,
+  MapPin,
+  Music,
+  Users,
+} from 'lucide-react';
 
 type SequenceTabsProps = {
   sequenceId: string;
@@ -34,6 +42,11 @@ function useSequenceTabItems(sequenceId: string): TabItem[] {
       label: 'Locations',
       href: `/sequences/${sequenceId}/locations`,
       icon: <MapPin className="h-4 w-4" />,
+    },
+    {
+      label: 'Elements',
+      href: `/sequences/${sequenceId}/elements`,
+      icon: <ImagePlus className="h-4 w-4" />,
     },
     {
       label: 'Music',

@@ -8,6 +8,7 @@
 import { resolveImageModels } from '@/lib/ai/resolve-image-models';
 import { aspectRatioToImageSize } from '@/lib/constants/aspect-ratios';
 import { buildCharacterReferenceImages } from '@/lib/prompts/character-prompt';
+import { buildElementReferenceImages } from '@/lib/prompts/element-prompt';
 import { buildLocationReferenceImages } from '@/lib/prompts/location-prompt';
 import { WorkflowValidationError } from '@/lib/workflow/errors';
 import { buildWorkflowLabel } from '@/lib/workflow/labels';
@@ -23,6 +24,7 @@ import { getFalFlowControl } from './constants';
 import { generateImageWorkflow } from './image-workflow';
 import {
   matchCharactersToScene,
+  matchElementsToScene,
   matchLocationsToScene,
 } from './scene-matching';
 import { generateVariantWorkflow } from './variant-workflow';
@@ -31,12 +33,13 @@ export const frameImagesWorkflow = createScopedWorkflow<
   FrameImagesWorkflowInput,
   FrameImagesWorkflowResult
 >(
-  async (context, _scopedDb) => {
+  async (context, scopedDb) => {
     const input = context.requestPayload;
     const {
       scenesWithVisualPrompts,
       charactersWithSheets,
       locationsWithSheets,
+      elements: elementsFromInput = [],
       frameMapping,
       imageModel,
       imageModels: imageModelsInput,
@@ -48,31 +51,49 @@ export const frameImagesWorkflow = createScopedWorkflow<
 
     const label = buildWorkflowLabel(sequenceId);
 
-    // Build per-scene character and location maps for reference image lookup
-    const { sceneCharacterMap, sceneLocationMap } = await context.run(
-      'build-reference-maps',
-      () => ({
-        sceneCharacterMap: Object.fromEntries(
-          scenesWithVisualPrompts.map((scene) => [
-            scene.sceneId,
-            matchCharactersToScene(
-              charactersWithSheets,
-              scene.continuity?.characterTags || []
-            ),
-          ])
-        ),
-        sceneLocationMap: Object.fromEntries(
-          scenesWithVisualPrompts.map((scene) => [
-            scene.sceneId,
-            matchLocationsToScene(
-              locationsWithSheets,
-              scene.continuity?.environmentTag || '',
-              scene.metadata?.location || ''
-            ),
-          ])
-        ),
-      })
-    );
+    // Build per-scene character, location, and element maps for reference image lookup.
+    //
+    // Re-fetch elements from the DB here (rather than relying on the snapshot
+    // taken at analyze-script start). Vision analysis for a slow element may
+    // have finished during phases 2–3 — re-fetching picks up the fresh
+    // description so the reference image isn't dropped downstream.
+    const { sceneCharacterMap, sceneLocationMap, sceneElementMap } =
+      await context.run('build-reference-maps', async () => {
+        const elements = sequenceId
+          ? await scopedDb.sequenceElements.list(sequenceId)
+          : elementsFromInput;
+        return {
+          sceneCharacterMap: Object.fromEntries(
+            scenesWithVisualPrompts.map((scene) => [
+              scene.sceneId,
+              matchCharactersToScene(
+                charactersWithSheets,
+                scene.continuity?.characterTags || []
+              ),
+            ])
+          ),
+          sceneLocationMap: Object.fromEntries(
+            scenesWithVisualPrompts.map((scene) => [
+              scene.sceneId,
+              matchLocationsToScene(
+                locationsWithSheets,
+                scene.continuity?.environmentTag || '',
+                scene.metadata?.location || ''
+              ),
+            ])
+          ),
+          sceneElementMap: Object.fromEntries(
+            scenesWithVisualPrompts.map((scene) => [
+              scene.sceneId,
+              matchElementsToScene(
+                elements,
+                scene.continuity?.elementTags || [],
+                scene.originalScript.extract || ''
+              ),
+            ])
+          ),
+        };
+      });
 
     const imageSize = aspectRatioToImageSize(aspectRatio);
 
@@ -98,7 +119,15 @@ export const frameImagesWorkflow = createScopedWorkflow<
           // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
           sceneLocationMap[scene.sceneId] || []
         );
-        const allReferences = [...characterRefs, ...locationRefs];
+        const elementRefs = buildElementReferenceImages(
+          // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
+          sceneElementMap[scene.sceneId] || []
+        );
+        const allReferences = [
+          ...characterRefs,
+          ...locationRefs,
+          ...elementRefs,
+        ];
 
         // Generate with each selected model in parallel
         const modelResults = await Promise.all(
@@ -147,6 +176,8 @@ export const frameImagesWorkflow = createScopedWorkflow<
                   characterRefs.length > 0 ? characterRefs : undefined,
                 locationReferences:
                   locationRefs.length > 0 ? locationRefs : undefined,
+                elementReferences:
+                  elementRefs.length > 0 ? elementRefs : undefined,
                 aspectRatio,
                 model,
               } satisfies VariantWorkflowInput,

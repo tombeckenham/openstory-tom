@@ -37,6 +37,7 @@ import { CopyIcon, Loader2, Minimize2 } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { SceneCastTab } from './scene-cast-tab';
+import { SceneElementsTab } from './scene-elements-tab';
 import { SceneLocationTab } from './scene-location-tab';
 import { VariantSelector } from './variant-selector';
 
@@ -46,7 +47,8 @@ export type TabValue =
   | 'motion-prompt'
   | 'scene-variants'
   | 'cast'
-  | 'location';
+  | 'location'
+  | 'elements';
 
 function isInsufficientCreditsError(error: unknown): boolean {
   if (error instanceof Error) {
@@ -65,7 +67,8 @@ function isValidTabValue(value: string): value is TabValue {
     value === 'motion-prompt' ||
     value === 'scene-variants' ||
     value === 'cast' ||
-    value === 'location'
+    value === 'location' ||
+    value === 'elements'
   );
 }
 
@@ -583,6 +586,7 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
             { value: 'script', label: 'Script' },
             { value: 'cast', label: 'Cast' },
             { value: 'location', label: 'Location' },
+            { value: 'elements', label: 'Elements' },
             { value: 'image-prompt', label: 'Image' },
             { value: 'motion-prompt', label: 'Motion' },
           ]}
@@ -595,6 +599,7 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
         <TabsTrigger value="script">Script</TabsTrigger>
         <TabsTrigger value="cast">Cast</TabsTrigger>
         <TabsTrigger value="location">Location</TabsTrigger>
+        <TabsTrigger value="elements">Elements</TabsTrigger>
         <TabsTrigger value="image-prompt">Image</TabsTrigger>
         <TabsTrigger value="motion-prompt">Motion</TabsTrigger>
       </TabsList>
@@ -909,6 +914,10 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
 
       <TabsContent value="location">
         <SceneLocationTab frame={frame} sequenceId={sequenceId} />
+      </TabsContent>
+
+      <TabsContent value="elements">
+        <SceneElementsTab frame={frame} sequenceId={sequenceId} />
       </TabsContent>
 
       <BillingGateDialog {...falGateProps} stripeEnabled={stripeEnabled} />

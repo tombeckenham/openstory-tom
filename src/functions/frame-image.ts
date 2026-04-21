@@ -17,6 +17,7 @@ import type { Character, SequenceLocation } from '@/lib/db/schema';
 import { locationMatchesTag } from '@/lib/db/scoped/sequence-locations';
 import { cropTileFromGrid } from '@/lib/image/image-crop';
 import { buildCharacterReferenceImages } from '@/lib/prompts/character-prompt';
+import { buildElementReferenceImages } from '@/lib/prompts/element-prompt';
 import { buildLocationReferenceImages } from '@/lib/prompts/location-prompt';
 import type { ReferenceImageDescription } from '@/lib/prompts/reference-image-prompt';
 import {
@@ -32,6 +33,7 @@ import type {
   UpscaleVariantWorkflowInput,
   VariantWorkflowInput,
 } from '@/lib/workflow/types';
+import { matchElementsToScene } from '@/lib/workflows/scene-matching';
 import { createServerFn } from '@tanstack/react-start';
 import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
@@ -174,6 +176,17 @@ export const generateFrameImageFn = createServerFn({ method: 'POST' })
       frame.metadata?.metadata?.location ?? ''
     );
 
+    const allElements = await context.scopedDb.sequenceElements.list(
+      sequence.id
+    );
+    const elementReferences = buildElementReferenceImages(
+      matchElementsToScene(
+        allElements,
+        frame.metadata?.continuity?.elementTags ?? [],
+        frame.metadata?.originalScript.extract ?? ''
+      )
+    );
+
     const model =
       data.model || safeTextToImageModel(frame.imageModel, DEFAULT_IMAGE_MODEL);
 
@@ -192,7 +205,11 @@ export const generateFrameImageFn = createServerFn({ method: 'POST' })
       numImages: 1,
       frameId: frame.id,
       sequenceId: sequence.id,
-      referenceImages: [...characterReferences, ...locationReferences],
+      referenceImages: [
+        ...characterReferences,
+        ...locationReferences,
+        ...elementReferences,
+      ],
     };
 
     const workflowRunId = await triggerWorkflow('/image', workflowInput, {

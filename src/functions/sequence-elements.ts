@@ -1,0 +1,177 @@
+import { getEnv } from '#env';
+import { getSignedUploadUrl } from '#storage';
+import { generateId } from '@/lib/db/id';
+import { ulidSchema } from '@/lib/schemas/id.schemas';
+import { deriveTokenFromFilename } from '@/lib/sequence-elements/derive-token';
+import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
+import {
+  getExtensionFromUrl,
+  getMimeTypeFromExtension,
+} from '@/lib/utils/file';
+import { triggerWorkflow } from '@/lib/workflow/client';
+import { buildWorkflowLabel } from '@/lib/workflow/labels';
+import type { ElementVisionWorkflowInput } from '@/lib/workflow/types';
+import { createServerFn } from '@tanstack/react-start';
+import { zodValidator } from '@tanstack/zod-adapter';
+import { z } from 'zod';
+import { authWithTeamMiddleware, sequenceAccessMiddleware } from './middleware';
+
+async function triggerElementVision(
+  elementId: string,
+  sequenceId: string,
+  imageUrl: string,
+  filename: string,
+  teamId: string,
+  userId: string
+): Promise<void> {
+  const input: ElementVisionWorkflowInput = {
+    userId,
+    teamId,
+    sequenceId,
+    elementId,
+    imageUrl,
+    filename,
+  };
+  await triggerWorkflow('/element-vision', input, {
+    label: buildWorkflowLabel(sequenceId),
+  });
+}
+
+// ============================================================================
+// Presign upload
+// ============================================================================
+
+export const presignElementUploadFn = createServerFn({ method: 'POST' })
+  .middleware([authWithTeamMiddleware])
+  .inputValidator(
+    zodValidator(
+      z.object({
+        filename: z.string().min(1),
+        sequenceId: ulidSchema.optional(),
+      })
+    )
+  )
+  .handler(async ({ context, data }) => {
+    const ext = getExtensionFromUrl(data.filename);
+    const uploadId = generateId();
+    const contentType = getMimeTypeFromExtension(ext);
+
+    const storagePath = data.sequenceId
+      ? `${context.teamId}/${data.sequenceId}/${uploadId}.${ext}`
+      : `${context.teamId}/temp/${uploadId}.${ext}`;
+
+    return getSignedUploadUrl(
+      STORAGE_BUCKETS.ELEMENTS,
+      storagePath,
+      contentType
+    );
+  });
+
+// ============================================================================
+// Finalize upload to an existing sequence
+// ============================================================================
+
+export const finalizeElementUploadFn = createServerFn({ method: 'POST' })
+  .middleware([sequenceAccessMiddleware])
+  .inputValidator(
+    zodValidator(
+      z.object({
+        sequenceId: ulidSchema,
+        publicUrl: z.string().url(),
+        path: z.string().min(1),
+        filename: z.string().min(1),
+      })
+    )
+  )
+  .handler(async ({ context, data }) => {
+    if (!data.path.startsWith(`elements/${context.teamId}/`)) {
+      throw new Error('Invalid storage path');
+    }
+
+    const rawToken = deriveTokenFromFilename(data.filename);
+    const token = await context.scopedDb.sequenceElements.ensureUniqueToken(
+      data.sequenceId,
+      rawToken
+    );
+
+    const element = await context.scopedDb.sequenceElements.create({
+      id: generateId(),
+      sequenceId: data.sequenceId,
+      uploadedFilename: data.filename,
+      token,
+      imageUrl: data.publicUrl,
+      imagePath: data.path,
+      visionStatus: 'pending',
+    });
+
+    // Kick off vision workflow — do not block the upload response
+    if (getEnv().E2E_TEST !== 'true') {
+      await triggerElementVision(
+        element.id,
+        element.sequenceId,
+        element.imageUrl,
+        element.uploadedFilename,
+        context.teamId,
+        context.user.id
+      );
+    }
+
+    return element;
+  });
+
+// ============================================================================
+// List / delete / rename
+// ============================================================================
+
+export const listSequenceElementsFn = createServerFn({ method: 'GET' })
+  .middleware([sequenceAccessMiddleware])
+  .inputValidator(zodValidator(z.object({ sequenceId: ulidSchema })))
+  .handler(async ({ context }) => {
+    return context.scopedDb.sequenceElements.list(context.sequence.id);
+  });
+
+export const deleteSequenceElementFn = createServerFn({ method: 'POST' })
+  .middleware([sequenceAccessMiddleware])
+  .inputValidator(
+    zodValidator(z.object({ sequenceId: ulidSchema, elementId: ulidSchema }))
+  )
+  .handler(async ({ context, data }) => {
+    const element = await context.scopedDb.sequenceElements.getById(
+      data.elementId
+    );
+    if (!element || element.sequenceId !== context.sequence.id) {
+      throw new Error('Element not found');
+    }
+    await context.scopedDb.sequenceElements.delete(data.elementId);
+    return { success: true };
+  });
+
+export const renameSequenceElementTokenFn = createServerFn({ method: 'POST' })
+  .middleware([sequenceAccessMiddleware])
+  .inputValidator(
+    zodValidator(
+      z.object({
+        sequenceId: ulidSchema,
+        elementId: ulidSchema,
+        token: z.string().min(1).max(100),
+      })
+    )
+  )
+  .handler(async ({ context, data }) => {
+    const element = await context.scopedDb.sequenceElements.getById(
+      data.elementId
+    );
+    if (!element || element.sequenceId !== context.sequence.id) {
+      throw new Error('Element not found');
+    }
+
+    const cleaned = deriveTokenFromFilename(data.token);
+    const unique = await context.scopedDb.sequenceElements.ensureUniqueToken(
+      context.sequence.id,
+      cleaned
+    );
+
+    return await context.scopedDb.sequenceElements.update(data.elementId, {
+      token: unique,
+    });
+  });

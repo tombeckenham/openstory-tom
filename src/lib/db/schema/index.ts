@@ -46,6 +46,12 @@ import {
 
 import { locationSheets, locationSheetsRelations } from './location-sheets';
 
+// Sequence Elements (user-uploaded reference images)
+import {
+  sequenceElements,
+  sequenceElementsRelations,
+} from './sequence-elements';
+
 import {
   talent,
   talentMedia,
@@ -115,6 +121,7 @@ export const sequencesRelations = relations(sequences, ({ one, many }) => ({
   frames: many(frames),
   characters: many(characters),
   locations: many(sequenceLocations),
+  elements: many(sequenceElements),
 }));
 
 /**
@@ -206,6 +213,16 @@ export type {
   LocationSheetSource,
   NewLocationSheet,
 } from './location-sheets';
+
+// Sequence Elements (per-sequence uploaded reference images)
+export { sequenceElements };
+
+export type {
+  ElementVisionStatus,
+  NewSequenceElement,
+  SequenceElement,
+  SequenceElementMinimal,
+} from './sequence-elements';
 
 // Talent Library
 export { talent, talentMedia, talentSheets };
@@ -316,6 +333,10 @@ export const schema = {
   // Location Sheets (location-specific variations for library locations)
   locationSheets,
   locationSheetsRelations,
+
+  // Sequence Elements (user-uploaded reference images)
+  sequenceElements,
+  sequenceElementsRelations,
 
   // Talent Library
   talent,

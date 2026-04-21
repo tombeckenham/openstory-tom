@@ -14,6 +14,7 @@ export const STORAGE_BUCKETS = {
   LOCATIONS: 'locations',
   TALENT: 'talent',
   VFX: 'vfx',
+  ELEMENTS: 'elements',
 } as const;
 
 export type StorageBucket =

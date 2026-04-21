@@ -1,0 +1,514 @@
+/**
+ * Element selector for the sequence creation + edit forms.
+ *
+ * Two modes:
+ *  - draft (default): files upload to a temp R2 path and emit DraftElementUpload
+ *    entries via onDraftElementsChange. Used on new-sequence creation before
+ *    the sequence exists.
+ *  - persisted: when a sequenceId is provided, files upload directly into that
+ *    sequence's elements (useSequenceElements) and can be deleted.
+ *
+ * Exposes an imperative ref so external drop targets (ScriptView) can inject
+ * files.
+ */
+
+import { Button } from '@/components/ui/button';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  useDeleteSequenceElement,
+  useSequenceElements,
+  useUploadDraftElement,
+  useUploadElementToSequence,
+  type DraftElementUpload,
+} from '@/hooks/use-sequence-elements';
+import type { SequenceElement } from '@/lib/db/schema';
+import { cn } from '@/lib/utils';
+import {
+  extractImagesFromSnapshot,
+  snapshotDataTransfer,
+  toastDragImportCorsError,
+} from '@/lib/utils/drag-images';
+import { getFileKey } from '@/lib/utils/upload';
+import { ImagePlus, Loader2, Upload, X } from 'lucide-react';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { toast } from 'sonner';
+
+export type ElementSelectorHandle = {
+  addFiles: (files: File[]) => void;
+  open: () => void;
+};
+
+type BaseProps = {
+  ref?: React.Ref<ElementSelectorHandle>;
+  disabled?: boolean;
+};
+
+type DraftModeProps = BaseProps & {
+  sequenceId?: undefined;
+  draftElements: DraftElementUpload[];
+  onDraftElementsChange: (next: DraftElementUpload[]) => void;
+};
+
+type PersistedModeProps = BaseProps & {
+  sequenceId: string;
+  draftElements?: undefined;
+  onDraftElementsChange?: undefined;
+};
+
+type ElementSelectorProps = DraftModeProps | PersistedModeProps;
+
+const MAX_ELEMENTS = 10;
+
+type LocalEntry = {
+  file: File;
+  previewUrl: string;
+  status: 'uploading' | 'done' | 'error';
+  uploaded?: DraftElementUpload;
+  errorMessage?: string;
+};
+
+type DisplayItem = {
+  key: string;
+  imageUrl: string;
+  token?: string;
+  status: 'uploading' | 'analyzing' | 'done' | 'error';
+  errorMessage?: string;
+};
+
+export const ElementSelector: React.FC<ElementSelectorProps> = (props) => {
+  const { ref, disabled = false, sequenceId, onDraftElementsChange } = props;
+  const isPersisted = !!sequenceId;
+
+  const [open, setOpen] = useState(false);
+  const [entries, setEntries] = useState<Map<string, LocalEntry>>(new Map());
+  const [dragOver, setDragOver] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const draftUpload = useUploadDraftElement();
+  const sequenceUpload = useUploadElementToSequence();
+  const deleteElement = useDeleteSequenceElement();
+  const { data: persistedElements = [] } = useSequenceElements(
+    isPersisted ? sequenceId : undefined
+  );
+
+  const uploaded = useMemo(
+    () =>
+      Array.from(entries.values())
+        .map((e) => e.uploaded)
+        .filter((u): u is DraftElementUpload => !!u),
+    [entries]
+  );
+
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
+
+  useEffect(() => {
+    if (!isPersisted) {
+      onDraftElementsChange?.(uploaded);
+      return;
+    }
+    if (persistedElements.length === 0) return;
+    const persistedFilenames = new Set(
+      persistedElements.map((el) => el.uploadedFilename)
+    );
+    setEntries((prev) => {
+      let changed = false;
+      const next = new Map(prev);
+      for (const [key, entry] of prev) {
+        if (
+          entry.status === 'done' &&
+          persistedFilenames.has(entry.file.name)
+        ) {
+          URL.revokeObjectURL(entry.previewUrl);
+          next.delete(key);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [isPersisted, uploaded, persistedElements, onDraftElementsChange]);
+
+  useEffect(() => {
+    return () => {
+      for (const entry of entriesRef.current.values()) {
+        URL.revokeObjectURL(entry.previewUrl);
+      }
+    };
+  }, []);
+
+  const currentCount = isPersisted
+    ? persistedElements.length + entries.size
+    : entries.size;
+
+  const processFiles = useCallback(
+    async (newFiles: File[]) => {
+      if (disabled) return;
+      const images = newFiles.filter((f) => f.type.startsWith('image/'));
+      if (images.length === 0) return;
+
+      const accepted: { key: string; file: File }[] = [];
+      setEntries((prev) => {
+        const next = new Map(prev);
+        const existingCount = isPersisted
+          ? persistedElements.length + next.size
+          : next.size;
+        let remaining = MAX_ELEMENTS - existingCount;
+        for (const file of images) {
+          if (remaining <= 0) break;
+          const key = getFileKey(file);
+          if (next.has(key)) continue;
+          next.set(key, {
+            file,
+            previewUrl: URL.createObjectURL(file),
+            status: 'uploading',
+          });
+          accepted.push({ key, file });
+          remaining--;
+        }
+        return next;
+      });
+
+      await Promise.all(
+        accepted.map(async ({ key, file }) => {
+          try {
+            if (isPersisted) {
+              await sequenceUpload.mutateAsync({ file, sequenceId });
+              // Success — local entry kept until query refetches, then cleared
+              setEntries((prev) => {
+                const current = prev.get(key);
+                if (!current) return prev;
+                const next = new Map(prev);
+                next.set(key, { ...current, status: 'done' });
+                return next;
+              });
+            } else {
+              const result = await draftUpload.mutateAsync({ file });
+              setEntries((prev) => {
+                const current = prev.get(key);
+                if (!current) return prev;
+                const next = new Map(prev);
+                next.set(key, {
+                  ...current,
+                  status: 'done',
+                  uploaded: result,
+                });
+                return next;
+              });
+            }
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : 'Upload failed';
+            console.error('[ElementSelector] Upload failed', {
+              filename: file.name,
+              error: err,
+            });
+            toast.error(`Couldn't upload ${file.name}`, {
+              description: message,
+            });
+            setEntries((prev) => {
+              const current = prev.get(key);
+              if (!current) return prev;
+              const next = new Map(prev);
+              next.set(key, {
+                ...current,
+                status: 'error',
+                errorMessage: message,
+              });
+              return next;
+            });
+          }
+        })
+      );
+    },
+    [
+      disabled,
+      isPersisted,
+      persistedElements.length,
+      sequenceId,
+      draftUpload,
+      sequenceUpload,
+    ]
+  );
+
+  const removeLocalEntry = useCallback((key: string) => {
+    setEntries((prev) => {
+      const current = prev.get(key);
+      if (!current) return prev;
+      URL.revokeObjectURL(current.previewUrl);
+      const next = new Map(prev);
+      next.delete(key);
+      return next;
+    });
+  }, []);
+
+  const removePersistedElement = useCallback(
+    (element: SequenceElement) => {
+      if (!isPersisted) return;
+      deleteElement.mutate({ elementId: element.id, sequenceId });
+    },
+    [deleteElement, isPersisted, sequenceId]
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      addFiles: (files) => void processFiles(files),
+      open: () => setOpen(true),
+    }),
+    [processFiles]
+  );
+
+  const handleInputChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(event.target.files ?? []);
+      void processFiles(files);
+      event.target.value = '';
+    },
+    [processFiles]
+  );
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      setDragOver(false);
+      const snapshot = snapshotDataTransfer(event.dataTransfer);
+      void extractImagesFromSnapshot(snapshot).then(({ files, failedUrls }) => {
+        if (files.length > 0) {
+          void processFiles(files);
+        } else if (failedUrls.length > 0) {
+          toastDragImportCorsError();
+        }
+      });
+    },
+    [processFiles]
+  );
+
+  const handlePaste = useCallback(
+    (event: React.ClipboardEvent<HTMLDivElement>) => {
+      const items = event.clipboardData?.items;
+      if (!items) return;
+      const files: File[] = [];
+      for (const item of items) {
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file) files.push(file);
+        }
+      }
+      if (files.length === 0) return;
+      event.preventDefault();
+      void processFiles(files);
+    },
+    [processFiles]
+  );
+
+  // Build the display list
+  const displayItems: Array<
+    | { kind: 'persisted'; item: DisplayItem; source: SequenceElement }
+    | { kind: 'local'; item: DisplayItem; key: string }
+  > = [];
+
+  if (isPersisted) {
+    for (const el of persistedElements) {
+      const status: DisplayItem['status'] =
+        el.visionStatus === 'pending' || el.visionStatus === 'analyzing'
+          ? 'analyzing'
+          : el.visionStatus === 'failed'
+            ? 'error'
+            : 'done';
+      displayItems.push({
+        kind: 'persisted',
+        source: el,
+        item: {
+          key: `persisted-${el.id}`,
+          imageUrl: el.imageUrl,
+          token: el.token,
+          status,
+          errorMessage: el.visionError ?? undefined,
+        },
+      });
+    }
+  }
+
+  for (const [key, entry] of entries) {
+    displayItems.push({
+      kind: 'local',
+      key,
+      item: {
+        key: `local-${key}`,
+        imageUrl: entry.previewUrl,
+        token: entry.uploaded?.token,
+        status: entry.status,
+        errorMessage: entry.errorMessage,
+      },
+    });
+  }
+
+  const count = isPersisted ? persistedElements.length : uploaded.length;
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="sr-only"
+        disabled={disabled}
+        onChange={handleInputChange}
+      />
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled}
+            className="gap-1.5"
+          >
+            <ImagePlus className="size-3.5" />
+            Elements
+            {count > 0 && (
+              <span className="ml-1 rounded-full bg-primary/10 px-1.5 text-xs">
+                {count}
+              </span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-[420px]">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <p className="text-sm font-medium">Upload reference elements</p>
+              <p className="text-xs text-muted-foreground">
+                Logos, product shots, screenshots. Reference them by UPPERCASE
+                token in your script.
+              </p>
+            </div>
+            {currentCount < MAX_ELEMENTS && (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => inputRef.current?.click()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    inputRef.current?.click();
+                  }
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={(e) => {
+                  const related = e.relatedTarget;
+                  if (
+                    related instanceof Node &&
+                    e.currentTarget.contains(related)
+                  ) {
+                    return;
+                  }
+                  setDragOver(false);
+                }}
+                onDrop={handleDrop}
+                onPaste={handlePaste}
+                className={cn(
+                  'relative flex select-none flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 min-h-[100px] outline-none transition-colors hover:bg-accent/30 focus-visible:border-ring/50 cursor-pointer',
+                  dragOver && 'border-primary/50 bg-accent/30'
+                )}
+              >
+                <Upload className="size-7 text-muted-foreground/50" />
+                <span className="text-sm font-medium">
+                  Drag & drop or paste
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    inputRef.current?.click();
+                  }}
+                >
+                  Browse
+                </Button>
+                <span className="text-[11px] text-muted-foreground">
+                  Up to {MAX_ELEMENTS} images
+                </span>
+              </div>
+            )}
+            {displayItems.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {displayItems.map((entry) => {
+                  const { item } = entry;
+                  return (
+                    <div
+                      key={item.key}
+                      className="relative aspect-square overflow-hidden rounded-md group"
+                    >
+                      {/* biome-ignore lint/performance/noImgElement: preview uses object URL or R2 URL */}
+                      <img
+                        src={item.imageUrl}
+                        alt={item.token ?? 'Element'}
+                        className="size-full object-cover"
+                      />
+                      {(item.status === 'uploading' ||
+                        item.status === 'analyzing') && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-background/50">
+                          <Loader2 className="size-5 animate-spin text-white" />
+                          {item.status === 'analyzing' && (
+                            <span className="text-[10px] font-medium text-white">
+                              Analyzing…
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {item.status === 'error' && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-destructive/70 px-1 text-center text-[10px] font-medium text-white">
+                          {item.errorMessage ?? 'Failed'}
+                        </div>
+                      )}
+                      {item.token && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-background/90 px-1.5 py-0.5 text-[10px] font-mono truncate">
+                          {item.token}
+                        </div>
+                      )}
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        onClick={() => {
+                          if (entry.kind === 'persisted') {
+                            removePersistedElement(entry.source);
+                          } else {
+                            removeLocalEntry(entry.key);
+                          }
+                        }}
+                        className="absolute top-1 right-1 size-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="size-3" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </>
+  );
+};

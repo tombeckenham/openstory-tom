@@ -1,7 +1,4 @@
-import {
-  characterExtractionResultSchema,
-  talentMatchResponseSchema,
-} from '../ai/response-schemas';
+import { talentMatchResponseSchema } from '../ai/response-schemas';
 import { buildMatchingPromptVariables } from '../ai/talent-matching-prompt';
 import { getGenerationChannel } from '../realtime';
 import { sanitizeFailResponse } from '../workflow/sanitize-fail-response';
@@ -19,7 +16,7 @@ export const talentMatchingWorkflow = createScopedWorkflow<
 >(
   async (context, scopedDb) => {
     const input = context.requestPayload;
-    const { scenes, analysisModelId, suggestedTalentIds } = input;
+    const { analysisModelId, suggestedTalentIds } = input;
     const { sequenceId, userId, teamId } = input;
 
     const llmCallContext = {
@@ -29,27 +26,7 @@ export const talentMatchingWorkflow = createScopedWorkflow<
     };
 
     // Use pre-extracted bible from scene splitting, or fall back to LLM extraction
-    const characterBible =
-      input.characterBible && input.characterBible.length > 0
-        ? input.characterBible
-        : (
-            await durableLLMCall(
-              context,
-              {
-                name: 'character-extraction',
-                phase: { number: 2, name: 'Finding characters…' },
-
-                promptName: 'phase/character-extraction-chat',
-                promptVariables: {
-                  scenes: JSON.stringify(scenes, null, 2),
-                },
-
-                modelId: analysisModelId,
-                responseSchema: characterExtractionResultSchema,
-              },
-              llmCallContext
-            )
-          ).characterBible;
+    const characterBible = input.characterBible;
 
     // Talent matching (conditional)
     const { talentList, matchingPromptVariables } = await context.run(

@@ -7,6 +7,7 @@
 
 import type {
   CharacterMinimal,
+  SequenceElementMinimal,
   SequenceLocationMinimal,
 } from '@/lib/db/schema';
 
@@ -71,5 +72,31 @@ export function matchLocationsToScene(
         term.includes(envTagLower) ||
         term.includes(sceneLocLower)
     );
+  });
+}
+
+/**
+ * Match user-uploaded elements to a scene by UPPERCASE token.
+ *
+ * Primary match: `elementTags[]` (emitted by the LLM during scene-split).
+ * Fallback match: token appears in the raw scene script text — catches
+ * cases where the model forgets to populate `elementTags`.
+ */
+export function matchElementsToScene(
+  allElements: SequenceElementMinimal[],
+  elementTags: string[],
+  sceneScript?: string
+): SequenceElementMinimal[] {
+  if (allElements.length === 0) return [];
+
+  const tagsUpper = new Set(elementTags.map((t) => t.toUpperCase()));
+  const scriptUpper = (sceneScript ?? '').toUpperCase();
+
+  return allElements.filter((el) => {
+    const token = el.token.toUpperCase();
+    if (tagsUpper.has(token)) return true;
+    // Match whole-token occurrence in script text (avoid substring hits in a longer word)
+    const re = new RegExp(`(?:^|[^A-Z0-9_])${token}(?:[^A-Z0-9_]|$)`);
+    return re.test(scriptUpper);
   });
 }

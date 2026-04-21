@@ -118,17 +118,34 @@ export const RECOMMENDED_MODELS = {
   premium: 'anthropic/claude-sonnet-4.6',
 } as const;
 
+/**
+ * System messages must be strings (they become systemPrompts on the adapter).
+ * Collapse any content-part array down to its text parts, discarding any
+ * non-text parts (images in a system message have nowhere to go).
+ */
+function systemContentToString(content: ChatMessage['content']): string {
+  if (typeof content === 'string') return content;
+  return content
+    .map((part) => (part.type === 'text' ? part.content : ''))
+    .filter(Boolean)
+    .join('\n');
+}
+
+type AdapterMessage = {
+  role: 'user' | 'assistant';
+  content: ChatMessage['content'];
+};
+
 function convertMessages(messages: ChatMessage[]): {
   systemPrompts: string[];
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  messages: AdapterMessage[];
 } {
   const systemPrompts: string[] = [];
-  const chatMessages: Array<{ role: 'user' | 'assistant'; content: string }> =
-    [];
+  const chatMessages: AdapterMessage[] = [];
 
   for (const msg of messages) {
     if (msg.role === 'system') {
-      systemPrompts.push(msg.content);
+      systemPrompts.push(systemContentToString(msg.content));
     } else {
       chatMessages.push({ role: msg.role, content: msg.content });
     }
@@ -280,10 +297,11 @@ export async function callChat<TSchema extends z.ZodType>(
   }> = [];
 
   for (const msg of messages) {
+    const flat = systemContentToString(msg.content);
     if (msg.role === 'system') {
-      systemPrompts.push(msg.content);
+      systemPrompts.push(flat);
     } else {
-      chatMessages.push({ role: msg.role, content: msg.content });
+      chatMessages.push({ role: msg.role, content: flat });
     }
   }
 

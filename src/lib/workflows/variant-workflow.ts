@@ -116,6 +116,7 @@ export const generateVariantWorkflow = createScopedWorkflow<
           },
           ...(input.characterReferences ?? []),
           ...(input.locationReferences ?? []),
+          ...(input.elementReferences ?? []),
         ];
 
         const { prompt: enhancedPrompt, referenceUrls } =

@@ -28,6 +28,7 @@ import {
   createLocationsMethods,
   createLocationsReadMethods,
 } from '@/lib/db/scoped/location-library';
+import { createSequenceElementsMethods } from '@/lib/db/scoped/sequence-elements';
 import { createSequenceLocationsMethods } from '@/lib/db/scoped/sequence-locations';
 import {
   createSequenceMethods,
@@ -242,6 +243,7 @@ export function createScopedDb(teamId: string, userId: string) {
 
     characters: createCharactersMethods(db),
     sequenceLocations: createSequenceLocationsMethods(db),
+    sequenceElements: createSequenceElementsMethods(db),
 
     billing: createBillingMethods(db, teamId, userId),
     apiKeys: createApiKeysMethods(db, teamId, userId),
@@ -275,6 +277,7 @@ export function createReadOnlyScopedDb(teamId: string) {
 
     characters: createCharactersMethods(db),
     sequenceLocations: createSequenceLocationsMethods(db),
+    sequenceElements: createSequenceElementsMethods(db),
 
     billing: createBillingReadMethods(db, teamId),
     apiKeys: createApiKeysReadMethods(db, teamId),

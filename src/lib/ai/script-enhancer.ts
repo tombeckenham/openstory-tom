@@ -9,6 +9,14 @@ import type { StyleConfig } from '@/lib/db/schema/libraries';
 import { getPrompt } from '@/lib/prompts';
 import { z } from 'zod';
 
+export const enhanceElementSchema = z.object({
+  token: z.string().min(1),
+  description: z.string().nullable().optional(),
+  imageUrl: z.string().url(),
+});
+
+export type EnhanceElement = z.infer<typeof enhanceElementSchema>;
+
 const EnhanceScriptOptionsSchema = z.object({
   originalScript: z
     .string()
@@ -20,6 +28,7 @@ const EnhanceScriptOptionsSchema = z.object({
     .optional()
     .default('dramatic'),
   style: z.string().optional(),
+  elements: z.array(enhanceElementSchema).optional(),
 });
 
 const EnhancedScriptSchema = z.object({
@@ -69,6 +78,7 @@ export function createUserPrompt(
     styleConfig?: Partial<StyleConfig>;
     aspectRatio?: AspectRatio;
     targetDuration?: number;
+    elements?: EnhanceElement[];
   }
 ): string {
   const durationSeconds = options?.targetDuration ?? 30;
@@ -85,6 +95,21 @@ Transform the content within the USER_SCRIPT tags into a professional, visually 
 
 Target video duration: ${formatDuration(durationSeconds)} (${sceneRange} scenes, ~${wordCount} words)`,
   ];
+
+  if (options?.elements && options.elements.length > 0) {
+    const lines = [
+      'The user has uploaded visual reference elements (logos, products, screenshots) that should be woven into the enhanced script. Each element has an UPPERCASE token — use that exact token IN CAPS wherever you reference the element in action/description lines. Do NOT invent new tokens, do NOT rename existing ones, and only reference elements that are clearly relevant to the story. Images accompany this message (below) so you can see each element before deciding how to work it in naturally.',
+      '',
+      'Available elements:',
+      ...options.elements.map((el) => {
+        const desc = el.description
+          ? ` — ${el.description.slice(0, 200)}`
+          : ' — (no description yet; rely on the image)';
+        return `- ${el.token}${desc}`;
+      }),
+    ];
+    parts.push(`\n${lines.join('\n')}`);
+  }
 
   if (options?.styleConfig) {
     const s = options.styleConfig;

@@ -745,15 +745,34 @@ Also build a complete location bible. For each unique location:
 Notes:
 - Combine variations of the same location (e.g., "INT. OFFICE - DAY" and "INT. OFFICE - NIGHT" are the same location)
 - Extract the core location name without time-of-day suffixes
-- Describe the location in its most commonly seen state`,
+- Describe the location in its most commonly seen state
+
+## Element Bible (user-uploaded reference images)
+
+The user may have uploaded reference images ("elements") that should appear in scenes. Each element has an UPPERCASE token and (optionally) a visual description. Elements are typically logos, product shots, screenshots, or other visual assets.
+
+For EACH uploaded element you see used in the script (check the <ELEMENTS> block for the canonical list), produce an elementBible entry with:
+- token: the exact UPPERCASE token from <ELEMENTS>
+- description: the provided description, or a 1-sentence visual description if none was provided
+- consistencyTag: a short lowercase slug (e.g. "red-hex-brand-logo")
+- firstMention: { sceneId, text, lineNumber } — the first scene where the token appears
+
+For EACH scene that references an element, set continuity.elementTags[] to an array of the UPPERCASE tokens used in that scene.
+
+Preserve UPPERCASE tokens verbatim in originalScript.extract — do NOT lowercase them. If a script references an element token that is NOT in the <ELEMENTS> block, ignore it (do not invent elementBible entries).`,
     },
     {
       role: 'user',
-      content: `Analyze the script within the USER_SCRIPT tags and split it into logical scenes using the aspect ratio specified in the ASPECT_RATIO tags. Also extract a complete character bible and location bible.
+      content: `Analyze the script within the USER_SCRIPT tags and split it into logical scenes using the aspect ratio specified in the ASPECT_RATIO tags. Also extract a complete character bible, location bible, and element bible.
 
 <ASPECT_RATIO>
 {{aspectRatio}}
 </ASPECT_RATIO>
+
+<ELEMENTS>
+The following user-uploaded elements are available. Track each one's UPPERCASE token in the script and populate elementBible + continuity.elementTags accordingly:
+{{elements}}
+</ELEMENTS>
 
 <USER_SCRIPT>
 {{script}}
@@ -841,15 +860,34 @@ Respond with exactly {{numTalent}} matches.`,
 2. **THE "STARTING FRAME"**: Describe the exact moment the scene begins. Focus on the *potential energy*—muscles tensed, mid-breath, looking off-camera. This is a still image that implies motion.
 3. **ENVIRONMENT & LIGHTING**: Since the character identity is handled by reference, spend 60% of your tokens on the atmosphere, lighting texture, depth of field, and background details.
 4. **DIRECTOR STYLE**: Apply the <DIRECTOR_STYLE> to the camera lens (e.g., "anamorphic flares"), film stock, and color palette.
+5. **ELEMENTS — reference image does the heavy lifting**: User-uploaded elements (logos, products, screenshots) are identified by UPPERCASE tokens in the script. The accompanying reference image carries their complete visual identity. Your text must NOT compete with that image.
+
+   **First, decide visibility in THIS starting frame:**
+   - Include only if physically present on-camera in this moment — held, worn, displayed on a screen in-shot, mounted on a wall, on the desk, in the background, etc.
+   - EXCLUDE if merely referenced in dialogue, implied, mentioned as something about to appear, described off-screen, or belongs to a later beat. A character *talking about* the product is not the same as the product being *seen*.
+   - If you exclude an element, REMOVE its token from continuity.elementTags[] so downstream reference-image binding stays in sync with the prompt.
+
+   **When you include one — map it explicitly to its reference image:** use phrasing that tells the model to USE the reference, like "displaying the UI from (BONDI_SCREEN)", "the screen shows (BONDI_SCREEN)", "wearing the logo from (BRAND_LOGO)", "holding the product from (HERO_PRODUCT)". Place the UPPERCASE token in parentheses immediately after the role-noun. Prefer this explicit-map phrasing at the earliest natural mention in the prompt — it disambiguates which reference drives which object.
+
+   **HARD PROHIBITIONS — these are what ruin outputs:**
+   - NEVER describe the element's internal visual content. No typography, no color scheme, no layout, no UI components (nav bars, panels, buttons, columns), no readable words or phrases, no product shape, no logo shape. The reference image already contains all of this — descriptive text here triggers "conditioning competition" where the model generates a *new* element based on your words instead of faithfully pasting in the reference.
+   - NEVER quote or invent any text ("luminous", "coastal breeze", "Sequences", product names, headlines) that you hope will appear on the element. If the reference has text, the reference has text. Do not instruct the model to render it.
+   - NEVER write the token as a brand name in prose (e.g. avoid "the BONDI_SCREEN platform" or "a BONDI_SCREEN-style interface").
+   - NEVER describe the token as on-screen text, signage, a label, or anything readable within the scene — it is an internal identifier, not content the viewer should see.
+
+   **What you CAN describe:** how the element sits in the physical shot — held, placed, mounted, in background, reflected, angled toward camera, partially occluded, blurred in bokeh, sharply in focus. Also its interaction with lighting (glare on the glossy surface, rim light across the bezel). Only reference elements listed in <ELEMENT_BIBLE>.
 
 ### CONTENT RULES (STRICT)
 1. **NO HOLOGRAPHIC SCREENS**: Do NOT describe floating interfaces, holograms, or HUDs. Technology must be physical (glass screens, tactile buttons, cables, metal) and grounded.
-2. **NO TEXT**: No subtitles, no signs, no dialogue.
+2. **NO TEXT**: No subtitles, no signs, no dialogue. (Exception: text rendered on uploaded elements may appear — that is part of the element's identity.)
 3. **ONE SHOT**: Describe a single coherent frame.
 4. **ZERO MEMORY**: Re-describe the setting fully and name each character present with their costume. Do not refer to "the previous scene." Do NOT re-describe character physical appearance — the reference image provides identity.
 
 ### PROMPT STRUCTURE (Flatten into one paragraph)
-[Medium/Style] + [CHARACTER NAME IN CAPS & Costume/Wardrobe] + [Specific Pose/Action] + [Detailed Environment] + [Lighting Conditions] + [Camera Angle/Lens]`,
+[Medium/Style] + [CHARACTER NAME IN CAPS & Costume/Wardrobe] + [Specific Pose/Action] + [Detailed Environment] + [Lighting Conditions] + [Camera Angle/Lens]
+
+### CONTINUITY OUTPUT
+Set continuity.elementTags[] to the UPPERCASE tokens of elements you actually INCLUDED in the prompt per rule 5 — i.e. elements physically visible in this starting frame. Elements that are only referenced in dialogue or implied off-screen must NOT appear in elementTags[], since that list drives reference-image attachment.`,
     },
     {
       role: 'user',
@@ -877,6 +915,11 @@ Respond with exactly {{numTalent}} matches.`,
 <LOCATION_BIBLE>
 {{locationBible}}
 </LOCATION_BIBLE>
+
+<ELEMENT_BIBLE>
+(UPPERCASE-token identified user-uploaded elements. Reference images for these accompany the prompt. Reference elements by token only — do NOT describe their visual identity.)
+{{elementBible}}
+</ELEMENT_BIBLE>
 
 <DIRECTOR_STYLE>
 {{styleConfig}}

@@ -70,10 +70,11 @@ export async function uploadFile(
     // doesn't reliably handle streaming uploads (see commit afdb5ccf).
     // Note: Bun's S3Options doesn't support cacheControl, so streamed files
     // won't get cache headers. This only affects local dev / Railway.
+    // Use the `Bun` global rather than `import('bun')` so Vite's import
+    // analyzer doesn't try to resolve "bun" as an npm package.
     if (file instanceof ReadableStream) {
-      const { S3Client: BunS3Client } = await import('bun');
       const env = getEnv();
-      const bunS3 = new BunS3Client({
+      const bunS3 = new Bun.S3Client({
         accessKeyId: env.R2_ACCESS_KEY_ID,
         secretAccessKey: env.R2_SECRET_ACCESS_KEY,
         bucket: bucketName,

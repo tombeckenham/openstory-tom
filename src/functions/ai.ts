@@ -24,7 +24,11 @@ import { aspectRatioSchema } from '@/lib/constants/aspect-ratios';
 import { StyleConfigSchema } from '@/lib/db/schema/libraries';
 import type { ScopedDb } from '@/lib/db/scoped';
 import { InsufficientCreditsError } from '@/lib/errors';
-import { getPrompt } from '@/lib/prompts';
+import {
+  getPrompt,
+  type ChatMessage,
+  type ChatMessageContentPart,
+} from '@/lib/prompts';
 import { createServerFn } from '@tanstack/react-start';
 import { getRequest } from '@tanstack/react-start/server';
 import { zodValidator } from '@tanstack/zod-adapter';
@@ -163,6 +167,15 @@ const enhanceScriptInputSchema = z.object({
   styleConfig: StyleConfigSchema.partial().optional(),
   analysisModel: z.string().optional(),
   aspectRatio: aspectRatioSchema.optional(),
+  elements: z
+    .array(
+      z.object({
+        token: z.string().min(1),
+        description: z.string().nullable().optional(),
+        imageUrl: z.string().url(),
+      })
+    )
+    .optional(),
 });
 
 export const enhanceScriptStreamFn = createServerFn({ method: 'POST' })
@@ -178,11 +191,13 @@ export const enhanceScriptStreamFn = createServerFn({ method: 'POST' })
     }
 
     const sanitized = sanitizeScriptContent(data.script);
-    const { compiled } = await getPrompt('script/enhance');
+    const { prompt, compiled } = await getPrompt('script/enhance');
+    const elements = data.elements ?? [];
     const userPrompt = createUserPrompt(sanitized, {
       styleConfig: data.styleConfig,
       aspectRatio: data.aspectRatio,
       targetDuration: data.targetDuration,
+      elements: elements.length > 0 ? elements : undefined,
     });
 
     const model =
@@ -192,15 +207,48 @@ export const enhanceScriptStreamFn = createServerFn({ method: 'POST' })
 
     const systemMessage = `${compiled}\n\nReturn ONLY the enhanced script text. No JSON, no markdown formatting, no explanations.`;
 
+    const userContent: string | ChatMessageContentPart[] =
+      elements.length > 0
+        ? [
+            { type: 'text', content: userPrompt },
+            ...elements.map<ChatMessageContentPart>((el) => ({
+              type: 'image',
+              source: { type: 'url', value: el.imageUrl },
+            })),
+          ]
+        : userPrompt;
+
+    const messages: ChatMessage[] = [
+      { role: 'system', content: systemMessage },
+      { role: 'user', content: userContent },
+    ];
+
+    const promptRef = prompt
+      ? {
+          name: prompt.name,
+          version: prompt.version,
+          isFallback: false,
+        }
+      : undefined;
+
     for await (const chunk of callLLMStream({
       model,
-      messages: [
-        { role: 'system' as const, content: systemMessage },
-        { role: 'user' as const, content: userPrompt },
-      ],
+      messages,
       max_tokens: 4000,
       temperature: 0.7,
-      plugins: [{ id: 'web' }],
+      // Web search only makes sense when we're not already grounding on
+      // user-provided reference images.
+      ...(elements.length === 0 && { plugins: [{ id: 'web' as const }] }),
+      observationName: 'script-enhance',
+      prompt: promptRef,
+      tags: ['script-enhance', model],
+      metadata: {
+        teamId: context.teamId,
+        userId: context.user.id,
+        elementCount: elements.length,
+        targetDuration: data.targetDuration,
+        aspectRatio: data.aspectRatio,
+      },
     })) {
       if (chunk.delta) {
         yield { delta: chunk.delta };

@@ -45,11 +45,28 @@ function compileTemplate(
 }
 
 /**
- * Message format returned by Langfuse chat prompts
+ * Multimodal content part — used for vision-capable chat messages.
+ * Mirrors @tanstack/ai's ContentPart shape so messages type-check against
+ * the adapter without intermediate conversion.
+ * Kept optional so existing string-only prompts stay backwards-compatible.
+ */
+export type ChatMessageTextPart = { type: 'text'; content: string };
+export type ChatMessageImagePart = {
+  type: 'image';
+  source:
+    | { type: 'url'; value: string; mimeType?: string }
+    | { type: 'data'; value: string; mimeType: string };
+};
+export type ChatMessageContentPart = ChatMessageTextPart | ChatMessageImagePart;
+
+/**
+ * Message format returned by Langfuse chat prompts.
+ * `content` is either a plain string (the default for all existing prompts)
+ * or an array of content parts for multimodal calls.
  */
 export type ChatMessage = {
   role: 'system' | 'user' | 'assistant';
-  content: string;
+  content: string | ChatMessageContentPart[];
 };
 
 /**
@@ -131,7 +148,10 @@ export async function getChatPrompt(
   const messages: ChatMessage[] = variables
     ? localMessages.map((msg) => ({
         ...msg,
-        content: compileTemplate(msg.content, variables),
+        content:
+          typeof msg.content === 'string'
+            ? compileTemplate(msg.content, variables)
+            : msg.content,
       }))
     : [...localMessages];
 

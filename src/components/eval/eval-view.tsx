@@ -62,13 +62,22 @@ const defaultFilters: FilterState = {
   workflow: null,
 };
 
-export const EvalView: React.FC = () => {
+type EvalViewProps = {
+  initialUserFilter?: string;
+};
+
+export const EvalView: React.FC<EvalViewProps> = ({ initialUserFilter }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('prompts');
-  const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  const [filters, setFilters] = useState<FilterState>(() =>
+    initialUserFilter
+      ? { ...defaultFilters, search: initialUserFilter }
+      : defaultFilters
+  );
   const [sortCriteria, setSortCriteria] = useState<SortCriteria[]>([
     { field: 'createdAt', direction: 'desc' },
   ]);
-  const [supportMode, setSupportMode] = useState(false);
+  const [supportMode, setSupportMode] = useState(Boolean(initialUserFilter));
+  const [hideInternal, setHideInternal] = useState(false);
 
   const { data: adminStatus } = useQuery({
     queryKey: ['system-admin-status'],
@@ -77,6 +86,10 @@ export const EvalView: React.FC = () => {
   });
 
   const isAdmin = adminStatus?.isAdmin ?? false;
+  const internalDomains = useMemo(
+    () => adminStatus?.internalDomains ?? [],
+    [adminStatus?.internalDomains]
+  );
 
   const ownData = useSequencesWithFrames();
   const adminData = useAdminAllSequencesWithFrames(supportMode);
@@ -87,10 +100,20 @@ export const EvalView: React.FC = () => {
   const isLoading = supportMode ? adminData.isLoading : ownData.isLoading;
   const error = supportMode ? adminData.error : ownData.error;
 
+  // Deep link wins: when a specific user is requested, never hide them.
+  const effectiveHideInternal =
+    hideInternal && !initialUserFilter && internalDomains.length > 0;
+
   // Client-side filtering for both modes
   const filteredAndSorted = useMemo(
-    () => applyFiltersAndSort(sequences || [], filters, sortCriteria),
-    [sequences, filters, sortCriteria]
+    () =>
+      applyFiltersAndSort(
+        sequences || [],
+        filters,
+        sortCriteria,
+        effectiveHideInternal ? internalDomains : []
+      ),
+    [sequences, filters, sortCriteria, effectiveHideInternal, internalDomains]
   );
 
   const handleLoadMore = supportMode
@@ -103,16 +126,31 @@ export const EvalView: React.FC = () => {
 
   const supportModeToggle = isAdmin ? (
     <Card className="p-3">
-      <div className="flex items-center gap-2">
-        <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-        <Label htmlFor="support-mode" className="text-sm font-medium">
-          Support Mode
-        </Label>
-        <Switch
-          id="support-mode"
-          checked={supportMode}
-          onCheckedChange={setSupportMode}
-        />
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+          <Label htmlFor="support-mode" className="text-sm font-medium">
+            Support Mode
+          </Label>
+          <Switch
+            id="support-mode"
+            checked={supportMode}
+            onCheckedChange={setSupportMode}
+          />
+        </div>
+        {supportMode && internalDomains.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Label htmlFor="hide-internal" className="text-sm font-medium">
+              Hide internal
+            </Label>
+            <Switch
+              id="hide-internal"
+              checked={hideInternal}
+              onCheckedChange={setHideInternal}
+              disabled={Boolean(initialUserFilter)}
+            />
+          </div>
+        )}
       </div>
     </Card>
   ) : null;
@@ -208,9 +246,21 @@ export const EvalView: React.FC = () => {
 function applyFiltersAndSort(
   sequences: SequenceWithFrames[],
   filters: FilterState,
-  sortCriteria: SortCriteria[]
+  sortCriteria: SortCriteria[],
+  hideDomains: string[]
 ): SequenceWithFrames[] {
   let result = [...sequences];
+
+  if (hideDomains.length > 0) {
+    const suffixes = hideDomains.map((d) => `@${d.toLowerCase()}`);
+    result = result.filter((s) => {
+      if (!('creatorEmail' in s) || typeof s.creatorEmail !== 'string') {
+        return true;
+      }
+      const email = s.creatorEmail.toLowerCase();
+      return !suffixes.some((suffix) => email.endsWith(suffix));
+    });
+  }
 
   // Apply filters
   if (filters.search) {
@@ -221,6 +271,12 @@ function applyFiltersAndSort(
         'creatorName' in s &&
         typeof s.creatorName === 'string' &&
         s.creatorName.toLowerCase().includes(searchLower)
+      )
+        return true;
+      if (
+        'creatorEmail' in s &&
+        typeof s.creatorEmail === 'string' &&
+        s.creatorEmail.toLowerCase().includes(searchLower)
       )
         return true;
       return false;

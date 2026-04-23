@@ -18,6 +18,7 @@ export const adminSupportKeys = {
 
 export type AdminSequenceWithFrames = SequenceWithFrames & {
   creatorName: string | null;
+  creatorEmail: string | null;
 };
 
 export function useAdminAllSequencesWithFrames(enabled: boolean) {
@@ -63,7 +64,13 @@ export function useAdminAllSequencesWithFrames(enabled: boolean) {
   const data = useMemo<AdminSequenceWithFrames[]>(() => {
     if (allSequences.length === 0) return [];
     return allSequences.map(
-      (seq: Sequence & { creatorName: string | null }, i: number) => ({
+      (
+        seq: Sequence & {
+          creatorName: string | null;
+          creatorEmail: string | null;
+        },
+        i: number
+      ) => ({
         ...seq,
         frames: framesQueries[i]?.data ?? [],
       })

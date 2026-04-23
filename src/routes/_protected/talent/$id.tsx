@@ -2,7 +2,6 @@ import { EditTalentDialog } from '@/components/talent-library/edit-talent-dialog
 import { PageContainer } from '@/components/layout/page-container';
 import { PageDescription } from '@/components/typography/page-description';
 import { PageHeader } from '@/components/typography/page-header';
-import { PageHeading } from '@/components/typography/page-heading';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,8 +26,22 @@ import {
   User,
 } from 'lucide-react';
 
+function TalentCrumbLabel({ id }: { id: string }) {
+  const { data } = useTalentById(id);
+  return <>{data?.name ?? '…'}</>;
+}
+
 export const Route = createFileRoute('/_protected/talent/$id')({
   component: TalentDetailPage,
+  staticData: {
+    breadcrumb: (match) => {
+      const params: { id: string } = match.params;
+      return [
+        { label: 'Talent', to: '/talent' },
+        { label: <TalentCrumbLabel id={params.id} /> },
+      ];
+    },
+  },
 });
 
 function TalentDetailPage() {
@@ -147,7 +160,6 @@ function TalentDetailPage() {
           }
         >
           <div className="flex items-center gap-3">
-            <PageHeading>{talent.name}</PageHeading>
             {talent.isHuman ? (
               <span className="px-2 py-1 bg-muted rounded text-xs font-medium">
                 Human

@@ -3,7 +3,6 @@ import { EditLocationDialog } from '@/components/location-library/edit-location-
 import { LocationMediaUpload } from '@/components/location-library/location-media-upload';
 import { PageDescription } from '@/components/typography/page-description';
 import { PageHeader } from '@/components/typography/page-header';
-import { PageHeading } from '@/components/typography/page-heading';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -26,8 +25,22 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
+function LibraryLocationCrumbLabel({ id }: { id: string }) {
+  const { data } = useLibraryLocationById(id);
+  return <>{data?.name ?? '…'}</>;
+}
+
 export const Route = createFileRoute('/_protected/locations/$locationId')({
   component: LocationDetailPage,
+  staticData: {
+    breadcrumb: (match) => {
+      const params: { locationId: string } = match.params;
+      return [
+        { label: 'Locations', to: '/locations' },
+        { label: <LibraryLocationCrumbLabel id={params.locationId} /> },
+      ];
+    },
+  },
 });
 
 function LocationDetailPage() {
@@ -151,7 +164,6 @@ function LocationDetailPage() {
             </div>
           }
         >
-          <PageHeading>{location.name}</PageHeading>
           {location.description && (
             <PageDescription>{location.description}</PageDescription>
           )}

@@ -1,4 +1,7 @@
-import { OpenStoryLogo } from '@/components/icons/openstory-logo';
+import {
+  OpenStoryIcon,
+  OpenStoryLogo,
+} from '@/components/icons/openstory-logo';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -36,7 +39,6 @@ import {
   MapPin,
   Plus,
   Settings,
-  User,
   Users,
   Video,
   Wallet,
@@ -64,8 +66,8 @@ export function AppSidebar() {
             size="md"
             className="group-data-[collapsible=icon]:hidden"
           />
-          <OpenStoryLogo
-            size="sm"
+          <OpenStoryIcon
+            size="md"
             className="hidden group-data-[collapsible=icon]:block"
           />
         </Link>
@@ -191,12 +193,6 @@ function UserFooter() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to={sequencesRoute.to}>
-            <User className="mr-2 h-4 w-4" />
-            My Sequences
-          </Link>
-        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link to="/settings">
             <Settings className="mr-2 h-4 w-4" />

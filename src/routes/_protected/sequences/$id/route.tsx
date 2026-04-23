@@ -12,7 +12,6 @@ import {
   useSequenceTabItems,
 } from '@/components/sequence/sequence-tabs';
 import { PageHeader } from '@/components/typography/page-header';
-import { PageHeading } from '@/components/typography/page-heading';
 import { getSequenceFn } from '@/functions/sequences';
 import { sequenceKeys, useSequence } from '@/hooks/use-sequences';
 import { useSwipeNavigation } from '@/hooks/use-swipe-navigation';
@@ -26,6 +25,11 @@ import {
   useRouterState,
 } from '@tanstack/react-router';
 
+function SequenceCrumbLabel({ id }: { id: string }) {
+  const { data } = useSequence(id);
+  return <>{data?.title ?? '…'}</>;
+}
+
 export const Route = createFileRoute('/_protected/sequences/$id')({
   component: SequenceLayout,
   loader: async ({ params, context: { queryClient } }) => {
@@ -37,6 +41,18 @@ export const Route = createFileRoute('/_protected/sequences/$id')({
       queryKey: sequenceKeys.detail(params.id),
       queryFn: () => getSequenceFn({ data: { sequenceId: params.id } }),
     });
+  },
+  staticData: {
+    breadcrumb: (match) => {
+      const params: { id: string } = match.params;
+      return [
+        { label: 'Sequences', to: '/sequences' },
+        {
+          label: <SequenceCrumbLabel id={params.id} />,
+          to: `/sequences/${params.id}/scenes`,
+        },
+      ];
+    },
   },
   errorComponent: (props) => (
     <RouteErrorFallback {...props} heading="Sequence error" />
@@ -69,7 +85,6 @@ function SequenceLayout() {
     <div className="flex h-full flex-col">
       <div className="mx-auto w-full max-w-[1920px] shrink-0 space-y-1 px-6 pt-4">
         <PageHeader>
-          <PageHeading>{sequence?.title}</PageHeading>
           <div className="hidden md:flex flex-row flex-wrap items-center gap-2">
             <ModelBadge model={sequence?.analysisModel} />
             <ImageModelBadge

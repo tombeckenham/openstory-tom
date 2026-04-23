@@ -4,8 +4,10 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
+import { Separator } from '@/components/ui/separator';
 import type * as React from 'react';
 import { AppSidebar } from './app-sidebar';
+import { Breadcrumbs } from './breadcrumbs';
 import { InvalidApiKeyBanner } from './invalid-api-key-banner';
 
 interface AppLayoutProps extends React.HTMLAttributes<HTMLElement> {}
@@ -16,22 +18,24 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   ...props
 }) => {
   return (
-    <SidebarProvider>
+    <SidebarProvider className="h-svh">
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="min-h-0">
         <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger />
+          <Separator orientation="vertical" className="mx-1 h-4" />
+          <Breadcrumbs />
         </header>
         <InvalidApiKeyBanner />
-        <main
+        <div
           className={cn(
-            'flex flex-col flex-1 overflow-y-auto [scrollbar-gutter:stable]',
+            'flex flex-col flex-1 min-h-0 overflow-y-auto [scrollbar-gutter:stable]',
             className
           )}
           {...props}
         >
           {children}
-        </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

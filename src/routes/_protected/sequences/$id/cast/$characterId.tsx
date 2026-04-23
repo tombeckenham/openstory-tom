@@ -1,3 +1,4 @@
+import { routeParams } from '@/components/layout/breadcrumbs';
 import { CharacterDetailView } from '@/components/talent/character-detail-view';
 import { useSequenceCharacters } from '@/hooks/use-sequence-characters';
 import { createFileRoute } from '@tanstack/react-router';
@@ -20,13 +21,13 @@ export const Route = createFileRoute(
   component: CharacterDetailPage,
   staticData: {
     breadcrumb: (match) => {
-      const params: { id: string; characterId: string } = match.params;
+      const { id, characterId } = routeParams<{
+        id: string;
+        characterId: string;
+      }>(match);
       return {
         label: (
-          <CharacterCrumbLabel
-            sequenceId={params.id}
-            characterId={params.characterId}
-          />
+          <CharacterCrumbLabel sequenceId={id} characterId={characterId} />
         ),
       };
     },

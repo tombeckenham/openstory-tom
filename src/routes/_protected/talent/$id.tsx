@@ -1,3 +1,4 @@
+import { routeParams } from '@/components/layout/breadcrumbs';
 import { EditTalentDialog } from '@/components/talent-library/edit-talent-dialog';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageDescription } from '@/components/typography/page-description';
@@ -35,10 +36,10 @@ export const Route = createFileRoute('/_protected/talent/$id')({
   component: TalentDetailPage,
   staticData: {
     breadcrumb: (match) => {
-      const params: { id: string } = match.params;
+      const { id } = routeParams<{ id: string }>(match);
       return [
         { label: 'Talent', to: '/talent' },
-        { label: <TalentCrumbLabel id={params.id} /> },
+        { label: <TalentCrumbLabel id={id} /> },
       ];
     },
   },

@@ -7,8 +7,10 @@ import {
 } from '@/components/model/model-badge';
 import { getSequenceImageModelsFn } from '@/functions/frames';
 import { frameKeys } from '@/hooks/use-frames';
+import { routeParams } from '@/components/layout/breadcrumbs';
 import {
   SequenceTabs,
+  getDefaultSequenceTabPath,
   useSequenceTabItems,
 } from '@/components/sequence/sequence-tabs';
 import { PageHeader } from '@/components/typography/page-header';
@@ -44,12 +46,12 @@ export const Route = createFileRoute('/_protected/sequences/$id')({
   },
   staticData: {
     breadcrumb: (match) => {
-      const params: { id: string } = match.params;
+      const { id } = routeParams<{ id: string }>(match);
       return [
         { label: 'Sequences', to: '/sequences' },
         {
-          label: <SequenceCrumbLabel id={params.id} />,
-          to: `/sequences/${params.id}/scenes`,
+          label: <SequenceCrumbLabel id={id} />,
+          to: getDefaultSequenceTabPath(id),
         },
       ];
     },

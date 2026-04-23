@@ -1,3 +1,4 @@
+import { routeParams } from '@/components/layout/breadcrumbs';
 import { LocationDetailView } from '@/components/locations/location-detail-view';
 import { useSequenceLocations } from '@/hooks/use-sequence-locations';
 import { createFileRoute } from '@tanstack/react-router';
@@ -20,14 +21,12 @@ export const Route = createFileRoute(
   component: LocationDetailPage,
   staticData: {
     breadcrumb: (match) => {
-      const params: { id: string; locationId: string } = match.params;
+      const { id, locationId } = routeParams<{
+        id: string;
+        locationId: string;
+      }>(match);
       return {
-        label: (
-          <LocationCrumbLabel
-            sequenceId={params.id}
-            locationId={params.locationId}
-          />
-        ),
+        label: <LocationCrumbLabel sequenceId={id} locationId={locationId} />,
       };
     },
   },

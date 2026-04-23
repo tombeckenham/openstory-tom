@@ -1,3 +1,4 @@
+import { routeParams } from '@/components/layout/breadcrumbs';
 import { PageContainer } from '@/components/layout/page-container';
 import { EditLocationDialog } from '@/components/location-library/edit-location-dialog';
 import { LocationMediaUpload } from '@/components/location-library/location-media-upload';
@@ -34,10 +35,10 @@ export const Route = createFileRoute('/_protected/locations/$locationId')({
   component: LocationDetailPage,
   staticData: {
     breadcrumb: (match) => {
-      const params: { locationId: string } = match.params;
+      const { locationId } = routeParams<{ locationId: string }>(match);
       return [
         { label: 'Locations', to: '/locations' },
-        { label: <LibraryLocationCrumbLabel id={params.locationId} /> },
+        { label: <LibraryLocationCrumbLabel id={locationId} /> },
       ];
     },
   },

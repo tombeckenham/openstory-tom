@@ -14,6 +14,17 @@ export function isSystemAdmin(email: string): boolean {
   return parseAdminEmails().includes(email.toLowerCase());
 }
 
+export function getInternalDomains(): string[] {
+  const domains = new Set<string>();
+  for (const email of parseAdminEmails()) {
+    const at = email.lastIndexOf('@');
+    if (at > 0 && at < email.length - 1) {
+      domains.add(email.slice(at + 1));
+    }
+  }
+  return [...domains];
+}
+
 export function requireSystemAdmin(email: string): void {
   if (!isSystemAdmin(email)) {
     throw new AuthenticationError('System admin access required');

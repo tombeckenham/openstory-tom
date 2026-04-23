@@ -1,13 +1,21 @@
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { listUserActivityFn } from '@/functions/admin';
 import type { UserActivityRow } from '@/lib/db/scoped';
-import { micros, microsToDisplayUsd } from '@/lib/billing/money';
+import { micros, microsToDisplayUsd, microsToUsd } from '@/lib/billing/money';
 import { useQuery } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
-import { ArrowDown, ArrowUp, ArrowUpDown, Users } from 'lucide-react';
+import { createFileRoute, Link } from '@tanstack/react-router';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Download,
+  LifeBuoy,
+  Users,
+} from 'lucide-react';
 import { Suspense, useMemo, useState } from 'react';
 
 export const Route = createFileRoute('/_protected/admin/usage')({
@@ -151,6 +159,15 @@ function UsageContent() {
         <span className="text-sm text-muted-foreground">
           {sorted.length} of {rows.length} users
         </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => downloadUsersCsv(sorted)}
+          disabled={sorted.length === 0}
+        >
+          <Download className="h-4 w-4 mr-1" />
+          Export CSV
+        </Button>
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
@@ -233,13 +250,16 @@ function UsageContent() {
                 onSort={toggleSort}
                 align="right"
               />
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                Support
+              </th>
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 ? (
               <tr>
                 <td
-                  colSpan={11}
+                  colSpan={12}
                   className="px-4 py-8 text-center text-muted-foreground"
                 >
                   {search ? 'No users match your search.' : 'No users found.'}
@@ -361,9 +381,91 @@ const UserRow: React.FC<{ row: UserActivityRow }> = ({ row }) => {
       <td className="px-4 py-3 text-right tabular-nums">
         {microsToDisplayUsd(micros(row.currentBalanceMicros))}
       </td>
+      <td className="px-4 py-3">
+        <Link
+          to="/admin/eval"
+          search={{ user: row.email }}
+          className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+          aria-label={`Open eval support view for ${row.email}`}
+        >
+          <LifeBuoy className="h-4 w-4" />
+          Support
+        </Link>
+      </td>
     </tr>
   );
 };
+
+const CSV_COLUMNS = [
+  'userId',
+  'name',
+  'email',
+  'createdAt',
+  'status',
+  'teamId',
+  'teamName',
+  'sequenceCount',
+  'failedCount',
+  'avgAnalysisDurationSec',
+  'creditsSpentUsd',
+  'creditsPurchasedUsd',
+  'creditsGiftedUsd',
+  'currentBalanceUsd',
+  'supportUrl',
+] as const;
+
+function csvEscape(value: string | number | null): string {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function toCsv(rows: UserActivityRow[], origin: string): string {
+  const header = CSV_COLUMNS.join(',');
+  const lines = rows.map((row) => {
+    const avgSec =
+      row.avgAnalysisDurationMs === null
+        ? null
+        : Math.round(row.avgAnalysisDurationMs / 1000);
+    const supportUrl = `${origin}/admin/eval?user=${encodeURIComponent(row.email)}`;
+    const values: Array<string | number | null> = [
+      row.userId,
+      row.name,
+      row.email,
+      new Date(row.createdAt).toISOString(),
+      row.status,
+      row.teamId,
+      row.teamName,
+      row.sequenceCount,
+      row.failedCount,
+      avgSec,
+      microsToUsd(micros(row.creditsSpentMicros)).toFixed(2),
+      microsToUsd(micros(row.creditsPurchasedMicros)).toFixed(2),
+      microsToUsd(micros(row.creditsGiftedMicros)).toFixed(2),
+      microsToUsd(micros(row.currentBalanceMicros)).toFixed(2),
+      supportUrl,
+    ];
+    return values.map(csvEscape).join(',');
+  });
+  return [header, ...lines].join('\n');
+}
+
+function downloadUsersCsv(rows: UserActivityRow[]): void {
+  const csv = toCsv(rows, window.location.origin);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const filename = `openstory-users-${new Date().toISOString().slice(0, 10)}.csv`;
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+}
 
 function PageSkeleton() {
   return (

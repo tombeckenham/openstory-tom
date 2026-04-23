@@ -25,7 +25,7 @@ export const Route = createFileRoute('/_protected/admin')({
 
 const NAV_LINKS = [
   { to: '/admin/usage' as const, label: 'Usage', icon: BarChart3 },
-  { to: '/eval' as const, label: 'Eval', icon: FlaskConical },
+  { to: '/admin/eval' as const, label: 'Eval', icon: FlaskConical },
 ];
 
 function AdminNav() {
@@ -57,9 +57,11 @@ function AdminNav() {
 
 function AdminLayout() {
   return (
-    <div className="mx-auto w-full max-w-6xl p-6">
+    <div className="flex h-full flex-col p-6">
       <AdminNav />
-      <Outlet />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <Outlet />
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { isSystemAdmin } from '@/lib/auth/system-admin';
+import { getInternalDomains, isSystemAdmin } from '@/lib/auth/system-admin';
 import { createServerFn } from '@tanstack/react-start';
 import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
@@ -89,5 +89,9 @@ export const listGiftTokensFn = createServerFn({ method: 'GET' })
 export const isSystemAdminFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
-    return { isAdmin: isSystemAdmin(context.user.email) };
+    const isAdmin = isSystemAdmin(context.user.email);
+    return {
+      isAdmin,
+      internalDomains: isAdmin ? getInternalDomains() : [],
+    };
   });

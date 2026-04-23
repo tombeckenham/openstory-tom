@@ -131,7 +131,10 @@ export function createAdminMethods(db: Database) {
 
   // ---- Support: cross-team sequence/frame access ----
 
-  type SequenceWithCreator = Sequence & { creatorName: string | null };
+  type SequenceWithCreator = Sequence & {
+    creatorName: string | null;
+    creatorEmail: string | null;
+  };
 
   async function getAllSequences(opts?: {
     limit?: number;
@@ -143,6 +146,7 @@ export function createAdminMethods(db: Database) {
       .select({
         sequence: sequences,
         creatorName: user.name,
+        creatorEmail: user.email,
       })
       .from(sequences)
       .leftJoin(user, eq(sequences.createdBy, user.id))
@@ -151,9 +155,10 @@ export function createAdminMethods(db: Database) {
       .limit(limit)
       .offset(offset);
 
-    return rows.map(({ sequence, creatorName }) => ({
+    return rows.map(({ sequence, creatorName, creatorEmail }) => ({
       ...sequence,
       creatorName,
+      creatorEmail,
     }));
   }
 

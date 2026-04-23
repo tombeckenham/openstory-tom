@@ -160,6 +160,7 @@ function TalentDetailPage() {
             </div>
           }
         >
+          <h1 className="sr-only">{talent.name}</h1>
           <div className="flex items-center gap-3">
             {talent.isHuman ? (
               <span className="px-2 py-1 bg-muted rounded text-xs font-medium">

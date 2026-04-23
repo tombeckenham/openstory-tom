@@ -33,6 +33,7 @@ function TalentPage() {
   return (
     <div className="h-full overflow-auto">
       <PageContainer>
+        <h1 className="sr-only">Talent Library</h1>
         <PageHeader actions={<AddTalentDialog />}>
           <PageDescription>
             Manage your team's talent library for consistent AI-generated

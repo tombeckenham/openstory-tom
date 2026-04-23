@@ -41,6 +41,7 @@ function LocationsPage() {
   return (
     <div className="h-full overflow-auto">
       <PageContainer>
+        <h1 className="sr-only">Location Library</h1>
         <PageHeader actions={<AddLocationDialog />}>
           <PageDescription>
             Browse and manage location references across all your sequences.

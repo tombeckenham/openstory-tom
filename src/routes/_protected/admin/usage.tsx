@@ -39,6 +39,7 @@ type SortDirection = 'asc' | 'desc';
 function AdminUsagePage() {
   return (
     <div className="flex flex-col gap-6">
+      <h1 className="sr-only">User Activity</h1>
       <p className="text-muted-foreground">
         Overview of all users, their sequences, and credit activity.
       </p>

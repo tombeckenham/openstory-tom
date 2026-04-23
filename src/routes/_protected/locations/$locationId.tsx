@@ -165,6 +165,7 @@ function LocationDetailPage() {
             </div>
           }
         >
+          <h1 className="sr-only">{location.name}</h1>
           {location.description && (
             <PageDescription>{location.description}</PageDescription>
           )}

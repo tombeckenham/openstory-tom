@@ -86,6 +86,7 @@ function SequenceLayout() {
   return (
     <div className="flex h-full flex-col">
       <div className="mx-auto w-full max-w-[1920px] shrink-0 space-y-1 px-6 pt-4">
+        <h1 className="sr-only">{sequence?.title ?? 'Sequence'}</h1>
         <PageHeader>
           <div className="hidden md:flex flex-row flex-wrap items-center gap-2">
             <ModelBadge model={sequence?.analysisModel} />

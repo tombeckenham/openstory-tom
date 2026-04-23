@@ -28,6 +28,7 @@ function SequencesPage() {
   return (
     <div className="h-full overflow-auto">
       <PageContainer>
+        <h1 className="sr-only">Your Sequences</h1>
         <PageHeader
           actions={
             <Button asChild>

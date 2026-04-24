@@ -10,12 +10,13 @@ import {
 } from '@/lib/ai/models';
 import { microsToUsd, type Microdollars } from '@/lib/billing/money';
 import type { ScopedDb } from '@/lib/db/scoped';
-import { createFalClient } from '@fal-ai/client';
 import {
   endSpanError,
   endSpanSuccess,
   startGenAISpan,
 } from '@/lib/observability/tracer';
+import { generateAudio } from '@tanstack/ai';
+import { falAudio } from '@tanstack/ai-fal';
 import { z } from 'zod';
 
 export const generateMusicOptionsSchema = z.object({
@@ -69,13 +70,24 @@ function clampDuration(
   return Math.min(requested, config.capabilities.maxDuration);
 }
 
-type AudioInputBuilder = (
+type AudioCallShape = {
+  prompt: string;
+  modelOptions: Record<string, unknown>;
+};
+
+type AudioCallBuilder = (
   options: GenerateMusicOptions,
   config: AudioModelConfig
-) => Record<string, unknown>;
+) => AudioCallShape;
 
-const AUDIO_INPUT_BUILDERS: Partial<Record<AudioModel, AudioInputBuilder>> = {
-  ace_step: (options, config) => {
+/**
+ * Per-model builders that turn `GenerateMusicOptions` into the shape required
+ * by `generateAudio`. The `falAudio` adapter handles `prompt` and `duration`
+ * (mapping the latter to `music_length_ms` for ElevenLabs Music), so we only
+ * forward model-specific parameters via `modelOptions`.
+ */
+const AUDIO_CALL_BUILDERS: Partial<Record<AudioModel, AudioCallBuilder>> = {
+  ace_step: (options) => {
     const lyrics =
       options.instrumental && !options.lyrics
         ? '[inst]'
@@ -83,57 +95,37 @@ const AUDIO_INPUT_BUILDERS: Partial<Record<AudioModel, AudioInputBuilder>> = {
 
     return {
       prompt: options.tags ?? options.prompt,
-      lyrics,
-      duration: clampDuration(options.duration, config),
-      instrumental: options.instrumental ?? true,
-      number_of_steps: options.steps ?? 27,
-      scheduler: 'euler',
-      guidance_type: 'apg',
+      modelOptions: {
+        lyrics,
+        instrumental: options.instrumental ?? true,
+        number_of_steps: options.steps ?? 27,
+        scheduler: 'euler',
+        guidance_type: 'apg',
+      },
     };
   },
 
-  elevenlabs_music: (options, config) => ({
+  elevenlabs_music: (options) => ({
     prompt: options.prompt,
-    music_length_ms: clampDuration(options.duration, config) * 1000,
-    force_instrumental: options.instrumental ?? true,
+    modelOptions: {
+      force_instrumental: options.instrumental ?? true,
+    },
   }),
 
-  minimax_music_v2: (options, config) => ({
+  minimax_music_v2: (options) => ({
     prompt: options.prompt,
-    duration: clampDuration(options.duration, config),
+    modelOptions: {},
   }),
 
-  lyria_2: (options, config) => ({
+  lyria_2: (options) => ({
     prompt: options.prompt,
-    duration: clampDuration(options.duration, config),
+    modelOptions: {},
   }),
 };
 
 /**
- * Extract audio URL from fal.ai response data.
- * Models return audio in different shapes: `audio_file.url` or `audio.url`.
- */
-function hasKey<K extends string>(
-  obj: object,
-  key: K
-): obj is Record<K, unknown> {
-  return key in obj;
-}
-
-function extractAudioUrl(data: unknown): string | undefined {
-  if (typeof data !== 'object' || data === null) return undefined;
-  for (const key of ['audio_file', 'audio'] as const) {
-    if (!hasKey(data, key)) continue;
-    const field = data[key];
-    if (typeof field === 'object' && field !== null && hasKey(field, 'url')) {
-      if (typeof field.url === 'string') return field.url;
-    }
-  }
-  return undefined;
-}
-
-/**
- * Generate music/audio using Fal.ai with queue-based status tracking.
+ * Generate music/audio via TanStack AI's `generateAudio` activity using the
+ * `falAudio` adapter.
  */
 export async function generateMusic(
   options: GenerateMusicOptions
@@ -173,57 +165,40 @@ async function callFalAudio(
   modelConfig: AudioModelConfig
 ): Promise<MusicResult> {
   const modelKey = options.model || DEFAULT_MUSIC_MODEL;
-  const inputBuilder = AUDIO_INPUT_BUILDERS[modelKey];
-  if (!inputBuilder) {
-    throw new Error(`No input builder for audio model: ${modelKey}`);
+  const builder = AUDIO_CALL_BUILDERS[modelKey];
+  if (!builder) {
+    throw new Error(`No audio call builder for model: ${modelKey}`);
   }
 
-  const input = inputBuilder(options, modelConfig);
+  const { prompt, modelOptions } = builder(options, modelConfig);
+  const duration = clampDuration(options.duration, modelConfig);
 
   console.log(
     `[Music Service] Generating music with model: ${modelConfig.id}`,
     {
       provider: modelConfig.provider,
-      promptLength: options.prompt.length,
-      duration: input.duration,
+      promptLength: prompt.length,
+      duration,
     }
   );
 
   const falApiKeyInfo = options.scopedDb
     ? await options.scopedDb.apiKeys.resolveKey('fal')
     : { key: getEnv().FAL_KEY, source: 'platform' as const };
-  const fal = createFalClient({
-    credentials: falApiKeyInfo.key,
+
+  const adapter = falAudio(modelConfig.id, { apiKey: falApiKeyInfo.key });
+  const result = await generateAudio({
+    adapter,
+    prompt,
+    duration,
+    modelOptions,
   });
 
-  const result = await fal.subscribe(modelConfig.id, {
-    input,
-    logs: true,
-    pollInterval: 5000,
-    onEnqueue: (reqId: string) => {
-      console.log(`[Music Service] Request enqueued: ${reqId}`);
-    },
-    onQueueUpdate: (update) => {
-      if (update.status === 'IN_QUEUE' && 'queue_position' in update) {
-        console.log(`[Music Service] Queue position: ${update.queue_position}`);
-      } else if (update.status === 'IN_PROGRESS') {
-        console.log(`[Music Service] Generation in progress...`);
-      } else {
-        console.log(
-          `[Music Service] Completed in ${update.metrics?.inference_time || 'unknown'}s`
-        );
-      }
-    },
-  });
-
-  const audioUrl = extractAudioUrl(result.data);
-
-  if (!audioUrl) {
+  if (!result.audio.url) {
     console.error('[Music Service] No audio URL in result:', result);
     throw new Error('No audio URL returned from music generation');
   }
 
-  const duration = options.duration ?? modelConfig.capabilities.defaultDuration;
   const cost = calculateAudioCost({
     endpointId: modelConfig.id,
     durationSeconds: duration,
@@ -231,8 +206,8 @@ async function callFalAudio(
 
   return {
     success: true,
-    audioUrl,
-    requestId: result.requestId,
+    audioUrl: result.audio.url,
+    requestId: result.id,
     metadata: {
       model: modelConfig.id,
       provider: modelConfig.provider,

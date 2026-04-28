@@ -280,52 +280,22 @@ function buildVideoTasks(imageUrl: string): Task[] {
 // Audio tasks — short (5s) + long (30s) durations
 // ============================================================================
 
-const SKIP_AUDIO_MODELS = new Set<AudioModel>([
-  'mmaudio_v2', // needs video input
-  'elevenlabs_sfx', // broken on fal (deprecated v0 model, no param to override)
-]);
+const SKIP_AUDIO_MODELS = new Set<AudioModel>();
 
 function buildAudioInput(
   _modelKey: AudioModel,
   config: (typeof AUDIO_MODELS)[AudioModel],
   durationSeconds: number
 ): Record<string, unknown> {
-  switch (config.provider) {
-    case 'ACE Studio':
-      return {
-        prompt: TEST_AUDIO_PROMPT,
-        lyrics: '[inst]',
-        duration: durationSeconds,
-        steps: 27,
-        scheduler: 'euler',
-        cfg_type: 'apg',
-      };
-    case 'ElevenLabs':
-      // Music vs SFX — music uses music_length_ms, SFX uses duration_seconds
-      if (config.type === 'music') {
-        return {
-          prompt: TEST_AUDIO_PROMPT,
-          music_length_ms: durationSeconds * 1000,
-          force_instrumental: true,
-        };
-      }
-      return {
-        text: TEST_AUDIO_PROMPT,
-        duration_seconds: durationSeconds,
-      };
-    case 'Google':
-      return {
-        prompt: TEST_AUDIO_PROMPT,
-        duration: durationSeconds,
-      };
-    case 'MiniMax':
-      return {
-        prompt: TEST_AUDIO_PROMPT,
-        duration: durationSeconds,
-      };
-    default:
-      return { prompt: TEST_AUDIO_PROMPT, duration: durationSeconds };
+  if (config.provider === 'ElevenLabs') {
+    return {
+      prompt: TEST_AUDIO_PROMPT,
+      music_length_ms: durationSeconds * 1000,
+      force_instrumental: true,
+    };
   }
+  // ACE Studio (v1 + v1.5): prompt + duration in seconds.
+  return { prompt: TEST_AUDIO_PROMPT, duration: durationSeconds };
 }
 
 function buildAudioTasks(): Task[] {

@@ -277,31 +277,13 @@ describe('calculateAudioCost', () => {
     expect(cost).toBe(micros(12_000));
   });
 
-  test('ElevenLabs SFX per_second pricing', () => {
+  test('ACE-Step 1.5 per_second pricing', () => {
     const cost = calculateAudioCost({
-      endpointId: 'fal-ai/elevenlabs/sound-effects',
-      durationSeconds: 5,
+      endpointId: 'fal-ai/ace-step-1.5',
+      durationSeconds: 60,
     });
-    // 2_000 * 5 = 10_000
-    expect(cost).toBe(micros(10_000));
-  });
-
-  test('MMAudio per_second pricing', () => {
-    const cost = calculateAudioCost({
-      endpointId: 'fal-ai/mmaudio-v2',
-      durationSeconds: 8,
-    });
-    // 1_000 * 8 = 8_000
-    expect(cost).toBe(micros(8_000));
-  });
-
-  test('Lyria2 per_second pricing', () => {
-    const cost = calculateAudioCost({
-      endpointId: 'fal-ai/lyria2',
-      durationSeconds: 10,
-    });
-    // 100_000 * 10 = 1_000_000
-    expect(cost).toBe(micros(1_000_000));
+    // 300 * 60 = 18_000
+    expect(cost).toBe(micros(18_000));
   });
 
   test('unknown endpoint returns 0', () => {

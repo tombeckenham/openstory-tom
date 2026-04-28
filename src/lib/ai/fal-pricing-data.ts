@@ -257,32 +257,18 @@ export const AUDIO_PRICING: Record<string, AudioPricing> = {
     pricingNotes:
       'Your request will cost $0.0002 per second of generated audio. For $1 you can run generate 5000 seconds (83 minutes) of music from lyrics.\n\nFor more details, see [fal.ai pricing](https://fal.ai/pricing).',
   },
+  'fal-ai/ace-step-1.5': {
+    basePrice: micros(300),
+    unit: 'per_second',
+    pricingNotes:
+      'Your request will cost $0.0003 per output second.\n\nFor more details, see [fal.ai pricing](https://fal.ai/pricing).',
+  },
   'fal-ai/elevenlabs/music': {
     basePrice: micros(800_000),
     unit: 'per_minute',
     roundUpToMinute: true,
     pricingNotes:
       'Your request will cost **$0.8** per output audio minute. The audio will be **rounded up** to the closest minute. For instance, a generation with 30 seconds output will be billed as 1 minute.\n\nFor more details, see [fal.ai pricing](https://fal.ai/pricing).',
-  },
-  'fal-ai/elevenlabs/sound-effects': {
-    basePrice: micros(2_000),
-    unit: 'per_second',
-    pricingNotes:
-      '- **Price**: $0.002 per seconds\n\nFor more details, see [fal.ai pricing](https://fal.ai/pricing).',
-  },
-  'fal-ai/lyria2': {
-    basePrice: micros(100_000),
-    unit: 'per_second',
-  },
-  'fal-ai/minimax-music/v2': {
-    basePrice: micros(30_000),
-    unit: 'per_second',
-  },
-  'fal-ai/mmaudio-v2': {
-    basePrice: micros(1_000),
-    unit: 'per_second',
-    pricingNotes:
-      '- **Price**: $0.001 per seconds\n\nFor more details, see [fal.ai pricing](https://fal.ai/pricing).',
   },
 };
 

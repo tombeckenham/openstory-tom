@@ -4,9 +4,9 @@
  */
 
 import type { AnalysisModelId } from '@/lib/ai/models.config';
-import { z } from 'zod';
 import type { AspectRatio } from '@/lib/constants/aspect-ratios';
 import { MOTION_INPUT_SCHEMAS } from '@/lib/motion/endpoint-map';
+import { z } from 'zod';
 
 // ============================================================================
 // Text (Chat/LLM) Models — OpenRouter
@@ -422,29 +422,29 @@ export const AUDIO_MODELS = {
       quality: 'best',
     },
   },
-  minimax_music_v2: {
-    id: 'fal-ai/minimax-music/v2' as const,
-    name: 'MiniMax Music v2',
-    provider: 'MiniMax',
-    license: 'proprietary' as const,
+  ace_step_1_5: {
+    id: 'fal-ai/ace-step-1.5' as const,
+    name: 'ACE-Step 1.5',
+    provider: 'ACE Studio',
+    license: 'open-source' as const,
     qualityRank: 2,
     type: 'music' as const,
     capabilities: {
       supportsPrompt: true,
       supportsLyrics: true,
       supportsInstrumental: true,
-      maxDuration: 300,
+      maxDuration: 600,
       defaultDuration: 60,
-      supportedFormats: ['mp3'],
+      supportedFormats: ['wav'],
     },
     performance: {
-      estimatedGenerationTime: 30,
+      estimatedGenerationTime: 25,
       quality: 'best',
     },
   },
   ace_step: {
     id: 'fal-ai/ace-step/prompt-to-audio' as const,
-    name: 'ACE-Step 1.5',
+    name: 'ACE-Step',
     provider: 'ACE Studio',
     license: 'open-source' as const,
     qualityRank: 3,
@@ -462,62 +462,6 @@ export const AUDIO_MODELS = {
       quality: 'best',
     },
   },
-  lyria_2: {
-    id: 'fal-ai/lyria2' as const,
-    name: 'Lyria 2',
-    provider: 'Google',
-    license: 'proprietary' as const,
-    qualityRank: 4,
-    type: 'music' as const,
-    capabilities: {
-      supportsPrompt: true,
-      supportsInstrumental: true,
-      maxDuration: 30,
-      defaultDuration: 30,
-      supportedFormats: ['wav'],
-    },
-    performance: {
-      estimatedGenerationTime: 15,
-      quality: 'best',
-    },
-  },
-  mmaudio_v2: {
-    id: 'fal-ai/mmaudio-v2' as const,
-    name: 'MMAudio V2 (Video-to-Audio)',
-    provider: 'MMAudio',
-    license: 'open-source' as const,
-    qualityRank: 5,
-    type: 'sfx' as const,
-    capabilities: {
-      supportsPrompt: true,
-      supportsVideoInput: true,
-      maxDuration: 8,
-      defaultDuration: 8,
-      supportedFormats: ['wav'],
-    },
-    performance: {
-      estimatedGenerationTime: 10,
-      quality: 'good',
-    },
-  },
-  elevenlabs_sfx: {
-    id: 'fal-ai/elevenlabs/sound-effects' as const,
-    name: 'ElevenLabs Sound Effects',
-    provider: 'ElevenLabs',
-    license: 'proprietary' as const,
-    qualityRank: 6,
-    type: 'sfx' as const,
-    capabilities: {
-      supportsPrompt: true,
-      maxDuration: 22,
-      defaultDuration: 5,
-      supportedFormats: ['mp3'],
-    },
-    performance: {
-      estimatedGenerationTime: 5,
-      quality: 'good',
-    },
-  },
 } as const;
 
 // Audio model types
@@ -529,11 +473,8 @@ export const DEFAULT_MUSIC_MODEL: AudioModel = 'elevenlabs_music';
 
 export const AUDIO_MODEL_KEYS = [
   'ace_step',
+  'ace_step_1_5',
   'elevenlabs_music',
-  'elevenlabs_sfx',
-  'lyria_2',
-  'minimax_music_v2',
-  'mmaudio_v2',
 ] as const satisfies readonly AudioModel[];
 
 export function getAudioModelId(modelKey: AudioModel): AudioModelId {

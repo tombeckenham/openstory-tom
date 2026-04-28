@@ -99,7 +99,7 @@ export default defineConfig({
     viteReact(),
   ],
   optimizeDeps: {
-    exclude: ['bun'],
+    exclude: ['bun', 'mermaid'],
   },
   ssr: {
     noExternal: ['@upstash/realtime', '@videojs/react'],

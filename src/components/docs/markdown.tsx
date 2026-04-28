@@ -43,10 +43,12 @@ const parserOptions: HTMLReactParserOptions = {
       }
     }
 
-    // Add loading="lazy" to images
+    // Add loading="lazy" to images, ensure alt is always set
     if (domNode.name === 'img') {
-      const props = attributesToProps(domNode.attribs);
-      return <img {...props} loading="lazy" />;
+      const { alt = '', ...rest } = attributesToProps(
+        domNode.attribs
+      ) as React.ImgHTMLAttributes<HTMLImageElement>;
+      return <img {...rest} alt={alt} loading="lazy" />;
     }
   },
 };

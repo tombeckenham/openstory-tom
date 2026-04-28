@@ -67,7 +67,7 @@ function rehypeShiki() {
       ) {
         const child = node.children[0];
         if (child.type === 'element' && child.tagName === 'code') {
-          const className = child.properties?.className;
+          const className = child.properties.className;
           let lang = 'text';
           if (Array.isArray(className)) {
             for (const cls of className) {

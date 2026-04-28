@@ -51,6 +51,47 @@ function rehypeExtractHeadings(headings: MarkdownHeading[]) {
 }
 
 /**
+ * Rehype plugin that replaces ```mermaid code blocks with a placeholder
+ * <div data-mermaid-source="…"> that the client component swaps for an SVG.
+ * Runs before rehypeShiki so those blocks bypass syntax highlighting.
+ */
+function rehypeMermaidPlaceholder() {
+  return (tree: Root) => {
+    for (let i = 0; i < tree.children.length; i++) {
+      const node = tree.children[i];
+      if (
+        node.type !== 'element' ||
+        node.tagName !== 'pre' ||
+        node.children.length !== 1
+      ) {
+        continue;
+      }
+      const child = node.children[0];
+      if (child.type !== 'element' || child.tagName !== 'code') continue;
+
+      const className = child.properties.className;
+      if (!Array.isArray(className)) continue;
+      const isMermaid = className.some(
+        (cls) => typeof cls === 'string' && cls === 'language-mermaid'
+      );
+      if (!isMermaid) continue;
+
+      const source = extractText(child);
+      const placeholder: Element = {
+        type: 'element',
+        tagName: 'div',
+        properties: {
+          className: ['mermaid-diagram'],
+          'data-mermaid-source': source,
+        },
+        children: [],
+      };
+      tree.children[i] = placeholder;
+    }
+  };
+}
+
+/**
  * Rehype plugin that replaces <code> blocks inside <pre> with
  * shiki-highlighted HTML. Uses dual themes for light/dark support.
  */
@@ -121,6 +162,7 @@ export async function renderMarkdown(
     .use(rehypeRaw)
     .use(rehypeSlug)
     .use(rehypeAutolinkHeadings, { behavior: 'wrap' })
+    .use(rehypeMermaidPlaceholder)
     .use(rehypeShiki)
     .use(rehypeExtractHeadings(headings))
     .use(rehypeStringify, { allowDangerousHtml: true })

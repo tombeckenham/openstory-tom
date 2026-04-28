@@ -2,10 +2,10 @@ import { Link } from '@tanstack/react-router';
 import type { DOMNode } from 'html-dom-parser';
 import parse, {
   type HTMLReactParserOptions,
-  Element,
   attributesToProps,
   domToReact,
 } from 'html-react-parser';
+import { MermaidDiagram } from './mermaid-diagram';
 
 type MarkdownContentProps = {
   markup: string;
@@ -13,7 +13,7 @@ type MarkdownContentProps = {
 };
 
 function isInternalLink(href: string): boolean {
-  return href.startsWith('/') || href.startsWith('#');
+  return href.startsWith('/');
 }
 
 function childrenToDOMNodes(children: readonly unknown[]): DOMNode[] {
@@ -28,7 +28,16 @@ function childrenToDOMNodes(children: readonly unknown[]): DOMNode[] {
 
 const parserOptions: HTMLReactParserOptions = {
   replace(domNode) {
-    if (!(domNode instanceof Element)) return;
+    // Use a structural check rather than `instanceof Element` because
+    // duplicated domhandler module instances make the class identity
+    // unreliable, leaving `instanceof` false for real Element nodes.
+    if (domNode.type !== 'tag') return;
+
+    // Render mermaid diagrams from server-emitted placeholders
+    if (domNode.name === 'div' && domNode.attribs.class === 'mermaid-diagram') {
+      const source = domNode.attribs['data-mermaid-source'] ?? '';
+      return <MermaidDiagram source={source} />;
+    }
 
     // Replace internal <a> links with TanStack Router <Link>
     if (domNode.name === 'a' && domNode.attribs.href) {

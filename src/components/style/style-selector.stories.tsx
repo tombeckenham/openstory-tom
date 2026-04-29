@@ -10,7 +10,6 @@ const meta = {
   parameters: {
     layout: 'padded',
   },
-  tags: ['autodocs'],
 } satisfies Meta<typeof StyleSelector>;
 
 export default meta;

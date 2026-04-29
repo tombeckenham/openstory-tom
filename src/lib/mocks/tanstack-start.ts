@@ -63,3 +63,11 @@ export function json(data: any, init?: ResponseInit) {
 export function createIsomorphicFn() {
   return createBuilder();
 }
+
+export function createServerOnlyFn(_opts?: any) {
+  return createBuilder();
+}
+
+export function getRequestHeaders(): Record<string, string> {
+  return {};
+}

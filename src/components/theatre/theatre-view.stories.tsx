@@ -79,7 +79,7 @@ export const Completed: Story = {
       ...baseSequence,
       mergedVideoStatus: 'completed',
       mergedVideoUrl:
-        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+        'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
       mergedVideoPath:
         'teams/team_123/sequences/seq_123/merged/abc123_openstory.mp4',
       mergedVideoGeneratedAt: new Date(),
@@ -94,7 +94,7 @@ export const CompletedPortrait: Story = {
       aspectRatio: '9:16',
       mergedVideoStatus: 'completed',
       mergedVideoUrl:
-        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+        'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
       mergedVideoPath:
         'teams/team_123/sequences/seq_123/merged/abc123_openstory.mp4',
       mergedVideoGeneratedAt: new Date(),

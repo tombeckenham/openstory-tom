@@ -7,7 +7,6 @@ const meta = {
   parameters: {
     layout: 'centered',
   },
-  tags: ['autodocs'],
   decorators: [
     (Story) => (
       <div className="relative aspect-video w-[640px]">

@@ -1,8 +1,12 @@
 import type { Style } from '@/types/database';
 
-// VITE_-prefixed vars are client-safe and inlined by Vite — no need to go
-// through #env (which is for server-only secrets via createServerOnlyFn).
-const PUBLIC_ASSETS_DOMAIN = import.meta.env.VITE_R2_PUBLIC_ASSETS_DOMAIN ?? '';
+// VITE_-prefixed vars are client-safe and inlined by Vite at build time on
+// every target (client, SSR, workerd). Reading via import.meta.env avoids
+// the server-only #env shim, which fails at module load in Storybook and
+// would also fail on the real client.
+function getPublicAssetsDomain(): string {
+  return import.meta.env.VITE_R2_PUBLIC_ASSETS_DOMAIN ?? '';
+}
 
 function getStylePreviewUrl(styleName: string): string {
   const sanitized = styleName
@@ -13,7 +17,7 @@ function getStylePreviewUrl(styleName: string): string {
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '');
 
-  return `https://${PUBLIC_ASSETS_DOMAIN}/styles/${sanitized}/thumbnail.webp`;
+  return `https://${getPublicAssetsDomain()}/styles/${sanitized}/thumbnail.webp`;
 }
 
 // Default style templates that can be imported into any team

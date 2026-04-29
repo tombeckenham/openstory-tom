@@ -1,8 +1,8 @@
 import type { LibraryLocation } from '@/lib/db/schema';
 
-// VITE_-prefixed vars are client-safe and inlined by Vite — no need to go
-// through #env (which is for server-only secrets via createServerOnlyFn).
-const PUBLIC_ASSETS_DOMAIN = import.meta.env.VITE_R2_PUBLIC_ASSETS_DOMAIN ?? '';
+function getPublicAssetsDomain(): string {
+  return import.meta.env.VITE_R2_PUBLIC_ASSETS_DOMAIN ?? '';
+}
 
 function sanitizeName(name: string): string {
   return name
@@ -15,11 +15,11 @@ function sanitizeName(name: string): string {
 }
 
 export function getLocationPreviewUrl(name: string): string {
-  return `https://${PUBLIC_ASSETS_DOMAIN}/locations/${sanitizeName(name)}/thumbnail.webp`;
+  return `https://${getPublicAssetsDomain()}/locations/${sanitizeName(name)}/thumbnail.webp`;
 }
 
 export function getLocationSheetUrl(name: string): string {
-  return `https://${PUBLIC_ASSETS_DOMAIN}/locations/${sanitizeName(name)}/sheet.webp`;
+  return `https://${getPublicAssetsDomain()}/locations/${sanitizeName(name)}/sheet.webp`;
 }
 
 // Default location templates available to all teams

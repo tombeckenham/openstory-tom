@@ -1,8 +1,7 @@
-import { getEnv } from '#env';
 import type { Talent } from '@/lib/db/schema';
 
 function getPublicAssetsDomain(): string {
-  return getEnv().VITE_R2_PUBLIC_ASSETS_DOMAIN ?? '';
+  return import.meta.env.VITE_R2_PUBLIC_ASSETS_DOMAIN ?? '';
 }
 
 function sanitizeName(name: string): string {

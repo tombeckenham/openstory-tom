@@ -197,21 +197,19 @@ function createTalentReadMethods(db: Database, teamId: string) {
         });
       },
 
-      /**
-       * Stage-1 staleness reader for a talent sheet's image. Returns false
-       * when the stored hash is null.
-       */
       isStale: async (
         sheetId: string,
-        currentHash?: string
+        currentHash: string
       ): Promise<boolean> => {
         const result = await db
           .select({ hash: talentSheets.inputHash })
           .from(talentSheets)
           .where(eq(talentSheets.id, sheetId));
-        const stored = result[0]?.hash ?? null;
-        if (!stored) return false;
-        if (currentHash === undefined) return false;
+        if (result.length === 0) {
+          throw new Error(`TalentSheet ${sheetId} not found`);
+        }
+        const stored = result[0].hash;
+        if (stored === null) return false;
         return currentHash !== stored;
       },
     },

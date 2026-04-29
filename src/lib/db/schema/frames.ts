@@ -94,8 +94,9 @@ export const frames = sqliteTable(
     }),
     audioError: text('audio_error'),
     audioModel: text('audio_model', { length: 100 }), // Model used for music/audio generation (nullable)
-    // Input-hash staleness tracking — null until the artifact is generated
-    // post-#614. See docs/architecture/workflow-snapshots-and-content-hash-staleness.md.
+    // SHA-256 of the inputs that produced each artifact; null when the
+    // artifact has never been generated. See
+    // docs/architecture/workflow-snapshots-and-content-hash-staleness.md.
     thumbnailInputHash: text('thumbnail_input_hash'),
     variantImageInputHash: text('variant_image_input_hash'),
     videoInputHash: text('video_input_hash'),

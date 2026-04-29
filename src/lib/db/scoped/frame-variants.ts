@@ -137,21 +137,19 @@ export function createFrameVariantsMethods(db: Database) {
       return result.at(0) ?? null;
     },
 
-    /**
-     * Stage-1 staleness reader for a frame variant's artifact. Returns false
-     * when the stored hash is null.
-     */
     isStale: async (
       variantId: string,
-      currentHash?: string
+      currentHash: string
     ): Promise<boolean> => {
       const result = await db
         .select({ hash: frameVariants.inputHash })
         .from(frameVariants)
         .where(eq(frameVariants.id, variantId));
-      const stored = result[0]?.hash ?? null;
-      if (!stored) return false;
-      if (currentHash === undefined) return false;
+      if (result.length === 0) {
+        throw new Error(`FrameVariant ${variantId} not found`);
+      }
+      const stored = result[0].hash;
+      if (stored === null) return false;
       return currentHash !== stored;
     },
 

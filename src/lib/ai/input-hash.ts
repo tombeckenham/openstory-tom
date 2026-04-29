@@ -15,25 +15,44 @@
  * § "What goes into the hash" for the per-artifact input surface.
  */
 
-// ---------------------------------------------------------------------------
-// Canonical serialization
-// ---------------------------------------------------------------------------
-
 /**
  * Recursively rebuild a value with object keys sorted. Arrays are preserved in
  * order — set-like fields are sorted by the per-helper DTO before being passed
  * in, so this layer treats every array as ordered.
+ *
+ * Throws on values that JSON.stringify would silently elide or coerce
+ * (`undefined`, functions, symbols, `NaN`, `±Infinity`) — those would produce
+ * hash collisions across semantically distinct inputs. Callers must normalize
+ * optional fields to `null` before passing in.
  */
-function canonicalize(value: unknown): unknown {
+function canonicalize(
+  value: unknown,
+  seen: WeakSet<object> = new WeakSet()
+): unknown {
+  if (value === undefined) {
+    throw new Error(
+      'input-hash: undefined is not hashable; use null explicitly'
+    );
+  }
+  if (typeof value === 'function' || typeof value === 'symbol') {
+    throw new Error(`input-hash: ${typeof value} is not hashable`);
+  }
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    throw new Error(`input-hash: non-finite number ${value} is not hashable`);
+  }
   if (Array.isArray(value)) {
-    return value.map(canonicalize);
+    return value.map((v) => canonicalize(v, seen));
   }
   if (value !== null && typeof value === 'object') {
+    if (seen.has(value)) {
+      throw new Error('input-hash: circular reference in DTO');
+    }
+    seen.add(value);
     const out: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(value).sort(([a], [b]) =>
       a < b ? -1 : a > b ? 1 : 0
     )) {
-      out[key] = canonicalize(val);
+      out[key] = canonicalize(val, seen);
     }
     return out;
   }
@@ -59,11 +78,7 @@ const trim = (s: string | null | undefined): string => (s ?? '').trim();
 const sortedRefs = (refs: readonly string[] | undefined): string[] =>
   [...(refs ?? [])].sort();
 
-// ---------------------------------------------------------------------------
-// Frame thumbnail
-// ---------------------------------------------------------------------------
-
-export type FrameThumbnailHashInput = {
+type FrameImageHashFields = {
   visualPrompt: string;
   imageModel: string;
   aspectRatio: string;
@@ -74,11 +89,17 @@ export type FrameThumbnailHashInput = {
   elementReferenceHashes: readonly string[];
 };
 
-export function computeFrameThumbnailInputHash(
-  input: FrameThumbnailHashInput
+export type FrameImageHashKind = 'thumbnail' | 'variant-image';
+
+export type FrameImageHashInput = FrameImageHashFields & {
+  kind: FrameImageHashKind;
+};
+
+export function computeFrameImageInputHash(
+  input: FrameImageHashInput
 ): Promise<string> {
   return sha256Hex({
-    artifact: 'frame:thumbnail',
+    artifact: `frame:${input.kind}`,
     visualPrompt: trim(input.visualPrompt),
     imageModel: input.imageModel,
     aspectRatio: input.aspectRatio,
@@ -90,35 +111,17 @@ export function computeFrameThumbnailInputHash(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Frame variant image (per-model alternate)
-// ---------------------------------------------------------------------------
-
-export type FrameVariantImageHashInput = FrameThumbnailHashInput;
-
-export function computeFrameVariantImageInputHash(
-  input: FrameVariantImageHashInput
-): Promise<string> {
-  return sha256Hex({
-    artifact: 'frame:variant-image',
-    visualPrompt: trim(input.visualPrompt),
-    imageModel: input.imageModel,
-    aspectRatio: input.aspectRatio,
-    size: input.size ?? null,
-    seed: input.seed ?? null,
-    characterSheetHashes: sortedRefs(input.characterSheetHashes),
-    locationSheetHashes: sortedRefs(input.locationSheetHashes),
-    elementReferenceHashes: sortedRefs(input.elementReferenceHashes),
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Frame video
-// ---------------------------------------------------------------------------
+/**
+ * Source the video was derived from. A `variantHash` references the prior
+ * artifact-hash chain (so a stale upstream image cascades); a `url` is used
+ * when the source is an external asset with no hashable upstream.
+ */
+export type FrameVideoSourceImage =
+  | { kind: 'variantHash'; hash: string }
+  | { kind: 'url'; url: string };
 
 export type FrameVideoHashInput = {
-  /** Hash of the source variant image, or the source URL if no variant exists. */
-  sourceImageRef: string;
+  sourceImage: FrameVideoSourceImage;
   motionPrompt: string;
   motionModel: string;
   durationSeconds: number;
@@ -129,9 +132,13 @@ export type FrameVideoHashInput = {
 export function computeFrameVideoInputHash(
   input: FrameVideoHashInput
 ): Promise<string> {
+  const sourceImage =
+    input.sourceImage.kind === 'variantHash'
+      ? { kind: 'variantHash' as const, hash: trim(input.sourceImage.hash) }
+      : { kind: 'url' as const, url: trim(input.sourceImage.url) };
   return sha256Hex({
     artifact: 'frame:video',
-    sourceImageRef: trim(input.sourceImageRef),
+    sourceImage,
     motionPrompt: trim(input.motionPrompt),
     motionModel: input.motionModel,
     durationSeconds: input.durationSeconds,
@@ -139,10 +146,6 @@ export function computeFrameVideoInputHash(
     aspectRatio: input.aspectRatio,
   });
 }
-
-// ---------------------------------------------------------------------------
-// Frame audio
-// ---------------------------------------------------------------------------
 
 export type FrameAudioHashInput = {
   musicPrompt: string;
@@ -163,10 +166,6 @@ export function computeFrameAudioInputHash(
     audioModel: input.audioModel,
   });
 }
-
-// ---------------------------------------------------------------------------
-// Character sheet
-// ---------------------------------------------------------------------------
 
 export type CharacterBibleHashFields = {
   name: string;
@@ -208,10 +207,6 @@ export function computeCharacterSheetInputHash(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Location sheet (variation row on a library location)
-// ---------------------------------------------------------------------------
-
 export type LocationBibleHashFields = {
   name: string;
   description?: string | null;
@@ -240,10 +235,6 @@ export function computeLocationSheetInputHash(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Library location reference image
-// ---------------------------------------------------------------------------
-
 export type LibraryLocationReferenceHashInput = {
   locationBible: LocationBibleHashFields;
   styleConfigHash: string;
@@ -263,10 +254,6 @@ export function computeLibraryLocationReferenceInputHash(
     imageModel: input.imageModel,
   });
 }
-
-// ---------------------------------------------------------------------------
-// Talent sheet
-// ---------------------------------------------------------------------------
 
 export type TalentSheetHashInput = {
   talent: {

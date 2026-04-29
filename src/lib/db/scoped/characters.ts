@@ -244,22 +244,19 @@ export function createCharactersMethods(db: Database) {
       return character;
     },
 
-    /**
-     * Stage-1 staleness reader for the character sheet artifact. Returns false
-     * when the stored hash is null. See input-hash.ts and frames.isStale for
-     * the broader pattern.
-     */
     isStale: async (
       characterId: string,
-      currentHash?: string
+      currentHash: string
     ): Promise<boolean> => {
       const result = await db
         .select({ hash: characters.sheetInputHash })
         .from(characters)
         .where(eq(characters.id, characterId));
-      const stored = result[0]?.hash ?? null;
-      if (!stored) return false;
-      if (currentHash === undefined) return false;
+      if (result.length === 0) {
+        throw new Error(`Character ${characterId} not found`);
+      }
+      const stored = result[0].hash;
+      if (stored === null) return false;
       return currentHash !== stored;
     },
 

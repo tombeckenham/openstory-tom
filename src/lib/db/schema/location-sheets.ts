@@ -40,7 +40,6 @@ export const locationSheets = sqliteTable(
       .$type<LocationSheetSource>()
       .default('manual_upload')
       .notNull(),
-    // SHA-256 of the inputs that produced imageUrl. Null until regenerated post-#614.
     inputHash: text('input_hash'),
     createdAt: integer('created_at', { mode: 'timestamp' })
       .$defaultFn(() => new Date())

@@ -125,10 +125,6 @@ export function createFramesMethods(db: Database) {
 
       return frame;
     },
-    /**
-     * Upsert a single frame using conflict resolution on (sequenceId, orderIndex).
-     * Idempotent: safe to call on retry without creating duplicates.
-     */
     upsert: async (data: NewFrame): Promise<Frame> => {
       const [frame] = await db
         .insert(frames)
@@ -217,18 +213,15 @@ export function createFramesMethods(db: Database) {
     },
 
     /**
-     * Stage-1 staleness reader: compares the stored input hash against a
-     * caller-provided fresh hash. Returns false when the stored hash is null
-     * (treat as "unknown, not stale") or when no fresh hash is provided.
-     *
-     * The fresh hash is computed by callers via the helpers in
-     * src/lib/ai/input-hash.ts. Auto-resolving references through scopedDb
-     * is part of the workflow-migration step.
+     * Compares the stored input hash for an artifact against a caller-provided
+     * fresh hash. Returns false when the stored hash is null — legacy artifacts
+     * predating hash tracking are treated as "unknown, not stale" rather than
+     * forced into regeneration. Throws when the frame row does not exist.
      */
     isStale: async (
       frameId: string,
       artifact: FrameArtifact,
-      currentHash?: string
+      currentHash: string
     ): Promise<boolean> => {
       const result = await db
         .select({
@@ -236,9 +229,11 @@ export function createFramesMethods(db: Database) {
         })
         .from(frames)
         .where(eq(frames.id, frameId));
-      const stored = result[0]?.hash ?? null;
-      if (!stored) return false;
-      if (currentHash === undefined) return false;
+      if (result.length === 0) {
+        throw new Error(`Frame ${frameId} not found`);
+      }
+      const stored = result[0].hash;
+      if (stored === null) return false;
       return currentHash !== stored;
     },
 

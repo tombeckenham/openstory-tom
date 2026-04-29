@@ -79,21 +79,19 @@ export function createLocationsReadMethods(db: Database, teamId: string) {
         .where(inArray(locationLibrary.id, ids));
     },
 
-    /**
-     * Stage-1 staleness reader for the library location's reference image.
-     * Returns false when the stored hash is null.
-     */
     isStale: async (
       locationId: string,
-      currentHash?: string
+      currentHash: string
     ): Promise<boolean> => {
       const result = await db
         .select({ hash: locationLibrary.referenceInputHash })
         .from(locationLibrary)
         .where(eq(locationLibrary.id, locationId));
-      const stored = result[0]?.hash ?? null;
-      if (!stored) return false;
-      if (currentHash === undefined) return false;
+      if (result.length === 0) {
+        throw new Error(`LibraryLocation ${locationId} not found`);
+      }
+      const stored = result[0].hash;
+      if (stored === null) return false;
       return currentHash !== stored;
     },
   };
@@ -212,21 +210,16 @@ export function createLocationSheetsReadMethods(db: Database) {
       return result[0] ?? null;
     },
 
-    /**
-     * Stage-1 staleness reader for a location sheet's image. Returns false when
-     * the stored hash is null.
-     */
-    isStale: async (
-      sheetId: string,
-      currentHash?: string
-    ): Promise<boolean> => {
+    isStale: async (sheetId: string, currentHash: string): Promise<boolean> => {
       const result = await db
         .select({ hash: locationSheets.inputHash })
         .from(locationSheets)
         .where(eq(locationSheets.id, sheetId));
-      const stored = result[0]?.hash ?? null;
-      if (!stored) return false;
-      if (currentHash === undefined) return false;
+      if (result.length === 0) {
+        throw new Error(`LocationSheet ${sheetId} not found`);
+      }
+      const stored = result[0].hash;
+      if (stored === null) return false;
       return currentHash !== stored;
     },
   };

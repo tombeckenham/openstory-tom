@@ -67,7 +67,6 @@ export const characters = sqliteTable(
       .notNull(),
     sheetGeneratedAt: integer('sheet_generated_at', { mode: 'timestamp' }),
     sheetError: text('sheet_error'),
-    // SHA-256 of the inputs that produced sheetImageUrl. Null until regenerated post-#614.
     sheetInputHash: text('sheet_input_hash'),
     // Timestamps
     createdAt: integer('created_at', { mode: 'timestamp' })

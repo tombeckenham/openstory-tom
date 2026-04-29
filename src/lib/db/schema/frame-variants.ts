@@ -65,8 +65,8 @@ export const frameVariants = sqliteTable(
 
     // Staleness detection
     promptHash: text('prompt_hash'),
-    // SHA-256 hash of canonical inputs that produced this variant. Null until
-    // generated post-#614. Compared against a freshly computed hash to derive staleness.
+    // SHA-256 of canonical inputs that produced this variant; compared against
+    // a freshly computed hash to derive staleness. Null when never generated.
     inputHash: text('input_hash'),
     // Set when the variant was saved as a divergence (inputs changed between
     // workflow snapshot and write time) rather than as the primary artifact.

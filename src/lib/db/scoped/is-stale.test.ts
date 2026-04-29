@@ -1,16 +1,13 @@
 /**
- * Schema-level acceptance test for the Stage-1 input-hash columns.
+ * Schema-level acceptance test for the input-hash columns plus a behavioral
+ * truth-table test for the `isStale` wrappers on `frames` and `frameVariants`.
  *
- * The matching `isStale` wrappers (frames, frameVariants, characters,
- * locationLibrary, locationSheets, talent.sheets) are trivial factory
- * closures over these columns; the project's `mock.module` in
- * scoped.test.ts stubs out those factories process-wide when the full
- * suite runs (per the comment at the top of `./talent.test.ts`), so we
- * verify the storage layer directly rather than fighting the mock.
- *
- * Type-checking proves the wrapper methods are callable; this file
- * proves the columns persist and default to null (the "unknown, treat
- * as non-stale" baseline that the wrappers branch on).
+ * The other four wrappers (characters, locationLibrary, locationSheets,
+ * talent.sheets) follow the same four-line shape exercised here, and their
+ * parent factory modules are mocked process-wide by scoped.test.ts (per the
+ * preamble of `./talent.test.ts`) — so importing them in a sibling test yields
+ * stubs. The schema persistence asserts in this file plus the truth-table
+ * coverage on frames/frameVariants are the regression guard for the pattern.
  */
 
 import {
@@ -40,8 +37,16 @@ import {
   user,
 } from '@/lib/db/schema';
 import { relations } from '@/lib/db/schema/relations';
+import type { Database } from '@/lib/db/client';
+import { createFramesMethods, type FrameArtifact } from './frames';
+import { createFrameVariantsMethods } from './frame-variants';
 
 type TestDb = LibSQLDatabase<Record<string, never>, typeof relations>;
+
+// `createFramesMethods` etc. are typed against the production `Database`,
+// which extends `LibSQLDatabase` with `$client`. The test drizzle instance
+// has the same shape — cast at the call site to satisfy the strict bound.
+const asDatabase = (testDb: TestDb): Database => testDb as unknown as Database;
 
 let client: Client;
 let db: TestDb;
@@ -254,5 +259,127 @@ describe('talent_sheets.input_hash', () => {
       .from(talentSheets)
       .where(eq(talentSheets.id, sheet.id));
     expect(refreshed.inputHash).toBe('h');
+  });
+});
+
+describe('frames.isStale', () => {
+  const ARTIFACTS: Array<{
+    artifact: FrameArtifact;
+    column:
+      | 'thumbnailInputHash'
+      | 'variantImageInputHash'
+      | 'videoInputHash'
+      | 'audioInputHash';
+  }> = [
+    { artifact: 'thumbnail', column: 'thumbnailInputHash' },
+    { artifact: 'variantImage', column: 'variantImageInputHash' },
+    { artifact: 'video', column: 'videoInputHash' },
+    { artifact: 'audio', column: 'audioInputHash' },
+  ];
+
+  it('throws when the frame does not exist', () => {
+    const m = createFramesMethods(asDatabase(db));
+    expect(m.isStale(generateId(), 'thumbnail', 'h')).rejects.toThrow(
+      /not found/
+    );
+  });
+
+  it.each(ARTIFACTS)(
+    '$artifact: returns false when stored hash is null (legacy artifact)',
+    async ({ artifact }) => {
+      const [frame] = await db
+        .insert(frames)
+        .values({ sequenceId, orderIndex: 0 })
+        .returning();
+      const m = createFramesMethods(asDatabase(db));
+      expect(await m.isStale(frame.id, artifact, 'anything')).toBe(false);
+    }
+  );
+
+  it.each(ARTIFACTS)(
+    '$artifact: returns false when stored hash matches the current hash',
+    async ({ artifact, column }) => {
+      const [frame] = await db
+        .insert(frames)
+        .values({ sequenceId, orderIndex: 0, [column]: 'h-match' })
+        .returning();
+      const m = createFramesMethods(asDatabase(db));
+      expect(await m.isStale(frame.id, artifact, 'h-match')).toBe(false);
+    }
+  );
+
+  it.each(ARTIFACTS)(
+    '$artifact: returns true when stored hash differs from the current hash',
+    async ({ artifact, column }) => {
+      const [frame] = await db
+        .insert(frames)
+        .values({ sequenceId, orderIndex: 0, [column]: 'h-old' })
+        .returning();
+      const m = createFramesMethods(asDatabase(db));
+      expect(await m.isStale(frame.id, artifact, 'h-new')).toBe(true);
+    }
+  );
+
+  it('reads from the column matching the requested artifact (no cross-talk)', async () => {
+    const [frame] = await db
+      .insert(frames)
+      .values({
+        sequenceId,
+        orderIndex: 0,
+        thumbnailInputHash: 't-hash',
+        variantImageInputHash: 'v-hash',
+        videoInputHash: 'm-hash',
+        audioInputHash: 'a-hash',
+      })
+      .returning();
+    const m = createFramesMethods(asDatabase(db));
+    // Each artifact key compares against ONLY its own column.
+    expect(await m.isStale(frame.id, 'thumbnail', 't-hash')).toBe(false);
+    expect(await m.isStale(frame.id, 'thumbnail', 'v-hash')).toBe(true);
+    expect(await m.isStale(frame.id, 'video', 'm-hash')).toBe(false);
+    expect(await m.isStale(frame.id, 'video', 'a-hash')).toBe(true);
+  });
+});
+
+describe('frameVariants.isStale', () => {
+  async function insertVariant(inputHash: string | null) {
+    const [frame] = await db
+      .insert(frames)
+      .values({ sequenceId, orderIndex: 0 })
+      .returning();
+    const [variant] = await db
+      .insert(frameVariants)
+      .values({
+        frameId: frame.id,
+        sequenceId,
+        variantType: 'image',
+        model: 'm1',
+        inputHash,
+      })
+      .returning();
+    return variant;
+  }
+
+  it('throws when the variant does not exist', () => {
+    const m = createFrameVariantsMethods(asDatabase(db));
+    expect(m.isStale(generateId(), 'h')).rejects.toThrow(/not found/);
+  });
+
+  it('returns false when stored hash is null', async () => {
+    const variant = await insertVariant(null);
+    const m = createFrameVariantsMethods(asDatabase(db));
+    expect(await m.isStale(variant.id, 'anything')).toBe(false);
+  });
+
+  it('returns false when stored hash matches', async () => {
+    const variant = await insertVariant('h-match');
+    const m = createFrameVariantsMethods(asDatabase(db));
+    expect(await m.isStale(variant.id, 'h-match')).toBe(false);
+  });
+
+  it('returns true when stored hash differs', async () => {
+    const variant = await insertVariant('h-old');
+    const m = createFrameVariantsMethods(asDatabase(db));
+    expect(await m.isStale(variant.id, 'h-new')).toBe(true);
   });
 });

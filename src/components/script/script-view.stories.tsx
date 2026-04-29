@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import type { Sequence } from '@/lib/db/schema/sequences';
+import { MOCK_SYSTEM_STYLES } from '@/lib/style/style-templates';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ScriptView } from './script-view';
 
@@ -54,19 +55,28 @@ Oh, hi Mom. Yeah, I'm fine. Just... working on a big project.`,
   suggestedLocationIds: null,
 };
 
-// Create a new QueryClient for each story to avoid state leakage
-const createQueryClient = () =>
-  new QueryClient({
+// Create a new QueryClient for each story and pre-populate caches that
+// ScriptView reads from. Without this, server-fn-backed queries (styles,
+// sequence, etc.) hang in Storybook because the server-stub plugin replaces
+// their fetch with a no-op.
+const createQueryClient = () => {
+  const client = new QueryClient({
     defaultOptions: {
       queries: {
         retry: false,
-        staleTime: 0,
+        staleTime: Infinity,
       },
       mutations: {
         retry: false,
       },
     },
   });
+  // Match styleKeys.list(teamId) with teamId='demo-team' AND undefined,
+  // covering both the team-scoped and unscoped useStyles() callers.
+  client.setQueryData(['styles', 'list', 'demo-team'], MOCK_SYSTEM_STYLES);
+  client.setQueryData(['styles', 'list', undefined], MOCK_SYSTEM_STYLES);
+  return client;
+};
 
 const meta: Meta<typeof ScriptView> = {
   title: 'Script/ScriptView',

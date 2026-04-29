@@ -1,16 +1,13 @@
-import { getEnv } from '#env';
 import type { Style } from '@/types/database';
 
-/**
- * Get the R2 public assets domain from environment
- */
+// VITE_-prefixed vars are client-safe and inlined by Vite at build time on
+// every target (client, SSR, workerd). Reading via import.meta.env avoids
+// the server-only #env shim, which fails at module load in Storybook and
+// would also fail on the real client.
 function getPublicAssetsDomain(): string {
-  return getEnv().VITE_R2_PUBLIC_ASSETS_DOMAIN;
+  return import.meta.env.VITE_R2_PUBLIC_ASSETS_DOMAIN ?? '';
 }
 
-/**
- * Generate preview URL for a style
- */
 function getStylePreviewUrl(styleName: string): string {
   const sanitized = styleName
     .toLowerCase()

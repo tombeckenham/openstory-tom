@@ -218,7 +218,7 @@ export const MixedStates: Story = {
         thumbnailUrl: 'https://picsum.photos/seed/scene1/1280/720',
         thumbnailPath: 'teams/mock/sequences/mock/frames/1/thumbnail.jpg',
         videoUrl:
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+          'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
         videoPath: 'teams/mock/sequences/mock/frames/1/motion.mp4',
         thumbnailStatus: 'completed',
         videoStatus: 'completed',
@@ -238,7 +238,7 @@ export const MixedStates: Story = {
         thumbnailUrl: 'https://picsum.photos/seed/scene2/1280/720',
         thumbnailPath: 'teams/mock/sequences/mock/frames/2/thumbnail.jpg',
         videoUrl:
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+          'https://test-videos.co.uk/vids/sintel/mp4/h264/360/Sintel_360_10s_1MB.mp4',
         videoPath: 'teams/mock/sequences/mock/frames/2/motion.mp4',
         thumbnailStatus: 'completed',
         videoStatus: 'completed',
@@ -328,7 +328,7 @@ export const AllCompleted: Story = {
         thumbnailUrl: 'https://picsum.photos/seed/complete1/1280/720',
         thumbnailPath: 'teams/mock/sequences/mock/frames/1/thumbnail.jpg',
         videoUrl:
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+          'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
         videoPath: 'teams/mock/sequences/mock/frames/1/motion.mp4',
         thumbnailStatus: 'completed',
         videoStatus: 'completed',
@@ -345,7 +345,7 @@ export const AllCompleted: Story = {
         thumbnailUrl: 'https://picsum.photos/seed/complete2/1280/720',
         thumbnailPath: 'teams/mock/sequences/mock/frames/2/thumbnail.jpg',
         videoUrl:
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+          'https://test-videos.co.uk/vids/sintel/mp4/h264/360/Sintel_360_10s_1MB.mp4',
         videoPath: 'teams/mock/sequences/mock/frames/2/motion.mp4',
         thumbnailStatus: 'completed',
         videoStatus: 'completed',
@@ -362,7 +362,7 @@ export const AllCompleted: Story = {
         thumbnailUrl: 'https://picsum.photos/seed/complete3/1280/720',
         thumbnailPath: 'teams/mock/sequences/mock/frames/3/thumbnail.jpg',
         videoUrl:
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+          'https://test-videos.co.uk/vids/jellyfish/mp4/h264/360/Jellyfish_360_10s_1MB.mp4',
         videoPath: 'teams/mock/sequences/mock/frames/3/motion.mp4',
         thumbnailStatus: 'completed',
         videoStatus: 'completed',
@@ -468,7 +468,7 @@ export const FramesGenerating: Story = {
         thumbnailUrl: 'https://picsum.photos/seed/framegen1/1280/720',
         thumbnailPath: 'teams/mock/sequences/mock/frames/1/thumbnail.jpg',
         videoUrl:
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+          'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
         videoPath: 'teams/mock/sequences/mock/frames/1/motion.mp4',
         thumbnailStatus: 'completed',
         videoStatus: 'completed',
@@ -787,7 +787,7 @@ export const WithFailures: Story = {
         thumbnailUrl: 'https://picsum.photos/seed/fail1/1280/720',
         thumbnailPath: 'teams/mock/sequences/mock/frames/1/thumbnail.jpg',
         videoUrl:
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+          'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
         videoPath: 'teams/mock/sequences/mock/frames/1/motion.mp4',
         thumbnailStatus: 'completed',
         videoStatus: 'completed',

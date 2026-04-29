@@ -14,7 +14,7 @@ type Story = StoryObj<typeof VideoPlayer>;
 
 export const SingleVideo: Story = {
   args: {
-    src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    src: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
     posterSrc: 'https://picsum.photos/seed/poster/1280/720',
     aspectRatio: '16:9',
   },
@@ -22,7 +22,7 @@ export const SingleVideo: Story = {
 
 export const WithoutPoster: Story = {
   args: {
-    src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    src: 'https://test-videos.co.uk/vids/sintel/mp4/h264/360/Sintel_360_10s_1MB.mp4',
     aspectRatio: '16:9',
   },
 };
@@ -32,7 +32,7 @@ export const WithoutPoster: Story = {
 // at public/mock-chapters.vtt to test chapter functionality in Storybook.
 export const WithChapters: Story = {
   args: {
-    src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    src: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
     chaptersUrl: '/mock-chapters.vtt', // Create this file in public/ to test
     posterSrc: 'https://picsum.photos/seed/chapters/1280/720',
     aspectRatio: '16:9',
@@ -42,7 +42,7 @@ export const WithChapters: Story = {
 // Portrait aspect ratio
 export const PortraitVideo: Story = {
   args: {
-    src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    src: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
     posterSrc: 'https://picsum.photos/seed/portrait/720/1280',
     aspectRatio: '9:16',
   },
@@ -51,7 +51,7 @@ export const PortraitVideo: Story = {
 // Square aspect ratio
 export const SquareVideo: Story = {
   args: {
-    src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    src: 'https://test-videos.co.uk/vids/sintel/mp4/h264/360/Sintel_360_10s_1MB.mp4',
     posterSrc: 'https://picsum.photos/seed/square/1280/1280',
     aspectRatio: '1:1',
   },

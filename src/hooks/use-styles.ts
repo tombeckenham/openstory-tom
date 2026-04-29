@@ -22,7 +22,7 @@ type CreateStyleInput = {
 };
 
 // Query keys
-const styleKeys = {
+export const styleKeys = {
   all: ['styles'] as const,
   lists: () => [...styleKeys.all, 'list'] as const,
   list: (teamId?: string) => [...styleKeys.lists(), teamId] as const,

@@ -126,7 +126,7 @@ const mockFrames: Frame[] = [
     thumbnailPath: 'teams/mock/sequences/mock/frames/1/thumbnail.jpg',
     variantImageUrl: 'https://picsum.photos/seed/scene1/1280/720',
     videoUrl:
-      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+      'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
     videoPath: 'teams/mock/sequences/mock/frames/1/motion.mp4',
     thumbnailStatus: 'completed',
     videoStatus: 'completed',
@@ -145,7 +145,7 @@ const mockFrames: Frame[] = [
     thumbnailPath: 'teams/mock/sequences/mock/frames/2/thumbnail.jpg',
     variantImageUrl: 'https://picsum.photos/seed/scene2/1280/720',
     videoUrl:
-      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+      'https://test-videos.co.uk/vids/sintel/mp4/h264/360/Sintel_360_10s_1MB.mp4',
     videoPath: 'teams/mock/sequences/mock/frames/2/motion.mp4',
     thumbnailStatus: 'completed',
     videoStatus: 'completed',
@@ -210,7 +210,7 @@ export const AllVideoStates: Story = {
         thumbnailPath: 'teams/mock/sequences/mock/frames/state1/thumbnail.jpg',
         variantImageUrl: 'https://picsum.photos/seed/state1/1280/720',
         videoUrl:
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+          'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
         videoPath: 'teams/mock/sequences/mock/frames/state1/motion.mp4',
         thumbnailStatus: 'completed',
         videoStatus: 'completed',

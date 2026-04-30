@@ -126,25 +126,27 @@ export const StaleCornerDot: Story = {
   ),
 };
 
+const SoftDismissDemo: React.FC = () => {
+  const [count, setCount] = useState(0);
+  return (
+    <div className="flex max-w-xl flex-col gap-3">
+      <StalenessIndicator
+        artifact="thumbnail"
+        entityType="frame"
+        onRegenerate={() => setCount((c) => c + 1)}
+        onDismiss={() => {}}
+      />
+      <p className="text-xs text-muted-foreground">
+        Regenerate clicks: {count}
+      </p>
+    </div>
+  );
+};
+
 /**
  * Demonstrates internal session-scoped soft-dismiss.
  * Click the X — the indicator disappears for this session.
  */
 export const SoftDismissBehavior: Story = {
-  render: () => {
-    const [count, setCount] = useState(0);
-    return (
-      <div className="flex max-w-xl flex-col gap-3">
-        <StalenessIndicator
-          artifact="thumbnail"
-          entityType="frame"
-          onRegenerate={() => setCount((c) => c + 1)}
-          onDismiss={() => {}}
-        />
-        <p className="text-xs text-muted-foreground">
-          Regenerate clicks: {count}
-        </p>
-      </div>
-    );
-  },
+  render: () => <SoftDismissDemo />,
 };

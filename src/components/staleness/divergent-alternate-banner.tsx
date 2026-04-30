@@ -62,11 +62,7 @@ export const DivergentAlternateBanner: React.FC<
       >
         <span
           aria-hidden="true"
-          className={cn(
-            'block h-2 w-2 rounded-full bg-sky-500 ring-2 ring-sky-500/30',
-            'transition-transform group-hover:scale-110',
-            'motion-reduce:transition-none motion-reduce:group-hover:scale-100'
-          )}
+          className="block h-2 w-2 rounded-full bg-sky-500 ring-2 ring-sky-500/30 transition-transform group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
         />
       </button>
     );
@@ -81,49 +77,21 @@ export const DivergentAlternateBanner: React.FC<
       data-variant-id={variantId}
       data-artifact={artifact}
       data-entity-type={entityType}
-      className={cn(
-        'flex flex-row items-center gap-3 border-sky-500/30',
-        'bg-sky-50 text-sky-900',
-        'dark:bg-sky-950/30 dark:text-sky-100',
-        '[&>svg]:text-sky-600 dark:[&>svg]:text-sky-400',
-        className
-      )}
+      className={cn('flex flex-row items-center gap-3', className)}
     >
       <Info aria-hidden="true" />
-      <AlertDescription
-        className={cn(
-          'col-start-2 flex-1 self-center text-sky-900 dark:text-sky-100'
-        )}
-      >
+      <AlertDescription className="col-start-2 flex-1 self-center">
         An alternate {ARTIFACT_LABEL[artifact]} was generated with the inputs
         you had at the time.
       </AlertDescription>
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={onCompare}
-          className="border-sky-500/40 hover:bg-sky-500/10"
-        >
+        <Button type="button" size="sm" variant="outline" onClick={onCompare}>
           Compare
         </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="default"
-          onClick={onPromote}
-          className="bg-sky-600 hover:bg-sky-600/90 dark:bg-sky-500 dark:hover:bg-sky-500/90"
-        >
+        <Button type="button" size="sm" variant="default" onClick={onPromote}>
           Promote
         </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          onClick={onDiscard}
-          className="hover:bg-sky-500/10"
-        >
+        <Button type="button" size="sm" variant="ghost" onClick={onDiscard}>
           Discard
         </Button>
       </div>

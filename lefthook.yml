@@ -11,10 +11,6 @@ pre-commit:
       exclude:
         - src/routeTree.gen.ts
         - public/mockServiceWorker.js
-        # Mirror oxlint ignorePatterns so the hook is skipped when staged
-        # files match nothing oxlint will lint (otherwise oxlint exits 1).
-        - src/components/ui/*.tsx
-        - src/components/ui/**/*.tsx
       run: bun run --bun oxlint --type-aware --quiet {staged_files}
       stage_fixed: true
     format:

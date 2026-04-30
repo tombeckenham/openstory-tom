@@ -151,6 +151,11 @@ export function createBillingReadMethods(db: Database, teamId: string) {
       .from(teamBillingSettings)
       .where(eq(teamBillingSettings.teamId, teamId))
       .limit(1);
+    if (!existing) {
+      throw new Error(
+        `getBillingSettings: row missing for team ${teamId} after onConflictDoNothing`
+      );
+    }
     return existing;
   }
 

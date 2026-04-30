@@ -55,16 +55,11 @@ export async function buildRegenerateFrameSnapshot(params: {
 }): Promise<RegenerateFrameSnapshot> {
   const { frame, characters, locations, imageModel, aspectRatio } = params;
 
-  // Reject frames with no usable prompt at snapshot time. The previous
-  // empty-string fallback hashed cleanly past validation, then the workflow
-  // body short-circuited every per-frame call to "no image prompt" — a frame
-  // recorded as failed for a problem visible at trigger time. Surfacing here
-  // makes the recast/regen call site fail loudly so the caller can fix the
-  // frame's prompt instead of swallowing it as a per-frame failure.
+  // Reject empty prompts at the snapshot boundary so trigger-time data
+  // errors fail loudly at the call site instead of being absorbed as
+  // per-frame failures inside the workflow.
   if (!frame.imagePrompt || frame.imagePrompt.length === 0) {
-    throw new Error(
-      `[buildRegenerateFrameSnapshot] frame ${frame.id} has no imagePrompt; cannot snapshot`
-    );
+    throw new Error(`Frame ${frame.id} has no imagePrompt; cannot snapshot`);
   }
 
   const characterTags = frame.metadata?.continuity?.characterTags ?? [];

@@ -175,6 +175,30 @@ describe('buildRegenerateFrameSnapshot', () => {
     });
     expect(snapshot.characterSheetHashes).toEqual([]);
   });
+
+  it('throws when imagePrompt is null (locks in non-empty contract)', () => {
+    expect(
+      buildRegenerateFrameSnapshot({
+        frame: makeFrame({ imagePrompt: null }),
+        characters: [makeCharacter()],
+        locations: NO_LOCATIONS,
+        imageModel: 'nano_banana_2',
+        aspectRatio: '16:9',
+      })
+    ).rejects.toThrow(/has no imagePrompt/);
+  });
+
+  it('throws when imagePrompt is empty string', () => {
+    expect(
+      buildRegenerateFrameSnapshot({
+        frame: makeFrame({ imagePrompt: '' }),
+        characters: [makeCharacter()],
+        locations: NO_LOCATIONS,
+        imageModel: 'nano_banana_2',
+        aspectRatio: '16:9',
+      })
+    ).rejects.toThrow(/has no imagePrompt/);
+  });
 });
 
 describe('computeRegenerateFramesBatchHash', () => {

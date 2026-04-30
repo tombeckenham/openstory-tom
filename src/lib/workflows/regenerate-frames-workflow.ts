@@ -174,24 +174,25 @@ export const regenerateFramesWorkflow = createScopedWorkflow<
 
     const reconcileOutcomes = new Map<string, ReconcileOutcome>();
 
-    // Per-frame `context.run` so a single frame's permanent failure (deleted
-    // mid-flight, missing primary variant row, DB invariant violation) cannot
-    // abort sibling reconciliations or leave earlier writes orphaned. Each
-    // step returns a tagged outcome we can tally; throws inside the step are
-    // caught and converted to a `failed` outcome so the loop continues.
+    // Per-frame `context.run` so one frame's failure does not abort siblings.
+    // Known-permanent states return tagged outcomes (no retries burned).
+    // Unknown throws propagate inside the step so QStash applies its retry
+    // policy; only after retries exhaust does the outer catch convert to a
+    // `failed` outcome.
     for (const result of imageResults) {
       if (!result.success) continue;
 
-      const outcome = await context.run(
-        `reconcile-frame-${result.frameId}`,
-        async (): Promise<ReconcileOutcome> => {
-          try {
+      let outcome: ReconcileOutcome;
+      try {
+        outcome = await context.run(
+          `reconcile-frame-${result.frameId}`,
+          async (): Promise<ReconcileOutcome> => {
             const snapshot = snapshots.find(
               (s) => s.frameId === result.frameId
             );
             if (!snapshot) {
-              // Invariant: imageResults is built from snapshots. Surface as a
-              // failed outcome so sibling frames still reconcile.
+              // Invariant: imageResults is built from snapshots. Permanent
+              // (programmer-error) state — surface but don't retry.
               return {
                 kind: 'failed',
                 error: `imageResults produced frameId=${result.frameId} not in snapshots`,
@@ -307,14 +308,16 @@ export const regenerateFramesWorkflow = createScopedWorkflow<
             );
 
             return { kind: 'divergent' };
-          } catch (err) {
-            return {
-              kind: 'failed',
-              error: err instanceof Error ? err.message : String(err),
-            };
           }
-        }
-      );
+        );
+      } catch (err) {
+        // QStash exhausted retries on this frame's step. Capture as a failed
+        // outcome so siblings still reconcile.
+        outcome = {
+          kind: 'failed',
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
 
       reconcileOutcomes.set(result.frameId, outcome);
       if (outcome.kind === 'failed') {
@@ -330,9 +333,35 @@ export const regenerateFramesWorkflow = createScopedWorkflow<
       }
     }
 
-    const divergedFrameIds = [...reconcileOutcomes.entries()]
-      .filter(([, outcome]) => outcome.kind === 'divergent')
-      .map(([frameId]) => frameId);
+    // Single pass over reconcileOutcomes with an exhaustive switch.
+    // Adding a new ReconcileOutcome variant fails compile here (the `never`
+    // assignment) instead of silently dropping those frames from every tally.
+    const convergentFrameIds: string[] = [];
+    const divergedFrameIds: string[] = [];
+    const skippedDeletedFrameIds: string[] = [];
+    const reconcileFailedFrameIds: string[] = [];
+    for (const [frameId, outcome] of reconcileOutcomes) {
+      switch (outcome.kind) {
+        case 'convergent':
+          convergentFrameIds.push(frameId);
+          break;
+        case 'divergent':
+          divergedFrameIds.push(frameId);
+          break;
+        case 'skipped-deleted':
+          skippedDeletedFrameIds.push(frameId);
+          break;
+        case 'failed':
+          reconcileFailedFrameIds.push(frameId);
+          break;
+        default: {
+          const _exhaustive: never = outcome;
+          throw new Error(
+            `[RegenerateFramesWorkflow] Unhandled ReconcileOutcome: ${JSON.stringify(_exhaustive)}`
+          );
+        }
+      }
+    }
 
     // Shot variants (the 3x3 grid in the Variants tab) are derived from the
     // primary thumbnail. Image-workflow regenerated the primary; without this
@@ -342,10 +371,10 @@ export const regenerateFramesWorkflow = createScopedWorkflow<
     // frames preserve the user's live primary, so their existing shot
     // variants are still correct.
     await context.run('trigger-variant-regen', async () => {
-      const divergedFrameIdSet = new Set(divergedFrameIds);
+      const convergentFrameIdSet = new Set(convergentFrameIds);
       const convergent = imageResults.filter(
         (r): r is Extract<FrameResult, { success: true }> =>
-          r.success && !divergedFrameIdSet.has(r.frameId)
+          r.success && convergentFrameIdSet.has(r.frameId)
       );
 
       await Promise.all(
@@ -383,30 +412,15 @@ export const regenerateFramesWorkflow = createScopedWorkflow<
       );
     });
 
-    // Success = frames whose primary write was reconciled to the recast
-    // inputs (convergent → primary committed; divergent → alternate row
-    // saved). Image-generation failures, deleted-mid-flight skips, and
-    // reconcile failures are NOT successes — counting them as such would
-    // make the batch summary lie about how many frames were actually updated.
-    const reconciledFrameIds = [...reconcileOutcomes.entries()]
-      .filter(
-        ([, outcome]) =>
-          outcome.kind === 'convergent' || outcome.kind === 'divergent'
-      )
-      .map(([frameId]) => frameId);
-
+    // Success = frames whose primary write was reconciled (convergent kept
+    // the primary; divergent saved an alternate). Image-generation failures,
+    // deleted-mid-flight skips, and reconcile failures don't count.
     const imageFailedFrameIds = imageResults
       .filter((r) => !r.success)
       .map((r) => r.frameId);
-    const reconcileFailedFrameIds = [...reconcileOutcomes.entries()]
-      .filter(([, outcome]) => outcome.kind === 'failed')
-      .map(([frameId]) => frameId);
-    const skippedDeletedFrameIds = [...reconcileOutcomes.entries()]
-      .filter(([, outcome]) => outcome.kind === 'skipped-deleted')
-      .map(([frameId]) => frameId);
 
     const failedFrames = [...imageFailedFrameIds, ...reconcileFailedFrameIds];
-    const successCount = reconciledFrameIds.length;
+    const successCount = convergentFrameIds.length + divergedFrameIds.length;
 
     await context.run('emit-complete', async () => {
       await emitRecastEvent({

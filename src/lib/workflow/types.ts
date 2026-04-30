@@ -60,16 +60,17 @@ export interface ImageWorkflowInput extends SequenceWorkflowContext {
 }
 
 /**
- * Variant image generation workflow input
+ * Shot variant generation workflow input — produces the 3x3 shot grid that
+ * gets stored in `frame_variants.shotVariantUrl` for the matching primary row.
  */
-export interface VariantWorkflowInput extends SequenceWorkflowContext {
+export interface ShotVariantWorkflowInput extends SequenceWorkflowContext {
   thumbnailUrl: string;
   model?: keyof typeof IMAGE_MODELS;
   imageSize?: ImageSize;
   numImages?: number;
   seed?: number;
   frameId?: string;
-  /** Sequence aspect ratio — drives variant grid layout */
+  /** Sequence aspect ratio — drives shot grid layout */
   aspectRatio?: AspectRatio;
   /** Scene description from frame.metadata.prompts.visual.fullPrompt */
   scenePrompt?: string;
@@ -81,7 +82,7 @@ export interface VariantWorkflowInput extends SequenceWorkflowContext {
   elementReferences?: ReferenceImageDescription[];
 }
 
-export interface VariantWorkflowResult {
+export interface ShotVariantWorkflowResult {
   variantImageUrl: string;
 }
 
@@ -400,10 +401,10 @@ export interface CharacterSheetWorkflowResult {
 }
 
 /**
- * Upscale variant workflow input
- * Upscales a cropped variant tile to higher resolution
+ * Upscale shot variant workflow input — upscales a cropped shot-grid tile
+ * to higher resolution.
  */
-export interface UpscaleVariantWorkflowInput extends SequenceWorkflowContext {
+export interface UpscaleShotVariantWorkflowInput extends SequenceWorkflowContext {
   frameId: string;
   /** URL of the cropped tile to upscale */
   croppedTileUrl: string;
@@ -417,7 +418,7 @@ export interface UpscaleVariantWorkflowInput extends SequenceWorkflowContext {
   locationReferences?: ReferenceImageDescription[];
 }
 
-export interface UpscaleVariantWorkflowResult {
+export interface UpscaleShotVariantWorkflowResult {
   upscaledUrl: string;
   upscaledPath: string;
 }

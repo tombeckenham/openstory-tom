@@ -19,11 +19,15 @@
 import { DEFAULT_IMAGE_MODEL } from '@/lib/ai/models';
 import { aspectRatioToImageSize } from '@/lib/constants/aspect-ratios';
 import { getGenerationChannel } from '@/lib/realtime';
+import { triggerWorkflow } from '@/lib/workflow/client';
 import { WorkflowValidationError } from '@/lib/workflow/errors';
 import { buildWorkflowLabel } from '@/lib/workflow/labels';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
-import type { RegenerateFramesWorkflowInput } from '@/lib/workflow/types';
+import type {
+  RegenerateFramesWorkflowInput,
+  ShotVariantWorkflowInput,
+} from '@/lib/workflow/types';
 import { getFalFlowControl } from './constants';
 import { generateImageWorkflow } from './image-workflow';
 import {
@@ -263,6 +267,55 @@ export const regenerateFramesWorkflow = createScopedWorkflow<
           `Diverged frame ${result.frameId}: snapshot=${snapshot.snapshotInputHash.slice(0, 8)} current=${currentSnapshot.snapshotInputHash.slice(0, 8)}`
         );
       }
+    });
+
+    // Shot variants (the 3x3 grid in the Variants tab) are derived from the
+    // primary thumbnail. Image-workflow regenerated the primary; without this
+    // step the grid keeps showing the pre-recast character. Fire-and-forget:
+    // each variant runs as its own workflow so this batch returns as soon as
+    // primaries are reconciled. Only fan out for convergent frames — divergent
+    // frames preserve the user's live primary, so their existing shot
+    // variants are still correct.
+    await context.run('trigger-variant-regen', async () => {
+      const divergedFrameIdSet = new Set(divergedFrameIds);
+      const convergent = imageResults.filter(
+        (r): r is Extract<FrameResult, { success: true }> =>
+          r.success && !divergedFrameIdSet.has(r.frameId)
+      );
+
+      await Promise.all(
+        convergent.map(async (result) => {
+          const snapshot = snapshots.find((s) => s.frameId === result.frameId);
+          if (!snapshot) return;
+
+          await triggerWorkflow<ShotVariantWorkflowInput>(
+            '/variant-image',
+            {
+              userId: input.userId,
+              teamId,
+              sequenceId,
+              frameId: result.frameId,
+              thumbnailUrl: result.imageUrl,
+              scenePrompt: snapshot.imagePrompt,
+              characterReferences:
+                snapshot.characterRefs.length > 0
+                  ? snapshot.characterRefs
+                  : undefined,
+              locationReferences:
+                snapshot.locationRefs.length > 0
+                  ? snapshot.locationRefs
+                  : undefined,
+              aspectRatio,
+              model: imageModel,
+            },
+            {
+              label,
+              // Dedupe: a retry of this context.run mustn't re-fire variants.
+              deduplicationId: `variant-image-${result.frameId}-${imageModel}-${snapshot.snapshotInputHash.slice(0, 16)}`,
+            }
+          );
+        })
+      );
     });
 
     const failedFrames = imageResults

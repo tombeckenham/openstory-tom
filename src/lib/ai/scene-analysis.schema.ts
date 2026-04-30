@@ -556,7 +556,8 @@ export const audioDesignSchema = z.object({
 
 export const continuitySchema = z.object({
   characterTags: z.array(z.string()).catch([]).meta({
-    description: 'List of character consistency tags appearing in this scene',
+    description:
+      "Snake_case slug of each character's name as written in the script (e.g., 'GIRL ONE' → 'girl_one'). Optional descriptive context may be appended after the name slug (e.g., 'girl_one_bathroom_morning'). One entry per character appearing in the scene.",
   }),
   environmentTag: z
     .string()

@@ -7,7 +7,6 @@
 
 import { DEFAULT_IMAGE_MODEL } from '@/lib/ai/models';
 import { aspectRatioToImageSize } from '@/lib/constants/aspect-ratios';
-import type { CharacterMinimal } from '@/lib/db/schema';
 import { matchLocationsToFrame } from '@/lib/db/scoped/sequence-locations';
 import { buildCharacterReferenceImages } from '@/lib/prompts/character-prompt';
 import { buildLocationReferenceImages } from '@/lib/prompts/location-prompt';
@@ -19,33 +18,7 @@ import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
 import type { RegenerateFramesWorkflowInput } from '@/lib/workflow/types';
 import { getFalFlowControl } from './constants';
 import { generateImageWorkflow } from './image-workflow';
-
-/**
- * Match characters to a frame by their continuity tags.
- * Pure function that works in-memory without DB queries.
- */
-function matchCharactersToFrame(
-  allCharacters: CharacterMinimal[],
-  characterTags: string[]
-): CharacterMinimal[] {
-  if (characterTags.length === 0) return [];
-
-  return allCharacters.filter((char) => {
-    const consistencyTag = (char.consistencyTag ?? '').toLowerCase();
-    const charName = char.name.toLowerCase();
-
-    return characterTags.some((tag) => {
-      const tagLower = tag.toLowerCase();
-      return (
-        (consistencyTag && tagLower.includes(consistencyTag)) ||
-        (consistencyTag && consistencyTag.includes(tagLower)) ||
-        tagLower.includes(charName) ||
-        (charName.includes(tagLower) && tagLower.length >= 3) ||
-        tagLower.includes(char.characterId.toLowerCase())
-      );
-    });
-  });
-}
+import { matchCharactersToScene } from './scene-matching';
 
 type FrameResult = {
   frameId: string;
@@ -133,7 +106,7 @@ export const regenerateFramesWorkflow = createScopedWorkflow<
         }
 
         const characterTags = frame.metadata?.continuity?.characterTags ?? [];
-        const frameCharacters = matchCharactersToFrame(
+        const frameCharacters = matchCharactersToScene(
           allCharacters,
           characterTags
         );

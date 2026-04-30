@@ -6,6 +6,7 @@
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSequenceCharacters } from '@/hooks/use-sequence-characters';
 import type { Character } from '@/lib/db/schema';
+import { matchCharactersToScene } from '@/lib/workflows/scene-matching';
 import type { Frame } from '@/types/database';
 import { Link } from '@tanstack/react-router';
 import { Film, User } from 'lucide-react';
@@ -14,36 +15,6 @@ type SceneCastTabProps = {
   frame?: Frame;
   sequenceId: string;
 };
-
-/**
- * Match characters to frame's characterTags
- * Replicates logic from character.service.ts getCharactersForScene
- */
-function matchCharactersToTags(
-  characters: Character[],
-  characterTags: string[]
-): Character[] {
-  if (characterTags.length === 0) return [];
-
-  return characters.filter((char) => {
-    const consistencyTag = (char.consistencyTag ?? '').toLowerCase();
-    const charName = char.name.toLowerCase();
-    const charId = char.characterId.toLowerCase();
-
-    return characterTags.some((tag) => {
-      const tagLower = tag.toLowerCase();
-      // Match by consistency tag (either direction — tag may be a substring of the full tag or vice versa)
-      if (consistencyTag && tagLower.includes(consistencyTag)) return true;
-      if (consistencyTag && consistencyTag.includes(tagLower)) return true;
-      // Match by character name (either direction)
-      if (tagLower.includes(charName)) return true;
-      if (charName.includes(tagLower) && tagLower.length >= 3) return true;
-      // Match by character ID (e.g., "char_001")
-      if (tagLower.includes(charId)) return true;
-      return false;
-    });
-  });
-}
 
 type CastCardProps = {
   character: Character;
@@ -127,7 +98,7 @@ export const SceneCastTab: React.FC<SceneCastTabProps> = ({
 
   // Match characters to this frame
   const frameCast = characters
-    ? matchCharactersToTags(characters, characterTags)
+    ? matchCharactersToScene(characters, characterTags)
     : [];
 
   // Loading state

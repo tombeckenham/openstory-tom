@@ -13,26 +13,7 @@ import type {
   SheetStatus,
 } from '@/lib/db/schema';
 import { characters, frames, talent } from '@/lib/db/schema';
-
-/**
- * Match a character to a scene's characterTags (private helper)
- */
-function characterMatchesTags(
-  character: Character,
-  characterTags: string[]
-): boolean {
-  const consistencyTag = (character.consistencyTag ?? '').toLowerCase();
-  const charName = character.name.toLowerCase();
-  const charId = character.characterId.toLowerCase();
-
-  return characterTags.some((tag) => {
-    const tagLower = tag.toLowerCase();
-    if (consistencyTag && tagLower.includes(consistencyTag)) return true;
-    if (tagLower.includes(charName)) return true;
-    if (tagLower.includes(charId)) return true;
-    return false;
-  });
-}
+import { matchCharacterToFrameTags } from '@/lib/workflows/scene-matching';
 
 export function createCharactersMethods(db: Database) {
   // Private update helper used by updateSheetStatus and updateSheet
@@ -284,7 +265,7 @@ export function createCharactersMethods(db: Database) {
       // Filter frames that contain this character
       return (allFrames as Frame[]).filter((frame) => {
         const characterTags = frame.metadata?.continuity?.characterTags ?? [];
-        return characterMatchesTags(character, characterTags);
+        return matchCharacterToFrameTags(character, characterTags);
       });
     },
 
@@ -313,7 +294,7 @@ export function createCharactersMethods(db: Database) {
       return (allFrames as Frame[])
         .filter((frame) => {
           const characterTags = frame.metadata?.continuity?.characterTags ?? [];
-          return characterMatchesTags(character, characterTags);
+          return matchCharacterToFrameTags(character, characterTags);
         })
         .map((f) => f.id);
     },

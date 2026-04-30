@@ -13,7 +13,7 @@ import {
   aspectRatioToImageSize,
   getVariantGridConfig,
 } from '@/lib/constants/aspect-ratios';
-import type { Character, SequenceLocation } from '@/lib/db/schema';
+import type { SequenceLocation } from '@/lib/db/schema';
 import { locationMatchesTag } from '@/lib/db/scoped/sequence-locations';
 import { cropTileFromGrid } from '@/lib/image/image-crop';
 import { buildCharacterReferenceImages } from '@/lib/prompts/character-prompt';
@@ -33,7 +33,10 @@ import type {
   UpscaleVariantWorkflowInput,
   VariantWorkflowInput,
 } from '@/lib/workflow/types';
-import { matchElementsToScene } from '@/lib/workflows/scene-matching';
+import {
+  matchCharactersToScene,
+  matchElementsToScene,
+} from '@/lib/workflows/scene-matching';
 import { createServerFn } from '@tanstack/react-start';
 import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
@@ -42,30 +45,6 @@ import { frameAccessMiddleware, sequenceAccessMiddleware } from './middleware';
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/** Match characters by continuity tags and return their reference sheet images. */
-function getSceneCharacterReferenceImages(
-  allCharacters: Character[],
-  characterTags: string[]
-): ReferenceImageDescription[] {
-  if (characterTags.length === 0) return [];
-
-  const matchedCharacters = allCharacters.filter((char) => {
-    const consistencyTag = (char.consistencyTag ?? '').toLowerCase();
-    const charName = char.name.toLowerCase();
-
-    return characterTags.some((tag) => {
-      const tagLower = tag.toLowerCase();
-      return (
-        (consistencyTag && tagLower.includes(consistencyTag)) ||
-        tagLower.includes(charName) ||
-        tagLower.includes(char.characterId.toLowerCase())
-      );
-    });
-  });
-
-  return buildCharacterReferenceImages(matchedCharacters);
-}
 
 /** Match locations by environmentTag or scene location and return reference images. */
 function getSceneLocationReferenceImages(
@@ -163,9 +142,8 @@ export const generateFrameImageFn = createServerFn({ method: 'POST' })
       sequence.id
     );
     const characterTags = frame.metadata?.continuity?.characterTags ?? [];
-    const characterReferences = getSceneCharacterReferenceImages(
-      allCharacters,
-      characterTags
+    const characterReferences = buildCharacterReferenceImages(
+      matchCharactersToScene(allCharacters, characterTags)
     );
 
     const allLocations =
@@ -243,9 +221,8 @@ export const generateFrameVariantsFn = createServerFn({ method: 'POST' })
       sequence.id
     );
     const characterTags = frame.metadata?.continuity?.characterTags ?? [];
-    const characterReferences = getSceneCharacterReferenceImages(
-      allCharacters,
-      characterTags
+    const characterReferences = buildCharacterReferenceImages(
+      matchCharactersToScene(allCharacters, characterTags)
     );
 
     const allLocations =
@@ -368,9 +345,8 @@ export const selectFrameVariantFn = createServerFn({ method: 'POST' })
       sequence.id
     );
     const characterTags = frame.metadata?.continuity?.characterTags ?? [];
-    const characterReferences = getSceneCharacterReferenceImages(
-      allCharacters,
-      characterTags
+    const characterReferences = buildCharacterReferenceImages(
+      matchCharactersToScene(allCharacters, characterTags)
     );
 
     const allLocations =

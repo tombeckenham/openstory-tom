@@ -30,6 +30,7 @@ export const locationLibrary = sqliteTable(
     referenceImagePath: text('reference_image_path'), // R2 storage path
     isPublic: integer('is_public', { mode: 'boolean' }).default(false),
     isTemplate: integer('is_template', { mode: 'boolean' }).default(false),
+    referenceInputHash: text('reference_input_hash'),
     // Tracking
     createdBy: text('created_by').references(() => user.id, {
       onDelete: 'set null',

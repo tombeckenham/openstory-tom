@@ -244,6 +244,22 @@ export function createCharactersMethods(db: Database) {
       return character;
     },
 
+    isStale: async (
+      characterId: string,
+      currentHash: string
+    ): Promise<boolean> => {
+      const result = await db
+        .select({ hash: characters.sheetInputHash })
+        .from(characters)
+        .where(eq(characters.id, characterId));
+      if (result.length === 0) {
+        throw new Error(`Character ${characterId} not found`);
+      }
+      const stored = result[0].hash;
+      if (stored === null) return false;
+      return currentHash !== stored;
+    },
+
     getFramesForCharacter: async (
       sequenceId: string,
       characterId: string

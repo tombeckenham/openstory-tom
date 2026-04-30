@@ -40,6 +40,7 @@ export const locationSheets = sqliteTable(
       .$type<LocationSheetSource>()
       .default('manual_upload')
       .notNull(),
+    inputHash: text('input_hash'),
     createdAt: integer('created_at', { mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),

@@ -67,6 +67,7 @@ export const characters = sqliteTable(
       .notNull(),
     sheetGeneratedAt: integer('sheet_generated_at', { mode: 'timestamp' }),
     sheetError: text('sheet_error'),
+    sheetInputHash: text('sheet_input_hash'),
     // Timestamps
     createdAt: integer('created_at', { mode: 'timestamp' })
       .$defaultFn(() => new Date())

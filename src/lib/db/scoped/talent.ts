@@ -196,6 +196,22 @@ function createTalentReadMethods(db: Database, teamId: string) {
           where: { id: sheetId },
         });
       },
+
+      isStale: async (
+        sheetId: string,
+        currentHash: string
+      ): Promise<boolean> => {
+        const result = await db
+          .select({ hash: talentSheets.inputHash })
+          .from(talentSheets)
+          .where(eq(talentSheets.id, sheetId));
+        if (result.length === 0) {
+          throw new Error(`TalentSheet ${sheetId} not found`);
+        }
+        const stored = result[0].hash;
+        if (stored === null) return false;
+        return currentHash !== stored;
+      },
     },
 
     media: {

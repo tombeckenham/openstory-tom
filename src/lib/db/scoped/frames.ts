@@ -24,6 +24,15 @@ type FrameWithSequence = Frame & {
 
 type FrameOrderBy = 'orderIndex' | 'createdAt' | 'updatedAt';
 
+const FRAME_ARTIFACT_HASH_COLUMNS = {
+  thumbnail: 'thumbnailInputHash',
+  variantImage: 'variantImageInputHash',
+  video: 'videoInputHash',
+  audio: 'audioInputHash',
+} as const satisfies Record<string, keyof Frame>;
+
+export type FrameArtifact = keyof typeof FRAME_ARTIFACT_HASH_COLUMNS;
+
 type FrameFilters = {
   orderBy?: FrameOrderBy;
   ascending?: boolean;
@@ -116,10 +125,6 @@ export function createFramesMethods(db: Database) {
 
       return frame;
     },
-    /**
-     * Upsert a single frame using conflict resolution on (sequenceId, orderIndex).
-     * Idempotent: safe to call on retry without creating duplicates.
-     */
     upsert: async (data: NewFrame): Promise<Frame> => {
       const [frame] = await db
         .insert(frames)
@@ -205,6 +210,31 @@ export function createFramesMethods(db: Database) {
     getByIds: async (frameIds: string[]): Promise<Frame[]> => {
       if (frameIds.length === 0) return [];
       return await db.select().from(frames).where(inArray(frames.id, frameIds));
+    },
+
+    /**
+     * Compares the stored input hash for an artifact against a caller-provided
+     * fresh hash. Returns false when the stored hash is null — legacy artifacts
+     * predating hash tracking are treated as "unknown, not stale" rather than
+     * forced into regeneration. Throws when the frame row does not exist.
+     */
+    isStale: async (
+      frameId: string,
+      artifact: FrameArtifact,
+      currentHash: string
+    ): Promise<boolean> => {
+      const result = await db
+        .select({
+          hash: frames[FRAME_ARTIFACT_HASH_COLUMNS[artifact]],
+        })
+        .from(frames)
+        .where(eq(frames.id, frameId));
+      if (result.length === 0) {
+        throw new Error(`Frame ${frameId} not found`);
+      }
+      const stored = result[0].hash;
+      if (stored === null) return false;
+      return currentHash !== stored;
     },
 
     getWithSequence: async (

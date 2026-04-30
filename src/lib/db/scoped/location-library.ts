@@ -78,6 +78,22 @@ export function createLocationsReadMethods(db: Database, teamId: string) {
         .from(locationLibrary)
         .where(inArray(locationLibrary.id, ids));
     },
+
+    isStale: async (
+      locationId: string,
+      currentHash: string
+    ): Promise<boolean> => {
+      const result = await db
+        .select({ hash: locationLibrary.referenceInputHash })
+        .from(locationLibrary)
+        .where(eq(locationLibrary.id, locationId));
+      if (result.length === 0) {
+        throw new Error(`LibraryLocation ${locationId} not found`);
+      }
+      const stored = result[0].hash;
+      if (stored === null) return false;
+      return currentHash !== stored;
+    },
   };
 }
 
@@ -192,6 +208,19 @@ export function createLocationSheetsReadMethods(db: Database) {
         )
         .where(eq(locationSheets.id, sheetId));
       return result[0] ?? null;
+    },
+
+    isStale: async (sheetId: string, currentHash: string): Promise<boolean> => {
+      const result = await db
+        .select({ hash: locationSheets.inputHash })
+        .from(locationSheets)
+        .where(eq(locationSheets.id, sheetId));
+      if (result.length === 0) {
+        throw new Error(`LocationSheet ${sheetId} not found`);
+      }
+      const stored = result[0].hash;
+      if (stored === null) return false;
+      return currentHash !== stored;
     },
   };
 }

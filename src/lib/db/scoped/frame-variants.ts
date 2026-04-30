@@ -137,6 +137,22 @@ export function createFrameVariantsMethods(db: Database) {
       return result.at(0) ?? null;
     },
 
+    isStale: async (
+      variantId: string,
+      currentHash: string
+    ): Promise<boolean> => {
+      const result = await db
+        .select({ hash: frameVariants.inputHash })
+        .from(frameVariants)
+        .where(eq(frameVariants.id, variantId));
+      if (result.length === 0) {
+        throw new Error(`FrameVariant ${variantId} not found`);
+      }
+      const stored = result[0].hash;
+      if (stored === null) return false;
+      return currentHash !== stored;
+    },
+
     deleteByFrame: async (frameId: string): Promise<number> => {
       const result = await db
         .delete(frameVariants)

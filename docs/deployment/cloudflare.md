@@ -1,51 +1,74 @@
 ---
 title: Deploy to Cloudflare
-description: Deploy OpenStory to Cloudflare Pages with R2 storage
+description: Deploy OpenStory to Cloudflare Workers with D1 and R2
 section: Developer Guide
 order: 10
 ---
 
-Cloudflare Pages is the recommended deployment platform for OpenStory, providing edge runtime, R2 storage, and a global CDN.
+OpenStory deploys to Cloudflare Workers, using D1 (SQLite) for the database and R2 for media storage.
 
 ## Prerequisites
 
 - A [Cloudflare](https://cloudflare.com) account
-- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) installed
-- A configured R2 bucket for media storage
-- A [Turso](https://turso.tech) database for production
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (installed as a dev dependency — use `bunx wrangler`)
+- `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` available in your environment
 
-## Build for Cloudflare
+## wrangler.jsonc
+
+Bindings live in [`wrangler.jsonc`](https://github.com/anthropics/openstory/blob/main/wrangler.jsonc) at the repo root:
+
+- `DB` — D1 database (`openstory-prd`)
+- `R2_PUBLIC_ASSETS_BUCKET` — public assets (served via custom domain)
+- `R2_STORAGE_BUCKET` — private storage for generated media
+
+The Worker entry point is `src/server.ts` with `nodejs_compat` enabled.
+
+## Build & Deploy
 
 ```bash
-# Build with Cloudflare target
-BUILD_CLOUDFLARE=1 bun run build
+# Generate Worker types from wrangler.jsonc
+bun cf:typegen
+
+# Build for Cloudflare (sets BUILD_CLOUDFLARE=1 so Vite uses the Cloudflare preset)
+bun cf:build
+
+# Deploy to production (runs cf:build then `wrangler deploy`)
+bun cf:deploy:prd
 ```
 
-This uses the Cloudflare Vite plugin instead of the default Nitro/Bun preset.
+## Database Migrations
 
-## Environment Variables
+D1 migrations use a separate Drizzle config:
 
-Set these in your Cloudflare Pages dashboard:
+```bash
+bun --bun drizzle-kit migrate --config=drizzle.config.d1.ts
+bun db:seed:d1
+```
 
-| Variable             | Description                   |
-| -------------------- | ----------------------------- |
-| `TURSO_DATABASE_URL` | Production Turso database URL |
-| `TURSO_AUTH_TOKEN`   | Turso authentication token    |
-| `R2_BUCKET_NAME`     | R2 bucket for media storage   |
-| `BETTER_AUTH_SECRET` | Secret for authentication     |
-| `APP_URL`            | Your production URL           |
+CI runs both before each deploy.
 
-## R2 Storage
+## Secrets
 
-OpenStory uses Cloudflare R2 for storing generated images and videos. Create a bucket in your Cloudflare dashboard and configure the binding in `wrangler.toml`.
+Secrets are pushed to the Worker via `wrangler secret bulk`. The full list is defined in [`.github/workflows/deploy-cloudflare.yml`](https://github.com/anthropics/openstory/blob/main/.github/workflows/deploy-cloudflare.yml). Core secrets include:
+
+| Variable                                    | Description                               |
+| ------------------------------------------- | ----------------------------------------- |
+| `BETTER_AUTH_SECRET`                        | Better Auth signing secret                |
+| `VITE_APP_URL`                              | Public URL of the deployment              |
+| `FAL_KEY`                                   | fal.ai API key for image/video generation |
+| `QSTASH_TOKEN`                              | QStash token for workflow execution       |
+| `QSTASH_CURRENT_SIGNING_KEY`                | QStash request verification               |
+| `QSTASH_NEXT_SIGNING_KEY`                   | QStash request verification (rotation)    |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth credentials                  |
+| `RESEND_API_KEY`                            | Transactional email                       |
 
 ## CI/CD
 
-The repository includes GitHub Actions workflows (`.github/workflows/`) that:
+[`deploy-cloudflare.yml`](https://github.com/anthropics/openstory/blob/main/.github/workflows/deploy-cloudflare.yml) handles:
 
-- Auto-deploy on push to `main`
-- Create PR preview deployments
-- Provision unique Turso databases per PR
+- **Production**: pushes to `main` migrate D1, seed, then `bun cf:deploy:prd`.
+- **PR previews**: each PR gets its own Worker (`pr-<number>`) and D1 database (`openstory-pr-<number>`), with secrets pushed and the preview URL posted as a PR comment.
+- **Cleanup**: closing a PR deletes both the Worker and the D1 database.
 
 ## Platform Detection
 

@@ -20,7 +20,12 @@ import { buildCharacterSheetPrompt } from '@/lib/prompts/character-prompt';
 import { getGenerationChannel } from '@/lib/realtime';
 import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
 import { triggerWorkflow } from '@/lib/workflow/client';
-import { WorkflowValidationError } from '@/lib/workflow/errors';
+import {
+  SnapshotDivergedError,
+  SNAPSHOT_DIVERGED_MARKER,
+  isSnapshotDivergedFailure,
+  WorkflowValidationError,
+} from '@/lib/workflow/errors';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
 import type {
@@ -30,6 +35,8 @@ import type {
 import {
   computeCharacterSheetHashCurrent,
   computeCharacterSheetHashFromDto,
+  MAX_REQUEUE_DEPTH,
+  resolveTalentSheetHash,
 } from './sheet-snapshots';
 
 export const characterSheetWorkflow = createScopedWorkflow<
@@ -179,6 +186,7 @@ export const characterSheetWorkflow = createScopedWorkflow<
       // Step 4: Divergence-aware database write. If the upstream talent sheet
       // changed mid-flight, discard this result and re-queue with current
       // inputs (per Stage 1 spec: sheets have no variants table yet).
+      const snapshot = context.snapshot;
       const reconcileOutcome = await context.run(
         'reconcile-database',
         async (): Promise<'convergent' | 'divergent'> => {
@@ -187,9 +195,15 @@ export const characterSheetWorkflow = createScopedWorkflow<
             `Updating database for ${input.characterName}`
           );
 
-          if (context.snapshot) {
-            const currentHash = await context.snapshot.computeCurrent();
-            if (currentHash !== context.snapshot.snapshotInputHash) {
+          if (snapshot) {
+            const currentHash = await snapshot.computeCurrent();
+            if (currentHash !== snapshot.snapshotInputHash) {
+              console.warn('[CharacterSheetWorkflow] divergence detected', {
+                characterDbId: input.characterDbId,
+                snapshotInputHash: snapshot.snapshotInputHash,
+                currentHash,
+                orphanedStoragePath: storageResult.path,
+              });
               return 'divergent';
             }
           }
@@ -198,13 +212,14 @@ export const characterSheetWorkflow = createScopedWorkflow<
             input.characterDbId,
             storageResult.url,
             storageResult.path,
-            context.snapshot?.snapshotInputHash ?? null
+            snapshot?.snapshotInputHash ?? null
           );
           return 'convergent';
         }
       );
 
-      if (reconcileOutcome === 'divergent') {
+      if (reconcileOutcome === 'divergent' && snapshot) {
+        const requeueDepth = (input.requeueDepth ?? 0) + 1;
         await context.run('emit-stale-and-requeue', async () => {
           if (input.sequenceId) {
             await getGenerationChannel(input.sequenceId).emit(
@@ -213,31 +228,33 @@ export const characterSheetWorkflow = createScopedWorkflow<
                 entityType: 'character',
                 entityId: input.characterDbId,
                 artifact: 'sheet',
-                snapshotInputHash:
-                  context.snapshot?.snapshotInputHash ?? 'unknown',
+                snapshotInputHash: snapshot.snapshotInputHash,
               }
             );
+          }
+
+          if (requeueDepth > MAX_REQUEUE_DEPTH) {
+            console.warn('[CharacterSheetWorkflow] re-queue depth exceeded', {
+              characterDbId: input.characterDbId,
+              characterName: input.characterName,
+              requeueDepth,
+              max: MAX_REQUEUE_DEPTH,
+            });
+            return;
           }
 
           // Re-queue with current inputs. The character bible/style/model
           // travel as-is — only the upstream talent-sheet hash needs to be
           // refreshed, which the helper does by reading the live talent.
-          const character = await scopedDb.characters.getById(
+          const refreshedTalentHash = await resolveTalentSheetHash(
+            scopedDb,
             input.characterDbId
           );
-          let refreshedTalentHash: string | null = null;
-          if (character?.talentId) {
-            const talent = await scopedDb.talent.getWithRelations(
-              character.talentId
-            );
-            const defaultSheet =
-              talent?.sheets.find((s) => s.isDefault) ?? talent?.sheets[0];
-            refreshedTalentHash = defaultSheet?.inputHash ?? null;
-          }
 
           const requeuePayload: CharacterSheetWorkflowInput = {
             ...input,
             talentSheetInputHash: refreshedTalentHash,
+            requeueDepth,
           };
           requeuePayload.snapshotInputHash =
             await computeCharacterSheetHashFromDto(requeuePayload);
@@ -246,19 +263,20 @@ export const characterSheetWorkflow = createScopedWorkflow<
             label: input.sequenceId
               ? `character-sheet:${input.characterDbId}`
               : undefined,
-            deduplicationId: `character-sheet-requeue-${input.characterDbId}-${requeuePayload.snapshotInputHash.slice(0, 16)}`,
+            deduplicationId: `character-sheet-requeue-${input.characterDbId}-${requeuePayload.snapshotInputHash.slice(0, 16)}-d${requeueDepth}`,
           });
 
           console.log(
             '[CharacterSheetWorkflow]',
-            `Diverged for ${input.characterName}; re-queued with current inputs`
+            `Diverged for ${input.characterName}; re-queued with current inputs (depth=${requeueDepth})`
           );
         });
-        return {
-          sheetImageUrl: storageResult.url,
-          sheetImagePath: storageResult.path,
-          characterDbId: input.characterDbId,
-        };
+        // Abort the current run rather than returning the orphaned URL.
+        // The freshly-uploaded R2 object is intentionally left in place —
+        // its path was logged above for cleanup tooling.
+        throw new SnapshotDivergedError(
+          `${SNAPSHOT_DIVERGED_MARKER} character-sheet diverged for ${input.characterName}; re-queued with current inputs`
+        );
       }
 
       sheetImagePath = storageResult.path;
@@ -295,6 +313,17 @@ export const characterSheetWorkflow = createScopedWorkflow<
     failureFunction: async ({ context, scopedDb, failResponse }) => {
       const input = context.requestPayload;
       const error = sanitizeFailResponse(failResponse);
+
+      // Snapshot divergence is a transient signal: the workflow already
+      // re-queued itself with current inputs. Don't mark the sheet as failed
+      // or emit a failed status — the re-queued run will drive the UI.
+      if (isSnapshotDivergedFailure(failResponse)) {
+        console.log(
+          '[CharacterSheetWorkflow]',
+          `Run aborted due to snapshot divergence for ${input.characterName}; re-queued run will continue`
+        );
+        return `Character sheet diverged for ${input.characterName}; re-queued`;
+      }
 
       // Mark character sheet as failed
       if (input.characterDbId) {

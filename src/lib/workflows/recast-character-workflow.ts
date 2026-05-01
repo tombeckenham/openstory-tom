@@ -18,7 +18,10 @@ import {
   computeRegenerateFramesBatchHash,
 } from './regenerate-frames-snapshot';
 import { regenerateFramesWorkflow } from './regenerate-frames-workflow';
-import { computeCharacterSheetHashFromDto } from './sheet-snapshots';
+import {
+  computeCharacterSheetHashFromDto,
+  resolveTalentSheetHash,
+} from './sheet-snapshots';
 import type { CharacterSheetWorkflowInput } from '@/lib/workflow/types';
 
 export const recastCharacterWorkflow =
@@ -39,18 +42,10 @@ export const recastCharacterWorkflow =
       const sheetBody = await context.run(
         'build-character-sheet-snapshot',
         async (): Promise<CharacterSheetWorkflowInput> => {
-          const character = await scopedDb.characters.getById(
+          const talentSheetInputHash = await resolveTalentSheetHash(
+            scopedDb,
             input.characterDbId
           );
-          let talentSheetInputHash: string | null = null;
-          if (character?.talentId) {
-            const talent = await scopedDb.talent.getWithRelations(
-              character.talentId
-            );
-            const defaultSheet =
-              talent?.sheets.find((s) => s.isDefault) ?? talent?.sheets[0];
-            talentSheetInputHash = defaultSheet?.inputHash ?? null;
-          }
           const partial: CharacterSheetWorkflowInput = {
             characterDbId: input.characterDbId,
             characterName: input.characterName,

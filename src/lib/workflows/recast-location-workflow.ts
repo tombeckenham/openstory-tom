@@ -18,7 +18,10 @@ import {
   computeRegenerateFramesBatchHash,
 } from './regenerate-frames-snapshot';
 import { regenerateFramesWorkflow } from './regenerate-frames-workflow';
-import { computeLocationSheetHashFromDto } from './sheet-snapshots';
+import {
+  computeLocationSheetHashFromDto,
+  resolveLibraryLocationReferenceHash,
+} from './sheet-snapshots';
 import type { LocationSheetWorkflowInput } from '@/lib/workflow/types';
 
 export const recastLocationWorkflow =
@@ -39,17 +42,11 @@ export const recastLocationWorkflow =
       const sheetBody = await context.run(
         'build-location-sheet-snapshot',
         async (): Promise<LocationSheetWorkflowInput> => {
-          const sequenceLocation = await scopedDb.sequenceLocations.getById(
-            input.locationDbId
-          );
-          let libraryLocationReferenceHash: string | null = null;
-          if (sequenceLocation?.libraryLocationId) {
-            const libraryLocation = await scopedDb.locations.getById(
-              sequenceLocation.libraryLocationId
+          const libraryLocationReferenceHash =
+            await resolveLibraryLocationReferenceHash(
+              scopedDb,
+              input.locationDbId
             );
-            libraryLocationReferenceHash =
-              libraryLocation?.referenceInputHash ?? null;
-          }
           const partial: LocationSheetWorkflowInput = {
             locationDbId: input.locationDbId,
             locationName: input.locationName,

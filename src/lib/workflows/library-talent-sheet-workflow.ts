@@ -23,7 +23,12 @@ import {
 import { getTalentChannel } from '@/lib/realtime';
 import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
 import { triggerWorkflow } from '@/lib/workflow/client';
-import { WorkflowValidationError } from '@/lib/workflow/errors';
+import {
+  SnapshotDivergedError,
+  SNAPSHOT_DIVERGED_MARKER,
+  isSnapshotDivergedFailure,
+  WorkflowValidationError,
+} from '@/lib/workflow/errors';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
 import type {
@@ -33,6 +38,7 @@ import type {
 import {
   computeLibraryTalentSheetHashCurrent,
   computeLibraryTalentSheetHashFromDto,
+  MAX_REQUEUE_DEPTH,
 } from './sheet-snapshots';
 
 export const libraryTalentSheetWorkflow = createScopedWorkflow<
@@ -157,6 +163,7 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
 
     // Step 4: Divergence-aware sheet record creation. If reference media
     // changed mid-flight, discard and re-queue with the current set.
+    const snapshot = context.snapshot;
     const sheetReconcile = await context.run(
       'reconcile-create-sheet',
       async (): Promise<
@@ -166,9 +173,15 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
           }
         | { kind: 'divergent' }
       > => {
-        if (context.snapshot) {
-          const currentHash = await context.snapshot.computeCurrent();
-          if (currentHash !== context.snapshot.snapshotInputHash) {
+        if (snapshot) {
+          const currentHash = await snapshot.computeCurrent();
+          if (currentHash !== snapshot.snapshotInputHash) {
+            console.warn('[LibraryTalentSheetWorkflow] divergence detected', {
+              talentId: input.talentId,
+              snapshotInputHash: snapshot.snapshotInputHash,
+              currentHash,
+              orphanedStoragePath: storageResult.path,
+            });
             return { kind: 'divergent' };
           }
         }
@@ -184,41 +197,66 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
           imagePath: storageResult.path,
           isDefault: false,
           source: 'ai_generated',
-          inputHash: context.snapshot?.snapshotInputHash ?? null,
+          inputHash: snapshot?.snapshotInputHash ?? null,
         });
         return { kind: 'convergent', sheet: created };
       }
     );
 
-    if (sheetReconcile.kind === 'divergent') {
+    if (sheetReconcile.kind === 'divergent' && snapshot) {
+      const requeueDepth = (input.requeueDepth ?? 0) + 1;
       await context.run('requeue-on-divergence', async () => {
         console.log(
           '[LibraryTalentSheetWorkflow]',
-          `Diverged for ${input.talentName}; re-queuing with current reference media`
+          `Diverged for ${input.talentName}; re-queuing with current reference media (depth=${requeueDepth})`
         );
+
+        if (requeueDepth > MAX_REQUEUE_DEPTH) {
+          console.warn('[LibraryTalentSheetWorkflow] re-queue depth exceeded', {
+            talentId: input.talentId,
+            talentName: input.talentName,
+            requeueDepth,
+            max: MAX_REQUEUE_DEPTH,
+          });
+          return;
+        }
+
         const talent = await scopedDb.talent.getWithRelations(input.talentId);
-        const refreshedUrls =
-          talent?.media
-            .filter((m) => m.type === 'image')
-            .map((m) => m.url)
-            .sort() ??
-          input.referenceImageUrls ??
-          [];
+        // Hard-fail when the talent row vanished: re-queuing with the stale
+        // payload would guarantee another divergence and another billable
+        // generation. Let the next run's validate-input step error out cleanly.
+        if (!talent) {
+          throw new WorkflowValidationError(
+            `Talent ${input.talentId} not found during divergence re-queue`
+          );
+        }
+        const refreshedUrls = talent.media
+          .filter((m) => m.type === 'image')
+          .map((m) => m.url)
+          .sort();
         const requeuePayload: LibraryTalentSheetWorkflowInput = {
           ...input,
           referenceImageUrls: refreshedUrls,
+          requeueDepth,
         };
         requeuePayload.snapshotInputHash =
           await computeLibraryTalentSheetHashFromDto(requeuePayload);
         await triggerWorkflow('/library-talent-sheet', requeuePayload, {
-          deduplicationId: `library-talent-sheet-requeue-${input.talentId}-${requeuePayload.snapshotInputHash.slice(0, 16)}`,
+          deduplicationId: `library-talent-sheet-requeue-${input.talentId}-${requeuePayload.snapshotInputHash.slice(0, 16)}-d${requeueDepth}`,
         });
       });
-      return {
-        sheetId: storageResult.sheetId,
-        sheetImageUrl: storageResult.url,
-        sheetImagePath: storageResult.path,
-      };
+      throw new SnapshotDivergedError(
+        `${SNAPSHOT_DIVERGED_MARKER} library-talent-sheet diverged for ${input.talentName}; re-queued with current reference media`
+      );
+    }
+
+    if (sheetReconcile.kind === 'divergent') {
+      // Snapshot was disabled but reconcile still flagged divergence — should
+      // be unreachable; surface as a workflow validation error so it doesn't
+      // silently swallow.
+      throw new WorkflowValidationError(
+        'reconcile flagged divergent without an active snapshot context'
+      );
     }
 
     const sheet = sheetReconcile.sheet;
@@ -361,6 +399,14 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
     failureFunction: async ({ context, failResponse }) => {
       const input = context.requestPayload;
       const error = sanitizeFailResponse(failResponse);
+
+      if (isSnapshotDivergedFailure(failResponse)) {
+        console.log(
+          '[LibraryTalentSheetWorkflow]',
+          `Run aborted due to snapshot divergence for ${input.talentName}; re-queued run will continue`
+        );
+        return `Library talent sheet diverged for ${input.talentName}; re-queued`;
+      }
 
       console.error(
         '[LibraryTalentSheetWorkflow]',

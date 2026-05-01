@@ -230,6 +230,12 @@ export const frameImagesWorkflow = createScopedWorkflow<
           input.sceneSnapshots ?? [];
         return computeFrameImagesHashFromDto({ ...input, sceneSnapshots });
       },
+      // NOTE: `computeCurrent` is intentionally an alias of `computeFromDto`
+      // here — both hash the same inlined `sceneSnapshots`. This means the
+      // batch-level `validate()` only catches payload tampering, not genuine
+      // upstream drift. Real drift detection happens per-frame downstream in
+      // `generateImageWorkflow`, which re-resolves sheet hashes at write
+      // time and routes divergent frames into `frame_variants`.
       computeCurrent: (input) => {
         const sceneSnapshots: FrameImageSceneSnapshot[] =
           input.sceneSnapshots ?? [];

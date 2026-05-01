@@ -33,6 +33,49 @@ import type {
 
 export type { FrameImageSceneSnapshot } from '@/lib/workflow/types';
 
+/**
+ * Hard cap on snapshot-divergence re-queues for a single workflow chain.
+ * Each re-queue runs `generateImageWithProvider` + `deductWorkflowCredits`
+ * before the divergence check, so an upstream that thrashes in a tight loop
+ * would otherwise burn credits indefinitely.
+ */
+export const MAX_REQUEUE_DEPTH = 5;
+
+/**
+ * Resolve the upstream talent-sheet's `input_hash` for a sequence character.
+ * Returns `null` when the character has no talent assignment, when the talent
+ * has no sheets, or when the sheet predates hash tracking.
+ */
+export async function resolveTalentSheetHash(
+  scopedDb: ScopedDb,
+  characterDbId: string
+): Promise<string | null> {
+  const character = await scopedDb.characters.getById(characterDbId);
+  if (!character?.talentId) return null;
+  const talent = await scopedDb.talent.getWithRelations(character.talentId);
+  const defaultSheet =
+    talent?.sheets.find((s) => s.isDefault) ?? talent?.sheets[0];
+  return defaultSheet?.inputHash ?? null;
+}
+
+/**
+ * Resolve the parent library-location's `reference_input_hash` for a sequence
+ * location. Returns `null` when the sequence location has no library
+ * reference, or when the library row predates hash tracking.
+ */
+export async function resolveLibraryLocationReferenceHash(
+  scopedDb: ScopedDb,
+  locationDbId: string
+): Promise<string | null> {
+  const sequenceLocation =
+    await scopedDb.sequenceLocations.getById(locationDbId);
+  if (!sequenceLocation?.libraryLocationId) return null;
+  const libraryLocation = await scopedDb.locations.getById(
+    sequenceLocation.libraryLocationId
+  );
+  return libraryLocation?.referenceInputHash ?? null;
+}
+
 /** Hash a `StyleConfig` deterministically. `null`/`undefined` → 'no-style'. */
 export async function computeStyleConfigHash(
   styleConfig: StyleConfig | null | undefined
@@ -92,14 +135,10 @@ export async function computeCharacterSheetHashCurrent(
   input: CharacterSheetWorkflowInput,
   scopedDb: ScopedDb
 ): Promise<string> {
-  const character = await scopedDb.characters.getById(input.characterDbId);
-  let talentSheetInputHash: string | null = null;
-  if (character?.talentId) {
-    const talent = await scopedDb.talent.getWithRelations(character.talentId);
-    const defaultSheet =
-      talent?.sheets.find((s) => s.isDefault) ?? talent?.sheets[0];
-    talentSheetInputHash = defaultSheet?.inputHash ?? null;
-  }
+  const talentSheetInputHash = await resolveTalentSheetHash(
+    scopedDb,
+    input.characterDbId
+  );
   return computeCharacterSheetHashFromDto({ ...input, talentSheetInputHash });
 }
 
@@ -134,16 +173,8 @@ export async function computeLocationSheetHashCurrent(
   input: LocationSheetWorkflowInput,
   scopedDb: ScopedDb
 ): Promise<string> {
-  const sequenceLocation = await scopedDb.sequenceLocations.getById(
-    input.locationDbId
-  );
-  let libraryLocationReferenceHash: string | null = null;
-  if (sequenceLocation?.libraryLocationId) {
-    const libraryLocation = await scopedDb.locations.getById(
-      sequenceLocation.libraryLocationId
-    );
-    libraryLocationReferenceHash = libraryLocation?.referenceInputHash ?? null;
-  }
+  const libraryLocationReferenceHash =
+    await resolveLibraryLocationReferenceHash(scopedDb, input.locationDbId);
   return computeLocationSheetHashFromDto({
     ...input,
     libraryLocationReferenceHash,
@@ -159,12 +190,16 @@ export async function computeLocationSheetHashCurrent(
 export async function computeLibraryTalentSheetHashFromDto(
   input: LibraryTalentSheetWorkflowInput
 ): Promise<string> {
+  // Sort here so callers that forget to pre-sort get a stable hash. The
+  // `Current` helper sorts the live media URLs the same way; without sorting
+  // here, an unsorted DTO would diverge against a sorted DB read on every run.
+  const referenceMediaHashes = [...(input.referenceImageUrls ?? [])].sort();
   return computeTalentSheetInputHash({
     talent: {
       name: input.talentName,
       description: input.talentDescription ?? null,
     },
-    referenceMediaHashes: input.referenceImageUrls ?? [],
+    referenceMediaHashes,
     imageModel: input.imageModel ?? DEFAULT_IMAGE_MODEL,
   });
 }

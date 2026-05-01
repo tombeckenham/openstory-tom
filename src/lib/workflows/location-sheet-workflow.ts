@@ -20,7 +20,12 @@ import { buildLocationSheetPrompt } from '@/lib/prompts/location-prompt';
 import { getGenerationChannel } from '@/lib/realtime';
 import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
 import { triggerWorkflow } from '@/lib/workflow/client';
-import { WorkflowValidationError } from '@/lib/workflow/errors';
+import {
+  SnapshotDivergedError,
+  SNAPSHOT_DIVERGED_MARKER,
+  isSnapshotDivergedFailure,
+  WorkflowValidationError,
+} from '@/lib/workflow/errors';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
 import type {
@@ -30,6 +35,8 @@ import type {
 import {
   computeLocationSheetHashCurrent,
   computeLocationSheetHashFromDto,
+  MAX_REQUEUE_DEPTH,
+  resolveLibraryLocationReferenceHash,
 } from './sheet-snapshots';
 
 export const locationSheetWorkflow = createScopedWorkflow<
@@ -179,6 +186,7 @@ export const locationSheetWorkflow = createScopedWorkflow<
 
       // Step 4: Divergence-aware database write. If the upstream library
       // location reference changed mid-flight, discard and re-queue.
+      const snapshot = context.snapshot;
       const reconcileOutcome = await context.run(
         'reconcile-database',
         async (): Promise<'convergent' | 'divergent'> => {
@@ -187,9 +195,15 @@ export const locationSheetWorkflow = createScopedWorkflow<
             `Updating database for ${input.locationName}`
           );
 
-          if (context.snapshot) {
-            const currentHash = await context.snapshot.computeCurrent();
-            if (currentHash !== context.snapshot.snapshotInputHash) {
+          if (snapshot) {
+            const currentHash = await snapshot.computeCurrent();
+            if (currentHash !== snapshot.snapshotInputHash) {
+              console.warn('[LocationSheetWorkflow] divergence detected', {
+                locationDbId: input.locationDbId,
+                snapshotInputHash: snapshot.snapshotInputHash,
+                currentHash,
+                orphanedStoragePath: storageResult.path,
+              });
               return 'divergent';
             }
           }
@@ -198,13 +212,14 @@ export const locationSheetWorkflow = createScopedWorkflow<
             input.locationDbId,
             storageResult.url,
             storageResult.path,
-            context.snapshot?.snapshotInputHash ?? null
+            snapshot?.snapshotInputHash ?? null
           );
           return 'convergent';
         }
       );
 
-      if (reconcileOutcome === 'divergent') {
+      if (reconcileOutcome === 'divergent' && snapshot) {
+        const requeueDepth = (input.requeueDepth ?? 0) + 1;
         await context.run('emit-stale-and-requeue', async () => {
           if (input.sequenceId) {
             await getGenerationChannel(input.sequenceId).emit(
@@ -213,26 +228,31 @@ export const locationSheetWorkflow = createScopedWorkflow<
                 entityType: 'location',
                 entityId: input.locationDbId,
                 artifact: 'sheet',
-                snapshotInputHash:
-                  context.snapshot?.snapshotInputHash ?? 'unknown',
+                snapshotInputHash: snapshot.snapshotInputHash,
               }
             );
           }
 
-          const sequenceLocation = await scopedDb.sequenceLocations.getById(
-            input.locationDbId
-          );
-          let refreshedLibraryHash: string | null = null;
-          if (sequenceLocation?.libraryLocationId) {
-            const libraryLocation = await scopedDb.locations.getById(
-              sequenceLocation.libraryLocationId
-            );
-            refreshedLibraryHash = libraryLocation?.referenceInputHash ?? null;
+          if (requeueDepth > MAX_REQUEUE_DEPTH) {
+            console.warn('[LocationSheetWorkflow] re-queue depth exceeded', {
+              locationDbId: input.locationDbId,
+              locationName: input.locationName,
+              requeueDepth,
+              max: MAX_REQUEUE_DEPTH,
+            });
+            return;
           }
+
+          const refreshedLibraryHash =
+            await resolveLibraryLocationReferenceHash(
+              scopedDb,
+              input.locationDbId
+            );
 
           const requeuePayload: LocationSheetWorkflowInput = {
             ...input,
             libraryLocationReferenceHash: refreshedLibraryHash,
+            requeueDepth,
           };
           requeuePayload.snapshotInputHash =
             await computeLocationSheetHashFromDto(requeuePayload);
@@ -241,19 +261,17 @@ export const locationSheetWorkflow = createScopedWorkflow<
             label: input.sequenceId
               ? `location-sheet:${input.locationDbId}`
               : undefined,
-            deduplicationId: `location-sheet-requeue-${input.locationDbId}-${requeuePayload.snapshotInputHash.slice(0, 16)}`,
+            deduplicationId: `location-sheet-requeue-${input.locationDbId}-${requeuePayload.snapshotInputHash.slice(0, 16)}-d${requeueDepth}`,
           });
 
           console.log(
             '[LocationSheetWorkflow]',
-            `Diverged for ${input.locationName}; re-queued with current inputs`
+            `Diverged for ${input.locationName}; re-queued with current inputs (depth=${requeueDepth})`
           );
         });
-        return {
-          referenceImageUrl: storageResult.url,
-          referenceImagePath: storageResult.path,
-          locationDbId: input.locationDbId,
-        };
+        throw new SnapshotDivergedError(
+          `${SNAPSHOT_DIVERGED_MARKER} location-sheet diverged for ${input.locationName}; re-queued with current inputs`
+        );
       }
 
       referenceImagePath = storageResult.path;
@@ -291,6 +309,14 @@ export const locationSheetWorkflow = createScopedWorkflow<
     failureFunction: async ({ context, scopedDb, failResponse }) => {
       const input = context.requestPayload;
       const error = sanitizeFailResponse(failResponse);
+
+      if (isSnapshotDivergedFailure(failResponse)) {
+        console.log(
+          '[LocationSheetWorkflow]',
+          `Run aborted due to snapshot divergence for ${input.locationName}; re-queued run will continue`
+        );
+        return `Location sheet diverged for ${input.locationName}; re-queued`;
+      }
 
       // Mark location reference as failed
       if (input.locationDbId && input.teamId) {

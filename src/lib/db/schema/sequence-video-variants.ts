@@ -19,13 +19,14 @@ import {
 import { generateId } from '../id';
 import { sequences } from './sequences';
 
-export const SEQUENCE_VARIANT_STATUSES = [
+export const SEQUENCE_VIDEO_VARIANT_STATUSES = [
   'pending',
   'merging',
   'completed',
   'failed',
 ] as const;
-export type SequenceVariantStatus = (typeof SEQUENCE_VARIANT_STATUSES)[number];
+export type SequenceVideoVariantStatus =
+  (typeof SEQUENCE_VIDEO_VARIANT_STATUSES)[number];
 
 export const sequenceVideoVariants = sqliteTable(
   'sequence_video_variants',
@@ -47,7 +48,7 @@ export const sequenceVideoVariants = sqliteTable(
 
     // Generation tracking
     status: text('status')
-      .$type<SequenceVariantStatus>()
+      .$type<SequenceVideoVariantStatus>()
       .default('pending')
       .notNull(),
     workflowRunId: text('workflow_run_id'),

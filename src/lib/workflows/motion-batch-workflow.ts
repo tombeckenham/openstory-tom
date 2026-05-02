@@ -19,7 +19,10 @@ import type {
 
 import { getFalFlowControl } from './constants';
 import { mergeAudioVideoWorkflow } from './merge-audio-video-workflow';
-import { mergeVideoWorkflow } from './merge-video-workflow';
+import {
+  MERGE_VIDEO_WORKFLOW_NAME,
+  mergeVideoWorkflow,
+} from './merge-video-workflow';
 import { generateMotionWorkflow } from './motion-workflow';
 import { generateMusicWorkflow } from './music-workflow';
 
@@ -125,52 +128,39 @@ export const motionBatchWorkflow =
           'get-merge-music-variants',
           async () => {
             const seq = scopedDb.sequence(sequenceId);
-            const [videoStatus, musicStatus] = await Promise.all([
-              seq.getMergedVideoStatus(),
-              seq.getMusicStatus(),
-            ]);
+            const musicStatus = await seq.getMusicStatus();
 
             // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
-            if (!videoStatus?.mergedVideoUrl) {
-              throw new Error('Merge completed but no merged video URL found');
-            }
-            // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
-            if (!musicStatus?.musicUrl) {
-              throw new Error('Music generation completed but no URL found');
-            }
-
-            const [videoVariants, musicVariants] = await Promise.all([
-              scopedDb.sequenceVariants.listVideosBySequence(sequenceId),
-              scopedDb.sequenceVariants.listMusicBySequence(sequenceId),
-            ]);
-            const videoVariant = videoVariants.find(
-              (v) =>
-                v.divergedAt === null &&
-                v.url === videoStatus.mergedVideoUrl &&
-                v.status === 'completed'
-            );
-            const musicVariant = musicVariants.find(
-              (v) =>
-                v.divergedAt === null &&
-                v.url === musicStatus.musicUrl &&
-                v.status === 'completed'
-            );
-            if (!videoVariant) {
+            if (!musicStatus?.musicModel) {
               throw new Error(
-                'Merged video variant row not found for completed merge'
+                'Music generation completed but no model recorded'
               );
             }
-            if (!musicVariant) {
+
+            const [videoVariant, musicVariant] = await Promise.all([
+              scopedDb.sequenceVariants.getVideoPrimary(
+                sequenceId,
+                MERGE_VIDEO_WORKFLOW_NAME
+              ),
+              scopedDb.sequenceVariants.getMusicPrimary(
+                sequenceId,
+                musicStatus.musicModel
+              ),
+            ]);
+            if (!videoVariant || videoVariant.status !== 'completed') {
               throw new Error(
-                'Music variant row not found for completed music generation'
+                'Merged video primary variant not found for completed merge'
+              );
+            }
+            if (!musicVariant || musicVariant.status !== 'completed') {
+              throw new Error(
+                'Music primary variant not found for completed music generation'
               );
             }
 
             return {
               mergedVideoVariantId: videoVariant.id,
               musicVariantId: musicVariant.id,
-              mergedVideoUrl: videoStatus.mergedVideoUrl,
-              musicUrl: musicStatus.musicUrl,
             };
           }
         );
@@ -184,8 +174,6 @@ export const motionBatchWorkflow =
             sequenceId,
             mergedVideoVariantId: mergeAndMusicSources.mergedVideoVariantId,
             musicVariantId: mergeAndMusicSources.musicVariantId,
-            mergedVideoUrl: mergeAndMusicSources.mergedVideoUrl,
-            musicUrl: mergeAndMusicSources.musicUrl,
           } satisfies MergeAudioVideoWorkflowInput,
         });
       }

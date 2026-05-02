@@ -292,7 +292,7 @@ export function computeSequenceVideoInputHash(
   return sha256Hex({
     artifact: 'sequence:video',
     // Order is meaningful — this is the ordered stitch list, not a set.
-    sourceFrameVideos: [...input.sourceFrameVideos].map(trim),
+    sourceFrameVideos: input.sourceFrameVideos.map(trim),
     targetFps: input.targetFps ?? null,
     resolution: input.resolution
       ? { width: input.resolution.width, height: input.resolution.height }

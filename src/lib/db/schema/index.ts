@@ -90,13 +90,14 @@ export { sequenceVideoVariants, sequenceMusicVariants };
 
 export type {
   NewSequenceVideoVariant,
-  SequenceVariantStatus,
+  SequenceVideoVariantStatus,
   SequenceVideoVariant,
 } from './sequence-video-variants';
 
 export type {
   NewSequenceMusicVariant,
   SequenceMusicVariant,
+  SequenceMusicVariantStatus,
 } from './sequence-music-variants';
 
 // Characters (scripted roles)

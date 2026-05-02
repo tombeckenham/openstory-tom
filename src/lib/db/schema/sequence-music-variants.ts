@@ -17,12 +17,15 @@ import {
 } from 'drizzle-orm/sqlite-core';
 import { generateId } from '../id';
 import { sequences } from './sequences';
-import {
-  SEQUENCE_VARIANT_STATUSES,
-  type SequenceVariantStatus,
-} from './sequence-video-variants';
 
-export { SEQUENCE_VARIANT_STATUSES };
+// Music is generated, not merged — no 'merging' status (which is video-only).
+export const SEQUENCE_MUSIC_VARIANT_STATUSES = [
+  'pending',
+  'completed',
+  'failed',
+] as const;
+export type SequenceMusicVariantStatus =
+  (typeof SEQUENCE_MUSIC_VARIANT_STATUSES)[number];
 
 export const sequenceMusicVariants = sqliteTable(
   'sequence_music_variants',
@@ -47,7 +50,7 @@ export const sequenceMusicVariants = sqliteTable(
 
     // Generation tracking
     status: text('status')
-      .$type<SequenceVariantStatus>()
+      .$type<SequenceMusicVariantStatus>()
       .default('pending')
       .notNull(),
     workflowRunId: text('workflow_run_id'),

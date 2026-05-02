@@ -27,27 +27,32 @@ export const mergeAudioVideoWorkflow = createScopedWorkflow<
   async (context, scopedDb) => {
     const input = context.requestPayload;
 
-    const {
-      sequenceId,
-      teamId,
-      mergedVideoUrl,
-      musicUrl,
-      mergedVideoVariantId,
-      musicVariantId,
-    } = input;
-    if (
-      !sequenceId ||
-      !teamId ||
-      !mergedVideoUrl ||
-      !musicUrl ||
-      !mergedVideoVariantId ||
-      !musicVariantId
-    ) {
+    const { sequenceId, teamId, mergedVideoVariantId, musicVariantId } = input;
+    if (!sequenceId || !teamId || !mergedVideoVariantId || !musicVariantId) {
       throw new WorkflowValidationError(
-        'Sequence ID, merged video URL, music URL, mergedVideoVariantId, and musicVariantId are required'
+        'Sequence ID, mergedVideoVariantId, and musicVariantId are required'
       );
     }
     const seq = scopedDb.sequence(sequenceId);
+
+    const sources = await context.run('resolve-variant-urls', async () => {
+      const [videoVariant, musicVariant] = await Promise.all([
+        scopedDb.sequenceVariants.getVideoById(mergedVideoVariantId),
+        scopedDb.sequenceVariants.getMusicById(musicVariantId),
+      ]);
+      if (!videoVariant || !videoVariant.url) {
+        throw new WorkflowValidationError(
+          `Merged video variant ${mergedVideoVariantId} not found or missing url`
+        );
+      }
+      if (!musicVariant || !musicVariant.url) {
+        throw new WorkflowValidationError(
+          `Music variant ${musicVariantId} not found or missing url`
+        );
+      }
+      return { mergedVideoUrl: videoVariant.url, musicUrl: musicVariant.url };
+    });
+    const { mergedVideoUrl, musicUrl } = sources;
 
     console.log(
       `[MergeAudioVideoWorkflow] Starting mux for sequence ${sequenceId}`

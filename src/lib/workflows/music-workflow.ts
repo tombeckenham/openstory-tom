@@ -120,8 +120,8 @@ export const generateMusicWorkflow = createScopedWorkflow<MusicWorkflowInput>(
         audioModel: model,
       });
 
-      await context.run('write-music-variant', async () => {
-        return scopedDb.sequenceVariants.upsertMusicPrimary({
+      const writeResult = await context.run('write-music-variant', async () => {
+        return scopedDb.sequenceVariants.writeMusicVariant({
           sequenceId,
           url: audioUrl,
           storagePath: storageResult.path,
@@ -136,23 +136,29 @@ export const generateMusicWorkflow = createScopedWorkflow<MusicWorkflowInput>(
         });
       });
 
-      await context.run('update-sequence-music', async () => {
-        await scopedDb.sequence(sequenceId).updateMusicFields({
-          musicUrl: audioUrl,
-          musicPath: storageResult.path,
-          musicStatus: 'completed',
-          musicGeneratedAt: new Date(),
-          musicError: null,
-        });
-
-        await getGenerationChannel(sequenceId).emit(
-          'generation.audio:progress',
-          {
-            status: 'completed',
-            audioUrl: audioUrl,
-          }
+      if (writeResult.divergent) {
+        console.log(
+          `[MusicWorkflow] Diverged music result for sequence ${sequenceId}; preserved as alternate (variant=${writeResult.variant.id})`
         );
-      });
+      } else {
+        await context.run('update-sequence-music', async () => {
+          await scopedDb.sequence(sequenceId).updateMusicFields({
+            musicUrl: audioUrl,
+            musicPath: storageResult.path,
+            musicStatus: 'completed',
+            musicGeneratedAt: new Date(),
+            musicError: null,
+          });
+
+          await getGenerationChannel(sequenceId).emit(
+            'generation.audio:progress',
+            {
+              status: 'completed',
+              audioUrl: audioUrl,
+            }
+          );
+        });
+      }
 
       // TODO: Tom Mar 2026 - Add a step to generate a music track for each scene
     }

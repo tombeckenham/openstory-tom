@@ -27,7 +27,7 @@ import type {
 import type { WorkflowContext } from '@upstash/workflow';
 import { mergeAudioVideoWorkflow } from './merge-audio-video-workflow';
 
-const MERGE_VIDEO_WORKFLOW_NAME = 'merge-video';
+export const MERGE_VIDEO_WORKFLOW_NAME = 'merge-video';
 
 /**
  * Chain to merge-audio-video if the sequence has a ready music track.
@@ -41,32 +41,32 @@ async function chainAudioMux(
   context: WorkflowContext<MergeVideoWorkflowInput>,
   scopedDb: ScopedDb,
   input: MergeVideoWorkflowInput & { sequenceId: string },
-  mergedVideoVariantId: string,
-  mergedVideoUrl: string
+  mergedVideoVariantId: string
 ): Promise<void> {
-  const musicVariant = await context.run(
+  const musicVariantId = await context.run(
     'fetch-music-variant-for-mux',
     async () => {
       const sequenceId = input.sequenceId;
       const status = await scopedDb.sequence(sequenceId).getMusicStatus();
-      if (status?.musicStatus !== 'completed' || !status.musicUrl) {
+      if (
+        status?.musicStatus !== 'completed' ||
+        !status.musicUrl ||
+        !status.musicModel
+      ) {
         return null;
       }
-      const variants =
-        await scopedDb.sequenceVariants.listMusicBySequence(sequenceId);
-      const primary = variants.find(
-        (v) =>
-          v.divergedAt === null &&
-          v.url === status.musicUrl &&
-          v.status === 'completed'
+      const primary = await scopedDb.sequenceVariants.getMusicPrimary(
+        sequenceId,
+        status.musicModel
       );
-      return primary
-        ? { id: primary.id, url: primary.url ?? status.musicUrl }
-        : null;
+      if (!primary || primary.status !== 'completed' || !primary.url) {
+        return null;
+      }
+      return primary.id;
     }
   );
 
-  if (!musicVariant) {
+  if (!musicVariantId) {
     return;
   }
 
@@ -78,9 +78,7 @@ async function chainAudioMux(
       teamId: input.teamId,
       sequenceId: input.sequenceId,
       mergedVideoVariantId,
-      musicVariantId: musicVariant.id,
-      mergedVideoUrl,
-      musicUrl: musicVariant.url,
+      musicVariantId,
     } satisfies MergeAudioVideoWorkflowInput,
   });
 }
@@ -116,10 +114,10 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
     if (input.videoUrls.length === 1) {
       const singleUrl = input.videoUrls[0];
 
-      const variant = await context.run(
+      const writeResult = await context.run(
         'write-video-variant-single',
         async () => {
-          return scopedDb.sequenceVariants.upsertVideoPrimary({
+          return scopedDb.sequenceVariants.writeVideoVariant({
             sequenceId: narrowedInput.sequenceId,
             url: singleUrl,
             storagePath: null,
@@ -131,6 +129,13 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
           });
         }
       );
+
+      if (writeResult.divergent) {
+        console.log(
+          `[MergeVideoWorkflow] Diverged single-video result for sequence ${input.sequenceId}; preserved as alternate (variant=${writeResult.variant.id})`
+        );
+        return { mergedVideoUrl: singleUrl, mergedVideoPath: null };
+      }
 
       await context.run('update-sequence-single', async () => {
         await seq.updateMergedVideoFields({
@@ -151,8 +156,7 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
         context,
         scopedDb,
         narrowedInput,
-        variant.id,
-        singleUrl
+        writeResult.variant.id
       );
       return { mergedVideoUrl: singleUrl, mergedVideoPath: null };
     }
@@ -212,8 +216,8 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
       return { path, url: result.publicUrl };
     });
 
-    const variant = await context.run('write-video-variant', async () => {
-      return scopedDb.sequenceVariants.upsertVideoPrimary({
+    const writeResult = await context.run('write-video-variant', async () => {
+      return scopedDb.sequenceVariants.writeVideoVariant({
         sequenceId: narrowedInput.sequenceId,
         url: storageResult.url,
         storagePath: storageResult.path,
@@ -224,6 +228,16 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
         inputHash,
       });
     });
+
+    if (writeResult.divergent) {
+      console.log(
+        `[MergeVideoWorkflow] Diverged merge result for sequence ${input.sequenceId}; preserved as alternate (variant=${writeResult.variant.id})`
+      );
+      return {
+        mergedVideoUrl: storageResult.url,
+        mergedVideoPath: storageResult.path,
+      };
+    }
 
     await context.run('update-sequence', async () => {
       await seq.updateMergedVideoFields({
@@ -252,8 +266,7 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
       context,
       scopedDb,
       narrowedInput,
-      variant.id,
-      storageResult.url
+      writeResult.variant.id
     );
 
     return {

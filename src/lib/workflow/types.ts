@@ -712,10 +712,6 @@ export interface MergeAudioVideoWorkflowInput extends SequenceWorkflowContext {
   mergedVideoVariantId: string;
   /** Source music variant id (from `sequence_music_variants`). */
   musicVariantId: string;
-  /** URL of the merged video (all frames stitched) */
-  mergedVideoUrl: string;
-  /** URL of the sequence-level music track */
-  musicUrl: string;
   /** Total duration in milliseconds (for compose track timing) */
   durationMs?: number;
 }

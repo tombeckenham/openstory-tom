@@ -13,6 +13,10 @@ import { WorkflowValidationError } from '@/lib/workflow/errors';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
 import type { ImageWorkflowInput } from '@/lib/workflow/types';
+import {
+  computeImageWorkflowHashCurrent,
+  computeImageWorkflowHashFromDto,
+} from './image-workflow-snapshot';
 
 type ImageWorkflowResult = {
   imageUrl: string;
@@ -26,6 +30,19 @@ export const generateImageWorkflow = createScopedWorkflow<
 >(
   async (context, scopedDb) => {
     const input = context.requestPayload;
+
+    // Validate the inlined snapshot inside the body. Upstash swallows
+    // runStarted-middleware throws to console.error, so payload-tamper
+    // detection only halts the run when the throw originates inside
+    // `context.run`. Skipped when the caller did not opt into the snapshot.
+    const snapshotOpted = !!input.sceneSnapshot;
+    if (snapshotOpted) {
+      await context.run('validate-snapshot', async () => {
+        if (context.snapshot) {
+          await context.snapshot.validate();
+        }
+      });
+    }
 
     const generationParams = await context.run(
       'set-generating-status',
@@ -138,74 +155,165 @@ export const generateImageWorkflow = createScopedWorkflow<
     let imageUrl: string = imageResult.imageUrls[0];
 
     if (imageUrl && frameId && sequenceId && teamId && !input.skipStorage) {
-      const storageUrl = await context.run('upload-to-storage', async () => {
-        const result = await uploadImageToStorage({
-          imageUrl,
-          teamId,
-          sequenceId,
-          frameId,
-        });
-
-        if (!result.url) {
-          throw new Error('Failed to upload image to storage');
-        }
-
-        const updatedFrame = await scopedDb.frames.update(
-          frameId,
-          {
-            thumbnailPath: result.path || null,
-            thumbnailUrl: result.url,
-            thumbnailStatus: 'completed',
-            thumbnailGeneratedAt: new Date(),
-            thumbnailError: null,
-            videoUrl: null,
-            videoPath: null,
-            videoStatus: 'pending',
-            videoWorkflowRunId: null,
-            videoGeneratedAt: null,
-            videoError: null,
-          },
-          { throwOnMissing: false }
-        );
-
-        if (!updatedFrame) {
-          console.log(
-            '[ImageWorkflow]',
-            `Frame ${frameId} was deleted, skipping final update`
-          );
-          return;
-        }
-
-        // Dual-write: update frame_variants row (returns null if row doesn't exist)
-        await scopedDb.frameVariants.updateByFrameAndModel(
-          frameId,
-          'image',
-          generationParams.model,
-          {
-            url: result.url,
-            storagePath: result.path || null,
-            status: 'completed',
-            generatedAt: new Date(),
-            error: null,
-            promptHash: input.prompt ? simpleHash(input.prompt) : null,
-          }
-        );
-
-        await getGenerationChannel(sequenceId).emit(
-          'generation.image:progress',
-          {
+      const writeResult = await context.run(
+        'persist-result',
+        async (): Promise<{ imageUrl: string } | null> => {
+          const upload = await uploadImageToStorage({
+            imageUrl,
+            teamId,
+            sequenceId,
             frameId,
-            status: 'completed',
-            thumbnailUrl: result.url,
-            model: generationParams.model,
+          });
+
+          if (!upload.url) {
+            throw new Error('Failed to upload image to storage');
           }
-        );
 
-        console.log('[ImageWorkflow]', `Uploaded to storage: ${result.path}`);
+          // Re-resolve current sheet hashes when the caller opted into the
+          // snapshot pattern. A divergence between the trigger-time snapshot
+          // and the current state means the references that produced this
+          // image are no longer authoritative — preserve the result as a
+          // divergent alternate instead of overwriting the primary thumbnail.
+          const snapshotHash = input.snapshotInputHash;
+          let divergent = false;
+          if (snapshotOpted && context.snapshot && snapshotHash) {
+            const currentHash = await context.snapshot.computeCurrent();
+            divergent = currentHash !== snapshotHash;
+          }
 
-        return result.url;
-      });
-      if (storageUrl) imageUrl = storageUrl;
+          if (divergent && snapshotHash) {
+            // Revert the speculative primary status we set at start so the
+            // primary thumbnail goes back to `pending`. The frame row never
+            // held a URL (storage write happens here), so we only roll back
+            // the lifecycle fields.
+            const updatedFrame = await scopedDb.frames.update(
+              frameId,
+              {
+                thumbnailStatus: 'pending',
+                thumbnailWorkflowRunId: null,
+                thumbnailGeneratedAt: null,
+                thumbnailError: null,
+                thumbnailInputHash: null,
+              },
+              { throwOnMissing: false }
+            );
+
+            if (!updatedFrame) {
+              console.log(
+                '[ImageWorkflow]',
+                `Frame ${frameId} was deleted, skipping divergent write`
+              );
+              return null;
+            }
+
+            // Revert the speculative primary frame_variants row so the
+            // primary slot stops pointing at diverged work.
+            await scopedDb.frameVariants.updateByFrameAndModel(
+              frameId,
+              'image',
+              generationParams.model,
+              {
+                url: null,
+                storagePath: null,
+                previewUrl: null,
+                status: 'pending',
+                workflowRunId: null,
+                generatedAt: null,
+                error: null,
+                inputHash: null,
+              }
+            );
+
+            // Insert (or no-op on retry) a divergent alternate preserving
+            // the diverged result for comparison/promotion.
+            const divergedAt = new Date();
+            await scopedDb.frameVariants.insertDivergent({
+              frameId,
+              sequenceId,
+              variantType: 'image',
+              model: generationParams.model,
+              url: upload.url,
+              storagePath: upload.path || null,
+              status: 'completed',
+              generatedAt: divergedAt,
+              error: null,
+              promptHash: input.prompt ? simpleHash(input.prompt) : null,
+              inputHash: snapshotHash,
+              divergedAt,
+            });
+
+            await getGenerationChannel(sequenceId).emit(
+              'generation.image:progress',
+              { frameId, status: 'pending', model: generationParams.model }
+            );
+
+            console.log(
+              '[ImageWorkflow]',
+              `Diverged frame ${frameId}: snapshot=${snapshotHash.slice(0, 8)}; routed alternate to frame_variants`
+            );
+
+            return { imageUrl: upload.url };
+          }
+
+          // Convergent path (or no snapshot opted in): primary write.
+          const updatedFrame = await scopedDb.frames.update(
+            frameId,
+            {
+              thumbnailPath: upload.path || null,
+              thumbnailUrl: upload.url,
+              thumbnailStatus: 'completed',
+              thumbnailGeneratedAt: new Date(),
+              thumbnailError: null,
+              thumbnailInputHash: snapshotOpted ? (snapshotHash ?? null) : null,
+              videoUrl: null,
+              videoPath: null,
+              videoStatus: 'pending',
+              videoWorkflowRunId: null,
+              videoGeneratedAt: null,
+              videoError: null,
+            },
+            { throwOnMissing: false }
+          );
+
+          if (!updatedFrame) {
+            console.log(
+              '[ImageWorkflow]',
+              `Frame ${frameId} was deleted, skipping final update`
+            );
+            return null;
+          }
+
+          await scopedDb.frameVariants.updateByFrameAndModel(
+            frameId,
+            'image',
+            generationParams.model,
+            {
+              url: upload.url,
+              storagePath: upload.path || null,
+              status: 'completed',
+              generatedAt: new Date(),
+              error: null,
+              promptHash: input.prompt ? simpleHash(input.prompt) : null,
+              inputHash: snapshotOpted ? (snapshotHash ?? null) : null,
+            }
+          );
+
+          await getGenerationChannel(sequenceId).emit(
+            'generation.image:progress',
+            {
+              frameId,
+              status: 'completed',
+              thumbnailUrl: upload.url,
+              model: generationParams.model,
+            }
+          );
+
+          console.log('[ImageWorkflow]', `Uploaded to storage: ${upload.path}`);
+
+          return { imageUrl: upload.url };
+        }
+      );
+      if (writeResult) imageUrl = writeResult.imageUrl;
     } else if (imageUrl && frameId && input.skipStorage) {
       // Preview mode: store fal.ai CDN URL in dedicated preview field
       await context.run('store-preview-url', async () => {
@@ -286,6 +394,11 @@ export const generateImageWorkflow = createScopedWorkflow<
       }
 
       return `Image generation failed for frame ${input.frameId}`;
+    },
+    snapshot: {
+      computeFromDto: (input) => computeImageWorkflowHashFromDto(input),
+      computeCurrent: (input, scopedDb) =>
+        computeImageWorkflowHashCurrent(input, scopedDb),
     },
   }
 );

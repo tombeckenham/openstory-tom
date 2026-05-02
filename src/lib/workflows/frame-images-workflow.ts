@@ -28,6 +28,7 @@ import {
   matchLocationsToScene,
 } from './scene-matching';
 import {
+  computeFrameImageSceneHash,
   computeFrameImagesHashFromDto,
   type FrameImageSceneSnapshot,
 } from './sheet-snapshots';
@@ -139,9 +140,27 @@ export const frameImagesWorkflow = createScopedWorkflow<
           ...elementRefs,
         ];
 
+        // Locate the per-scene snapshot inlined into our payload. Bound to
+        // sceneId rather than index so a re-ordered `sceneSnapshots` array
+        // (e.g. analyze-script sorts by sceneId; we don't) still maps right.
+        const sceneSnapshot = input.sceneSnapshots?.find(
+          (s) => s.sceneId === scene.sceneId
+        );
+
         // Generate with each selected model in parallel
         const modelResults = await Promise.all(
           imageModels.map(async (model) => {
+            // Compute the per-frame hash here (rather than at trigger time)
+            // because each model gets its own image-workflow invocation, and
+            // `computeFrameImageSceneHash` is keyed on the model.
+            const perFrameSnapshotInputHash = sceneSnapshot
+              ? await computeFrameImageSceneHash(
+                  sceneSnapshot,
+                  model,
+                  aspectRatio
+                )
+              : undefined;
+
             const result = await context.invoke(
               `image-${scene.sceneId}-${model}`,
               {
@@ -153,11 +172,14 @@ export const frameImagesWorkflow = createScopedWorkflow<
                   prompt: visualPrompt,
                   model,
                   imageSize,
+                  aspectRatio,
                   numImages: 1,
                   frameId: matchedFrame?.frameId,
                   sequenceId,
                   referenceImages:
                     allReferences.length > 0 ? allReferences : undefined,
+                  sceneSnapshot,
+                  snapshotInputHash: perFrameSnapshotInputHash,
                 } satisfies ImageWorkflowInput,
                 retries: 3,
                 retryDelay: 'pow(2, retried) * 1000',

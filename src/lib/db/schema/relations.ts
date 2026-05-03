@@ -114,6 +114,15 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.characters.talentId,
       to: r.talent.id,
     }),
+    sheetVariants: r.many.characterSheetVariants(),
+  },
+
+  // ---- Character Sheet Variants ----
+  characterSheetVariants: {
+    character: r.one.characters({
+      from: r.characterSheetVariants.characterId,
+      to: r.characters.id,
+    }),
   },
 
   // ---- Location Library ----
@@ -170,6 +179,13 @@ export const relations = defineRelations(schema, (r) => ({
     talent: r.one.talent({
       from: r.talentSheets.talentId,
       to: r.talent.id,
+    }),
+    variants: r.many.talentSheetVariants(),
+  },
+  talentSheetVariants: {
+    talentSheet: r.one.talentSheets({
+      from: r.talentSheetVariants.talentSheetId,
+      to: r.talentSheets.id,
     }),
   },
   talentMedia: {

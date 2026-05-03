@@ -203,6 +203,28 @@ export const realtimeSchema = {
       posterUrl: z.string(),
     }),
 
+    // Stage 2 / Stage 1 — divergence-on-completion notification.
+    // Emitted when a workflow finishes generating an artifact whose inputs
+    // diverged from the live entity between trigger and write time. The
+    // result is saved to a variants table (frame_variants for frame
+    // artifacts; *_sheet_variants for sheets) instead of overwriting the
+    // primary, and the UI shows an "alternate available" affordance.
+    'stale:detected': z.object({
+      entityType: z.enum([
+        'frame',
+        'character',
+        'location',
+        'library-location',
+        'talent',
+      ]),
+      entityId: z.string(),
+      artifact: z
+        .enum(['thumbnail', 'variant-image', 'video', 'audio', 'sheet'])
+        .optional(),
+      snapshotInputHash: z.string(),
+      divergedVariantId: z.string().optional(),
+    }),
+
     // Sequence events
     updated: z.object({
       title: z.string().optional(),

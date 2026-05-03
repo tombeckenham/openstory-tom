@@ -201,6 +201,91 @@ export function createFrameVariantsMethods(db: Database) {
       return currentHash !== stored;
     },
 
+    /**
+     * List divergent alternates for a frame (or all frames in a sequence) that
+     * have not been discarded. Ordered oldest-first by divergedAt so the UI
+     * surfaces the longest-pending alternate consistently.
+     */
+    listDivergentByFrame: async (
+      frameId: string,
+      variantType?: VariantType
+    ): Promise<FrameVariant[]> => {
+      const conditions = [
+        eq(frameVariants.frameId, frameId),
+        sql`${frameVariants.divergedAt} IS NOT NULL`,
+        sql`${frameVariants.discardedAt} IS NULL`,
+      ];
+      if (variantType) {
+        conditions.push(eq(frameVariants.variantType, variantType));
+      }
+      return db
+        .select()
+        .from(frameVariants)
+        .where(and(...conditions))
+        .orderBy(frameVariants.divergedAt);
+    },
+
+    listDivergentBySequence: async (
+      sequenceId: string
+    ): Promise<FrameVariant[]> => {
+      return db
+        .select()
+        .from(frameVariants)
+        .where(
+          and(
+            eq(frameVariants.sequenceId, sequenceId),
+            sql`${frameVariants.divergedAt} IS NOT NULL`,
+            sql`${frameVariants.discardedAt} IS NULL`
+          )
+        )
+        .orderBy(frameVariants.divergedAt);
+    },
+
+    /**
+     * Mark a divergent alternate as discarded. Idempotent; returns the
+     * timestamp set so the caller can stash it for an Undo action.
+     */
+    discard: async (variantId: string): Promise<Date> => {
+      const discardedAt = new Date();
+      const result = await db
+        .update(frameVariants)
+        .set({ discardedAt, updatedAt: discardedAt })
+        .where(eq(frameVariants.id, variantId))
+        .returning();
+      if (result.length === 0) {
+        throw new Error(`FrameVariant ${variantId} not found`);
+      }
+      return discardedAt;
+    },
+
+    /**
+     * Undo a previous discard by clearing discardedAt. Used by the sonner
+     * toast Undo action.
+     */
+    undiscard: async (variantId: string): Promise<void> => {
+      const result = await db
+        .update(frameVariants)
+        .set({ discardedAt: null, updatedAt: new Date() })
+        .where(eq(frameVariants.id, variantId))
+        .returning();
+      if (result.length === 0) {
+        throw new Error(`FrameVariant ${variantId} not found`);
+      }
+    },
+
+    /**
+     * Look up a divergent variant by id. Used by the promote/discard server
+     * functions to confirm the row exists and is still divergent before
+     * acting.
+     */
+    getById: async (variantId: string): Promise<FrameVariant | null> => {
+      const result = await db
+        .select()
+        .from(frameVariants)
+        .where(eq(frameVariants.id, variantId));
+      return result[0] ?? null;
+    },
+
     deleteByFrame: async (frameId: string): Promise<number> => {
       const result = await db
         .delete(frameVariants)

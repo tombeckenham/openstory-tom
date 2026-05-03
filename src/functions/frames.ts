@@ -1,5 +1,6 @@
 import { DEFAULT_IMAGE_MODEL, safeTextToImageModel } from '@/lib/ai/models';
 import type { NewFrame } from '@/lib/db/schema';
+import { getGenerationChannel } from '@/lib/realtime';
 import { getVideoDownloadUrl } from '@/lib/motion/video-storage';
 import {
   bulkFrameSchema,
@@ -47,6 +48,173 @@ export const getSequenceImageModelsFn = createServerFn({ method: 'GET' })
       context.sequence.id,
       'image'
     );
+  });
+
+export const getDivergentVariantsFn = createServerFn({ method: 'GET' })
+  .middleware([sequenceAccessMiddleware])
+  .handler(async ({ context }) => {
+    return context.scopedDb.frameVariants.listDivergentBySequence(
+      context.sequence.id
+    );
+  });
+
+/**
+ * Promote a divergent alternate to be the live primary for its variant type.
+ * Copies the variant's url/path into the matching frames column, updates the
+ * matching `*_input_hash` so the live row reflects the alternate's inputs,
+ * soft-deletes the variant, and emits a synthetic `*:progress` event so any
+ * listeners refresh.
+ */
+export const promoteVariantFn = createServerFn({ method: 'POST' })
+  .middleware([frameAccessMiddleware])
+  .inputValidator(
+    zodValidator(
+      z.object({
+        sequenceId: ulidSchema,
+        frameId: ulidSchema,
+        variantId: ulidSchema,
+      })
+    )
+  )
+  .handler(async ({ data, context }) => {
+    const { frame, scopedDb } = context;
+    const variant = await scopedDb.frameVariants.getById(data.variantId);
+    if (!variant || variant.frameId !== frame.id) {
+      throw new Error('Variant not found for this frame');
+    }
+    if (variant.divergedAt === null || variant.discardedAt !== null) {
+      throw new Error('Variant is not a live divergent alternate');
+    }
+    if (!variant.url) {
+      throw new Error('Variant has no asset to promote');
+    }
+
+    const update: Partial<NewFrame> = {};
+    let progressEvent:
+      | 'image:progress'
+      | 'video:progress'
+      | 'audio:progress'
+      | null = null;
+    let progressUrlField: 'thumbnailUrl' | 'videoUrl' | 'audioUrl' | null =
+      null;
+
+    switch (variant.variantType) {
+      case 'image':
+        update.thumbnailUrl = variant.url;
+        update.thumbnailPath = variant.storagePath;
+        update.thumbnailStatus = 'completed';
+        update.thumbnailError = null;
+        update.thumbnailInputHash = variant.inputHash;
+        update.imageModel = variant.model;
+        // Downstream video is now misaligned with the new image — mark stale
+        // by clearing it; the user will regenerate.
+        update.videoUrl = null;
+        update.videoPath = null;
+        update.videoStatus = 'pending';
+        update.videoWorkflowRunId = null;
+        update.videoGeneratedAt = null;
+        update.videoError = null;
+        progressEvent = 'image:progress';
+        progressUrlField = 'thumbnailUrl';
+        break;
+      case 'video':
+        update.videoUrl = variant.url;
+        update.videoPath = variant.storagePath;
+        update.videoStatus = 'completed';
+        update.videoError = null;
+        update.videoInputHash = variant.inputHash;
+        progressEvent = 'video:progress';
+        progressUrlField = 'videoUrl';
+        break;
+      case 'audio':
+        update.audioUrl = variant.url;
+        update.audioPath = variant.storagePath;
+        update.audioInputHash = variant.inputHash;
+        progressEvent = 'audio:progress';
+        progressUrlField = 'audioUrl';
+        break;
+    }
+
+    const updatedFrame = await scopedDb.frames.update(frame.id, update);
+    if (!updatedFrame) {
+      throw new Error(`Frame ${frame.id} not found`);
+    }
+    // Soft-delete the promoted variant so it disappears from the alternate
+    // listing without losing recovery audit trail.
+    await scopedDb.frameVariants.discard(variant.id);
+
+    if (progressEvent && progressUrlField) {
+      const url = updatedFrame[progressUrlField] ?? variant.url;
+      await getGenerationChannel(data.sequenceId).emit(
+        `generation.${progressEvent}`,
+        progressEvent === 'audio:progress'
+          ? {
+              frameId: frame.id,
+              status: 'completed',
+              audioUrl: url ?? undefined,
+            }
+          : progressEvent === 'video:progress'
+            ? {
+                frameId: frame.id,
+                status: 'completed',
+                videoUrl: url ?? undefined,
+              }
+            : {
+                frameId: frame.id,
+                status: 'completed',
+                thumbnailUrl: url ?? undefined,
+                model: variant.model,
+              }
+      );
+    }
+
+    return { frame: updatedFrame, variantId: variant.id };
+  });
+
+export const discardVariantFn = createServerFn({ method: 'POST' })
+  .middleware([frameAccessMiddleware])
+  .inputValidator(
+    zodValidator(
+      z.object({
+        sequenceId: ulidSchema,
+        frameId: ulidSchema,
+        variantId: ulidSchema,
+      })
+    )
+  )
+  .handler(async ({ data, context }) => {
+    const variant = await context.scopedDb.frameVariants.getById(
+      data.variantId
+    );
+    if (!variant || variant.frameId !== context.frame.id) {
+      throw new Error('Variant not found for this frame');
+    }
+    const discardedAt = await context.scopedDb.frameVariants.discard(
+      variant.id
+    );
+    return { variantId: variant.id, discardedAt };
+  });
+
+export const undiscardVariantFn = createServerFn({ method: 'POST' })
+  .middleware([frameAccessMiddleware])
+  .inputValidator(
+    zodValidator(
+      z.object({
+        sequenceId: ulidSchema,
+        frameId: ulidSchema,
+        variantId: ulidSchema,
+      })
+    )
+  )
+  .handler(async ({ data, context }) => {
+    const variant = await context.scopedDb.frameVariants.getById(
+      data.variantId
+    );
+    if (!variant || variant.frameId !== context.frame.id) {
+      throw new Error('Variant not found for this frame');
+    }
+    await context.scopedDb.frameVariants.undiscard(variant.id);
+    return { variantId: variant.id };
   });
 
 export const getSequenceImageVariantsFn = createServerFn({ method: 'GET' })

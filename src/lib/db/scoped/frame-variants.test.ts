@@ -280,3 +280,69 @@ describe('createFrameVariantsMethods', () => {
     expect(rows.filter((r) => r.divergedAt !== null)).toHaveLength(1);
   });
 });
+
+describe('frame_variants discard / undiscard / listDivergent', () => {
+  async function insertDivergent(opts: {
+    inputHash: string;
+    divergedAt: Date;
+    discardedAt?: Date;
+  }) {
+    const [variant] = await db
+      .insert(frameVariants)
+      .values({
+        frameId,
+        sequenceId,
+        variantType: 'image',
+        model: 'm1',
+        url: `https://example.com/${opts.inputHash}.png`,
+        status: 'completed',
+        inputHash: opts.inputHash,
+        divergedAt: opts.divergedAt,
+        discardedAt: opts.discardedAt ?? null,
+      })
+      .returning();
+    return variant;
+  }
+
+  it('discard sets discardedAt; undiscard clears it', async () => {
+    const v = await insertDivergent({
+      inputHash: 'h1',
+      divergedAt: new Date('2026-04-29T00:00:00Z'),
+    });
+    const methods = createFrameVariantsMethods(asDatabase(db));
+
+    const ts = await methods.discard(v.id);
+    expect(ts).toBeInstanceOf(Date);
+    const after = await methods.getById(v.id);
+    // SQLite timestamp(0) drops sub-second precision on round-trip, so compare seconds.
+    expect(Math.floor((after?.discardedAt?.getTime() ?? 0) / 1000)).toBe(
+      Math.floor(ts.getTime() / 1000)
+    );
+
+    await methods.undiscard(v.id);
+    const restored = await methods.getById(v.id);
+    expect(restored?.discardedAt).toBeNull();
+  });
+
+  it('listDivergentByFrame excludes discarded rows and orders by divergedAt', async () => {
+    const a = await insertDivergent({
+      inputHash: 'h-a',
+      divergedAt: new Date('2026-04-29T00:00:00Z'),
+    });
+    const b = await insertDivergent({
+      inputHash: 'h-b',
+      divergedAt: new Date('2026-04-30T00:00:00Z'),
+    });
+    const c = await insertDivergent({
+      inputHash: 'h-c',
+      divergedAt: new Date('2026-05-01T00:00:00Z'),
+      discardedAt: new Date('2026-05-02T00:00:00Z'),
+    });
+
+    const methods = createFrameVariantsMethods(asDatabase(db));
+    const rows = await methods.listDivergentByFrame(frameId, 'image');
+    const ids = rows.map((r) => r.id);
+    expect(ids).toEqual([a.id, b.id]);
+    expect(ids).not.toContain(c.id);
+  });
+});

@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { AspectRatio } from '@/lib/constants/aspect-ratios';
-import type { Frame } from '@/types/database';
+import type { Frame, FrameVariant } from '@/lib/db/schema';
 import { Loader2, Video } from 'lucide-react';
 import { memo, useMemo, useState } from 'react';
 import { SceneListItem } from './scene-list-item';
@@ -18,6 +18,12 @@ type SceneListProps = {
   musicPromptsReady: boolean;
   /** Hide the batch motion button (e.g. while auto-generate motion is in flight). */
   hideBatchButton?: boolean;
+  /** Live divergent alternates for the current sequence (filtered per-frame). */
+  divergentVariants?: FrameVariant[];
+  /** Frame ids whose live thumbnail is stale (no divergent alternate yet). */
+  staleThumbnailFrameIds?: Set<string>;
+  onCompareDivergent?: (variant: FrameVariant) => void;
+  onRegenerateThumbnail?: (frameId: string) => void;
 };
 
 const isCompleted = (frame: Frame) => {
@@ -36,7 +42,22 @@ const SceneListComponent: React.FC<SceneListProps> = ({
   onBatchGenerateMotion,
   musicPromptsReady,
   hideBatchButton = false,
+  divergentVariants,
+  staleThumbnailFrameIds,
+  onCompareDivergent,
+  onRegenerateThumbnail,
 }) => {
+  const divergentByFrameId = useMemo(() => {
+    const map = new Map<string, FrameVariant>();
+    for (const v of divergentVariants ?? []) {
+      // Image variant is what surfaces on the card. Other variant types
+      // live on their respective tabs per the spec's surfacing matrix.
+      if (v.variantType !== 'image') continue;
+      if (!map.has(v.frameId)) map.set(v.frameId, v);
+    }
+    return map;
+  }, [divergentVariants]);
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [includeMusic, setIncludeMusic] = useState(true);
 
@@ -114,18 +135,33 @@ const SceneListComponent: React.FC<SceneListProps> = ({
             ))}
 
           {frames &&
-            frames.map((frame) => (
-              <SceneListItem
-                key={frame.id}
-                frame={frame}
-                aspectRatio={aspectRatio}
-                isActive={frame.id === selectedFrameId}
-                isCompleted={isCompleted(frame)}
-                onSelect={() => onSelectFrame(frame.id)}
-                isRegeneratingImage={regeneratingImages.has(frame.id)}
-                isRegeneratingMotion={regeneratingMotion.has(frame.id)}
-              />
-            ))}
+            frames.map((frame) => {
+              const divergent = divergentByFrameId.get(frame.id);
+              return (
+                <SceneListItem
+                  key={frame.id}
+                  frame={frame}
+                  aspectRatio={aspectRatio}
+                  isActive={frame.id === selectedFrameId}
+                  isCompleted={isCompleted(frame)}
+                  onSelect={() => onSelectFrame(frame.id)}
+                  isRegeneratingImage={regeneratingImages.has(frame.id)}
+                  isRegeneratingMotion={regeneratingMotion.has(frame.id)}
+                  divergentVariantId={divergent?.id}
+                  isThumbnailStale={
+                    !divergent && !!staleThumbnailFrameIds?.has(frame.id)
+                  }
+                  onCompareDivergent={
+                    divergent
+                      ? () => onCompareDivergent?.(divergent)
+                      : undefined
+                  }
+                  onRegenerateThumbnail={() =>
+                    onRegenerateThumbnail?.(frame.id)
+                  }
+                />
+              );
+            })}
         </div>
       </ScrollArea>
 

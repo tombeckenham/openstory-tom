@@ -1,0 +1,1 @@
+ALTER TABLE `frame_variants` ADD `discarded_at` integer;

@@ -286,18 +286,16 @@ export const TalentSuggestionSelector: React.FC<
                   </Button>
                 }
               />
-              <Button type="submit" className="h-auto py-1.5">
-                {selectedTalentIds.length > 0 ? (
-                  <span>Cast {selectedTalentIds.length} Talent</span>
-                ) : (
-                  <span className="flex flex-col items-center leading-tight">
-                    <span>Continue</span>
-                    <span className="text-[10px] font-normal opacity-80">
-                      without casting
-                    </span>
-                  </span>
-                )}
-              </Button>
+              <div className="flex flex-col items-end gap-1">
+                <Button type="submit">
+                  {selectedTalentIds.length > 0 ? 'Cast Talent' : 'Continue'}
+                </Button>
+                <span className="text-[10px] text-muted-foreground">
+                  {selectedTalentIds.length > 0
+                    ? `cast ${selectedTalentIds.length} role${selectedTalentIds.length === 1 ? '' : 's'}`
+                    : 'without casting'}
+                </span>
+              </div>
             </div>
           </form>
         </DialogContent>

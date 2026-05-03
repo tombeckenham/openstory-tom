@@ -289,23 +289,18 @@ export const LocationSuggestionSelector: React.FC<
                   </Button>
                 }
               />
-              <Button type="submit" className="h-auto py-1.5">
-                {selectedLocationIds.length > 0 ? (
-                  <span>
-                    Use {selectedLocationIds.length}{' '}
-                    {selectedLocationIds.length === 1
-                      ? 'Location'
-                      : 'Locations'}
-                  </span>
-                ) : (
-                  <span className="flex flex-col items-center leading-tight">
-                    <span>Continue</span>
-                    <span className="text-[10px] font-normal opacity-80">
-                      without picking locations
-                    </span>
-                  </span>
-                )}
-              </Button>
+              <div className="flex flex-col items-end gap-1">
+                <Button type="submit">
+                  {selectedLocationIds.length > 0
+                    ? 'Use Locations'
+                    : 'Continue'}
+                </Button>
+                <span className="text-[10px] text-muted-foreground">
+                  {selectedLocationIds.length > 0
+                    ? `use ${selectedLocationIds.length} location${selectedLocationIds.length === 1 ? '' : 's'}`
+                    : 'without picking locations'}
+                </span>
+              </div>
             </div>
           </form>
         </DialogContent>

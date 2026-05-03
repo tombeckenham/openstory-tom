@@ -101,6 +101,14 @@ export const frames = sqliteTable(
     variantImageInputHash: text('variant_image_input_hash'),
     videoInputHash: text('video_input_hash'),
     audioInputHash: text('audio_input_hash'),
+    // SHA-256 of the upstream context that produced the cached visual / motion
+    // prompt (scene metadata + style config + character/location bible +
+    // analysis model). When upstream context changes, the prompt itself is
+    // flagged stale independently of the rendered image. Null when no AI
+    // prompt has been generated yet, or when the most recent variant was a
+    // user-edit (which has no upstream input surface).
+    visualPromptInputHash: text('visual_prompt_input_hash'),
+    motionPromptInputHash: text('motion_prompt_input_hash'),
     /**
      * Stores Scene data at various stages of progressive analysis.
      * Fields are populated progressively across 5 phases.

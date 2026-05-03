@@ -16,6 +16,10 @@ import { frames } from './frames';
 
 import { frameVariants } from './frame-variants';
 
+import { framePromptVariants } from './frame-prompt-variants';
+
+import { sequenceMusicPromptVariants } from './sequence-music-prompt-variants';
+
 import { characters } from './characters';
 
 // Location Library (team-level templates)
@@ -81,6 +85,24 @@ export type {
   NewFrameVariant,
   VariantType,
 } from './frame-variants';
+
+// Frame Prompt Variants (visual/motion prompt history)
+export { framePromptVariants };
+
+export type {
+  FramePromptType,
+  FramePromptVariant,
+  NewFramePromptVariant,
+  PromptVariantSource,
+} from './frame-prompt-variants';
+
+// Sequence Music Prompt Variants (music prompt history)
+export { sequenceMusicPromptVariants };
+
+export type {
+  NewSequenceMusicPromptVariant,
+  SequenceMusicPromptVariant,
+} from './sequence-music-prompt-variants';
 
 // Characters (scripted roles)
 export { characters };
@@ -218,6 +240,8 @@ export const schema = {
   sequences,
   frames,
   frameVariants,
+  framePromptVariants,
+  sequenceMusicPromptVariants,
 
   // Characters (scripted roles extracted from script)
   characters,

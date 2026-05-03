@@ -114,6 +114,10 @@ export const sequences = sqliteTable(
     musicModel: text('music_model', { length: 100 }),
     musicPrompt: text('music_prompt'),
     musicTags: text('music_tags'),
+    // SHA-256 of the upstream context that produced the cached AI music
+    // prompt (musicDesign + analysis model). Null when no AI prompt has been
+    // generated yet, or when the most recent variant was a user-edit.
+    musicPromptInputHash: text('music_prompt_input_hash'),
 
     // Poster image (sequence-level preview from script, ephemeral CDN URL)
     posterUrl: text('poster_url'),

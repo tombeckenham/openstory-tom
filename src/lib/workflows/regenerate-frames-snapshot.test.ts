@@ -88,6 +88,8 @@ function makeFrame(overrides: Partial<Frame> = {}): Frame {
     variantImageInputHash: null,
     videoInputHash: null,
     audioInputHash: null,
+    visualPromptInputHash: null,
+    motionPromptInputHash: null,
     metadata: {
       sceneId: 's1',
       sceneNumber: 1,

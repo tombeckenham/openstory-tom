@@ -51,6 +51,8 @@ const createTestFrame = (overrides: Partial<Frame>): Frame => ({
   variantImageInputHash: null,
   videoInputHash: null,
   audioInputHash: null,
+  visualPromptInputHash: null,
+  motionPromptInputHash: null,
   previewThumbnailUrl: null,
   ...overrides,
 });

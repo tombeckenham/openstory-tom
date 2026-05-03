@@ -8,6 +8,7 @@
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
 import type { VisualPromptSceneWorkflowInput } from '@/lib/workflow/types';
+import { computeVisualPromptInputHash } from '../ai/input-hash';
 import {
   type VisualPromptWithContinuity,
   visualPromptWithContinuitySchema,
@@ -76,10 +77,42 @@ export const visualPromptSceneWorkflow = createScopedWorkflow<
 
     if (sequenceId && frameId) {
       await context.run('save-visual-prompt-to-db', async () => {
-        await scopedDb.frames.update(frameId, {
-          metadata: scene,
-          imagePrompt: scene.prompts?.visual?.fullPrompt,
-        });
+        // Persist scene metadata first; the prompt-variant helper updates
+        // `imagePrompt` + `visualPromptInputHash` atomically alongside
+        // appending a revision row.
+        await scopedDb.frames.update(frameId, { metadata: scene });
+
+        const fullPrompt = scene.prompts?.visual?.fullPrompt;
+        if (fullPrompt) {
+          const inputHash = await computeVisualPromptInputHash({
+            scene,
+            styleConfig,
+            characterBible,
+            locationBible,
+            elementBible,
+            aspectRatio,
+            analysisModel: analysisModelId,
+          });
+
+          // First-time AI generation vs subsequent regeneration is
+          // distinguished by whether a prior variant exists.
+          const previous = await scopedDb.framePromptVariants.getLatest(
+            frameId,
+            'visual'
+          );
+          const source = previous ? 'regenerated' : 'ai-generated';
+
+          await scopedDb.framePromptVariants.write({
+            frameId,
+            promptType: 'visual',
+            text: fullPrompt,
+            components: scene.prompts?.visual?.components ?? null,
+            source,
+            inputHash,
+            analysisModel: analysisModelId,
+          });
+        }
+
         await getGenerationChannel(sequenceId).emit(
           'generation.frame:updated',
           {

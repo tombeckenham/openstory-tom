@@ -278,3 +278,81 @@ export function computeTalentSheetInputHash(
     imageModel: input.imageModel,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Prompt input hashes (Stage 4: prompt versioning)
+//
+// Prompts are themselves AI-generated artifacts. Their input surface is the
+// upstream context that the analysis model used to compose the prompt:
+// scene metadata, style config, character/location/element bibles, and the
+// analysis model itself. When any of those changes, the cached prompt is
+// flagged stale independently of whether the rendered image / video / audio
+// is stale.
+//
+// Bibles are hashed as ordered structures (the ordering comes from the scene
+// — character A's role differs from character B's). Free-text fields are
+// trimmed; missing optionals normalize to null.
+// ---------------------------------------------------------------------------
+
+export type PromptSceneContextHashInput = {
+  /** The Scene metadata object (or relevant subset) — must be JSON-serializable. */
+  scene: unknown;
+  /** Style config object — JSON-serializable. */
+  styleConfig: unknown;
+  /** Character bible entries — JSON-serializable; ordering preserved. */
+  characterBible: unknown;
+  /** Location bible entries — JSON-serializable; ordering preserved. */
+  locationBible: unknown;
+  /** Element bible entries — JSON-serializable; ordering preserved. */
+  elementBible?: unknown;
+  /** Aspect ratio influences composition guidance in the prompt. */
+  aspectRatio: string;
+  /** Analysis model id (e.g. `anthropic/claude-haiku-4.5`). */
+  analysisModel: string;
+};
+
+export function computeVisualPromptInputHash(
+  input: PromptSceneContextHashInput
+): Promise<string> {
+  return sha256Hex({
+    artifact: 'frame:visual-prompt',
+    scene: input.scene ?? null,
+    styleConfig: input.styleConfig ?? null,
+    characterBible: input.characterBible ?? null,
+    locationBible: input.locationBible ?? null,
+    elementBible: input.elementBible ?? null,
+    aspectRatio: trim(input.aspectRatio),
+    analysisModel: trim(input.analysisModel),
+  });
+}
+
+export function computeMotionPromptInputHash(
+  input: PromptSceneContextHashInput
+): Promise<string> {
+  return sha256Hex({
+    artifact: 'frame:motion-prompt',
+    scene: input.scene ?? null,
+    styleConfig: input.styleConfig ?? null,
+    characterBible: input.characterBible ?? null,
+    locationBible: input.locationBible ?? null,
+    elementBible: input.elementBible ?? null,
+    aspectRatio: trim(input.aspectRatio),
+    analysisModel: trim(input.analysisModel),
+  });
+}
+
+export type MusicPromptInputHashInput = {
+  /** Sequence-level music design (mood/atmosphere/style) object. */
+  musicDesign: unknown;
+  analysisModel: string;
+};
+
+export function computeMusicPromptInputHash(
+  input: MusicPromptInputHashInput
+): Promise<string> {
+  return sha256Hex({
+    artifact: 'sequence:music-prompt',
+    musicDesign: input.musicDesign ?? null,
+    analysisModel: trim(input.analysisModel),
+  });
+}

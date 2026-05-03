@@ -6,7 +6,10 @@ import {
   computeFrameVideoInputHash,
   computeLibraryLocationReferenceInputHash,
   computeLocationSheetInputHash,
+  computeMotionPromptInputHash,
+  computeMusicPromptInputHash,
   computeTalentSheetInputHash,
+  computeVisualPromptInputHash,
   type CharacterSheetHashInput,
   type FrameAudioHashInput,
   type FrameImageHashInput,
@@ -471,5 +474,51 @@ describe('canonical serialization', () => {
         audioModel: 'cassette-v1',
       })
     ).rejects.toThrow(/non-finite/);
+  });
+});
+
+describe('prompt input hashes', () => {
+  const sceneCtx = {
+    scene: { sceneId: 's1', durationSeconds: 5 },
+    styleConfig: { mood: 'neutral' },
+    characterBible: [{ name: 'Alice' }],
+    locationBible: [{ name: 'Beach' }],
+    elementBible: [],
+    aspectRatio: '16:9',
+    analysisModel: 'anthropic/claude-haiku-4.5',
+  };
+
+  it('visual and motion prompt hashes are namespaced by artifact and differ', async () => {
+    const visual = await computeVisualPromptInputHash(sceneCtx);
+    const motion = await computeMotionPromptInputHash(sceneCtx);
+    expect(visual).not.toBe(motion);
+    expect(visual).toMatch(/^[0-9a-f]{64}$/);
+    expect(motion).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('changing the analysis model changes the visual prompt hash', async () => {
+    const a = await computeVisualPromptInputHash(sceneCtx);
+    const b = await computeVisualPromptInputHash({
+      ...sceneCtx,
+      analysisModel: 'anthropic/claude-sonnet-4.6',
+    });
+    expect(a).not.toBe(b);
+  });
+
+  it('music prompt hash is stable for equivalent inputs and changes with musicDesign', async () => {
+    const a = await computeMusicPromptInputHash({
+      musicDesign: { mood: 'epic' },
+      analysisModel: 'm',
+    });
+    const b = await computeMusicPromptInputHash({
+      musicDesign: { mood: 'epic' },
+      analysisModel: 'm',
+    });
+    const c = await computeMusicPromptInputHash({
+      musicDesign: { mood: 'somber' },
+      analysisModel: 'm',
+    });
+    expect(a).toBe(b);
+    expect(a).not.toBe(c);
   });
 });

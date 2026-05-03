@@ -395,11 +395,13 @@ export const generateMusicFn = createServerFn({ method: 'POST' })
     const { sequence, user } = context;
 
     if (data.prompt || data.tags) {
-      await context.scopedDb.sequences.updateMusicPrompt(
-        sequence.id,
-        data.prompt ?? sequence.musicPrompt ?? '',
-        data.tags ?? sequence.musicTags ?? ''
-      );
+      await context.scopedDb.sequenceMusicPromptVariants.write({
+        sequenceId: sequence.id,
+        prompt: data.prompt ?? sequence.musicPrompt ?? '',
+        tags: data.tags ?? sequence.musicTags ?? '',
+        source: 'user-edit',
+        createdBy: user.id,
+      });
     }
 
     const allFrames = await context.scopedDb.frames.listBySequence(

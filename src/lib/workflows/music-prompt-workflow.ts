@@ -5,6 +5,7 @@ import type {
   MusicPromptWorkflowInput,
   MusicPromptWorkflowResult,
 } from '@/lib/workflow/types';
+import { computeMusicPromptInputHash } from '../ai/input-hash';
 import { musicDesignResultSchema } from '../ai/response-schemas';
 import { reinforceInstrumentalTags } from '../prompts/music-prompt';
 import { durableLLMCall } from './llm-call-helper';
@@ -38,17 +39,33 @@ export const generateMusicPromptWorflow = createScopedWorkflow<
       llmCallContext
     );
 
-    // Now save the music prompt to the database
+    // Now save the music prompt to the database via the variants helper —
+    // appends a revision row tagged 'ai-generated' / 'regenerated' and
+    // updates the cached `musicPrompt` / `musicTags` columns atomically.
     if (sequenceId) {
       await context.run('save-music-prompt-to-db', async () => {
         const reinforcedTags = reinforceInstrumentalTags(
           musicDesignResult.tags
         );
-        await scopedDb.sequences.updateMusicPrompt(
+
+        const inputHash = await computeMusicPromptInputHash({
+          musicDesign: musicDesignResult,
+          analysisModel: analysisModelId,
+        });
+
+        const previous =
+          await scopedDb.sequenceMusicPromptVariants.getLatest(sequenceId);
+        const source = previous ? 'regenerated' : 'ai-generated';
+
+        await scopedDb.sequenceMusicPromptVariants.write({
           sequenceId,
-          musicDesignResult.prompt,
-          reinforcedTags
-        );
+          prompt: musicDesignResult.prompt,
+          tags: reinforcedTags,
+          source,
+          inputHash,
+          analysisModel: analysisModelId,
+          createdBy: input.userId,
+        });
       });
     }
 

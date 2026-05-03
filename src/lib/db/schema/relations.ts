@@ -55,6 +55,7 @@ export const relations = defineRelations(schema, (r) => ({
     characters: r.many.characters(),
     locations: r.many.sequenceLocations(),
     elements: r.many.sequenceElements(),
+    musicPromptVariants: r.many.sequenceMusicPromptVariants(),
   },
 
   // ---- Frames ----
@@ -64,6 +65,7 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.sequences.id,
     }),
     variants: r.many.frameVariants(),
+    promptVariants: r.many.framePromptVariants(),
   },
 
   // ---- Frame Variants ----
@@ -75,6 +77,30 @@ export const relations = defineRelations(schema, (r) => ({
     sequence: r.one.sequences({
       from: r.frameVariants.sequenceId,
       to: r.sequences.id,
+    }),
+  },
+
+  // ---- Frame Prompt Variants ----
+  framePromptVariants: {
+    frame: r.one.frames({
+      from: r.framePromptVariants.frameId,
+      to: r.frames.id,
+    }),
+    createdByUser: r.one.user({
+      from: r.framePromptVariants.createdBy,
+      to: r.user.id,
+    }),
+  },
+
+  // ---- Sequence Music Prompt Variants ----
+  sequenceMusicPromptVariants: {
+    sequence: r.one.sequences({
+      from: r.sequenceMusicPromptVariants.sequenceId,
+      to: r.sequences.id,
+    }),
+    createdByUser: r.one.user({
+      from: r.sequenceMusicPromptVariants.createdBy,
+      to: r.user.id,
     }),
   },
 

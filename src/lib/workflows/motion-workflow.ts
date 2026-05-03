@@ -117,7 +117,6 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
             videoStatus: 'generating',
             videoWorkflowRunId: context.workflowRunId,
             motionModel: model,
-            motionPrompt: input.prompt,
           },
           { throwOnMissing: false }
         );
@@ -127,6 +126,16 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
             `[MotionWorkflow] Frame ${input.frameId} was deleted, skipping workflow`
           );
           return { frameDeleted: true };
+        }
+
+        if (input.prompt && input.prompt !== frame.motionPrompt) {
+          await scopedDb.framePromptVariants.write({
+            frameId: input.frameId,
+            promptType: 'motion',
+            text: input.prompt,
+            source: 'user-edit',
+            createdBy: input.userId,
+          });
         }
 
         void getGenerationChannel(input.sequenceId).emit(

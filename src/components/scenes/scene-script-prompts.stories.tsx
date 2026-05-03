@@ -39,6 +39,8 @@ const mockFrame = {
   variantImageInputHash: null,
   videoInputHash: null,
   audioInputHash: null,
+  visualPromptInputHash: null,
+  motionPromptInputHash: null,
   previewThumbnailUrl: null,
   metadata: {
     sceneId: 'scene-1',

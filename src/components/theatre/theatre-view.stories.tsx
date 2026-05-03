@@ -33,6 +33,7 @@ const baseSequence: Sequence = {
   musicModel: null,
   musicPrompt: null,
   musicTags: null,
+  musicPromptInputHash: null,
   statusError: null,
   posterUrl: null,
   autoGenerateMotion: false,

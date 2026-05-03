@@ -40,6 +40,8 @@ const mockFrameBase = {
   variantImageInputHash: null,
   videoInputHash: null,
   audioInputHash: null,
+  visualPromptInputHash: null,
+  motionPromptInputHash: null,
   variantImageUrl: null,
   variantImageStatus: 'pending' as const,
   variantWorkflowRunId: null,

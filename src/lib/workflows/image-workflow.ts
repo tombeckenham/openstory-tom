@@ -50,7 +50,6 @@ export const generateImageWorkflow = createScopedWorkflow<
               thumbnailStatus: 'generating',
               thumbnailWorkflowRunId: context.workflowRunId,
               imageModel: model,
-              imagePrompt: input.prompt,
             },
             { throwOnMissing: false }
           );
@@ -61,6 +60,21 @@ export const generateImageWorkflow = createScopedWorkflow<
               `Frame ${input.frameId} was deleted, skipping`
             );
             return null;
+          }
+
+          // Persist the prompt being rendered as a `user-edit` variant when
+          // it differs from the cached prompt. This is the user-supplied
+          // prompt path (the AI-generated prompt is written by
+          // visual-prompt-scene-workflow). When unchanged, we skip the row
+          // to avoid history noise.
+          if (input.prompt && input.prompt !== frame.imagePrompt) {
+            await scopedDb.framePromptVariants.write({
+              frameId: input.frameId,
+              promptType: 'visual',
+              text: input.prompt,
+              source: 'user-edit',
+              createdBy: input.userId,
+            });
           }
 
           // Dual-write: upsert frame_variants row

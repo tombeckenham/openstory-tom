@@ -76,14 +76,21 @@ export const visualPromptSceneWorkflow = createScopedWorkflow<
     );
 
     if (sequenceId && frameId) {
-      // Empty fullPrompt is a generation failure, not a benign skip — surface
-      // it so QStash retries / failure handler runs instead of silently
-      // persisting an empty prompt with no variant row.
       if (!result.visual.fullPrompt) {
         throw new Error(
           `Visual prompt generation returned empty fullPrompt for scene ${scene.sceneId}`
         );
       }
+
+      const inputHash = await computeVisualPromptInputHash({
+        scene,
+        styleConfig,
+        characterBible,
+        locationBible,
+        elementBible,
+        aspectRatio,
+        analysisModel: analysisModelId,
+      });
 
       const enrichedScene = {
         ...scene,
@@ -95,27 +102,12 @@ export const visualPromptSceneWorkflow = createScopedWorkflow<
       };
 
       await context.run('save-visual-prompt-to-db', async () => {
-        const inputHash = await computeVisualPromptInputHash({
-          scene: enrichedScene,
-          styleConfig,
-          characterBible,
-          locationBible,
-          elementBible,
-          aspectRatio,
-          analysisModel: analysisModelId,
-        });
-
-        // First-time AI generation vs subsequent regeneration is
-        // distinguished by whether a prior variant exists.
         const previous = await scopedDb.framePromptVariants.getLatest(
           frameId,
           'visual'
         );
         const source = previous ? 'regenerated' : 'ai-generated';
 
-        // Persist scene metadata; the prompt-variant helper updates
-        // `imagePrompt` + `visualPromptInputHash` atomically alongside
-        // appending a revision row.
         await scopedDb.frames.update(frameId, { metadata: enrichedScene });
 
         await scopedDb.framePromptVariants.write({

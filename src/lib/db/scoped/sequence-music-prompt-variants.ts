@@ -8,13 +8,13 @@
  * story.
  *
  * See docs/architecture/workflow-snapshots-and-content-hash-staleness.md
- * § "Stage 4: prompt versioning".
+ * § prompt versioning.
  */
 
 import type { Database } from '@/lib/db/client';
 import { sequenceMusicPromptVariants, sequences } from '@/lib/db/schema';
 import type { SequenceMusicPromptVariant } from '@/lib/db/schema';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 
 type WriteSequenceMusicPromptVariantBase = {
   sequenceId: string;
@@ -50,10 +50,11 @@ export function createSequenceMusicPromptVariantsMethods(db: Database) {
     /**
      * Append a music prompt variant row and update the cached
      * `musicPrompt` / `musicTags` / `musicPromptInputHash` columns on
-     * `sequences`. Returns the inserted row.
+     * `sequences`. Returns the inserted (or pre-existing matching) row.
      *
-     * Sequential, not transactional — variant row is the source of truth;
-     * the cached columns can be reconciled from the latest variant.
+     * AI-generated rows are deduped on a unique partial index
+     * `(sequence_id, input_hash) WHERE input_hash IS NOT NULL` so QStash
+     * retries don't append duplicate history.
      */
     write: async (
       input: WriteSequenceMusicPromptVariantInput
@@ -62,9 +63,7 @@ export function createSequenceMusicPromptVariantsMethods(db: Database) {
       const analysisModel =
         input.source === 'user-edit' ? null : input.analysisModel;
 
-      // Append first so a crash can't leave a stale pointer with no row
-      // behind it.
-      const [variant] = await db
+      const [inserted] = await db
         .insert(sequenceMusicPromptVariants)
         .values({
           sequenceId: input.sequenceId,
@@ -75,7 +74,23 @@ export function createSequenceMusicPromptVariantsMethods(db: Database) {
           analysisModel,
           createdBy: input.createdBy ?? null,
         })
+        .onConflictDoNothing()
         .returning();
+
+      let variant: SequenceMusicPromptVariant | undefined = inserted;
+      if (!variant && nextHash !== null) {
+        const [existing] = await db
+          .select()
+          .from(sequenceMusicPromptVariants)
+          .where(
+            and(
+              eq(sequenceMusicPromptVariants.sequenceId, input.sequenceId),
+              eq(sequenceMusicPromptVariants.inputHash, nextHash)
+            )
+          )
+          .limit(1);
+        variant = existing;
+      }
 
       if (!variant) {
         throw new Error('Failed to insert sequence music prompt variant');

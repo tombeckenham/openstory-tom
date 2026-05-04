@@ -23,7 +23,8 @@
  * Throws on values that JSON.stringify would silently elide or coerce
  * (`undefined`, functions, symbols, `NaN`, `±Infinity`) — those would produce
  * hash collisions across semantically distinct inputs. Callers must normalize
- * optional fields to `null` before passing in.
+ * `undefined` optionals to `null` (or use `trim()` for free-text fields, which
+ * coerces nullish to `''`) before passing in.
  */
 function canonicalize(
   value: unknown,
@@ -280,18 +281,14 @@ export function computeTalentSheetInputHash(
 }
 
 // ---------------------------------------------------------------------------
-// Prompt input hashes (Stage 4: prompt versioning)
+// Prompt input hashes
 //
-// Prompts are themselves AI-generated artifacts. Their input surface is the
-// upstream context that the analysis model used to compose the prompt:
-// scene metadata, style config, character/location/element bibles, and the
-// analysis model itself. When any of those changes, the cached prompt is
-// flagged stale independently of whether the rendered image / video / audio
-// is stale.
-//
-// Bibles are hashed as ordered structures (the ordering comes from the scene
-// — character A's role differs from character B's). Free-text fields are
-// trimmed; missing optionals normalize to null.
+// Prompts are themselves AI-generated artifacts. The hash captures only the
+// upstream context the LLM was given — scene metadata, style config,
+// character / location / element bibles, aspect ratio, and the analysis
+// model. The LLM's output (`scene.prompts`, `scene.continuity`) is
+// deliberately excluded; including it would make every regeneration produce a
+// different hash for identical inputs, since LLM output is non-deterministic.
 // ---------------------------------------------------------------------------
 
 import type {
@@ -300,11 +297,14 @@ import type {
   LocationBibleEntry,
   Scene,
 } from './scene-analysis.schema';
-import type { MusicPromptWorkflowResult } from '@/lib/workflow/types';
+import type { MusicSceneSummary } from '@/lib/workflow/types';
 import type { StyleConfig } from '@/lib/db/schema';
 
 export type PromptSceneContextHashInput = {
-  /** Scene metadata used to compose the prompt. */
+  /**
+   * Scene the prompt is being generated for. `prompts` and `continuity` are
+   * stripped before hashing — they are downstream LLM output, not input.
+   */
   scene: Scene;
   /** Sequence style config (look/feel knobs that influence prompt phrasing). */
   styleConfig: StyleConfig;
@@ -320,12 +320,23 @@ export type PromptSceneContextHashInput = {
   analysisModel: string;
 };
 
+/**
+ * Strip the LLM-output fields off a scene so the hash represents only the
+ * pre-prompt input surface.
+ */
+function sceneInputContext(
+  scene: Scene
+): Omit<Scene, 'prompts' | 'continuity'> {
+  const { prompts: _prompts, continuity: _continuity, ...context } = scene;
+  return context;
+}
+
 export function computeVisualPromptInputHash(
   input: PromptSceneContextHashInput
 ): Promise<string> {
   return sha256Hex({
     artifact: 'frame:visual-prompt',
-    scene: input.scene,
+    scene: sceneInputContext(input.scene),
     styleConfig: input.styleConfig,
     characterBible: input.characterBible,
     locationBible: input.locationBible,
@@ -340,7 +351,7 @@ export function computeMotionPromptInputHash(
 ): Promise<string> {
   return sha256Hex({
     artifact: 'frame:motion-prompt',
-    scene: input.scene,
+    scene: sceneInputContext(input.scene),
     styleConfig: input.styleConfig,
     characterBible: input.characterBible,
     locationBible: input.locationBible,
@@ -351,13 +362,8 @@ export function computeMotionPromptInputHash(
 }
 
 export type MusicPromptInputHashInput = {
-  /**
-   * Music design / synthesis result that produced the cached music prompt.
-   * Today this is the full `MusicPromptWorkflowResult` (per-scene musicDesign
-   * + synthesized tags + prompt) — anything that changes here changes the
-   * prompt.
-   */
-  musicDesign: MusicPromptWorkflowResult;
+  /** Compact scene summaries fed to the music LLM — the actual upstream input. */
+  sceneSummaries: readonly MusicSceneSummary[];
   analysisModel: string;
 };
 
@@ -366,7 +372,7 @@ export function computeMusicPromptInputHash(
 ): Promise<string> {
   return sha256Hex({
     artifact: 'sequence:music-prompt',
-    musicDesign: input.musicDesign,
+    sceneSummaries: input.sceneSummaries,
     analysisModel: trim(input.analysisModel),
   });
 }

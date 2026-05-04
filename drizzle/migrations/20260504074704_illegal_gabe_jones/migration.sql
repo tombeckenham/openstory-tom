@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX `uq_frame_prompt_variants_frame_type_input_hash` ON `frame_prompt_variants` (`frame_id`,`prompt_type`,`input_hash`) WHERE "frame_prompt_variants"."input_hash" IS NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX `uq_sequence_music_prompt_variants_sequence_input_hash` ON `sequence_music_prompt_variants` (`sequence_id`,`input_hash`) WHERE "sequence_music_prompt_variants"."input_hash" IS NOT NULL;

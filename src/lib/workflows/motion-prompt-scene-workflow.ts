@@ -5,6 +5,7 @@
  * Uses three-step durable pattern: prepare → context.call → log
  */
 
+import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
 import type { MotionPromptSceneWorkflowInput } from '@/lib/workflow/types';
 import { computeMotionPromptInputHash } from '../ai/input-hash';
@@ -87,14 +88,21 @@ export const motionPromptSceneWorkflow = createScopedWorkflow<
     );
 
     if (sequenceId && frameId) {
-      // Empty fullPrompt is a generation failure, not a benign skip — surface
-      // it so QStash retries / failure handler runs instead of silently
-      // persisting an empty prompt with no variant row.
       if (!motionPrompt.fullPrompt) {
         throw new Error(
           `Motion prompt generation returned empty fullPrompt for scene ${scene.sceneId}`
         );
       }
+
+      const inputHash = await computeMotionPromptInputHash({
+        scene,
+        styleConfig,
+        characterBible,
+        locationBible,
+        elementBible,
+        aspectRatio,
+        analysisModel: analysisModelId,
+      });
 
       const enrichedScene = {
         ...scene,
@@ -105,16 +113,6 @@ export const motionPromptSceneWorkflow = createScopedWorkflow<
       };
 
       await context.run('save-motion-prompt-to-db', async () => {
-        const inputHash = await computeMotionPromptInputHash({
-          scene: enrichedScene,
-          styleConfig,
-          characterBible,
-          locationBible,
-          elementBible,
-          aspectRatio,
-          analysisModel: analysisModelId,
-        });
-
         const previous = await scopedDb.framePromptVariants.getLatest(
           frameId,
           'motion'
@@ -138,8 +136,14 @@ export const motionPromptSceneWorkflow = createScopedWorkflow<
     return { sceneId: scene.sceneId, motionPrompt };
   },
   {
-    failureFunction: async () => {
-      return `Motion prompt generation failed`;
+    failureFunction: async ({ context, failStatus, failResponse }) => {
+      const error = sanitizeFailResponse(failResponse);
+      console.error('[MotionPromptSceneWorkflow] Failed', {
+        workflowRunId: context.workflowRunId,
+        failStatus,
+        failResponse: error,
+      });
+      return `Motion prompt generation failed: ${error}`;
     },
   }
 );

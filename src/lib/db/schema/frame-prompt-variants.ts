@@ -6,7 +6,7 @@
  * for read-path simplicity; this table stores the full revision history.
  *
  * See docs/architecture/workflow-snapshots-and-content-hash-staleness.md
- * § "Stage 4: prompt versioning".
+ * § prompt versioning.
  */
 
 import type {
@@ -14,8 +14,14 @@ import type {
   MotionPromptParameters,
   VisualPromptComponents,
 } from '@/lib/ai/scene-analysis.schema';
-import { type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { type InferInsertModel, type InferSelectModel, sql } from 'drizzle-orm';
+import {
+  index,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 import { generateId } from '../id';
 import { user } from './auth';
 import { frames } from './frames';
@@ -88,6 +94,12 @@ export const framePromptVariants = sqliteTable(
       table.promptType,
       table.createdAt
     ),
+    // Idempotency: a workflow retry that re-emits the same AI prompt for the
+    // same upstream context must not create a duplicate row. User-edits and
+    // legacy rows have null `input_hash` and are excluded from the constraint.
+    uniqueIndex('uq_frame_prompt_variants_frame_type_input_hash')
+      .on(table.frameId, table.promptType, table.inputHash)
+      .where(sql`${table.inputHash} IS NOT NULL`),
   ]
 );
 

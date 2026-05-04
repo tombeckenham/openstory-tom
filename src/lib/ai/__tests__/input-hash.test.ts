@@ -5,7 +5,7 @@ import type {
   Scene,
 } from '../scene-analysis.schema';
 import type { StyleConfig } from '@/lib/db/schema';
-import type { MusicPromptWorkflowResult } from '@/lib/workflow/types';
+import type { MusicSceneSummary } from '@/lib/workflow/types';
 import {
   computeCharacterSheetInputHash,
   computeFrameAudioInputHash,
@@ -578,44 +578,95 @@ describe('prompt input hashes', () => {
     expect(motionA).not.toBe(motionB);
   });
 
-  const baseScene = {
+  const baseSummary: MusicSceneSummary = {
     sceneId: 's1',
-    musicDesign: {
-      presence: 'full' as const,
-      style: 'orchestral',
-      mood: 'epic',
-      atmosphere: 'open',
-    },
+    title: 'Opening',
+    storyBeat: 'Establish tone',
+    durationSeconds: 10,
+    location: 'INT. STUDIO - NIGHT',
+    timeOfDay: 'night',
+    visualSummary: 'Wide shot, low key lighting',
   };
 
-  const baseMusicDesign: MusicPromptWorkflowResult = {
-    scenes: [baseScene],
-    tags: 'instrumental, orchestral, epic',
-    prompt: 'epic orchestral score',
-  };
-
-  it('music prompt hash is stable for equivalent inputs and changes with musicDesign', async () => {
+  it('music prompt hash is stable for equivalent inputs and changes with sceneSummaries', async () => {
     const a = await computeMusicPromptInputHash({
-      musicDesign: baseMusicDesign,
+      sceneSummaries: [baseSummary],
       analysisModel: 'm',
     });
     const b = await computeMusicPromptInputHash({
-      musicDesign: { ...baseMusicDesign },
+      sceneSummaries: [{ ...baseSummary }],
       analysisModel: 'm',
     });
     const c = await computeMusicPromptInputHash({
-      musicDesign: {
-        ...baseMusicDesign,
-        scenes: [
-          {
-            ...baseScene,
-            musicDesign: { ...baseScene.musicDesign, mood: 'somber' },
-          },
-        ],
-      },
+      sceneSummaries: [{ ...baseSummary, storyBeat: 'Twist reveal' }],
       analysisModel: 'm',
     });
     expect(a).toBe(b);
     expect(a).not.toBe(c);
+  });
+
+  it('hash excludes LLM output: same upstream context with different prompts/continuity hashes the same', async () => {
+    const upstream = await computeVisualPromptInputHash(sceneCtx);
+    const enriched = await computeVisualPromptInputHash({
+      ...sceneCtx,
+      scene: {
+        ...minimalScene,
+        prompts: {
+          visual: {
+            fullPrompt: 'A wholly different prompt produced by the LLM',
+            negativePrompt: 'blurry',
+            components: {
+              sceneDescription: 'foo',
+              subject: 'bar',
+              environment: '',
+              lighting: '',
+              camera: '',
+              composition: '',
+              style: '',
+              technical: '',
+              atmosphere: '',
+            },
+          },
+        },
+        continuity: {
+          characterTags: ['alice'],
+          environmentTag: 'beach',
+          colorPalette: 'warm',
+          lightingSetup: 'golden hour',
+          styleTag: 'cinematic',
+        },
+      },
+    });
+    expect(upstream).toBe(enriched);
+
+    const motionUpstream = await computeMotionPromptInputHash(sceneCtx);
+    const motionEnriched = await computeMotionPromptInputHash({
+      ...sceneCtx,
+      scene: {
+        ...minimalScene,
+        prompts: {
+          motion: {
+            fullPrompt: 'Camera dolly in slowly',
+            components: {
+              cameraMovement: 'dolly',
+              startPosition: '',
+              endPosition: '',
+              durationSeconds: 5,
+              speed: 'slow',
+              smoothness: 'smooth',
+              subjectTracking: '',
+              equipment: '',
+            },
+            parameters: {
+              durationSeconds: 5,
+              fps: 30,
+              motionAmount: 'medium',
+              cameraControl: { pan: 0, tilt: 0, zoom: 0, movement: '' },
+            },
+          },
+        },
+      },
+    });
+    expect(motionUpstream).toBe(motionEnriched);
   });
 });

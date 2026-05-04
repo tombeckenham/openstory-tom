@@ -188,6 +188,7 @@ export const generateFrameImageFn = createServerFn({ method: 'POST' })
         ...locationReferences,
         ...elementReferences,
       ],
+      userEditedPrompt: data.prompt !== undefined,
     };
 
     const workflowRunId = await triggerWorkflow('/image', workflowInput, {

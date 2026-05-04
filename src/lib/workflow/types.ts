@@ -57,6 +57,14 @@ export interface ImageWorkflowInput extends SequenceWorkflowContext {
   referenceImages?: ReferenceImageDescription[];
   /** Skip R2 upload and store fal.ai CDN URL directly (for ephemeral preview images) */
   skipStorage?: boolean;
+  /**
+   * `true` when `prompt` came from a user edit (typed in the UI). `false` for
+   * auto paths (storyboard generation, smart-retry, preview, scene split)
+   * where `prompt` may be reassembled from `frame.metadata.prompts.visual`
+   * and would not match the bare `frame.imagePrompt`. Drives whether the
+   * workflow appends a `user-edit` variant row.
+   */
+  userEditedPrompt?: boolean;
 }
 
 /**

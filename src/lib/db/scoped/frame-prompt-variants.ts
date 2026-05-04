@@ -12,7 +12,7 @@
  * column) is unchanged.
  *
  * See docs/architecture/workflow-snapshots-and-content-hash-staleness.md
- * § "Stage 4: prompt versioning".
+ * § prompt versioning.
  */
 
 import type { MotionPromptParameters } from '@/lib/ai/scene-analysis.schema';
@@ -74,35 +74,28 @@ export function createFramePromptVariantsMethods(db: Database) {
   return {
     /**
      * Append a new prompt variant row and update the cached pointer on
-     * `frames`. Returns the inserted row.
+     * `frames`. Returns the inserted (or pre-existing matching) row.
      *
-     * Durability: the insert + update pair is sequential, not transactional —
-     * the scoped-DB layer doesn't expose a transaction primitive yet. The
-     * variant row is the source of truth; the cached column on `frames` is a
-     * read-path optimization that can be reconciled from the latest variant
-     * if a process crashes between the two writes.
-     *
-     * Caller responsibility: duplicate-detection — "what counts as a
-     * meaningful change" varies (user-edit whitespace shouldn't create a
-     * row; AI regeneration with identical output should). Skip the call if
-     * the change is a no-op.
+     * Durability: the insert + update pair is sequential, not transactional.
+     * The variant row is the source of truth; the cached column on `frames`
+     * is a read-path optimization. To make QStash retries safe, AI-generated
+     * rows are deduped by the unique partial index on
+     * `(frame_id, prompt_type, input_hash) WHERE input_hash IS NOT NULL`:
+     * an insert that conflicts with an existing row no-ops, the existing row
+     * is fetched, and the cached pointer is updated as normal.
      */
     write: async (
       input: WriteFramePromptVariantInput
     ): Promise<FramePromptVariant> => {
       const cached = cachedColumnsForType(input.promptType);
 
-      // User-edits clear the input hash on the cached pointer (the cached
-      // value is no longer derived from upstream context). AI-generated /
-      // regenerated rows set it. The discriminated union on `input` makes
-      // both fields compile-time guaranteed.
       const nextHash = input.source === 'user-edit' ? null : input.inputHash;
       const analysisModel =
         input.source === 'user-edit' ? null : input.analysisModel;
 
       // Append first so a crash can't leave a stale pointer with no row
       // behind it. The reverse order would be unrecoverable.
-      const [variant] = await db
+      const [inserted] = await db
         .insert(framePromptVariants)
         .values({
           frameId: input.frameId,
@@ -115,7 +108,24 @@ export function createFramePromptVariantsMethods(db: Database) {
           analysisModel,
           createdBy: input.createdBy ?? null,
         })
+        .onConflictDoNothing()
         .returning();
+
+      let variant: FramePromptVariant | undefined = inserted;
+      if (!variant && nextHash !== null) {
+        const [existing] = await db
+          .select()
+          .from(framePromptVariants)
+          .where(
+            and(
+              eq(framePromptVariants.frameId, input.frameId),
+              eq(framePromptVariants.promptType, input.promptType),
+              eq(framePromptVariants.inputHash, nextHash)
+            )
+          )
+          .limit(1);
+        variant = existing;
+      }
 
       if (!variant) {
         throw new Error('Failed to insert frame prompt variant');

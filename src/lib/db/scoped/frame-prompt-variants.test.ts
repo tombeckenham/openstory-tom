@@ -244,6 +244,57 @@ describe('frame_prompt_variants helper', () => {
     expect(refreshed.visualPromptInputHash).toBeNull();
   });
 
+  it('AI write is idempotent on (frame, type, input_hash) — a retry returns the existing row', async () => {
+    const methods = createFramePromptVariantsMethods(asDatabase(db));
+
+    const first = await methods.write({
+      frameId,
+      promptType: 'visual',
+      text: 'AI prompt v1',
+      source: 'ai-generated',
+      inputHash: 'context-hash-1',
+      analysisModel: 'anthropic/claude-haiku-4.5',
+    });
+
+    const retried = await methods.write({
+      frameId,
+      promptType: 'visual',
+      text: 'AI prompt v1',
+      source: 'ai-generated',
+      inputHash: 'context-hash-1',
+      analysisModel: 'anthropic/claude-haiku-4.5',
+    });
+
+    expect(retried.id).toBe(first.id);
+
+    const history = await methods.listByFrame(frameId, 'visual');
+    expect(history).toHaveLength(1);
+  });
+
+  it('a different input_hash produces a new row for the same frame+type', async () => {
+    const methods = createFramePromptVariantsMethods(asDatabase(db));
+
+    await methods.write({
+      frameId,
+      promptType: 'visual',
+      text: 'AI v1',
+      source: 'ai-generated',
+      inputHash: 'hash-a',
+      analysisModel: 'anthropic/claude-haiku-4.5',
+    });
+    await methods.write({
+      frameId,
+      promptType: 'visual',
+      text: 'AI v2',
+      source: 'regenerated',
+      inputHash: 'hash-b',
+      analysisModel: 'anthropic/claude-haiku-4.5',
+    });
+
+    const history = await methods.listByFrame(frameId, 'visual');
+    expect(history).toHaveLength(2);
+  });
+
   it('motion prompts use the motionPrompt cached column independently of visual', async () => {
     const methods = createFramePromptVariantsMethods(asDatabase(db));
 
@@ -347,6 +398,33 @@ describe('sequence_music_prompt_variants helper', () => {
       .where(eq(sequences.id, sequenceId));
     expect(refreshed.musicPrompt).toBe('AI music v2');
     expect(refreshed.musicPromptInputHash).toBe('music-hash-v2');
+  });
+
+  it('AI music write is idempotent on (sequence, input_hash) — a retry returns the existing row', async () => {
+    const methods = createSequenceMusicPromptVariantsMethods(asDatabase(db));
+
+    const first = await methods.write({
+      sequenceId,
+      prompt: 'AI music',
+      tags: 'epic',
+      source: 'ai-generated',
+      inputHash: 'music-hash-1',
+      analysisModel: 'anthropic/claude-haiku-4.5',
+    });
+
+    const retried = await methods.write({
+      sequenceId,
+      prompt: 'AI music',
+      tags: 'epic',
+      source: 'ai-generated',
+      inputHash: 'music-hash-1',
+      analysisModel: 'anthropic/claude-haiku-4.5',
+    });
+
+    expect(retried.id).toBe(first.id);
+
+    const history = await methods.listBySequence(sequenceId);
+    expect(history).toHaveLength(1);
   });
 
   it('regenerated music prompt populates the input hash on the sequence row', async () => {

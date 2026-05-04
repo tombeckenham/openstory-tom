@@ -62,12 +62,18 @@ export const generateImageWorkflow = createScopedWorkflow<
             return null;
           }
 
-          // Persist the prompt being rendered as a `user-edit` variant when
-          // it differs from the cached prompt. This is the user-supplied
-          // prompt path (the AI-generated prompt is written by
-          // visual-prompt-scene-workflow). When unchanged, we skip the row
-          // to avoid history noise.
-          if (input.prompt && input.prompt !== frame.imagePrompt) {
+          // Only the user-edit path writes a variant row here. Auto paths
+          // (storyboard generation, smart-retry, scene-split previews) pass
+          // a prompt that may be reassembled from
+          // `frame.metadata.prompts.visual` and won't match the bare
+          // `frame.imagePrompt`, so a string-equality check would record
+          // every auto run as a phantom user edit. The AI-generated row is
+          // written by visual-prompt-scene-workflow.
+          if (
+            input.userEditedPrompt &&
+            input.prompt &&
+            input.prompt !== frame.imagePrompt
+          ) {
             await scopedDb.framePromptVariants.write({
               frameId: input.frameId,
               promptType: 'visual',

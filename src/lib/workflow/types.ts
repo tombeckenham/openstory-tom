@@ -2,6 +2,7 @@
  * Type definitions for QStash Workflows
  */
 
+import type { SequenceVideoFrameSource } from '@/lib/ai/input-hash';
 import type {
   AUDIO_MODELS,
   IMAGE_MODELS,
@@ -57,6 +58,29 @@ export interface ImageWorkflowInput extends SequenceWorkflowContext {
   referenceImages?: ReferenceImageDescription[];
   /** Skip R2 upload and store fal.ai CDN URL directly (for ephemeral preview images) */
   skipStorage?: boolean;
+  /**
+   * Per-scene snapshot for divergence detection. When present, the workflow
+   * re-resolves character/location/element sheet hashes at write time and
+   * routes divergent results into `frame_variants` instead of overwriting
+   * the primary thumbnail. Optional: omit for callers that handle their own
+   * divergence (e.g. `regenerateFramesWorkflow`) or for preview-mode runs.
+   */
+  sceneSnapshot?: FrameImageSceneSnapshot;
+  /**
+   * Aspect ratio frozen at trigger time. Required when `sceneSnapshot` is
+   * present so write-time hash recomputation matches the trigger-time hash.
+   */
+  aspectRatio?: AspectRatio;
+  /** Hash over `(prompt, model, aspectRatio, sceneSnapshot)`; validated at start. */
+  snapshotInputHash?: string;
+  /**
+   * `true` when `prompt` came from a user edit (typed in the UI). `false` for
+   * auto paths (storyboard generation, smart-retry, preview, scene split)
+   * where `prompt` may be reassembled from `frame.metadata.prompts.visual`
+   * and would not match the bare `frame.imagePrompt`. Drives whether the
+   * workflow appends a `user-edit` variant row.
+   */
+  userEditedPrompt?: boolean;
 }
 
 /**
@@ -164,6 +188,14 @@ export interface MotionWorkflowInput extends SequenceWorkflowContext {
   fps?: number;
   motionBucket?: number;
   aspectRatio?: AspectRatio; // "16:9", "9:16", "1:1"
+  /**
+   * `true` when `prompt` came from a user edit (typed in the UI). `false` for
+   * auto paths (batch generation, smart-retry) where `prompt` was produced by
+   * `resolveMotionPrompt` and may include model-specific dialogue/audio
+   * assembly that does not match the bare `frame.motionPrompt`. Drives whether
+   * the workflow appends a `user-edit` variant row.
+   */
+  userEditedPrompt?: boolean;
 }
 
 /**
@@ -186,6 +218,21 @@ export interface CharacterSheetWorkflowInput extends SequenceWorkflowContext {
   talentDescription?: string;
   /** Sequence style config to apply to the character sheet */
   styleConfig?: StyleConfig;
+  /**
+   * Snapshot of the upstream talent sheet's `input_hash` at trigger time.
+   * `null` when the character has no talent assignment, or when the talent
+   * sheet predates hash tracking. Snapshot pattern only — see
+   * docs/architecture/workflow-snapshots-and-content-hash-staleness.md.
+   */
+  talentSheetInputHash?: string | null;
+  /** Hash over the inlined DTO; validated by the snapshot middleware. */
+  snapshotInputHash?: string;
+  /**
+   * Number of times this workflow has re-queued itself due to snapshot
+   * divergence. Bounded by `MAX_REQUEUE_DEPTH` to prevent a thrashing
+   * upstream from burning credits in a tight loop. Snapshot pattern only.
+   */
+  requeueDepth?: number;
 }
 
 /**
@@ -364,6 +411,7 @@ export interface MotionPromptWorkflowInput extends SequenceWorkflowContext {
   aspectRatio: AspectRatio;
   characterBible: CharacterBibleEntry[];
   locationBible: LocationBibleEntry[];
+  elementBible?: ElementBibleEntry[];
   styleConfig: StyleConfig;
   analysisModelId: AnalysisModelId;
   frameMapping?: FrameMapping;
@@ -376,6 +424,7 @@ export interface MotionPromptSceneWorkflowInput extends SequenceWorkflowContext 
   aspectRatio: AspectRatio;
   characterBible: CharacterBibleEntry[];
   locationBible: LocationBibleEntry[];
+  elementBible?: ElementBibleEntry[];
   styleConfig: StyleConfig;
   analysisModelId: AnalysisModelId;
   frameId?: string;
@@ -440,6 +489,10 @@ export interface LibraryTalentSheetWorkflowInput extends UserWorkflowContext {
   imageModel?: TextToImageModel;
   /** Name for the generated sheet */
   sheetName?: string;
+  /** Hash over the inlined DTO; validated by the snapshot middleware. */
+  snapshotInputHash?: string;
+  /** Snapshot-divergence re-queue depth; bounded by `MAX_REQUEUE_DEPTH`. */
+  requeueDepth?: number;
 }
 
 export interface LibraryTalentSheetWorkflowResult {
@@ -457,6 +510,15 @@ export interface LibraryTalentSheetWorkflowResult {
 export interface MergeVideoWorkflowInput extends SequenceWorkflowContext {
   /** Ordered list of video URLs to merge */
   videoUrls: string[];
+  /**
+   * Ordered list of source frame video identities for input-hashing,
+   * parallel to `videoUrls`. Each entry is `{ kind: 'variantHash', hash }`
+   * when the source frame's video has an `input_hash` (cascades upstream
+   * staleness), or `{ kind: 'url', url }` for legacy frames without one.
+   * Frozen at trigger time; the workflow re-resolves the live hashes for
+   * within-run drift detection.
+   */
+  sourceFrameVideoHashes?: SequenceVideoFrameSource[];
   /** Target FPS for output (1-60, defaults to lowest of inputs) */
   targetFps?: number;
   /** Target resolution (512-2048 per dimension) */
@@ -486,6 +548,16 @@ export interface LocationSheetWorkflowInput extends SequenceWorkflowContext {
   libraryLocationDescription?: string;
   /** Sequence style config to apply to the location sheet */
   styleConfig?: StyleConfig;
+  /**
+   * Snapshot of the parent library location's `reference_input_hash` at
+   * trigger time. `null` when the sheet has no library-location reference,
+   * or when the library row predates hash tracking.
+   */
+  libraryLocationReferenceHash?: string | null;
+  /** Hash over the inlined DTO; validated by the snapshot middleware. */
+  snapshotInputHash?: string;
+  /** Snapshot-divergence re-queue depth; bounded by `MAX_REQUEUE_DEPTH`. */
+  requeueDepth?: number;
 }
 
 export interface LocationSheetWorkflowResult {
@@ -656,15 +728,19 @@ export interface MusicWorkflowResult {
 
 /**
  * Merge audio+video workflow input
- * Muxes a music track onto the merged video to produce the final output
+ * Muxes a music track onto the merged video to produce the final output.
+ *
+ * The final video is a function of `(merged_video_variant, music_variant)`.
+ * The variant ids identify which row in `sequence_video_variants` /
+ * `sequence_music_variants` was used; the workflow resolves the source urls
+ * by id (`getVideoById` / `getMusicById`) so the input cannot drift from the
+ * stored variant.
  */
 export interface MergeAudioVideoWorkflowInput extends SequenceWorkflowContext {
-  /** URL of the merged video (all frames stitched) */
-  mergedVideoUrl: string;
-  /** URL of the sequence-level music track */
-  musicUrl: string;
-  /** Total duration in milliseconds (for compose track timing) */
-  durationMs?: number;
+  /** Source merged-video variant id (from `sequence_video_variants`). */
+  mergedVideoVariantId: string;
+  /** Source music variant id (from `sequence_music_variants`). */
+  musicVariantId: string;
 }
 
 export interface MergeAudioVideoWorkflowResult {
@@ -688,6 +764,8 @@ export interface BatchMotionMusicWorkflowInput extends SequenceWorkflowContext {
     fps?: number;
     motionBucket?: number;
     aspectRatio?: AspectRatio;
+    /** See `MotionWorkflowInput.userEditedPrompt`. */
+    userEditedPrompt?: boolean;
   }>;
   /** When true, generate music in parallel and mux into final video */
   includeMusic: boolean;
@@ -699,6 +777,19 @@ export interface BatchMotionMusicWorkflowInput extends SequenceWorkflowContext {
     model?: keyof typeof AUDIO_MODELS;
   };
 }
+
+/**
+ * Per-scene snapshot for `frameImagesWorkflow`. Carries the upstream sheet
+ * hashes alongside each reference URL so the workflow can validate the
+ * payload at start-time and detect divergence at write-time.
+ */
+export type FrameImageSceneSnapshot = {
+  sceneId: string;
+  visualPrompt: string;
+  characterSheetHashes: string[];
+  locationSheetHashes: string[];
+  elementReferenceHashes: string[];
+};
 
 /**
  * Frame images workflow input
@@ -715,6 +806,15 @@ export interface FrameImagesWorkflowInput extends SequenceWorkflowContext {
   /** Multiple image models for variant generation (first is primary) */
   imageModels?: TextToImageModel[];
   aspectRatio: AspectRatio;
+  /**
+   * Per-scene snapshot of the upstream sheet hashes for the references that
+   * will be inlined into image generation. Resolved at trigger time so the
+   * workflow can detect divergence (sheet regenerated mid-flight) without
+   * reading mutable state inside `context.run`.
+   */
+  sceneSnapshots?: FrameImageSceneSnapshot[];
+  /** Hash over the inlined DTO; validated by the snapshot middleware. */
+  snapshotInputHash?: string;
 }
 
 export interface FrameImagesWorkflowResult {
@@ -731,6 +831,7 @@ export interface MotionMusicPromptsWorkflowInput extends SequenceWorkflowContext
   aspectRatio: AspectRatio;
   characterBible: CharacterBibleEntry[];
   locationBible: LocationBibleEntry[];
+  elementBible?: ElementBibleEntry[];
   styleConfig: StyleConfig;
   analysisModelId: AnalysisModelId;
   videoModel?: ImageToVideoModel;

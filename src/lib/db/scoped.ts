@@ -23,6 +23,7 @@ import { createCharacterSheetVariantsMethods } from '@/lib/db/scoped/character-s
 import { createFramePromptVariantsMethods } from '@/lib/db/scoped/frame-prompt-variants';
 import { createFrameVariantsMethods } from '@/lib/db/scoped/frame-variants';
 import { createLocationSheetVariantsMethods } from '@/lib/db/scoped/location-sheet-variants';
+import { createSequenceVariantsMethods } from '@/lib/db/scoped/sequence-variants';
 import { createTalentSheetVariantsMethods } from '@/lib/db/scoped/talent-sheet-variants';
 import { createFramesMethods } from '@/lib/db/scoped/frames';
 import { createLibraryMethods } from '@/lib/db/scoped/library';
@@ -250,6 +251,7 @@ export function createScopedDb(teamId: string, userId: string) {
     locationSheetVariants: createLocationSheetVariantsMethods(db),
     talentSheetVariants: createTalentSheetVariantsMethods(db),
     sequenceMusicPromptVariants: createSequenceMusicPromptVariantsMethods(db),
+    sequenceVariants: createSequenceVariantsMethods(db),
 
     characters: createCharactersMethods(db),
     sequenceLocations: createSequenceLocationsMethods(db),
@@ -289,6 +291,7 @@ export function createReadOnlyScopedDb(teamId: string) {
     locationSheetVariants: createLocationSheetVariantsMethods(db),
     talentSheetVariants: createTalentSheetVariantsMethods(db),
     sequenceMusicPromptVariants: createSequenceMusicPromptVariantsMethods(db),
+    sequenceVariants: createSequenceVariantsMethods(db),
 
     characters: createCharactersMethods(db),
     sequenceLocations: createSequenceLocationsMethods(db),

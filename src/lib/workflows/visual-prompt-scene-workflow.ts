@@ -76,49 +76,56 @@ export const visualPromptSceneWorkflow = createScopedWorkflow<
     );
 
     if (sequenceId && frameId) {
+      if (!result.visual.fullPrompt) {
+        throw new Error(
+          `Visual prompt generation returned empty fullPrompt for scene ${scene.sceneId}`
+        );
+      }
+
+      const inputHash = await computeVisualPromptInputHash({
+        scene,
+        styleConfig,
+        characterBible,
+        locationBible,
+        elementBible,
+        aspectRatio,
+        analysisModel: analysisModelId,
+      });
+
+      const enrichedScene = {
+        ...scene,
+        prompts: {
+          ...scene.prompts,
+          visual: result.visual,
+        },
+        continuity: result.continuity,
+      };
+
       await context.run('save-visual-prompt-to-db', async () => {
-        // Persist scene metadata first; the prompt-variant helper updates
-        // `imagePrompt` + `visualPromptInputHash` atomically alongside
-        // appending a revision row.
-        await scopedDb.frames.update(frameId, { metadata: scene });
+        const previous = await scopedDb.framePromptVariants.getLatest(
+          frameId,
+          'visual'
+        );
+        const source = previous ? 'regenerated' : 'ai-generated';
 
-        const fullPrompt = scene.prompts?.visual?.fullPrompt;
-        if (fullPrompt) {
-          const inputHash = await computeVisualPromptInputHash({
-            scene,
-            styleConfig,
-            characterBible,
-            locationBible,
-            elementBible,
-            aspectRatio,
-            analysisModel: analysisModelId,
-          });
+        await scopedDb.frames.update(frameId, { metadata: enrichedScene });
 
-          // First-time AI generation vs subsequent regeneration is
-          // distinguished by whether a prior variant exists.
-          const previous = await scopedDb.framePromptVariants.getLatest(
-            frameId,
-            'visual'
-          );
-          const source = previous ? 'regenerated' : 'ai-generated';
-
-          await scopedDb.framePromptVariants.write({
-            frameId,
-            promptType: 'visual',
-            text: fullPrompt,
-            components: scene.prompts?.visual?.components ?? null,
-            source,
-            inputHash,
-            analysisModel: analysisModelId,
-          });
-        }
+        await scopedDb.framePromptVariants.write({
+          frameId,
+          promptType: 'visual',
+          text: result.visual.fullPrompt,
+          components: result.visual.components ?? null,
+          source,
+          inputHash,
+          analysisModel: analysisModelId,
+        });
 
         await getGenerationChannel(sequenceId).emit(
           'generation.frame:updated',
           {
             frameId,
             updateType: 'visual-prompt',
-            metadata: scene,
+            metadata: enrichedScene,
           }
         );
       });

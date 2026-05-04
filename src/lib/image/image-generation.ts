@@ -286,6 +286,18 @@ function buildFalModelOptions(
         sync_mode: false,
       };
 
+    case 'gpt_image_2':
+      return {
+        image_size: params.imageSize ?? DEFAULT_IMAGE_SIZE,
+        quality: 'high',
+        ...(params.numImages !== undefined && { num_images: params.numImages }),
+        ...(params.outputFormat && { output_format: params.outputFormat }),
+        ...(params.referenceImageUrls?.length && {
+          image_urls: params.referenceImageUrls,
+        }),
+        sync_mode: false,
+      };
+
     case 'grok_imagine_image':
       return {
         aspect_ratio: imageSizeToAspectRatio(

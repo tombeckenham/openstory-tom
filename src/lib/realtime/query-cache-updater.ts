@@ -224,6 +224,34 @@ export function updateQueryCacheFromEvent(
       break;
     }
 
+    case 'generation.stale:detected': {
+      // A divergent regeneration parked its result in `frame_variants`. Refetch
+      // image variants so the new alternate row shows up; also refetch the
+      // frame so its reverted thumbnail status (pending) reaches the UI.
+      // Frame staleness query is keyed per-frame; invalidate it so the
+      // indicator reappears if the user just dismissed it.
+      const entityType = getString(data, 'entityType');
+      const entityId = getString(data, 'entityId');
+      if (entityType === 'frame' && entityId) {
+        debouncedInvalidate(
+          queryClient,
+          ['sequence-image-variants', sequenceId],
+          `image-variants:${sequenceId}`
+        );
+        debouncedInvalidate(
+          queryClient,
+          frameKeys.list(sequenceId),
+          `frames:${sequenceId}`
+        );
+        debouncedInvalidate(
+          queryClient,
+          ['frame-staleness', entityId],
+          `frame-staleness:${entityId}`
+        );
+      }
+      break;
+    }
+
     case 'generation.preview:replaced':
       // Preview frames replaced by AI-analyzed frames — refetch frame list
       void queryClient.invalidateQueries({

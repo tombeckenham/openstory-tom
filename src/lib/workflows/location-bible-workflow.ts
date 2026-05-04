@@ -188,6 +188,7 @@ export const locationBibleWorkflow = createScopedWorkflow<
               name: location.name,
               referenceImageUrl: storageResult.publicUrl,
               referenceStatus: 'completed' as const,
+              referenceInputHash: null,
               // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
               description: location.description ?? null,
               // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
@@ -201,6 +202,7 @@ export const locationBibleWorkflow = createScopedWorkflow<
             name: location.name,
             referenceImageUrl: imageUrl,
             referenceStatus: 'completed' as const,
+            referenceInputHash: null,
             // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
             description: location.description ?? null,
             // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard

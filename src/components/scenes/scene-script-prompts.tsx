@@ -42,6 +42,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { CopyIcon, Loader2, Minimize2 } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { FrameStalenessBanners } from './frame-staleness-banners';
 import { SceneCastTab } from './scene-cast-tab';
 import { SceneElementsTab } from './scene-elements-tab';
 import { SceneLocationTab } from './scene-location-tab';
@@ -578,6 +579,19 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
       }}
       className="w-full"
     >
+      <FrameStalenessBanners
+        frameId={frame?.id}
+        sequenceId={sequenceId}
+        onRegenerate={() => {
+          onTabChange('image-prompt');
+          if (falNeedsBillingSetup) {
+            showFalGate();
+            return;
+          }
+          void handleRegenerate();
+        }}
+      />
+
       {/* Mobile: Select dropdown */}
       <div className="md:hidden">
         <Select

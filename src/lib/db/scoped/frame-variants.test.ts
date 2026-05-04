@@ -20,7 +20,7 @@ import {
   it,
 } from 'bun:test';
 import { type Client, createClient } from '@libsql/client';
-import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
+import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import { generateId } from '@/lib/db/id';
 import {
@@ -35,12 +35,8 @@ import { relations } from '@/lib/db/schema/relations';
 import type { Database } from '@/lib/db/client';
 import { createFrameVariantsMethods } from './frame-variants';
 
-type TestDb = LibSQLDatabase<Record<string, never>, typeof relations>;
-
-const asDatabase = (testDb: TestDb): Database => testDb as unknown as Database;
-
 let client: Client;
-let db: TestDb;
+let db: Database;
 
 const team = { id: '', name: 'T', slug: 't' };
 const userRow = { id: '', name: 'U', email: 'u@example.com' };
@@ -206,7 +202,7 @@ describe('frame_variants partial-index uniqueness', () => {
 
 describe('createFrameVariantsMethods', () => {
   it('getByFrameAndModel returns the primary row even when divergent alternates exist', async () => {
-    const methods = createFrameVariantsMethods(asDatabase(db));
+    const methods = createFrameVariantsMethods(db);
 
     await db.insert(frameVariants).values({
       frameId,
@@ -239,7 +235,7 @@ describe('createFrameVariantsMethods', () => {
   });
 
   it('insertDivergent is idempotent on the same (frame, type, model, inputHash)', async () => {
-    const methods = createFrameVariantsMethods(asDatabase(db));
+    const methods = createFrameVariantsMethods(db);
 
     // Primary must exist first — image-workflow's dual-write writes it.
     await db.insert(frameVariants).values({
@@ -263,10 +259,11 @@ describe('createFrameVariantsMethods', () => {
       inputHash: 'divergent-hash',
       divergedAt,
     });
-    expect(first).not.toBeNull();
+    expect(first.id).toBeDefined();
 
     // Second call — simulates a QStash retry of the reconcile step. Must not
-    // throw and must not create a second row.
+    // throw and must not create a second row, and must return the existing
+    // row so callers (e.g. realtime emitters) can reference its id.
     const second = await methods.insertDivergent({
       frameId,
       sequenceId,
@@ -277,7 +274,7 @@ describe('createFrameVariantsMethods', () => {
       inputHash: 'divergent-hash',
       divergedAt,
     });
-    expect(second).toBeNull();
+    expect(second.id).toBe(first.id);
 
     const rows = await db.select().from(frameVariants);
     expect(rows.filter((r) => r.divergedAt !== null)).toHaveLength(1);

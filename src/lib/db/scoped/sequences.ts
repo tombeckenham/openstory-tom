@@ -230,6 +230,7 @@ export function createSequenceReadMethods(db: Database, sequenceId: string) {
         .select({
           musicStatus: sequences.musicStatus,
           musicUrl: sequences.musicUrl,
+          musicModel: sequences.musicModel,
         })
         .from(sequences)
         .where(eq(sequences.id, sequenceId));

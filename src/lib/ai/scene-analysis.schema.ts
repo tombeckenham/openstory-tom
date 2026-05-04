@@ -711,10 +711,19 @@ export type LocationBibleEntry = z.infer<typeof locationBibleEntrySchema>;
 export type ElementBibleEntry = z.infer<typeof elementBibleEntrySchema>;
 export type ProjectMetadata = z.infer<typeof projectMetadataSchema>;
 export type VisualPrompt = z.infer<typeof visualPromptSchema>;
+export type VisualPromptComponents = z.infer<
+  typeof visualPromptComponentsSchema
+>;
 export type VisualPromptWithContinuity = z.infer<
   typeof visualPromptWithContinuitySchema
 >;
 export type MotionPrompt = z.infer<typeof motionPromptSchema>;
+export type MotionPromptComponents = z.infer<
+  typeof motionPromptComponentsSchema
+>;
+export type MotionPromptParameters = z.infer<
+  typeof motionPromptParametersSchema
+>;
 export type MotionAudio = z.infer<typeof motionAudioSchema>;
 export type DialogueLine = z.infer<typeof dialogueLineSchema>;
 export type MusicDesign = z.infer<typeof musicDesignSchema>;

@@ -58,6 +58,7 @@ const TalentPickerCard: React.FC<TalentPickerCardProps> = ({
           <img
             src={imageUrl}
             alt={talent.name}
+            draggable={false}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             style={{ objectPosition: '95% 75%' }}
           />
@@ -99,6 +100,7 @@ const TalentAvatar: React.FC<TalentAvatarProps> = ({ talent, onRemove }) => {
           <img
             src={imageUrl}
             alt={talent.name}
+            draggable={false}
             className="h-full w-full object-cover"
             style={{ objectPosition: '95% 75%' }}
           />
@@ -191,89 +193,109 @@ export const TalentSuggestionSelector: React.FC<
       {/* Multi-select dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              Select Talent for Casting
-              {selectedTalentIds.length > 0 && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  ({selectedTalentIds.length} selected)
-                </span>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsDialogOpen(false);
+            }}
+            className="flex flex-col gap-4"
+          >
+            <DialogHeader>
+              <DialogTitle>Select Talent for Casting</DialogTitle>
+              <DialogDescription>
+                Pick talent here only when you want a specific person cast in a
+                role. Any characters you don't pre-cast are auto-extracted from
+                your script and given AI-generated portraits.
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Search input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search talent…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            {/* Talent grid */}
+            <ScrollArea className="h-[400px]">
+              {isLoading ? (
+                <div className="grid grid-cols-3 gap-4 p-1 sm:grid-cols-4">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="flex flex-col items-center gap-2 p-3"
+                    >
+                      <Skeleton className="aspect-square w-full rounded-lg" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                  ))}
+                </div>
+              ) : !filteredTalent || filteredTalent.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center py-12 text-center">
+                  <User className="h-12 w-12 text-muted-foreground/30" />
+                  <p className="mt-4 text-sm text-muted-foreground">
+                    {searchQuery
+                      ? 'No talent matching your search'
+                      : 'Your talent library is empty'}
+                  </p>
+                  {!searchQuery && (
+                    <AddTalentDialog
+                      trigger={
+                        <Button variant="outline" size="sm" className="mt-3">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Talent
+                        </Button>
+                      }
+                    />
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-4 p-1 sm:grid-cols-4">
+                  {filteredTalent.map((talent) => (
+                    <TalentPickerCard
+                      key={talent.id}
+                      talent={talent}
+                      isSelected={selectedTalentIds.includes(talent.id)}
+                      onClick={() => toggleTalent(talent.id)}
+                    />
+                  ))}
+                </div>
               )}
-            </DialogTitle>
-            <DialogDescription>
-              Optionally select talent to guide casting. The AI will match them
-              to character roles based on physical descriptions.
-            </DialogDescription>
-          </DialogHeader>
+            </ScrollArea>
 
-          {/* Search input */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search talent…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-
-          {/* Talent grid */}
-          <ScrollArea className="h-[400px]">
-            {isLoading ? (
-              <div className="grid grid-cols-3 gap-4 p-1 sm:grid-cols-4">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="flex flex-col items-center gap-2 p-3">
-                    <Skeleton className="aspect-square w-full rounded-lg" />
-                    <Skeleton className="h-4 w-3/4" />
-                  </div>
-                ))}
-              </div>
-            ) : !filteredTalent || filteredTalent.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center py-12 text-center">
-                <User className="h-12 w-12 text-muted-foreground/30" />
-                <p className="mt-4 text-sm text-muted-foreground">
-                  {searchQuery
-                    ? 'No talent matching your search'
-                    : 'Your talent library is empty'}
-                </p>
-                {!searchQuery && (
-                  <AddTalentDialog
-                    trigger={
-                      <Button variant="outline" size="sm" className="mt-3">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Talent
-                      </Button>
-                    }
-                  />
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-4 p-1 sm:grid-cols-4">
-                {filteredTalent.map((talent) => (
-                  <TalentPickerCard
-                    key={talent.id}
-                    talent={talent}
-                    isSelected={selectedTalentIds.includes(talent.id)}
-                    onClick={() => toggleTalent(talent.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-
-          {/* Footer */}
-          <div className="flex justify-between">
-            <AddTalentDialog
-              trigger={
-                <Button variant="outline" size="sm">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Talent
+            {/* Footer */}
+            <div className="flex justify-between">
+              <AddTalentDialog
+                trigger={
+                  <Button variant="outline" size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Talent
+                  </Button>
+                }
+              />
+              <div className="flex flex-col items-center gap-1">
+                <Button type="submit">
+                  {selectedTalentIds.length > 0
+                    ? `Cast ${selectedTalentIds.length} role${selectedTalentIds.length === 1 ? '' : 's'}`
+                    : 'Continue'}
                 </Button>
-              }
-            />
-            <Button onClick={() => setIsDialogOpen(false)}>Done</Button>
-          </div>
+                <span
+                  className={cn(
+                    'text-[10px] text-muted-foreground',
+                    selectedTalentIds.length > 0 && 'invisible'
+                  )}
+                >
+                  without casting
+                </span>
+              </div>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </>

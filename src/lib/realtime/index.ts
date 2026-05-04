@@ -203,12 +203,11 @@ export const realtimeSchema = {
       posterUrl: z.string(),
     }),
 
-    // Stage 2 / Stage 1 — divergence-on-completion notification.
-    // Emitted when a workflow finishes generating an artifact whose inputs
-    // diverged from the live entity between trigger and write time. The
-    // result is saved to a variants table (frame_variants for frame
-    // artifacts; *_sheet_variants for sheets) instead of overwriting the
-    // primary, and the UI shows an "alternate available" affordance.
+    // Divergence detected: a workflow finished but its inputs no longer match
+    // the snapshot it was triggered from. The divergent result has been parked
+    // (see workflow-snapshots-and-content-hash-staleness.md § "Divergence-on-completion")
+    // so the live primary artifact is preserved. The UI uses this to surface
+    // an "alternate available" affordance without polling.
     'stale:detected': z.object({
       entityType: z.enum([
         'frame',
@@ -222,6 +221,9 @@ export const realtimeSchema = {
         .enum(['thumbnail', 'variant-image', 'video', 'audio', 'sheet'])
         .optional(),
       snapshotInputHash: z.string(),
+      // Populated for frame artifacts that landed in `frame_variants` as a
+      // divergent alternate; absent when the divergent result was discarded
+      // (e.g. sheets, sequence-level music) and merely re-queued.
       divergedVariantId: z.string().optional(),
     }),
 

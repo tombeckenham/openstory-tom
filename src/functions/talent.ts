@@ -22,6 +22,7 @@ import {
 import { triggerWorkflow } from '@/lib/workflow/client';
 import { buildWorkflowLabel } from '@/lib/workflow/labels';
 import type { LibraryTalentSheetWorkflowInput } from '@/lib/workflow/types';
+import { computeLibraryTalentSheetHashFromDto } from '@/lib/workflows/sheet-snapshots';
 import { createServerFn } from '@tanstack/react-start';
 import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
@@ -136,9 +137,11 @@ export const createTalentFn = createServerFn({ method: 'POST' })
       talentId: newTalent.id,
       talentName: newTalent.name,
       talentDescription: newTalent.description ?? undefined,
-      referenceImageUrls: permanentUrls,
+      referenceImageUrls: [...permanentUrls].sort(),
       sheetName: 'Default Sheet',
     };
+    workflowInput.snapshotInputHash =
+      await computeLibraryTalentSheetHashFromDto(workflowInput);
 
     void triggerWorkflow('/library-talent-sheet', workflowInput, {
       label: buildWorkflowLabel(newTalent.id),
@@ -407,9 +410,11 @@ export const generateTalentSheetFn = createServerFn({ method: 'POST' })
       talentId: talentRecord.id,
       talentName: talentRecord.name,
       talentDescription: talentRecord.description ?? undefined,
-      referenceImageUrls: imageMedia.map((m) => m.url),
+      referenceImageUrls: imageMedia.map((m) => m.url).sort(),
       sheetName: data.sheetName,
     };
+    workflowInput.snapshotInputHash =
+      await computeLibraryTalentSheetHashFromDto(workflowInput);
 
     const runId = await triggerWorkflow(
       '/library-talent-sheet',
@@ -456,7 +461,7 @@ export const addCharacterToLibraryFn = createServerFn({ method: 'POST' })
         metadata: {
           characterId: character.characterId,
           name: character.name,
-          age: character.age ?? undefined, // eslint-disable-line @typescript-eslint/no-unnecessary-condition -- runtime guard
+          age: character.age ?? '',
           gender: character.gender ?? '',
           ethnicity: character.ethnicity ?? '',
           physicalDescription: character.physicalDescription ?? '',

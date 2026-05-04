@@ -28,7 +28,10 @@ export const talentMatchingWorkflow = createScopedWorkflow<
     // Use pre-extracted bible from scene splitting, or fall back to LLM extraction
     const characterBible = input.characterBible;
 
-    // Talent matching (conditional)
+    // Talent matching is conditional and does NOT block on talent sheets:
+    // it only runs against pre-selected talent IDs. Characters without a
+    // pre-cast talent are auto-extracted later in the pipeline and given
+    // AI-generated portraits — script generation never waits for sheets.
     const { talentList, matchingPromptVariables } = await context.run(
       'get-talent-list',
       async () => {

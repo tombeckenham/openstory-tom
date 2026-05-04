@@ -56,6 +56,7 @@ const LocationPickerCard: React.FC<LocationPickerCardProps> = ({
           <img
             src={imageUrl}
             alt={location.name}
+            draggable={false}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
@@ -99,6 +100,7 @@ const LocationThumbnail: React.FC<LocationThumbnailProps> = ({
           <img
             src={imageUrl}
             alt={location.name}
+            draggable={false}
             className="h-full w-full object-cover"
           />
         ) : (
@@ -194,89 +196,109 @@ export const LocationSuggestionSelector: React.FC<
       {/* Multi-select dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              Select Locations
-              {selectedLocationIds.length > 0 && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  ({selectedLocationIds.length} selected)
-                </span>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsDialogOpen(false);
+            }}
+            className="flex flex-col gap-4"
+          >
+            <DialogHeader>
+              <DialogTitle>Select Locations</DialogTitle>
+              <DialogDescription>
+                Pick locations here only when you want a specific reference. Any
+                locations you don't pre-pick are auto-extracted from your script
+                and given AI-generated reference shots.
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Search input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search locations…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            {/* Locations grid */}
+            <ScrollArea className="h-[400px]">
+              {isLoading ? (
+                <div className="grid grid-cols-2 gap-4 p-1 sm:grid-cols-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="flex flex-col items-center gap-2 p-3"
+                    >
+                      <Skeleton className="aspect-video w-full rounded-lg" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                  ))}
+                </div>
+              ) : !filteredLocations || filteredLocations.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center py-12 text-center">
+                  <MapPin className="h-12 w-12 text-muted-foreground/30" />
+                  <p className="mt-4 text-sm text-muted-foreground">
+                    {searchQuery
+                      ? 'No locations matching your search'
+                      : 'Your location library is empty'}
+                  </p>
+                  {!searchQuery && (
+                    <AddLocationDialog
+                      trigger={
+                        <Button variant="outline" size="sm" className="mt-3">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Location
+                        </Button>
+                      }
+                    />
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 p-1 sm:grid-cols-3">
+                  {filteredLocations.map((location) => (
+                    <LocationPickerCard
+                      key={location.id}
+                      location={location}
+                      isSelected={selectedLocationIds.includes(location.id)}
+                      onClick={() => toggleLocation(location.id)}
+                    />
+                  ))}
+                </div>
               )}
-            </DialogTitle>
-            <DialogDescription>
-              Optionally select locations as visual references. The AI will
-              match them to locations in your script.
-            </DialogDescription>
-          </DialogHeader>
+            </ScrollArea>
 
-          {/* Search input */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search locations…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-
-          {/* Locations grid */}
-          <ScrollArea className="h-[400px]">
-            {isLoading ? (
-              <div className="grid grid-cols-2 gap-4 p-1 sm:grid-cols-3">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="flex flex-col items-center gap-2 p-3">
-                    <Skeleton className="aspect-video w-full rounded-lg" />
-                    <Skeleton className="h-4 w-3/4" />
-                  </div>
-                ))}
-              </div>
-            ) : !filteredLocations || filteredLocations.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center py-12 text-center">
-                <MapPin className="h-12 w-12 text-muted-foreground/30" />
-                <p className="mt-4 text-sm text-muted-foreground">
-                  {searchQuery
-                    ? 'No locations matching your search'
-                    : 'Your location library is empty'}
-                </p>
-                {!searchQuery && (
-                  <AddLocationDialog
-                    trigger={
-                      <Button variant="outline" size="sm" className="mt-3">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Location
-                      </Button>
-                    }
-                  />
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-4 p-1 sm:grid-cols-3">
-                {filteredLocations.map((location) => (
-                  <LocationPickerCard
-                    key={location.id}
-                    location={location}
-                    isSelected={selectedLocationIds.includes(location.id)}
-                    onClick={() => toggleLocation(location.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-
-          {/* Footer */}
-          <div className="flex justify-between">
-            <AddLocationDialog
-              trigger={
-                <Button variant="outline" size="sm">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Location
+            {/* Footer */}
+            <div className="flex justify-between">
+              <AddLocationDialog
+                trigger={
+                  <Button variant="outline" size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Location
+                  </Button>
+                }
+              />
+              <div className="flex flex-col items-center gap-1">
+                <Button type="submit">
+                  {selectedLocationIds.length > 0
+                    ? `Use ${selectedLocationIds.length} location${selectedLocationIds.length === 1 ? '' : 's'}`
+                    : 'Continue'}
                 </Button>
-              }
-            />
-            <Button onClick={() => setIsDialogOpen(false)}>Done</Button>
-          </div>
+                <span
+                  className={cn(
+                    'text-[10px] text-muted-foreground',
+                    selectedLocationIds.length > 0 && 'invisible'
+                  )}
+                >
+                  without picking locations
+                </span>
+              </div>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </>

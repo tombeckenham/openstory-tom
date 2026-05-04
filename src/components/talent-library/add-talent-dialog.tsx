@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -32,14 +31,27 @@ export const AddTalentDialog: React.FC<AddTalentDialogProps> = ({
   const isHydrated = useHydrated();
   const createTalent = useCreateTalent();
 
-  const handleClose = () => {
+  const closeAndReset = () => {
     setFiles([]);
     setUploadedUrls([]);
     setOpen(false);
   };
 
+  const handleClose = () => {
+    if (
+      files.length > 0 &&
+      !window.confirm(
+        'Discard uploaded reference media? Your uploads will be lost.'
+      )
+    ) {
+      return;
+    }
+    closeAndReset();
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     const formData = new FormData(e.currentTarget);
     const nameValue = formData.get('name');
     const descriptionValue = formData.get('description');
@@ -58,7 +70,7 @@ export const AddTalentDialog: React.FC<AddTalentDialogProps> = ({
         referenceImageUrls: uploadedUrls,
       },
       {
-        onSuccess: () => handleClose(),
+        onSuccess: () => closeAndReset(),
       }
     );
   };
@@ -79,7 +91,21 @@ export const AddTalentDialog: React.FC<AddTalentDialogProps> = ({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        onPointerDownOutside={(e) => {
+          if (files.length > 0) {
+            e.preventDefault();
+            handleClose();
+          }
+        }}
+        onEscapeKeyDown={(e) => {
+          if (files.length > 0) {
+            e.preventDefault();
+            handleClose();
+          }
+        }}
+      >
         <form
           onSubmit={(e) => void handleSubmit(e)}
           className="flex flex-col gap-4"
@@ -125,9 +151,9 @@ export const AddTalentDialog: React.FC<AddTalentDialogProps> = ({
           </div>
 
           <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
+            <Button type="button" variant="outline" onClick={handleClose}>
+              Cancel
+            </Button>
             <Button type="submit" disabled={isPending || isUploading}>
               {isPending
                 ? 'Creating…'

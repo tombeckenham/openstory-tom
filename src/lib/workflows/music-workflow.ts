@@ -1,3 +1,4 @@
+import { computeSequenceMusicInputHash } from '@/lib/ai/input-hash';
 import { DEFAULT_MUSIC_MODEL } from '@/lib/ai/models';
 import { uploadAudioToStorage } from '@/lib/audio/audio-storage';
 import { generateMusic } from '@/lib/audio/music-generation';
@@ -112,23 +113,73 @@ export const generateMusicWorkflow = createScopedWorkflow<MusicWorkflowInput>(
       if (storageResult.url) {
         audioUrl = storageResult.url;
       }
-      await context.run('update-sequence-music', async () => {
-        await scopedDb.sequence(sequenceId).updateMusicFields({
-          musicUrl: audioUrl,
-          musicPath: storageResult.path,
-          musicStatus: 'completed',
-          musicGeneratedAt: new Date(),
-          musicError: null,
-        });
-
-        await getGenerationChannel(sequenceId).emit(
-          'generation.audio:progress',
-          {
-            status: 'completed',
-            audioUrl: audioUrl,
-          }
-        );
+      const inputHash = await computeSequenceMusicInputHash({
+        prompt,
+        tags,
+        durationSeconds: actualDuration,
+        audioModel: model,
       });
+
+      const writeResult = await context.run('write-music-variant', async () => {
+        return scopedDb.sequenceVariants.writeMusicVariant({
+          sequenceId,
+          url: audioUrl,
+          storagePath: storageResult.path,
+          prompt,
+          tags,
+          durationSeconds: actualDuration,
+          model,
+          status: 'completed',
+          generatedAt: new Date(),
+          error: null,
+          inputHash,
+        });
+      });
+
+      if (writeResult.divergent) {
+        // Divergent run: prior primary on `sequences.music*` stays
+        // authoritative. Reset musicStatus from 'generating' (set above) back
+        // to 'completed' and emit a terminal event so the UI doesn't hang on
+        // a spinner. The alternate is preserved in `sequence_music_variants`
+        // for future surfacing.
+        await context.run('update-sequence-music-divergent', async () => {
+          const seq = scopedDb.sequence(sequenceId);
+          const status = await seq.getMusicStatus();
+          await seq.updateMusicFields({
+            musicStatus: 'completed',
+            musicError: null,
+          });
+
+          await getGenerationChannel(sequenceId).emit(
+            'generation.audio:progress',
+            {
+              status: 'completed',
+              ...(status?.musicUrl ? { audioUrl: status.musicUrl } : {}),
+            }
+          );
+        });
+        console.log(
+          `[MusicWorkflow] Diverged music result for sequence ${sequenceId}; preserved as alternate (variant=${writeResult.variant.id})`
+        );
+      } else {
+        await context.run('update-sequence-music', async () => {
+          await scopedDb.sequence(sequenceId).updateMusicFields({
+            musicUrl: audioUrl,
+            musicPath: storageResult.path,
+            musicStatus: 'completed',
+            musicGeneratedAt: new Date(),
+            musicError: null,
+          });
+
+          await getGenerationChannel(sequenceId).emit(
+            'generation.audio:progress',
+            {
+              status: 'completed',
+              audioUrl: audioUrl,
+            }
+          );
+        });
+      }
 
       // TODO: Tom Mar 2026 - Add a step to generate a music track for each scene
     }
@@ -153,8 +204,11 @@ export const generateMusicWorkflow = createScopedWorkflow<MusicWorkflowInput>(
             'generation.audio:progress',
             { status: 'failed' }
           );
-        } catch {
-          // Ignore emit errors
+        } catch (emitError) {
+          console.error(
+            `[MusicWorkflow] Failed to emit failure event for sequence ${input.sequenceId}:`,
+            emitError
+          );
         }
       }
       console.error(

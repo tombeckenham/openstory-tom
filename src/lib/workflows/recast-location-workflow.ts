@@ -18,6 +18,11 @@ import {
   computeRegenerateFramesBatchHash,
 } from './regenerate-frames-snapshot';
 import { regenerateFramesWorkflow } from './regenerate-frames-workflow';
+import {
+  computeLocationSheetHashFromDto,
+  resolveLibraryLocationReferenceHash,
+} from './sheet-snapshots';
+import type { LocationSheetWorkflowInput } from '@/lib/workflow/types';
 
 export const recastLocationWorkflow =
   createScopedWorkflow<RecastLocationWorkflowInput>(
@@ -30,13 +35,19 @@ export const recastLocationWorkflow =
         `Starting recast for ${input.locationName} with ${input.affectedFrameIds.length} affected frames`
       );
 
-      // Step 1: Generate new location reference image with library reference
-      const { body: sheetResult, isFailed: sheetFailed } = await context.invoke(
-        'location-sheet',
-        {
-          workflow: locationSheetWorkflow,
-          label,
-          body: {
+      // Step 1: Generate new location reference image with library reference.
+      // Inline the upstream library-location's reference_input_hash so the
+      // child workflow can detect divergence if the library location is
+      // regenerated mid-flight.
+      const sheetBody = await context.run(
+        'build-location-sheet-snapshot',
+        async (): Promise<LocationSheetWorkflowInput> => {
+          const libraryLocationReferenceHash =
+            await resolveLibraryLocationReferenceHash(
+              scopedDb,
+              input.locationDbId
+            );
+          const partial: LocationSheetWorkflowInput = {
             locationDbId: input.locationDbId,
             locationName: input.locationName,
             locationMetadata: input.locationMetadata,
@@ -47,7 +58,20 @@ export const recastLocationWorkflow =
             referenceImageUrl: input.referenceImageUrl,
             libraryLocationDescription: input.libraryLocationDescription,
             styleConfig: input.styleConfig,
-          },
+            libraryLocationReferenceHash,
+          };
+          partial.snapshotInputHash =
+            await computeLocationSheetHashFromDto(partial);
+          return partial;
+        }
+      );
+
+      const { body: sheetResult, isFailed: sheetFailed } = await context.invoke(
+        'location-sheet',
+        {
+          workflow: locationSheetWorkflow,
+          label,
+          body: sheetBody,
         }
       );
 

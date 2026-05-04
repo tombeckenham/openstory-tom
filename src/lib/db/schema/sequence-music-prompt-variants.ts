@@ -6,11 +6,17 @@
  * for read-path simplicity; this table stores the full revision history.
  *
  * See docs/architecture/workflow-snapshots-and-content-hash-staleness.md
- * § "Stage 4: prompt versioning".
+ * § prompt versioning.
  */
 
-import { type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { type InferInsertModel, type InferSelectModel, sql } from 'drizzle-orm';
+import {
+  index,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 import { generateId } from '../id';
 import { user } from './auth';
 import {
@@ -46,10 +52,6 @@ export const sequenceMusicPromptVariants = sqliteTable(
     // Comma-separated music tags string (mirrors `sequences.musicTags`).
     tags: text('tags'),
 
-    // Structured components / parameters (e.g. style/mood/atmosphere/duration).
-    components: text('components', { mode: 'json' }).$type<unknown>(),
-    parameters: text('parameters', { mode: 'json' }).$type<unknown>(),
-
     source: text('source').$type<PromptVariantSource>().notNull(),
 
     // SHA-256 of the upstream context (musicDesign + analysis model) for AI
@@ -70,6 +72,12 @@ export const sequenceMusicPromptVariants = sqliteTable(
       table.sequenceId,
       table.createdAt
     ),
+    // Idempotency: a workflow retry that re-emits the same AI prompt for the
+    // same upstream context must not create a duplicate row. User-edits and
+    // legacy rows have null `input_hash` and are excluded from the constraint.
+    uniqueIndex('uq_sequence_music_prompt_variants_sequence_input_hash')
+      .on(table.sequenceId, table.inputHash)
+      .where(sql`${table.inputHash} IS NOT NULL`),
   ]
 );
 

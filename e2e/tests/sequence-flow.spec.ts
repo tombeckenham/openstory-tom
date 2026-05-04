@@ -122,8 +122,10 @@ Here's your caffeine fix. How's it going?
       // Select first talent by clicking on it
       await page.getByText(testTalents[0].name).click();
 
-      // Close dialog
-      await page.getByRole('button', { name: 'Done' }).click();
+      // Submit dialog (button text reflects selection count)
+      await talentDialog
+        .getByRole('button', { name: /^Cast \d+ roles?$/i })
+        .click();
       await expect(talentDialog).not.toBeVisible();
 
       // Verify submit button is ready (may have different text based on state)

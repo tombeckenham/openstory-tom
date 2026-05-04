@@ -26,6 +26,9 @@ import { framePromptVariants } from './frame-prompt-variants';
 
 import { sequenceMusicPromptVariants } from './sequence-music-prompt-variants';
 
+import { sequenceVideoVariants } from './sequence-video-variants';
+import { sequenceMusicVariants } from './sequence-music-variants';
+
 import { characters } from './characters';
 
 // Location Library (team-level templates)
@@ -126,6 +129,7 @@ export { framePromptVariants };
 export type {
   FramePromptType,
   FramePromptVariant,
+  FramePromptVariantComponents,
   NewFramePromptVariant,
   PromptVariantSource,
 } from './frame-prompt-variants';
@@ -137,6 +141,21 @@ export type {
   NewSequenceMusicPromptVariant,
   SequenceMusicPromptVariant,
 } from './sequence-music-prompt-variants';
+
+// Sequence-level variants (merged video + music)
+export { sequenceVideoVariants, sequenceMusicVariants };
+
+export type {
+  NewSequenceVideoVariant,
+  SequenceVideoVariantStatus,
+  SequenceVideoVariant,
+} from './sequence-video-variants';
+
+export type {
+  NewSequenceMusicVariant,
+  SequenceMusicVariant,
+  SequenceMusicVariantStatus,
+} from './sequence-music-variants';
 
 // Characters (scripted roles)
 export { characters };
@@ -279,6 +298,8 @@ export const schema = {
   talentSheetVariants,
   framePromptVariants,
   sequenceMusicPromptVariants,
+  sequenceVideoVariants,
+  sequenceMusicVariants,
 
   // Characters (scripted roles extracted from script)
   characters,

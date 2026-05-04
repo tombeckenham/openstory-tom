@@ -20,7 +20,7 @@ import {
 } from 'bun:test';
 import { type Client, createClient } from '@libsql/client';
 import { eq } from 'drizzle-orm';
-import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
+import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import { generateId } from '@/lib/db/id';
 import {
@@ -41,15 +41,8 @@ import type { Database } from '@/lib/db/client';
 import { createFramesMethods, type FrameArtifact } from './frames';
 import { createFrameVariantsMethods } from './frame-variants';
 
-type TestDb = LibSQLDatabase<Record<string, never>, typeof relations>;
-
-// `createFramesMethods` etc. are typed against the production `Database`,
-// which extends `LibSQLDatabase` with `$client`. The test drizzle instance
-// has the same shape — cast at the call site to satisfy the strict bound.
-const asDatabase = (testDb: TestDb): Database => testDb as unknown as Database;
-
 let client: Client;
-let db: TestDb;
+let db: Database;
 
 const team = { id: '', name: 'T', slug: 't' };
 const userRow = { id: '', name: 'U', email: 'u@example.com' };
@@ -278,7 +271,7 @@ describe('frames.isStale', () => {
   ];
 
   it('throws when the frame does not exist', () => {
-    const m = createFramesMethods(asDatabase(db));
+    const m = createFramesMethods(db);
     expect(m.isStale(generateId(), 'thumbnail', 'h')).rejects.toThrow(
       /not found/
     );
@@ -291,7 +284,7 @@ describe('frames.isStale', () => {
         .insert(frames)
         .values({ sequenceId, orderIndex: 0 })
         .returning();
-      const m = createFramesMethods(asDatabase(db));
+      const m = createFramesMethods(db);
       expect(await m.isStale(frame.id, artifact, 'anything')).toBe(false);
     }
   );
@@ -303,7 +296,7 @@ describe('frames.isStale', () => {
         .insert(frames)
         .values({ sequenceId, orderIndex: 0, [column]: 'h-match' })
         .returning();
-      const m = createFramesMethods(asDatabase(db));
+      const m = createFramesMethods(db);
       expect(await m.isStale(frame.id, artifact, 'h-match')).toBe(false);
     }
   );
@@ -315,7 +308,7 @@ describe('frames.isStale', () => {
         .insert(frames)
         .values({ sequenceId, orderIndex: 0, [column]: 'h-old' })
         .returning();
-      const m = createFramesMethods(asDatabase(db));
+      const m = createFramesMethods(db);
       expect(await m.isStale(frame.id, artifact, 'h-new')).toBe(true);
     }
   );
@@ -332,7 +325,7 @@ describe('frames.isStale', () => {
         audioInputHash: 'a-hash',
       })
       .returning();
-    const m = createFramesMethods(asDatabase(db));
+    const m = createFramesMethods(db);
     // Each artifact key compares against ONLY its own column.
     expect(await m.isStale(frame.id, 'thumbnail', 't-hash')).toBe(false);
     expect(await m.isStale(frame.id, 'thumbnail', 'v-hash')).toBe(true);
@@ -361,25 +354,25 @@ describe('frameVariants.isStale', () => {
   }
 
   it('throws when the variant does not exist', () => {
-    const m = createFrameVariantsMethods(asDatabase(db));
+    const m = createFrameVariantsMethods(db);
     expect(m.isStale(generateId(), 'h')).rejects.toThrow(/not found/);
   });
 
   it('returns false when stored hash is null', async () => {
     const variant = await insertVariant(null);
-    const m = createFrameVariantsMethods(asDatabase(db));
+    const m = createFrameVariantsMethods(db);
     expect(await m.isStale(variant.id, 'anything')).toBe(false);
   });
 
   it('returns false when stored hash matches', async () => {
     const variant = await insertVariant('h-match');
-    const m = createFrameVariantsMethods(asDatabase(db));
+    const m = createFrameVariantsMethods(db);
     expect(await m.isStale(variant.id, 'h-match')).toBe(false);
   });
 
   it('returns true when stored hash differs', async () => {
     const variant = await insertVariant('h-old');
-    const m = createFrameVariantsMethods(asDatabase(db));
+    const m = createFrameVariantsMethods(db);
     expect(await m.isStale(variant.id, 'h-new')).toBe(true);
   });
 });

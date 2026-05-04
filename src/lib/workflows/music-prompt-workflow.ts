@@ -39,19 +39,26 @@ export const generateMusicPromptWorflow = createScopedWorkflow<
       llmCallContext
     );
 
-    // Now save the music prompt to the database via the variants helper —
-    // appends a revision row tagged 'ai-generated' / 'regenerated' and
-    // updates the cached `musicPrompt` / `musicTags` columns atomically.
     if (sequenceId) {
+      if (!musicDesignResult.prompt) {
+        throw new Error(
+          `Music prompt generation returned empty prompt for sequence ${sequenceId}`
+        );
+      }
+
+      // The variants helper appends a row tagged 'ai-generated' /
+      // 'regenerated' and updates the cached `musicPrompt` / `musicTags` /
+      // `musicPromptInputHash` on `sequences`. The two writes are
+      // sequential, not transactional — see the helper docstring.
+      const inputHash = await computeMusicPromptInputHash({
+        sceneSummaries,
+        analysisModel: analysisModelId,
+      });
+
       await context.run('save-music-prompt-to-db', async () => {
         const reinforcedTags = reinforceInstrumentalTags(
           musicDesignResult.tags
         );
-
-        const inputHash = await computeMusicPromptInputHash({
-          musicDesign: musicDesignResult,
-          analysisModel: analysisModelId,
-        });
 
         const previous =
           await scopedDb.sequenceMusicPromptVariants.getLatest(sequenceId);
@@ -88,8 +95,11 @@ export const generateMusicPromptWorflow = createScopedWorkflow<
             'generation.audio:progress',
             { status: 'failed' }
           );
-        } catch {
-          // Ignore emit errors
+        } catch (emitError) {
+          console.error(
+            `[MusicWorkflow] Failed to emit generation.audio:progress for sequence ${input.sequenceId}:`,
+            emitError
+          );
         }
       }
       console.error(

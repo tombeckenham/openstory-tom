@@ -28,6 +28,7 @@ import { analyzeFailures } from '@/lib/failures/failure-analysis';
 import { resolveMotionPrompt } from '@/lib/motion/resolve-motion-prompt';
 import { buildCharacterReferenceImages } from '@/lib/prompts/character-prompt';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
+import { buildMergeVideoSourcesFromFrames } from '@/lib/workflows/sequence-snapshots';
 import { triggerWorkflow } from '@/lib/workflow/client';
 import { buildWorkflowLabel } from '@/lib/workflow/labels';
 import type {
@@ -326,10 +327,11 @@ export const smartRetryFn = createServerFn({ method: 'POST' })
       ).length;
 
       if (incompleteCount === 0) {
-        const videoUrls = allFrames
-          .sort((a, b) => a.orderIndex - b.orderIndex)
-          .map((f) => f.videoUrl)
-          .filter((url): url is string => Boolean(url));
+        const sorted = [...allFrames].sort(
+          (a, b) => a.orderIndex - b.orderIndex
+        );
+        const { videoUrls, sourceFrameVideoHashes } =
+          buildMergeVideoSourcesFromFrames(sorted);
 
         await context.scopedDb.sequence(sequence.id).updateMergedVideoFields({
           mergedVideoStatus: 'merging',
@@ -341,6 +343,7 @@ export const smartRetryFn = createServerFn({ method: 'POST' })
           teamId,
           sequenceId: sequence.id,
           videoUrls,
+          sourceFrameVideoHashes,
         };
 
         await triggerWorkflow('/merge-video', mergeInput, {

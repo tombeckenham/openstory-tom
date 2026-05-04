@@ -19,9 +19,14 @@ import type {
 
 import { getFalFlowControl } from './constants';
 import { mergeAudioVideoWorkflow } from './merge-audio-video-workflow';
-import { mergeVideoWorkflow } from './merge-video-workflow';
+import {
+  MERGE_VIDEO_WORKFLOW_NAME,
+  mergeVideoWorkflow,
+} from './merge-video-workflow';
 import { generateMotionWorkflow } from './motion-workflow';
 import { generateMusicWorkflow } from './music-workflow';
+import { resolveMotionBatchMergeMusicVariants } from './merge-variant-resolution';
+import { buildMergeVideoSourcesFromFrames } from './sequence-snapshots';
 
 export const motionBatchWorkflow =
   createScopedWorkflow<BatchMotionMusicWorkflowInput>(
@@ -59,6 +64,7 @@ export const motionBatchWorkflow =
             fps: frame.fps,
             motionBucket: frame.motionBucket,
             aspectRatio: frame.aspectRatio,
+            userEditedPrompt: frame.userEditedPrompt,
           } satisfies MotionWorkflowInput,
           retries: 3,
           retryDelay: 'pow(2, retried) * 1000',
@@ -91,14 +97,18 @@ export const motionBatchWorkflow =
         ...(musicInvocation ? [musicInvocation] : []),
       ]);
 
-      // Step 2: Collect video URLs from DB (authoritative order)
-      const videoUrls = await context.run('collect-video-urls', async () => {
-        const frames = await scopedDb.frames.listBySequence(sequenceId);
-        return frames
-          .sort((a, b) => a.orderIndex - b.orderIndex)
-          .map((f) => f.videoUrl)
-          .filter((url): url is string => Boolean(url));
-      });
+      // Step 2: Collect video URLs and inline each frame's videoInputHash for
+      // the merge-video snapshot pattern. Frames without a videoUrl are skipped.
+      const { videoUrls, sourceFrameVideoHashes } = await context.run(
+        'collect-video-urls',
+        async () => {
+          const frames = await scopedDb.frames.listBySequence(sequenceId);
+          const sorted = [...frames].sort(
+            (a, b) => a.orderIndex - b.orderIndex
+          );
+          return buildMergeVideoSourcesFromFrames(sorted);
+        }
+      );
 
       if (videoUrls.length === 0) {
         throw new WorkflowValidationError(
@@ -107,7 +117,7 @@ export const motionBatchWorkflow =
       }
 
       // Step 3: Merge all frame videos into one
-      await context.invoke('merge-video', {
+      await context.invoke(MERGE_VIDEO_WORKFLOW_NAME, {
         workflow: mergeVideoWorkflow,
         label,
         body: {
@@ -115,35 +125,21 @@ export const motionBatchWorkflow =
           teamId: input.teamId,
           sequenceId,
           videoUrls,
+          sourceFrameVideoHashes,
         } satisfies MergeVideoWorkflowInput,
       });
 
-      // Step 4: If music was generated, mux audio onto merged video
+      // Step 4: If music was generated, mux audio onto merged video.
+      // Resolve both source variants — final mux is a function of (video, music).
       if (includeMusic) {
-        // Get URLs from DB (authoritative, set by child workflows)
-        const mergeAndMusicUrls = await context.run(
-          'get-merge-music-urls',
-          async () => {
-            const seq = scopedDb.sequence(sequenceId);
-            const [videoStatus, musicStatus] = await Promise.all([
-              seq.getMergedVideoStatus(),
-              seq.getMusicStatus(),
-            ]);
-
-            // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
-            if (!videoStatus?.mergedVideoUrl) {
-              throw new Error('Merge completed but no merged video URL found');
-            }
-            // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
-            if (!musicStatus?.musicUrl) {
-              throw new Error('Music generation completed but no URL found');
-            }
-
-            return {
-              mergedVideoUrl: videoStatus.mergedVideoUrl,
-              musicUrl: musicStatus.musicUrl,
-            };
-          }
+        const mergeAndMusicSources = await context.run(
+          'get-merge-music-variants',
+          async () =>
+            resolveMotionBatchMergeMusicVariants(
+              scopedDb,
+              sequenceId,
+              MERGE_VIDEO_WORKFLOW_NAME
+            )
         );
 
         await context.invoke('merge-audio-video', {
@@ -153,8 +149,8 @@ export const motionBatchWorkflow =
             userId: input.userId,
             teamId: input.teamId,
             sequenceId,
-            mergedVideoUrl: mergeAndMusicUrls.mergedVideoUrl,
-            musicUrl: mergeAndMusicUrls.musicUrl,
+            mergedVideoVariantId: mergeAndMusicSources.mergedVideoVariantId,
+            musicVariantId: mergeAndMusicSources.musicVariantId,
           } satisfies MergeAudioVideoWorkflowInput,
         });
       }

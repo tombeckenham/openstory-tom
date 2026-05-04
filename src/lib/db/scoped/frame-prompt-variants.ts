@@ -1,43 +1,59 @@
 /**
  * Scoped Frame Prompt Variants Sub-module
  *
- * Atomically appends a new revision row to `frame_prompt_variants` and
- * updates the cached pointer column on `frames` (`imagePrompt` for visual
- * prompts, `motionPrompt` for motion prompts) plus the matching
- * `*_prompt_input_hash` column.
+ * Appends a new revision row to `frame_prompt_variants` and updates the
+ * cached pointer column on `frames` (`imagePrompt` for visual prompts,
+ * `motionPrompt` for motion prompts) plus the matching
+ * `*_prompt_input_hash` column. The two writes are sequential, not
+ * transactional — see `write` for the durability story.
  *
  * Callers go through these helpers instead of writing the cached column
  * directly so prompt history is never lost. Read-path (read the cached
  * column) is unchanged.
  *
  * See docs/architecture/workflow-snapshots-and-content-hash-staleness.md
- * § "Stage 4: prompt versioning".
+ * § prompt versioning.
  */
 
+import type { MotionPromptParameters } from '@/lib/ai/scene-analysis.schema';
 import type { Database } from '@/lib/db/client';
 import { framePromptVariants, frames } from '@/lib/db/schema';
 import type {
   FramePromptType,
   FramePromptVariant,
-  PromptVariantSource,
+  FramePromptVariantComponents,
 } from '@/lib/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 
-export type WriteFramePromptVariantInput = {
+type WriteFramePromptVariantBase = {
   frameId: string;
   promptType: FramePromptType;
   text: string;
-  components?: unknown;
-  parameters?: unknown;
-  source: PromptVariantSource;
-  /**
-   * SHA-256 of the upstream context that produced an AI prompt. Required for
-   * `'ai-generated'` and `'regenerated'`; omitted for `'user-edit'`.
-   */
-  inputHash?: string | null;
-  analysisModel?: string | null;
+  components?: FramePromptVariantComponents | null;
+  parameters?: MotionPromptParameters | null;
   createdBy?: string | null;
 };
+
+/**
+ * AI-generated and regenerated rows must carry the upstream-context hash and
+ * the analysis model that produced the prompt — without these, the cached
+ * `*_prompt_input_hash` column on `frames` is meaningless and staleness
+ * detection silently breaks. User-edits have no upstream input surface and
+ * forbid both fields so they cannot be set by mistake.
+ */
+export type WriteFramePromptVariantInput = WriteFramePromptVariantBase &
+  (
+    | {
+        source: 'ai-generated' | 'regenerated';
+        inputHash: string;
+        analysisModel: string;
+      }
+    | {
+        source: 'user-edit';
+        inputHash?: never;
+        analysisModel?: never;
+      }
+  );
 
 const cachedColumnsForType = (promptType: FramePromptType) =>
   promptType === 'visual'
@@ -57,28 +73,29 @@ const cachedColumnsForType = (promptType: FramePromptType) =>
 export function createFramePromptVariantsMethods(db: Database) {
   return {
     /**
-     * Insert a new prompt variant row and update the cached pointer on
-     * `frames` in a single transaction. Returns the inserted row.
+     * Append a new prompt variant row and update the cached pointer on
+     * `frames`. Returns the inserted (or pre-existing matching) row.
      *
-     * No-ops (still inserts but is a logical no-op) are the caller's
-     * responsibility to skip — duplicate-detection lives at the call site
-     * because "what counts as a meaningful change" varies (user-edit
-     * whitespace shouldn't create a row; AI regeneration with identical
-     * output should).
+     * Durability: the insert + update pair is sequential, not transactional.
+     * The variant row is the source of truth; the cached column on `frames`
+     * is a read-path optimization. To make QStash retries safe, AI-generated
+     * rows are deduped by the unique partial index on
+     * `(frame_id, prompt_type, input_hash) WHERE input_hash IS NOT NULL`:
+     * an insert that conflicts with an existing row no-ops, the existing row
+     * is fetched, and the cached pointer is updated as normal.
      */
     write: async (
       input: WriteFramePromptVariantInput
     ): Promise<FramePromptVariant> => {
       const cached = cachedColumnsForType(input.promptType);
 
-      // The append + update pair is logically atomic. We perform them
-      // sequentially today; a single transaction can be added once the
-      // scoped-DB layer exposes one (see the architecture doc's "Outstanding
-      // hardening" note about scopedDb transactions). The inserted row is
-      // the source of truth; the cached column is purely a read-path
-      // optimization that can be reconciled from the variant chain if a
-      // process crashes between the two writes.
-      const [variant] = await db
+      const nextHash = input.source === 'user-edit' ? null : input.inputHash;
+      const analysisModel =
+        input.source === 'user-edit' ? null : input.analysisModel;
+
+      // Append first so a crash can't leave a stale pointer with no row
+      // behind it. The reverse order would be unrecoverable.
+      const [inserted] = await db
         .insert(framePromptVariants)
         .values({
           frameId: input.frameId,
@@ -87,21 +104,32 @@ export function createFramePromptVariantsMethods(db: Database) {
           components: input.components,
           parameters: input.parameters,
           source: input.source,
-          inputHash: input.inputHash ?? null,
-          analysisModel: input.analysisModel ?? null,
+          inputHash: nextHash,
+          analysisModel,
           createdBy: input.createdBy ?? null,
         })
+        .onConflictDoNothing()
         .returning();
+
+      let variant: FramePromptVariant | undefined = inserted;
+      if (!variant && nextHash !== null) {
+        const [existing] = await db
+          .select()
+          .from(framePromptVariants)
+          .where(
+            and(
+              eq(framePromptVariants.frameId, input.frameId),
+              eq(framePromptVariants.promptType, input.promptType),
+              eq(framePromptVariants.inputHash, nextHash)
+            )
+          )
+          .limit(1);
+        variant = existing;
+      }
 
       if (!variant) {
         throw new Error('Failed to insert frame prompt variant');
       }
-
-      // User-edits clear the input hash on the cached pointer (the cached
-      // value is no longer derived from upstream context). AI-generated /
-      // regenerated rows set it.
-      const nextHash =
-        input.source === 'user-edit' ? null : (input.inputHash ?? null);
 
       await db
         .update(frames)

@@ -29,6 +29,7 @@ import type {
 } from '@/lib/workflow/types';
 import { endSpanSuccess, startGenAISpan } from '@/lib/observability/tracer';
 import { WorkflowNonRetryableError } from '@upstash/workflow';
+import { shouldRecordUserEdit } from './user-edit-predicate';
 
 /** Each batch polls in a tight loop for ~30s, then checkpoints for durability */
 const POLL_BATCH_DURATION_MS = 30_000;
@@ -128,7 +129,13 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
           return { frameDeleted: true };
         }
 
-        if (input.prompt && input.prompt !== frame.motionPrompt) {
+        if (
+          shouldRecordUserEdit({
+            userEditedPrompt: input.userEditedPrompt,
+            prompt: input.prompt,
+            currentPrompt: frame.motionPrompt,
+          })
+        ) {
           await scopedDb.framePromptVariants.write({
             frameId: input.frameId,
             promptType: 'motion',
@@ -435,8 +442,11 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
             'generation.video:progress',
             { frameId: input.frameId, status: 'failed' }
           );
-        } catch {
-          // Ignore emit errors in failure handler
+        } catch (emitError) {
+          console.error(
+            `[MotionWorkflow] Failed to emit generation.video:progress for frame ${input.frameId}:`,
+            emitError
+          );
         }
       }
 

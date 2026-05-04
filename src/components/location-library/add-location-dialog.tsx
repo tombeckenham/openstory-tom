@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -32,14 +31,27 @@ export const AddLocationDialog: React.FC<AddLocationDialogProps> = ({
   const isHydrated = useHydrated();
   const createLocation = useCreateLibraryLocation();
 
-  const handleClose = () => {
+  const closeAndReset = () => {
     setFiles([]);
     setUploadedUrls([]);
     setOpen(false);
   };
 
+  const handleClose = () => {
+    if (
+      files.length > 0 &&
+      !window.confirm(
+        'Discard uploaded reference images? Your uploads will be lost.'
+      )
+    ) {
+      return;
+    }
+    closeAndReset();
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     const formData = new FormData(e.currentTarget);
     const nameValue = formData.get('name');
     const descriptionValue = formData.get('description');
@@ -57,7 +69,7 @@ export const AddLocationDialog: React.FC<AddLocationDialogProps> = ({
         referenceImageUrls: uploadedUrls.length > 0 ? uploadedUrls : undefined,
       },
       {
-        onSuccess: () => handleClose(),
+        onSuccess: () => closeAndReset(),
       }
     );
   };
@@ -78,7 +90,21 @@ export const AddLocationDialog: React.FC<AddLocationDialogProps> = ({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent
+        className="max-w-lg"
+        onPointerDownOutside={(e) => {
+          if (files.length > 0) {
+            e.preventDefault();
+            handleClose();
+          }
+        }}
+        onEscapeKeyDown={(e) => {
+          if (files.length > 0) {
+            e.preventDefault();
+            handleClose();
+          }
+        }}
+      >
         <form
           onSubmit={(e) => void handleSubmit(e)}
           className="flex flex-col gap-4"
@@ -126,9 +152,9 @@ export const AddLocationDialog: React.FC<AddLocationDialogProps> = ({
           </div>
 
           <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
+            <Button type="button" variant="outline" onClick={handleClose}>
+              Cancel
+            </Button>
             <Button type="submit" disabled={isPending || isUploading}>
               {isPending
                 ? 'Creating…'

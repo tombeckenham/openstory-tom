@@ -23,7 +23,8 @@
  * Throws on values that JSON.stringify would silently elide or coerce
  * (`undefined`, functions, symbols, `NaN`, `±Infinity`) — those would produce
  * hash collisions across semantically distinct inputs. Callers must normalize
- * optional fields to `null` before passing in.
+ * `undefined` optionals to `null` (or use `trim()` for free-text fields, which
+ * coerces nullish to `''`) before passing in.
  */
 function canonicalize(
   value: unknown,
@@ -280,46 +281,65 @@ export function computeTalentSheetInputHash(
 }
 
 // ---------------------------------------------------------------------------
-// Prompt input hashes (Stage 4: prompt versioning)
+// Prompt input hashes
 //
-// Prompts are themselves AI-generated artifacts. Their input surface is the
-// upstream context that the analysis model used to compose the prompt:
-// scene metadata, style config, character/location/element bibles, and the
-// analysis model itself. When any of those changes, the cached prompt is
-// flagged stale independently of whether the rendered image / video / audio
-// is stale.
-//
-// Bibles are hashed as ordered structures (the ordering comes from the scene
-// — character A's role differs from character B's). Free-text fields are
-// trimmed; missing optionals normalize to null.
+// Prompts are themselves AI-generated artifacts. The hash captures only the
+// upstream context the LLM was given — scene metadata, style config,
+// character / location / element bibles, aspect ratio, and the analysis
+// model. The LLM's output (`scene.prompts`, `scene.continuity`) is
+// deliberately excluded; including it would make every regeneration produce a
+// different hash for identical inputs, since LLM output is non-deterministic.
 // ---------------------------------------------------------------------------
 
+import type {
+  CharacterBibleEntry,
+  ElementBibleEntry,
+  LocationBibleEntry,
+  Scene,
+} from './scene-analysis.schema';
+import type { MusicSceneSummary } from '@/lib/workflow/types';
+import type { StyleConfig } from '@/lib/db/schema';
+
 export type PromptSceneContextHashInput = {
-  /** The Scene metadata object (or relevant subset) — must be JSON-serializable. */
-  scene: unknown;
-  /** Style config object — JSON-serializable. */
-  styleConfig: unknown;
-  /** Character bible entries — JSON-serializable; ordering preserved. */
-  characterBible: unknown;
-  /** Location bible entries — JSON-serializable; ordering preserved. */
-  locationBible: unknown;
-  /** Element bible entries — JSON-serializable; ordering preserved. */
-  elementBible?: unknown;
+  /**
+   * Scene the prompt is being generated for. `prompts` and `continuity` are
+   * stripped before hashing — they are downstream LLM output, not input.
+   */
+  scene: Scene;
+  /** Sequence style config (look/feel knobs that influence prompt phrasing). */
+  styleConfig: StyleConfig;
+  /** Character bible entries; order is preserved (scene-defined ordering). */
+  characterBible: readonly CharacterBibleEntry[];
+  /** Location bible entries; order is preserved. */
+  locationBible: readonly LocationBibleEntry[];
+  /** Element bible entries; order is preserved. */
+  elementBible?: readonly ElementBibleEntry[];
   /** Aspect ratio influences composition guidance in the prompt. */
   aspectRatio: string;
   /** Analysis model id (e.g. `anthropic/claude-haiku-4.5`). */
   analysisModel: string;
 };
 
+/**
+ * Strip the LLM-output fields off a scene so the hash represents only the
+ * pre-prompt input surface.
+ */
+function sceneInputContext(
+  scene: Scene
+): Omit<Scene, 'prompts' | 'continuity'> {
+  const { prompts: _prompts, continuity: _continuity, ...context } = scene;
+  return context;
+}
+
 export function computeVisualPromptInputHash(
   input: PromptSceneContextHashInput
 ): Promise<string> {
   return sha256Hex({
     artifact: 'frame:visual-prompt',
-    scene: input.scene ?? null,
-    styleConfig: input.styleConfig ?? null,
-    characterBible: input.characterBible ?? null,
-    locationBible: input.locationBible ?? null,
+    scene: sceneInputContext(input.scene),
+    styleConfig: input.styleConfig,
+    characterBible: input.characterBible,
+    locationBible: input.locationBible,
     elementBible: input.elementBible ?? null,
     aspectRatio: trim(input.aspectRatio),
     analysisModel: trim(input.analysisModel),
@@ -331,10 +351,10 @@ export function computeMotionPromptInputHash(
 ): Promise<string> {
   return sha256Hex({
     artifact: 'frame:motion-prompt',
-    scene: input.scene ?? null,
-    styleConfig: input.styleConfig ?? null,
-    characterBible: input.characterBible ?? null,
-    locationBible: input.locationBible ?? null,
+    scene: sceneInputContext(input.scene),
+    styleConfig: input.styleConfig,
+    characterBible: input.characterBible,
+    locationBible: input.locationBible,
     elementBible: input.elementBible ?? null,
     aspectRatio: trim(input.aspectRatio),
     analysisModel: trim(input.analysisModel),
@@ -342,8 +362,8 @@ export function computeMotionPromptInputHash(
 }
 
 export type MusicPromptInputHashInput = {
-  /** Sequence-level music design (mood/atmosphere/style) object. */
-  musicDesign: unknown;
+  /** Compact scene summaries fed to the music LLM — the actual upstream input. */
+  sceneSummaries: readonly MusicSceneSummary[];
   analysisModel: string;
 };
 
@@ -352,7 +372,66 @@ export function computeMusicPromptInputHash(
 ): Promise<string> {
   return sha256Hex({
     artifact: 'sequence:music-prompt',
-    musicDesign: input.musicDesign ?? null,
+    sceneSummaries: input.sceneSummaries,
     analysisModel: trim(input.analysisModel),
+  });
+}
+
+/**
+ * One source frame video in the stitch order. A `variantHash` references the
+ * prior frame-video artifact chain (so a stale upstream frame cascades); a
+ * `url` is used when the source is an external asset with no hashable
+ * upstream.
+ */
+export type SequenceVideoFrameSource =
+  | { kind: 'variantHash'; hash: string }
+  | { kind: 'url'; url: string };
+
+export type SequenceVideoHashInput = {
+  /**
+   * Ordered list of source frame videos in stitch order. Each entry is
+   * either a `variantHash` (cascading from the upstream frame-video
+   * artifact) or a `url` (external asset with no hashable upstream).
+   */
+  sourceFrameVideos: readonly SequenceVideoFrameSource[];
+  targetFps?: number | null;
+  resolution?: { width: number; height: number } | null;
+};
+
+export function computeSequenceVideoInputHash(
+  input: SequenceVideoHashInput
+): Promise<string> {
+  return sha256Hex({
+    artifact: 'sequence:video',
+    // Order is meaningful — this is the ordered stitch list, not a set.
+    sourceFrameVideos: input.sourceFrameVideos.map((src) =>
+      src.kind === 'variantHash'
+        ? { kind: 'variantHash' as const, hash: trim(src.hash) }
+        : { kind: 'url' as const, url: trim(src.url) }
+    ),
+    targetFps: input.targetFps ?? null,
+    resolution: input.resolution
+      ? { width: input.resolution.width, height: input.resolution.height }
+      : null,
+  });
+}
+
+export type SequenceMusicHashInput = {
+  prompt: string;
+  /** Tag string (comma-joined, as stored on `sequences.musicTags`). */
+  tags: string;
+  durationSeconds: number;
+  audioModel: string;
+};
+
+export function computeSequenceMusicInputHash(
+  input: SequenceMusicHashInput
+): Promise<string> {
+  return sha256Hex({
+    artifact: 'sequence:music',
+    prompt: trim(input.prompt),
+    tags: trim(input.tags),
+    durationSeconds: input.durationSeconds,
+    audioModel: input.audioModel,
   });
 }

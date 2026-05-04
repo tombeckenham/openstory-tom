@@ -35,6 +35,7 @@ function makeCharacter(
     id: 'id_' + overrides.characterId,
     sheetImageUrl: null,
     sheetStatus: 'completed',
+    sheetInputHash: null,
     physicalDescription: null,
     consistencyTag: null,
     ...overrides,

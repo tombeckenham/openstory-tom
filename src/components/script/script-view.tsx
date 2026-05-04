@@ -594,7 +594,7 @@ export const ScriptView: FC<{
             disabled={loading}
             styleCategory={styleCategory}
           />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-h-10">
             <TalentSuggestionSelector
               selectedTalentIds={selectedTalentIds}
               onSelectionChange={(v) =>

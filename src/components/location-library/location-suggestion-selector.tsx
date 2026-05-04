@@ -289,19 +289,21 @@ export const LocationSuggestionSelector: React.FC<
                   </Button>
                 }
               />
-              {selectedLocationIds.length > 0 ? (
+              <div className="flex flex-col items-center gap-1">
                 <Button type="submit">
-                  Use {selectedLocationIds.length} location
-                  {selectedLocationIds.length === 1 ? '' : 's'}
+                  {selectedLocationIds.length > 0
+                    ? `Use ${selectedLocationIds.length} location${selectedLocationIds.length === 1 ? '' : 's'}`
+                    : 'Continue'}
                 </Button>
-              ) : (
-                <div className="flex flex-col items-center gap-1">
-                  <Button type="submit">Continue</Button>
-                  <span className="text-[10px] text-muted-foreground">
-                    without picking locations
-                  </span>
-                </div>
-              )}
+                <span
+                  className={cn(
+                    'text-[10px] text-muted-foreground',
+                    selectedLocationIds.length > 0 && 'invisible'
+                  )}
+                >
+                  without picking locations
+                </span>
+              </div>
             </div>
           </form>
         </DialogContent>

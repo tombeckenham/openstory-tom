@@ -1,3 +1,4 @@
+import { DEFAULT_IMAGE_MODEL, safeTextToImageModel } from '@/lib/ai/models';
 import type { NewFrame } from '@/lib/db/schema';
 import { getVideoDownloadUrl } from '@/lib/motion/video-storage';
 import {
@@ -7,6 +8,7 @@ import {
 } from '@/lib/schemas/frame.schemas';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
 import { reconcileStaleFrameStatuses } from '@/lib/workflow/reconcile';
+import { buildRegenerateFrameSnapshot } from '@/lib/workflows/regenerate-frames-snapshot';
 import { createServerFn } from '@tanstack/react-start';
 import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
@@ -129,6 +131,50 @@ export const reorderFramesFn = createServerFn({ method: 'POST' })
     }));
     await context.scopedDb.frames.reorder(data.sequenceId, frameOrders);
     return { success: true };
+  });
+
+/**
+ * Returns staleness flags for a frame's artifacts. Stage 1 covers `thumbnail`
+ * only — that's the artifact whose input hash actually flows through the
+ * snapshot pipeline today. Other artifacts return `null` (= "unknown") so the
+ * UI can render them defensively without us pretending they're up to date.
+ *
+ * Computed by re-deriving the current input hash from live scoped state and
+ * comparing it to the stored `thumbnail_input_hash` via the scoped helper.
+ * A null stored hash means "legacy artifact, no opinion" — the helper returns
+ * false, which is the correct UX (don't push regenerate on something we never
+ * tracked inputs for).
+ */
+export const getFrameStalenessFn = createServerFn({ method: 'GET' })
+  .middleware([frameAccessMiddleware])
+  .inputValidator(zodValidator(frameIdInputSchema))
+  .handler(async ({ context }) => {
+    const { frame, sequence, scopedDb } = context;
+
+    if (!frame.imagePrompt) {
+      return { thumbnail: false };
+    }
+
+    const [characters, locations] = await Promise.all([
+      scopedDb.characters.listWithSheets(sequence.id),
+      scopedDb.sequenceLocations.listWithReferences(sequence.id),
+    ]);
+
+    const snapshot = await buildRegenerateFrameSnapshot({
+      frame,
+      characters,
+      locations,
+      imageModel: safeTextToImageModel(frame.imageModel, DEFAULT_IMAGE_MODEL),
+      aspectRatio: sequence.aspectRatio,
+    });
+
+    const thumbnail = await scopedDb.frames.isStale(
+      frame.id,
+      'thumbnail',
+      snapshot.snapshotInputHash
+    );
+
+    return { thumbnail };
   });
 
 /**

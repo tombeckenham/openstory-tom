@@ -153,8 +153,9 @@ export function createFrameVariantsMethods(db: Database) {
      * Insert a divergent alternate row. Idempotent on (frame, type, model,
      * inputHash) within the divergent partial unique index so QStash retries
      * of the same reconcile step don't collide on a row already inserted on a
-     * previous attempt. Returns null when the row already exists (caller has
-     * no use for the row beyond knowing the insert succeeded once).
+     * previous attempt. Returns the existing row on retry so callers can
+     * reference its id (e.g. when re-emitting the realtime `stale:detected`
+     * event after a step retry).
      *
      * Pre-checks existence rather than `onConflictDoNothing` because drizzle's
      * SQLite `onConflictDoNothing` does not emit the partial-index `WHERE`
@@ -164,7 +165,7 @@ export function createFrameVariantsMethods(db: Database) {
      */
     insertDivergent: async (
       data: NewFrameVariant & { inputHash: string; divergedAt: Date }
-    ): Promise<FrameVariant | null> => {
+    ): Promise<FrameVariant> => {
       const existing = await db
         .select()
         .from(frameVariants)
@@ -178,7 +179,7 @@ export function createFrameVariantsMethods(db: Database) {
           )
         );
       if (existing.length > 0) {
-        return null;
+        return existing[0];
       }
       const [variant] = await db.insert(frameVariants).values(data).returning();
       return variant;

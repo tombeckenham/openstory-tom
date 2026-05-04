@@ -1,0 +1,1 @@
+ALTER TABLE `sequence_locations` ADD `reference_input_hash` text;

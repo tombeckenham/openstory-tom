@@ -280,27 +280,34 @@ export const regenerateFramesWorkflow = createScopedWorkflow<
               };
             }
 
-            await scopedDb.frameVariants.insertDivergent({
+            const divergentVariant =
+              await scopedDb.frameVariants.insertDivergent({
+                frameId: result.frameId,
+                sequenceId,
+                variantType: 'image',
+                model: imageModel,
+                url: result.imageUrl,
+                storagePath: primaryVariant?.storagePath ?? null,
+                previewUrl: primaryVariant?.previewUrl ?? null,
+                shotVariantUrl: primaryVariant?.shotVariantUrl ?? null,
+                shotVariantPath: primaryVariant?.shotVariantPath ?? null,
+                ...writes.divergentRow,
+              });
+
+            const channel = getGenerationChannel(sequenceId);
+            await channel.emit('generation.image:progress', {
               frameId: result.frameId,
-              sequenceId,
-              variantType: 'image',
+              status: 'pending',
               model: imageModel,
-              url: result.imageUrl,
-              storagePath: primaryVariant?.storagePath ?? null,
-              previewUrl: primaryVariant?.previewUrl ?? null,
-              shotVariantUrl: primaryVariant?.shotVariantUrl ?? null,
-              shotVariantPath: primaryVariant?.shotVariantPath ?? null,
-              ...writes.divergentRow,
             });
 
-            await getGenerationChannel(sequenceId).emit(
-              'generation.image:progress',
-              {
-                frameId: result.frameId,
-                status: 'pending',
-                model: imageModel,
-              }
-            );
+            await channel.emit('generation.stale:detected', {
+              entityType: 'frame',
+              entityId: result.frameId,
+              artifact: 'thumbnail',
+              snapshotInputHash: snapshot.snapshotInputHash,
+              divergedVariantId: divergentVariant.id,
+            });
 
             console.log(
               '[RegenerateFramesWorkflow]',

@@ -222,7 +222,8 @@ export function createSequenceLocationsMethods(db: Database) {
     updateReference: async (
       id: string,
       imageUrl: string,
-      imagePath: string
+      imagePath: string,
+      inputHash: string | null = null
     ): Promise<SequenceLocation> => {
       return await update(id, {
         referenceImageUrl: imageUrl,
@@ -230,6 +231,7 @@ export function createSequenceLocationsMethods(db: Database) {
         referenceStatus: 'completed',
         referenceGeneratedAt: new Date(),
         referenceError: null,
+        referenceInputHash: inputHash,
       });
     },
 

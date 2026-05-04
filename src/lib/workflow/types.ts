@@ -186,6 +186,21 @@ export interface CharacterSheetWorkflowInput extends SequenceWorkflowContext {
   talentDescription?: string;
   /** Sequence style config to apply to the character sheet */
   styleConfig?: StyleConfig;
+  /**
+   * Snapshot of the upstream talent sheet's `input_hash` at trigger time.
+   * `null` when the character has no talent assignment, or when the talent
+   * sheet predates hash tracking. Snapshot pattern only — see
+   * docs/architecture/workflow-snapshots-and-content-hash-staleness.md.
+   */
+  talentSheetInputHash?: string | null;
+  /** Hash over the inlined DTO; validated by the snapshot middleware. */
+  snapshotInputHash?: string;
+  /**
+   * Number of times this workflow has re-queued itself due to snapshot
+   * divergence. Bounded by `MAX_REQUEUE_DEPTH` to prevent a thrashing
+   * upstream from burning credits in a tight loop. Snapshot pattern only.
+   */
+  requeueDepth?: number;
 }
 
 /**
@@ -440,6 +455,10 @@ export interface LibraryTalentSheetWorkflowInput extends UserWorkflowContext {
   imageModel?: TextToImageModel;
   /** Name for the generated sheet */
   sheetName?: string;
+  /** Hash over the inlined DTO; validated by the snapshot middleware. */
+  snapshotInputHash?: string;
+  /** Snapshot-divergence re-queue depth; bounded by `MAX_REQUEUE_DEPTH`. */
+  requeueDepth?: number;
 }
 
 export interface LibraryTalentSheetWorkflowResult {
@@ -486,6 +505,16 @@ export interface LocationSheetWorkflowInput extends SequenceWorkflowContext {
   libraryLocationDescription?: string;
   /** Sequence style config to apply to the location sheet */
   styleConfig?: StyleConfig;
+  /**
+   * Snapshot of the parent library location's `reference_input_hash` at
+   * trigger time. `null` when the sheet has no library-location reference,
+   * or when the library row predates hash tracking.
+   */
+  libraryLocationReferenceHash?: string | null;
+  /** Hash over the inlined DTO; validated by the snapshot middleware. */
+  snapshotInputHash?: string;
+  /** Snapshot-divergence re-queue depth; bounded by `MAX_REQUEUE_DEPTH`. */
+  requeueDepth?: number;
 }
 
 export interface LocationSheetWorkflowResult {
@@ -701,6 +730,19 @@ export interface BatchMotionMusicWorkflowInput extends SequenceWorkflowContext {
 }
 
 /**
+ * Per-scene snapshot for `frameImagesWorkflow`. Carries the upstream sheet
+ * hashes alongside each reference URL so the workflow can validate the
+ * payload at start-time and detect divergence at write-time.
+ */
+export type FrameImageSceneSnapshot = {
+  sceneId: string;
+  visualPrompt: string;
+  characterSheetHashes: string[];
+  locationSheetHashes: string[];
+  elementReferenceHashes: string[];
+};
+
+/**
  * Frame images workflow input
  * Orchestrates frame image generation + automatic variant generation
  */
@@ -715,6 +757,15 @@ export interface FrameImagesWorkflowInput extends SequenceWorkflowContext {
   /** Multiple image models for variant generation (first is primary) */
   imageModels?: TextToImageModel[];
   aspectRatio: AspectRatio;
+  /**
+   * Per-scene snapshot of the upstream sheet hashes for the references that
+   * will be inlined into image generation. Resolved at trigger time so the
+   * workflow can detect divergence (sheet regenerated mid-flight) without
+   * reading mutable state inside `context.run`.
+   */
+  sceneSnapshots?: FrameImageSceneSnapshot[];
+  /** Hash over the inlined DTO; validated by the snapshot middleware. */
+  snapshotInputHash?: string;
 }
 
 export interface FrameImagesWorkflowResult {

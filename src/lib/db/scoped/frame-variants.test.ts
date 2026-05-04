@@ -263,10 +263,11 @@ describe('createFrameVariantsMethods', () => {
       inputHash: 'divergent-hash',
       divergedAt,
     });
-    expect(first).not.toBeNull();
+    expect(first.id).toBeDefined();
 
     // Second call — simulates a QStash retry of the reconcile step. Must not
-    // throw and must not create a second row.
+    // throw and must not create a second row, and must return the existing
+    // row so callers (e.g. realtime emitters) can reference its id.
     const second = await methods.insertDivergent({
       frameId,
       sequenceId,
@@ -277,7 +278,7 @@ describe('createFrameVariantsMethods', () => {
       inputHash: 'divergent-hash',
       divergedAt,
     });
-    expect(second).toBeNull();
+    expect(second.id).toBe(first.id);
 
     const rows = await db.select().from(frameVariants);
     expect(rows.filter((r) => r.divergedAt !== null)).toHaveLength(1);

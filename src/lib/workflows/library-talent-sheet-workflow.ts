@@ -22,13 +22,24 @@ import {
 } from '@/lib/prompts/character-prompt';
 import { getTalentChannel } from '@/lib/realtime';
 import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
-import { WorkflowValidationError } from '@/lib/workflow/errors';
+import { triggerWorkflow } from '@/lib/workflow/client';
+import {
+  SnapshotDivergedError,
+  SnapshotRequeueDepthExceededError,
+  isSnapshotDivergedFailure,
+  WorkflowValidationError,
+} from '@/lib/workflow/errors';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
 import type {
   LibraryTalentSheetWorkflowInput,
   LibraryTalentSheetWorkflowResult,
 } from '@/lib/workflow/types';
+import {
+  computeLibraryTalentSheetHashCurrent,
+  computeLibraryTalentSheetHashFromDto,
+  MAX_REQUEUE_DEPTH,
+} from './sheet-snapshots';
 
 export const libraryTalentSheetWorkflow = createScopedWorkflow<
   LibraryTalentSheetWorkflowInput,
@@ -36,6 +47,12 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
 >(
   async (context, scopedDb) => {
     const input = context.requestPayload;
+
+    await context.run('validate-snapshot', async () => {
+      if (context.snapshot) {
+        await context.snapshot.validate();
+      }
+    });
 
     // Step 1: Validate input
     await context.run('validate-input', async () => {
@@ -144,23 +161,118 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
       };
     });
 
-    // Step 4: Create talent sheet record
-    const sheet = await context.run('create-sheet-record', async () => {
-      console.log(
-        '[LibraryTalentSheetWorkflow]',
-        `Creating sheet record in database`
+    // Step 4: Divergence-aware sheet record creation. If reference media
+    // changed mid-flight, discard and re-queue with the current set.
+    const snapshot = context.snapshot;
+    const sheetReconcile = await context.run(
+      'reconcile-create-sheet',
+      async (): Promise<
+        | {
+            kind: 'convergent';
+            sheet: Awaited<ReturnType<typeof scopedDb.talent.sheets.create>>;
+          }
+        | { kind: 'divergent' }
+      > => {
+        if (snapshot) {
+          const currentHash = await snapshot.computeCurrent();
+          if (currentHash !== snapshot.snapshotInputHash) {
+            console.warn('[LibraryTalentSheetWorkflow] divergence detected', {
+              talentId: input.talentId,
+              snapshotInputHash: snapshot.snapshotInputHash,
+              currentHash,
+              orphanedStoragePath: storageResult.path,
+            });
+            return { kind: 'divergent' };
+          }
+        }
+        console.log(
+          '[LibraryTalentSheetWorkflow]',
+          `Creating sheet record in database`
+        );
+        const created = await scopedDb.talent.sheets.create({
+          id: storageResult.sheetId,
+          talentId: input.talentId,
+          name: input.sheetName ?? 'Generated Sheet',
+          imageUrl: storageResult.url,
+          imagePath: storageResult.path,
+          isDefault: false,
+          source: 'ai_generated',
+          inputHash: snapshot?.snapshotInputHash ?? null,
+        });
+        return { kind: 'convergent', sheet: created };
+      }
+    );
+
+    if (sheetReconcile.kind === 'divergent' && snapshot) {
+      const requeueDepth = (input.requeueDepth ?? 0) + 1;
+      const requeueOutcome = await context.run(
+        'requeue-on-divergence',
+        async (): Promise<'requeued' | 'depth-exceeded'> => {
+          console.log(
+            '[LibraryTalentSheetWorkflow]',
+            `Diverged for ${input.talentName}; re-queuing with current reference media (depth=${requeueDepth})`
+          );
+
+          if (requeueDepth > MAX_REQUEUE_DEPTH) {
+            console.warn(
+              '[LibraryTalentSheetWorkflow] re-queue depth exceeded',
+              {
+                talentId: input.talentId,
+                talentName: input.talentName,
+                requeueDepth,
+                max: MAX_REQUEUE_DEPTH,
+              }
+            );
+            return 'depth-exceeded';
+          }
+
+          const talent = await scopedDb.talent.getWithRelations(input.talentId);
+          // Hard-fail when the talent row vanished: re-queuing with the stale
+          // payload would guarantee another divergence and another billable
+          // generation. Let the next run's validate-input step error out cleanly.
+          if (!talent) {
+            throw new WorkflowValidationError(
+              `Talent ${input.talentId} not found during divergence re-queue`
+            );
+          }
+          const refreshedUrls = talent.media
+            .filter((m) => m.type === 'image')
+            .map((m) => m.url)
+            .sort();
+          const requeuePayload: LibraryTalentSheetWorkflowInput = {
+            ...input,
+            referenceImageUrls: refreshedUrls,
+            requeueDepth,
+          };
+          requeuePayload.snapshotInputHash =
+            await computeLibraryTalentSheetHashFromDto(requeuePayload);
+          await triggerWorkflow('/library-talent-sheet', requeuePayload, {
+            deduplicationId: `library-talent-sheet-requeue-${input.talentId}-${requeuePayload.snapshotInputHash.slice(0, 16)}-d${requeueDepth}`,
+          });
+          return 'requeued';
+        }
       );
 
-      return await scopedDb.talent.sheets.create({
-        id: storageResult.sheetId,
-        talentId: input.talentId,
-        name: input.sheetName ?? 'Generated Sheet',
-        imageUrl: storageResult.url,
-        imagePath: storageResult.path,
-        isDefault: false,
-        source: 'ai_generated',
-      });
-    });
+      if (requeueOutcome === 'depth-exceeded') {
+        throw new SnapshotRequeueDepthExceededError(
+          `library-talent-sheet hit MAX_REQUEUE_DEPTH for ${input.talentName}; marking failed`
+        );
+      }
+      throw new SnapshotDivergedError(
+        `library-talent-sheet diverged for ${input.talentName}; re-queued with current reference media`
+      );
+    }
+
+    if (sheetReconcile.kind === 'divergent') {
+      // Snapshot was disabled but reconcile still flagged divergence — should
+      // be unreachable; surface as a workflow validation error so it doesn't
+      // silently swallow.
+      throw new WorkflowValidationError(
+        'reconcile flagged divergent without an active snapshot context'
+      );
+    }
+
+    const sheet = sheetReconcile.sheet;
 
     // Emit sheet_ready so the UI can show the sheet and switch to "Generating portrait…"
     await context.run('emit-sheet-ready', async () => {
@@ -301,6 +413,14 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
       const input = context.requestPayload;
       const error = sanitizeFailResponse(failResponse);
 
+      if (isSnapshotDivergedFailure(failResponse)) {
+        console.log(
+          '[LibraryTalentSheetWorkflow]',
+          `Run aborted due to snapshot divergence for ${input.talentName}; re-queued run will continue`
+        );
+        return `Library talent sheet diverged for ${input.talentName}; re-queued`;
+      }
+
       console.error(
         '[LibraryTalentSheetWorkflow]',
         `Sheet generation failed for talent ${input.talentName}: ${error}`
@@ -315,6 +435,11 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
       });
 
       return `Talent sheet generation failed for ${input.talentName}`;
+    },
+    snapshot: {
+      computeFromDto: (input) => computeLibraryTalentSheetHashFromDto(input),
+      computeCurrent: (input, scopedDb) =>
+        computeLibraryTalentSheetHashCurrent(input, scopedDb),
     },
   }
 );

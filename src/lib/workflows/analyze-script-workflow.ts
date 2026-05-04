@@ -28,6 +28,15 @@ import { getFalFlowControl, getLLMFlowControl } from './constants';
 import { frameImagesWorkflow } from './frame-images-workflow';
 import { locationBibleWorkflow } from './location-bible-workflow';
 import { motionMusicPromptsWorkflow } from './motion-music-prompts-workflow';
+import {
+  computeFrameImagesHashFromDto,
+  type FrameImageSceneSnapshot,
+} from './sheet-snapshots';
+import {
+  matchCharactersToScene,
+  matchElementsToScene,
+  matchLocationsToScene,
+} from './scene-matching';
 
 import { createScopedWorkflow } from '../workflow/scoped-workflow';
 import { locationMatchingWorkflow } from './location-matching-workflow';
@@ -276,24 +285,68 @@ export const analyzeScriptWorkflow = createScopedWorkflow<
       });
     });
 
+    // Build per-scene snapshots so frameImagesWorkflow's snapshot middleware
+    // can validate the inlined sheet hashes haven't been swapped without a
+    // matching snapshotInputHash.
+    const sceneSnapshots: FrameImageSceneSnapshot[] =
+      scenesWithVisualPrompts.map((scene) => {
+        const characters = matchCharactersToScene(
+          charactersWithSheets,
+          scene.continuity?.characterTags ?? []
+        );
+        const locations = matchLocationsToScene(
+          locationsWithSheets,
+          scene.continuity?.environmentTag ?? '',
+          scene.metadata?.location ?? ''
+        );
+        const elementsMatched = matchElementsToScene(
+          elementsMinimal,
+          scene.continuity?.elementTags ?? [],
+          scene.originalScript.extract ?? ''
+        );
+        return {
+          sceneId: scene.sceneId,
+          visualPrompt: scene.prompts?.visual?.fullPrompt ?? '',
+          characterSheetHashes: characters
+            .map((c) => c.sheetInputHash)
+            .filter((h): h is string => typeof h === 'string')
+            .sort(),
+          locationSheetHashes: locations
+            .map((l) => l.referenceInputHash)
+            .filter((h): h is string => typeof h === 'string')
+            .sort(),
+          elementReferenceHashes: elementsMatched
+            .map((e) => e.imageUrl ?? '')
+            .filter((u) => u.length > 0)
+            .sort(),
+        };
+      });
+
+    const frameImagesPayload: FrameImagesWorkflowInput = {
+      userId: input.userId,
+      teamId: input.teamId,
+      sequenceId,
+      scenesWithVisualPrompts,
+      charactersWithSheets,
+      locationsWithSheets,
+      elements: elementsMinimal,
+      frameMapping,
+      imageModel,
+      imageModels,
+      aspectRatio,
+      sceneSnapshots,
+    };
+    frameImagesPayload.snapshotInputHash = await computeFrameImagesHashFromDto({
+      ...frameImagesPayload,
+      sceneSnapshots,
+    });
+
     // Phase 4: Frame images + variants AND motion + music prompts in parallel
     const [frameImagesResult, motionMusicResult] = await Promise.all([
       context.invoke('frame-images', {
         workflow: frameImagesWorkflow,
         label,
-        body: {
-          userId: input.userId,
-          teamId: input.teamId,
-          sequenceId,
-          scenesWithVisualPrompts,
-          charactersWithSheets,
-          locationsWithSheets,
-          elements: elementsMinimal,
-          frameMapping,
-          imageModel,
-          imageModels,
-          aspectRatio,
-        } satisfies FrameImagesWorkflowInput,
+        body: frameImagesPayload,
       }),
       context.invoke('motion-music-prompts', {
         workflow: motionMusicPromptsWorkflow,

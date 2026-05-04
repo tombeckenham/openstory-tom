@@ -97,7 +97,7 @@ export const recastCharacterFn = createServerFn({ method: 'POST' })
       {
         characterId: character.characterId,
         name: character.name,
-        age: character.age,
+        age: character.age ?? '',
         gender: character.gender ?? '',
         ethnicity: character.ethnicity ?? '',
         physicalDescription: character.physicalDescription ?? '',

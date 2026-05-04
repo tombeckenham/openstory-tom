@@ -197,6 +197,7 @@ export const characterBibleWorkflow = createScopedWorkflow<
               name: character.name,
               sheetImageUrl,
               sheetStatus: 'completed' as const,
+              sheetInputHash: null,
               physicalDescription:
                 castingAttrs?.physicalDescription ??
                 character.physicalDescription,
@@ -211,6 +212,7 @@ export const characterBibleWorkflow = createScopedWorkflow<
             name: character.name,
             sheetImageUrl,
             sheetStatus: 'completed' as const,
+            sheetInputHash: null,
             physicalDescription:
               castingAttrs?.physicalDescription ??
               character.physicalDescription,

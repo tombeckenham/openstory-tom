@@ -203,6 +203,30 @@ export const realtimeSchema = {
       posterUrl: z.string(),
     }),
 
+    // Divergence detected: a workflow finished but its inputs no longer match
+    // the snapshot it was triggered from. The divergent result has been parked
+    // (see workflow-snapshots-and-content-hash-staleness.md § "Divergence-on-completion")
+    // so the live primary artifact is preserved. The UI uses this to surface
+    // an "alternate available" affordance without polling.
+    'stale:detected': z.object({
+      entityType: z.enum([
+        'frame',
+        'character',
+        'location',
+        'library-location',
+        'talent',
+      ]),
+      entityId: z.string(),
+      artifact: z
+        .enum(['thumbnail', 'variant-image', 'video', 'audio', 'sheet'])
+        .optional(),
+      snapshotInputHash: z.string(),
+      // Populated for frame artifacts that landed in `frame_variants` as a
+      // divergent alternate; absent when the divergent result was discarded
+      // (e.g. sheets, sequence-level music) and merely re-queued.
+      divergedVariantId: z.string().optional(),
+    }),
+
     // Sequence events
     updated: z.object({
       title: z.string().optional(),

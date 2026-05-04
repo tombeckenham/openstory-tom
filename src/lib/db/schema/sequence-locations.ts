@@ -72,6 +72,7 @@ export const sequenceLocations = sqliteTable(
       mode: 'timestamp',
     }),
     referenceError: text('reference_error'),
+    referenceInputHash: text('reference_input_hash'),
     // Timestamps
     createdAt: integer('created_at', { mode: 'timestamp' })
       .$defaultFn(() => new Date())
@@ -105,6 +106,7 @@ export type SequenceLocationMinimal = Pick<
   | 'name'
   | 'referenceImageUrl'
   | 'referenceStatus'
+  | 'referenceInputHash'
   | 'description'
   | 'consistencyTag'
 >;

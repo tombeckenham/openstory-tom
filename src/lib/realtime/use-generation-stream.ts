@@ -303,6 +303,7 @@ export function useGenerationStream(
       'generation.location:matched',
       'generation.poster:ready',
       'generation.preview:replaced',
+      'generation.stale:detected',
       'generation.complete',
       'generation.failed',
       'generation.updated',

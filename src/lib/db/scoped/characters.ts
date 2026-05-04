@@ -184,7 +184,8 @@ export function createCharactersMethods(db: Database) {
     updateSheet: async (
       id: string,
       imageUrl: string,
-      imagePath: string
+      imagePath: string,
+      inputHash: string | null = null
     ): Promise<Character> => {
       return await update(id, {
         sheetImageUrl: imageUrl,
@@ -192,6 +193,7 @@ export function createCharactersMethods(db: Database) {
         sheetStatus: 'completed',
         sheetGeneratedAt: new Date(),
         sheetError: null,
+        sheetInputHash: inputHash,
       });
     },
 

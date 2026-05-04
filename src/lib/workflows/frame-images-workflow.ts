@@ -10,6 +10,7 @@ import { aspectRatioToImageSize } from '@/lib/constants/aspect-ratios';
 import { buildCharacterReferenceImages } from '@/lib/prompts/character-prompt';
 import { buildElementReferenceImages } from '@/lib/prompts/element-prompt';
 import { buildLocationReferenceImages } from '@/lib/prompts/location-prompt';
+import { triggerWorkflow } from '@/lib/workflow/client';
 import { WorkflowValidationError } from '@/lib/workflow/errors';
 import { buildWorkflowLabel } from '@/lib/workflow/labels';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
@@ -27,7 +28,10 @@ import {
   matchElementsToScene,
   matchLocationsToScene,
 } from './scene-matching';
-import { generateShotVariantWorkflow } from './shot-variant-workflow';
+import {
+  computeFrameImagesHashFromDto,
+  type FrameImageSceneSnapshot,
+} from './sheet-snapshots';
 
 export const frameImagesWorkflow = createScopedWorkflow<
   FrameImagesWorkflowInput,
@@ -35,6 +39,12 @@ export const frameImagesWorkflow = createScopedWorkflow<
 >(
   async (context, scopedDb) => {
     const input = context.requestPayload;
+
+    await context.run('validate-snapshot', async () => {
+      if (context.snapshot) {
+        await context.snapshot.validate();
+      }
+    });
     const {
       scenesWithVisualPrompts,
       charactersWithSheets,
@@ -161,30 +171,40 @@ export const frameImagesWorkflow = createScopedWorkflow<
               );
             }
 
-            // Invoke variant (shot grid) workflow for this model's output
-            await context.invoke(`variant-image-${scene.sceneId}-${model}`, {
-              workflow: generateShotVariantWorkflow,
-              label,
-              body: {
-                userId: input.userId,
-                teamId: input.teamId,
-                sequenceId,
-                frameId: matchedFrame?.frameId,
-                thumbnailUrl: result.body.imageUrl,
-                scenePrompt: scene.prompts?.visual?.fullPrompt,
-                characterReferences:
-                  characterRefs.length > 0 ? characterRefs : undefined,
-                locationReferences:
-                  locationRefs.length > 0 ? locationRefs : undefined,
-                elementReferences:
-                  elementRefs.length > 0 ? elementRefs : undefined,
-                aspectRatio,
-                model,
-              } satisfies ShotVariantWorkflowInput,
-              retries: 3,
-              retryDelay: 'pow(2, retried) * 1000',
-              flowControl: getFalFlowControl(),
-            });
+            // Trigger variant (shot grid) workflow as a separate top-level
+            // run. Fire-and-forget — frame-images shouldn't block on it,
+            // since the variant just enriches the frame after the fact and
+            // its progress is tracked independently via frame.variantImageStatus.
+            await context.run(
+              `trigger-variant-${scene.sceneId}-${model}`,
+              async () => {
+                await triggerWorkflow<ShotVariantWorkflowInput>(
+                  '/variant-image',
+                  {
+                    userId: input.userId,
+                    teamId: input.teamId,
+                    sequenceId,
+                    frameId: matchedFrame?.frameId,
+                    thumbnailUrl: result.body.imageUrl,
+                    scenePrompt: scene.prompts?.visual?.fullPrompt,
+                    characterReferences:
+                      characterRefs.length > 0 ? characterRefs : undefined,
+                    locationReferences:
+                      locationRefs.length > 0 ? locationRefs : undefined,
+                    elementReferences:
+                      elementRefs.length > 0 ? elementRefs : undefined,
+                    aspectRatio,
+                    model,
+                  },
+                  {
+                    label,
+                    flowControl: getFalFlowControl(),
+                    retries: 3,
+                    retryDelay: 'pow(2, retried) * 1000',
+                  }
+                );
+              }
+            );
 
             return result.body.imageUrl;
           })
@@ -206,6 +226,31 @@ export const frameImagesWorkflow = createScopedWorkflow<
         `Frame image generation failed for sequence ${input.sequenceId}: ${error}`
       );
       return `Frame image generation failed for sequence ${input.sequenceId}: ${error}`;
+    },
+    snapshot: {
+      // The payload binds per-scene character/location/element sheet hashes
+      // alongside each reference URL. Validation rejects payloads where the
+      // inlined hashes were swapped without recomputing snapshotInputHash.
+      // Per-frame divergence routing into `frame_variants` is performed by
+      // the downstream image-workflow (which writes the actual artifact);
+      // this snapshot config only enforces payload integrity at the batch
+      // boundary. See workflow-snapshots-and-content-hash-staleness.md.
+      computeFromDto: (input) => {
+        const sceneSnapshots: FrameImageSceneSnapshot[] =
+          input.sceneSnapshots ?? [];
+        return computeFrameImagesHashFromDto({ ...input, sceneSnapshots });
+      },
+      // NOTE: `computeCurrent` is intentionally an alias of `computeFromDto`
+      // here — both hash the same inlined `sceneSnapshots`. This means the
+      // batch-level `validate()` only catches payload tampering, not genuine
+      // upstream drift. Real drift detection happens per-frame downstream in
+      // `generateImageWorkflow`, which re-resolves sheet hashes at write
+      // time and routes divergent frames into `frame_variants`.
+      computeCurrent: (input) => {
+        const sceneSnapshots: FrameImageSceneSnapshot[] =
+          input.sceneSnapshots ?? [];
+        return computeFrameImagesHashFromDto({ ...input, sceneSnapshots });
+      },
     },
   }
 );

@@ -41,6 +41,7 @@ const mockLocations: SequenceLocationMinimal[] = [
     referenceStatus: 'completed',
     description: 'A modern corporate office with glass walls',
     consistencyTag: 'office_modern_glass',
+    referenceInputHash: null,
   },
   {
     id: 'loc-2',
@@ -50,6 +51,7 @@ const mockLocations: SequenceLocationMinimal[] = [
     referenceStatus: 'completed',
     description: 'A busy city street at night',
     consistencyTag: 'city_street_night',
+    referenceInputHash: null,
   },
   {
     id: 'loc-3',
@@ -59,6 +61,7 @@ const mockLocations: SequenceLocationMinimal[] = [
     referenceStatus: 'pending',
     description: 'A cozy apartment',
     consistencyTag: 'apartment_cozy',
+    referenceInputHash: null,
   },
 ];
 

@@ -46,7 +46,7 @@ export const characters = sqliteTable(
     characterId: text('character_id').notNull(), // e.g. "char_001" from script analysis
     name: text({ length: 255 }).notNull(),
     // Flattened character bible fields (previously in metadata JSON)
-    age: text().notNull(), // Can be "30s" or "35"
+    age: text(), // Can be "30s" or "35"; nullable — LLM may omit
     gender: text(),
     ethnicity: text(),
     physicalDescription: text('physical_description'),
@@ -98,6 +98,7 @@ export type CharacterMinimal = Pick<
   | 'name'
   | 'sheetImageUrl'
   | 'sheetStatus'
+  | 'sheetInputHash'
   | 'physicalDescription'
   | 'consistencyTag'
 >;

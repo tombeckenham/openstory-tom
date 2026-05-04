@@ -287,8 +287,11 @@ export const generateImageWorkflow = createScopedWorkflow<
                 'generation.image:progress',
                 { frameId: input.frameId, status: 'failed', model }
               );
-            } catch {
-              // Ignore emit errors in failure handler
+            } catch (emitError) {
+              console.error(
+                `[ImageWorkflow] Failed to emit generation.image:progress for frame ${input.frameId}:`,
+                emitError
+              );
             }
           }
         }

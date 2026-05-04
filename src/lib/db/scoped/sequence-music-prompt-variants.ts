@@ -13,23 +13,37 @@
 
 import type { Database } from '@/lib/db/client';
 import { sequenceMusicPromptVariants, sequences } from '@/lib/db/schema';
-import type {
-  PromptVariantSource,
-  SequenceMusicPromptVariant,
-} from '@/lib/db/schema';
+import type { SequenceMusicPromptVariant } from '@/lib/db/schema';
 import { desc, eq } from 'drizzle-orm';
 
-export type WriteSequenceMusicPromptVariantInput = {
+type WriteSequenceMusicPromptVariantBase = {
   sequenceId: string;
   prompt: string;
   tags?: string | null;
-  components?: unknown;
-  parameters?: unknown;
-  source: PromptVariantSource;
-  inputHash?: string | null;
-  analysisModel?: string | null;
   createdBy?: string | null;
 };
+
+/**
+ * AI-generated and regenerated rows must carry the upstream-context hash and
+ * the analysis model that produced the prompt — without these, the cached
+ * `musicPromptInputHash` column on `sequences` is meaningless and staleness
+ * detection silently breaks. User-edits forbid both fields so they cannot be
+ * set by mistake.
+ */
+export type WriteSequenceMusicPromptVariantInput =
+  WriteSequenceMusicPromptVariantBase &
+    (
+      | {
+          source: 'ai-generated' | 'regenerated';
+          inputHash: string;
+          analysisModel: string;
+        }
+      | {
+          source: 'user-edit';
+          inputHash?: never;
+          analysisModel?: never;
+        }
+    );
 
 export function createSequenceMusicPromptVariantsMethods(db: Database) {
   return {
@@ -44,6 +58,10 @@ export function createSequenceMusicPromptVariantsMethods(db: Database) {
     write: async (
       input: WriteSequenceMusicPromptVariantInput
     ): Promise<SequenceMusicPromptVariant> => {
+      const nextHash = input.source === 'user-edit' ? null : input.inputHash;
+      const analysisModel =
+        input.source === 'user-edit' ? null : input.analysisModel;
+
       // Append first so a crash can't leave a stale pointer with no row
       // behind it.
       const [variant] = await db
@@ -52,11 +70,9 @@ export function createSequenceMusicPromptVariantsMethods(db: Database) {
           sequenceId: input.sequenceId,
           prompt: input.prompt,
           tags: input.tags ?? null,
-          components: input.components,
-          parameters: input.parameters,
           source: input.source,
-          inputHash: input.inputHash ?? null,
-          analysisModel: input.analysisModel ?? null,
+          inputHash: nextHash,
+          analysisModel,
           createdBy: input.createdBy ?? null,
         })
         .returning();
@@ -64,9 +80,6 @@ export function createSequenceMusicPromptVariantsMethods(db: Database) {
       if (!variant) {
         throw new Error('Failed to insert sequence music prompt variant');
       }
-
-      const nextHash =
-        input.source === 'user-edit' ? null : (input.inputHash ?? null);
 
       await db
         .update(sequences)

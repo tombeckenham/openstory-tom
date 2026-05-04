@@ -47,6 +47,7 @@ export const generateFrameMotionFn = createServerFn({ method: 'POST' })
       DEFAULT_VIDEO_MODEL
     );
 
+    const userEditedPrompt = Boolean(data.prompt);
     const prompt = data.prompt || resolveMotionPrompt(frame, model);
 
     const duration = data.duration ?? snapDuration(undefined, model);
@@ -70,6 +71,7 @@ export const generateFrameMotionFn = createServerFn({ method: 'POST' })
           fps: data.fps,
           motionBucket: data.motionBucket,
           aspectRatio: sequence.aspectRatio,
+          userEditedPrompt,
         },
       ],
     };

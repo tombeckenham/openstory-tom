@@ -88,8 +88,11 @@ export const generateMusicPromptWorflow = createScopedWorkflow<
             'generation.audio:progress',
             { status: 'failed' }
           );
-        } catch {
-          // Ignore emit errors
+        } catch (emitError) {
+          console.error(
+            `[MusicWorkflow] Failed to emit generation.audio:progress for sequence ${input.sequenceId}:`,
+            emitError
+          );
         }
       }
       console.error(

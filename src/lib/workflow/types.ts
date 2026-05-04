@@ -164,6 +164,14 @@ export interface MotionWorkflowInput extends SequenceWorkflowContext {
   fps?: number;
   motionBucket?: number;
   aspectRatio?: AspectRatio; // "16:9", "9:16", "1:1"
+  /**
+   * `true` when `prompt` came from a user edit (typed in the UI). `false` for
+   * auto paths (batch generation, smart-retry) where `prompt` was produced by
+   * `resolveMotionPrompt` and may include model-specific dialogue/audio
+   * assembly that does not match the bare `frame.motionPrompt`. Drives whether
+   * the workflow appends a `user-edit` variant row.
+   */
+  userEditedPrompt?: boolean;
 }
 
 /**
@@ -690,6 +698,8 @@ export interface BatchMotionMusicWorkflowInput extends SequenceWorkflowContext {
     fps?: number;
     motionBucket?: number;
     aspectRatio?: AspectRatio;
+    /** See `MotionWorkflowInput.userEditedPrompt`. */
+    userEditedPrompt?: boolean;
   }>;
   /** When true, generate music in parallel and mux into final video */
   includeMusic: boolean;

@@ -59,6 +59,7 @@ export const motionBatchWorkflow =
             fps: frame.fps,
             motionBucket: frame.motionBucket,
             aspectRatio: frame.aspectRatio,
+            userEditedPrompt: frame.userEditedPrompt,
           } satisfies MotionWorkflowInput,
           retries: 3,
           retryDelay: 'pow(2, retried) * 1000',

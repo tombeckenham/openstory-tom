@@ -87,37 +87,52 @@ export const motionPromptSceneWorkflow = createScopedWorkflow<
     );
 
     if (sequenceId && frameId) {
+      // Empty fullPrompt is a generation failure, not a benign skip — surface
+      // it so QStash retries / failure handler runs instead of silently
+      // persisting an empty prompt with no variant row.
+      if (!motionPrompt.fullPrompt) {
+        throw new Error(
+          `Motion prompt generation returned empty fullPrompt for scene ${scene.sceneId}`
+        );
+      }
+
+      const enrichedScene = {
+        ...scene,
+        prompts: {
+          ...scene.prompts,
+          motion: motionPrompt,
+        },
+      };
+
       await context.run('save-motion-prompt-to-db', async () => {
-        await scopedDb.frames.update(frameId, { metadata: scene });
+        const inputHash = await computeMotionPromptInputHash({
+          scene: enrichedScene,
+          styleConfig,
+          characterBible,
+          locationBible,
+          elementBible,
+          aspectRatio,
+          analysisModel: analysisModelId,
+        });
 
-        if (motionPrompt.fullPrompt) {
-          const inputHash = await computeMotionPromptInputHash({
-            scene,
-            styleConfig,
-            characterBible,
-            locationBible,
-            elementBible,
-            aspectRatio,
-            analysisModel: analysisModelId,
-          });
+        const previous = await scopedDb.framePromptVariants.getLatest(
+          frameId,
+          'motion'
+        );
+        const source = previous ? 'regenerated' : 'ai-generated';
 
-          const previous = await scopedDb.framePromptVariants.getLatest(
-            frameId,
-            'motion'
-          );
-          const source = previous ? 'regenerated' : 'ai-generated';
+        await scopedDb.frames.update(frameId, { metadata: enrichedScene });
 
-          await scopedDb.framePromptVariants.write({
-            frameId,
-            promptType: 'motion',
-            text: motionPrompt.fullPrompt,
-            components: motionPrompt.components ?? null,
-            parameters: motionPrompt.parameters ?? null,
-            source,
-            inputHash,
-            analysisModel: analysisModelId,
-          });
-        }
+        await scopedDb.framePromptVariants.write({
+          frameId,
+          promptType: 'motion',
+          text: motionPrompt.fullPrompt,
+          components: motionPrompt.components,
+          parameters: motionPrompt.parameters,
+          source,
+          inputHash,
+          analysisModel: analysisModelId,
+        });
       });
     }
     return { sceneId: scene.sceneId, motionPrompt };

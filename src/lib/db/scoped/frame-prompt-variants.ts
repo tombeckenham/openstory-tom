@@ -22,25 +22,38 @@ import type {
   FramePromptType,
   FramePromptVariant,
   FramePromptVariantComponents,
-  PromptVariantSource,
 } from '@/lib/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 
-export type WriteFramePromptVariantInput = {
+type WriteFramePromptVariantBase = {
   frameId: string;
   promptType: FramePromptType;
   text: string;
   components?: FramePromptVariantComponents | null;
   parameters?: MotionPromptParameters | null;
-  source: PromptVariantSource;
-  /**
-   * SHA-256 of the upstream context that produced an AI prompt. Required for
-   * `'ai-generated'` and `'regenerated'`; omitted for `'user-edit'`.
-   */
-  inputHash?: string | null;
-  analysisModel?: string | null;
   createdBy?: string | null;
 };
+
+/**
+ * AI-generated and regenerated rows must carry the upstream-context hash and
+ * the analysis model that produced the prompt — without these, the cached
+ * `*_prompt_input_hash` column on `frames` is meaningless and staleness
+ * detection silently breaks. User-edits have no upstream input surface and
+ * forbid both fields so they cannot be set by mistake.
+ */
+export type WriteFramePromptVariantInput = WriteFramePromptVariantBase &
+  (
+    | {
+        source: 'ai-generated' | 'regenerated';
+        inputHash: string;
+        analysisModel: string;
+      }
+    | {
+        source: 'user-edit';
+        inputHash?: never;
+        analysisModel?: never;
+      }
+  );
 
 const cachedColumnsForType = (promptType: FramePromptType) =>
   promptType === 'visual'
@@ -79,6 +92,14 @@ export function createFramePromptVariantsMethods(db: Database) {
     ): Promise<FramePromptVariant> => {
       const cached = cachedColumnsForType(input.promptType);
 
+      // User-edits clear the input hash on the cached pointer (the cached
+      // value is no longer derived from upstream context). AI-generated /
+      // regenerated rows set it. The discriminated union on `input` makes
+      // both fields compile-time guaranteed.
+      const nextHash = input.source === 'user-edit' ? null : input.inputHash;
+      const analysisModel =
+        input.source === 'user-edit' ? null : input.analysisModel;
+
       // Append first so a crash can't leave a stale pointer with no row
       // behind it. The reverse order would be unrecoverable.
       const [variant] = await db
@@ -90,8 +111,8 @@ export function createFramePromptVariantsMethods(db: Database) {
           components: input.components,
           parameters: input.parameters,
           source: input.source,
-          inputHash: input.inputHash ?? null,
-          analysisModel: input.analysisModel ?? null,
+          inputHash: nextHash,
+          analysisModel,
           createdBy: input.createdBy ?? null,
         })
         .returning();
@@ -99,12 +120,6 @@ export function createFramePromptVariantsMethods(db: Database) {
       if (!variant) {
         throw new Error('Failed to insert frame prompt variant');
       }
-
-      // User-edits clear the input hash on the cached pointer (the cached
-      // value is no longer derived from upstream context). AI-generated /
-      // regenerated rows set it.
-      const nextHash =
-        input.source === 'user-edit' ? null : (input.inputHash ?? null);
 
       await db
         .update(frames)

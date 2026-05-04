@@ -46,10 +46,6 @@ export const sequenceMusicPromptVariants = sqliteTable(
     // Comma-separated music tags string (mirrors `sequences.musicTags`).
     tags: text('tags'),
 
-    // Structured components / parameters (e.g. style/mood/atmosphere/duration).
-    components: text('components', { mode: 'json' }).$type<unknown>(),
-    parameters: text('parameters', { mode: 'json' }).$type<unknown>(),
-
     source: text('source').$type<PromptVariantSource>().notNull(),
 
     // SHA-256 of the upstream context (musicDesign + analysis model) for AI

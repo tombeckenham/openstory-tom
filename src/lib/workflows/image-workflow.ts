@@ -18,6 +18,7 @@ import {
   computeImageWorkflowHashFromDto,
   persistImageResult,
 } from './image-workflow-snapshot';
+import { shouldRecordUserEdit } from './user-edit-predicate';
 
 type ImageWorkflowResult = {
   imageUrl: string;
@@ -84,17 +85,12 @@ export const generateImageWorkflow = createScopedWorkflow<
             return null;
           }
 
-          // Only the user-edit path writes a variant row here. Auto paths
-          // (storyboard generation, smart-retry, scene-split previews) pass
-          // a prompt that may be reassembled from
-          // `frame.metadata.prompts.visual` and won't match the bare
-          // `frame.imagePrompt`, so a string-equality check would record
-          // every auto run as a phantom user edit. The AI-generated row is
-          // written by visual-prompt-scene-workflow.
           if (
-            input.userEditedPrompt &&
-            input.prompt &&
-            input.prompt !== frame.imagePrompt
+            shouldRecordUserEdit({
+              userEditedPrompt: input.userEditedPrompt,
+              prompt: input.prompt,
+              currentPrompt: frame.imagePrompt,
+            })
           ) {
             await scopedDb.framePromptVariants.write({
               frameId: input.frameId,

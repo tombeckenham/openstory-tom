@@ -8,7 +8,9 @@
  *   - Regenerating a prompt produces a `'regenerated'` row with a populated
  *     `input_hash`.
  *   - The cached pointer (`frames.imagePrompt` / `motionPrompt` and the
- *     matching `*PromptInputHash`) is updated atomically by the helper.
+ *     matching `*PromptInputHash`) is updated by the helper sequentially
+ *     after the variant insert (not transactionally — see the helper
+ *     docstring for the durability story).
  */
 
 import type { Database } from '@/lib/db/client';

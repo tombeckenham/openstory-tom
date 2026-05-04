@@ -29,6 +29,7 @@ import type {
 } from '@/lib/workflow/types';
 import { endSpanSuccess, startGenAISpan } from '@/lib/observability/tracer';
 import { WorkflowNonRetryableError } from '@upstash/workflow';
+import { shouldRecordUserEdit } from './user-edit-predicate';
 
 /** Each batch polls in a tight loop for ~30s, then checkpoints for durability */
 const POLL_BATCH_DURATION_MS = 30_000;
@@ -128,16 +129,12 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
           return { frameDeleted: true };
         }
 
-        // Only the user-edit path writes a variant row here. Auto paths
-        // (batch generation, smart-retry) pass the assembled prompt — which
-        // includes model-specific audio/dialogue sections that always differ
-        // from the bare `frame.motionPrompt` — so a string-equality check
-        // would record every auto run as a phantom user edit. The
-        // AI-generated row is written by motion-prompt-scene-workflow.
         if (
-          input.userEditedPrompt &&
-          input.prompt &&
-          input.prompt !== frame.motionPrompt
+          shouldRecordUserEdit({
+            userEditedPrompt: input.userEditedPrompt,
+            prompt: input.prompt,
+            currentPrompt: frame.motionPrompt,
+          })
         ) {
           await scopedDb.framePromptVariants.write({
             frameId: input.frameId,

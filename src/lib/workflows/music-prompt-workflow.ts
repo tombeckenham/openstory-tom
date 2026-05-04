@@ -40,6 +40,12 @@ export const generateMusicPromptWorflow = createScopedWorkflow<
     );
 
     if (sequenceId) {
+      if (!musicDesignResult.prompt) {
+        throw new Error(
+          `Music prompt generation returned empty prompt for sequence ${sequenceId}`
+        );
+      }
+
       // The variants helper appends a row tagged 'ai-generated' /
       // 'regenerated' and updates the cached `musicPrompt` / `musicTags` /
       // `musicPromptInputHash` on `sequences`. The two writes are

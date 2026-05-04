@@ -107,6 +107,7 @@ scripts/schemas/
 
 # claude code local state
 .claude/*.lock
+.claude/worktrees/
 
 # agent harness
 .claude-harness/

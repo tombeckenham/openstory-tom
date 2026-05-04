@@ -21,16 +21,15 @@ import {
   it,
 } from 'bun:test';
 import { type Client, createClient } from '@libsql/client';
-import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
+import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import { generateId } from '@/lib/db/id';
 import { talent, teams, user } from '@/lib/db/schema';
 import { relations } from '@/lib/db/schema/relations';
-
-type TestDb = LibSQLDatabase<Record<string, never>, typeof relations>;
+import type { Database } from '@/lib/db/client';
 
 let client: Client;
-let db: TestDb;
+let db: Database;
 
 const teamA = { id: '', name: 'Team A', slug: 'team-a' };
 const teamB = { id: '', name: 'Team B', slug: 'team-b' };

@@ -15,7 +15,7 @@ import {
   it,
 } from 'bun:test';
 import { type Client, createClient } from '@libsql/client';
-import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
+import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import { generateId } from '@/lib/db/id';
 import {
@@ -30,12 +30,8 @@ import { relations } from '@/lib/db/schema/relations';
 import type { Database } from '@/lib/db/client';
 import { createSequenceVariantsMethods } from './sequence-variants';
 
-type TestDb = LibSQLDatabase<Record<string, never>, typeof relations>;
-
-const asDatabase = (testDb: TestDb): Database => testDb as unknown as Database;
-
 let client: Client;
-let db: TestDb;
+let db: Database;
 
 const team = { id: '', name: 'T', slug: 't' };
 const userRow = { id: '', name: 'U', email: 'u@example.com' };
@@ -147,7 +143,7 @@ describe('sequence_video_variants partial-index uniqueness', () => {
 
 describe('createSequenceVariantsMethods — video', () => {
   it('writeVideoVariant routes to primary when no existing primary', async () => {
-    const methods = createSequenceVariantsMethods(asDatabase(db));
+    const methods = createSequenceVariantsMethods(db);
     const { variant, divergent } = await methods.writeVideoVariant({
       sequenceId,
       url: 'https://example.com/v.mp4',
@@ -163,7 +159,7 @@ describe('createSequenceVariantsMethods — video', () => {
   });
 
   it('writeVideoVariant overwrites the primary when inputHash matches', async () => {
-    const methods = createSequenceVariantsMethods(asDatabase(db));
+    const methods = createSequenceVariantsMethods(db);
     await methods.writeVideoVariant({
       sequenceId,
       url: 'https://example.com/v1.mp4',
@@ -191,7 +187,7 @@ describe('createSequenceVariantsMethods — video', () => {
   });
 
   it('writeVideoVariant forks to divergent when existing primary has different hash', async () => {
-    const methods = createSequenceVariantsMethods(asDatabase(db));
+    const methods = createSequenceVariantsMethods(db);
     await methods.writeVideoVariant({
       sequenceId,
       url: 'https://example.com/v1.mp4',
@@ -221,7 +217,7 @@ describe('createSequenceVariantsMethods — video', () => {
   });
 
   it('insertDivergentVideo is idempotent on retry', async () => {
-    const methods = createSequenceVariantsMethods(asDatabase(db));
+    const methods = createSequenceVariantsMethods(db);
     await methods.upsertVideoPrimary({
       sequenceId,
       url: 'https://example.com/p.mp4',
@@ -261,7 +257,7 @@ describe('createSequenceVariantsMethods — video', () => {
   });
 
   it('upsertVideoPrimary respects the divergedAt IS NULL partial unique index', async () => {
-    const methods = createSequenceVariantsMethods(asDatabase(db));
+    const methods = createSequenceVariantsMethods(db);
 
     // A divergent row exists; upsert must still succeed against the primary slot.
     await db.insert(sequenceVideoVariants).values({
@@ -289,7 +285,7 @@ describe('createSequenceVariantsMethods — video', () => {
   });
 
   it('promoteVideoVariant copies a divergent variant onto sequences.mergedVideo*', async () => {
-    const methods = createSequenceVariantsMethods(asDatabase(db));
+    const methods = createSequenceVariantsMethods(db);
     await methods.upsertVideoPrimary({
       sequenceId,
       url: 'https://example.com/old.mp4',
@@ -325,7 +321,7 @@ describe('createSequenceVariantsMethods — video', () => {
 
 describe('createSequenceVariantsMethods — music', () => {
   it('writeMusicVariant forks to divergent on hash mismatch', async () => {
-    const methods = createSequenceVariantsMethods(asDatabase(db));
+    const methods = createSequenceVariantsMethods(db);
     await methods.writeMusicVariant({
       sequenceId,
       url: 'https://example.com/m1.mp3',
@@ -359,7 +355,7 @@ describe('createSequenceVariantsMethods — music', () => {
   });
 
   it('promoteMusicVariant copies prompt/tags/url onto sequences.music*', async () => {
-    const methods = createSequenceVariantsMethods(asDatabase(db));
+    const methods = createSequenceVariantsMethods(db);
     const variant = await methods.upsertMusicPrimary({
       sequenceId,
       url: 'https://example.com/m.mp3',
@@ -385,7 +381,7 @@ describe('createSequenceVariantsMethods — music', () => {
   });
 
   it('insertDivergentMusic idempotent on retry', async () => {
-    const methods = createSequenceVariantsMethods(asDatabase(db));
+    const methods = createSequenceVariantsMethods(db);
     await methods.upsertMusicPrimary({
       sequenceId,
       url: 'https://example.com/p.mp3',

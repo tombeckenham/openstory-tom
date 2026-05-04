@@ -25,6 +25,7 @@ import type {
 } from '@/lib/workflow/types';
 import type { WorkflowContext } from '@upstash/workflow';
 import { mergeAudioVideoWorkflow } from './merge-audio-video-workflow';
+import { resolveMusicVariantForMux } from './merge-variant-resolution';
 import {
   computeSequenceVideoHashCurrent,
   computeSequenceVideoHashFromDto,
@@ -48,25 +49,7 @@ async function chainAudioMux(
 ): Promise<void> {
   const musicVariantId = await context.run(
     'fetch-music-variant-for-mux',
-    async () => {
-      const sequenceId = input.sequenceId;
-      const status = await scopedDb.sequence(sequenceId).getMusicStatus();
-      if (
-        status?.musicStatus !== 'completed' ||
-        !status.musicUrl ||
-        !status.musicModel
-      ) {
-        return null;
-      }
-      const primary = await scopedDb.sequenceVariants.getMusicPrimary(
-        sequenceId,
-        status.musicModel
-      );
-      if (!primary || primary.status !== 'completed' || !primary.url) {
-        return null;
-      }
-      return primary.id;
-    }
+    async () => resolveMusicVariantForMux(scopedDb, input.sequenceId)
   );
 
   if (!musicVariantId) {
@@ -136,6 +119,16 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
       );
 
       if (writeResult.divergent) {
+        // Divergent single-video result: prior primary on `sequences.merged*`
+        // stays authoritative. We never set merging-status on the
+        // single-video path, but emit a terminal event so any in-flight UI
+        // spinner stops.
+        await context.run('emit-divergent-single', async () => {
+          await getGenerationChannel(input.sequenceId).emit(
+            'generation.merge:progress',
+            { step: 'video', status: 'completed' }
+          );
+        });
         console.log(
           `[MergeVideoWorkflow] Diverged single-video result for sequence ${input.sequenceId}; preserved as alternate (variant=${writeResult.variant.id})`
         );
@@ -151,7 +144,7 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
           mergedVideoError: null,
         });
 
-        void getGenerationChannel(input.sequenceId).emit(
+        await getGenerationChannel(input.sequenceId).emit(
           'generation.merge:progress',
           { step: 'video', status: 'completed', mergedVideoUrl: singleUrl }
         );
@@ -172,7 +165,7 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
         mergedVideoError: null,
       });
 
-      void getGenerationChannel(input.sequenceId).emit(
+      await getGenerationChannel(input.sequenceId).emit(
         'generation.merge:progress',
         { step: 'video', status: 'merging' }
       );
@@ -240,6 +233,22 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
     });
 
     if (writeResult.divergent) {
+      // Divergent merge: prior primary on `sequences.merged*` stays
+      // authoritative. `set-merging-status` set mergedVideoStatus='merging'
+      // earlier, so reset to 'completed' here and emit a terminal event so
+      // the UI doesn't hang at 'merging'. The alternate is preserved in
+      // `sequence_video_variants` for future surfacing.
+      await context.run('update-sequence-divergent', async () => {
+        await seq.updateMergedVideoFields({
+          mergedVideoStatus: 'completed',
+          mergedVideoError: null,
+        });
+
+        await getGenerationChannel(input.sequenceId).emit(
+          'generation.merge:progress',
+          { step: 'video', status: 'completed' }
+        );
+      });
       console.log(
         `[MergeVideoWorkflow] Diverged merge result for sequence ${input.sequenceId}; preserved as alternate (variant=${writeResult.variant.id})`
       );
@@ -258,7 +267,7 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
         mergedVideoError: null,
       });
 
-      void getGenerationChannel(input.sequenceId).emit(
+      await getGenerationChannel(input.sequenceId).emit(
         'generation.merge:progress',
         {
           step: 'video',
@@ -296,10 +305,17 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
           mergedVideoError: error,
         });
 
-        void getGenerationChannel(input.sequenceId).emit(
-          'generation.merge:progress',
-          { step: 'video', status: 'failed' }
-        );
+        try {
+          await getGenerationChannel(input.sequenceId).emit(
+            'generation.merge:progress',
+            { step: 'video', status: 'failed' }
+          );
+        } catch (emitError) {
+          console.error(
+            `[MergeVideoWorkflow] Failed to emit failure event for sequence ${input.sequenceId}:`,
+            emitError
+          );
+        }
       }
       console.error(
         `[MergeVideoWorkflow] Failed to merge sequence ${input.sequenceId}: ${error}`

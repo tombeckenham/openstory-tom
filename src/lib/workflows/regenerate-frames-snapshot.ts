@@ -74,8 +74,14 @@ export async function buildRegenerateFrameSnapshot(params: {
   // put hashes on `location_sheets` and `locationLibrary`). For now we skip
   // them — character-recast divergence is the headline case this PR proves
   // out, and sequence-location hashes drop in here without other changes
-  // when that column lands.
+  // when that column lands. Log when this gap is exercised so a recast that
+  // should invalidate location-dependent frames is observable.
   const locationSheetHashes: string[] = [];
+  if (frameLocations.length > 0) {
+    console.warn(
+      `[RegenerateFramesSnapshot] Frame ${frame.id} matched ${frameLocations.length} location(s) but locationSheetHashes is omitted from the snapshot hash — location recasts will not invalidate this frame until sequence_locations.input_hash lands`
+    );
+  }
 
   const characterRefs = buildCharacterReferenceImages(frameCharacters);
   const locationRefs = buildLocationReferenceImages(frameLocations);

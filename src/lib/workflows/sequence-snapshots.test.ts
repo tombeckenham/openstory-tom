@@ -196,16 +196,14 @@ describe('computeSequenceVideoHashCurrent', () => {
     expect(currentHash).toBe(dtoHash);
   });
 
-  it('falls back to kind:url when a videoUrl no longer maps to any frame (deleted mid-flight)', async () => {
-    const dtoHash = await computeSequenceVideoHashFromDto(baseInput);
-    // Only F2 remains; F1 was deleted. The current hash should NOT equal the
-    // DTO hash because the snapshot's first source was kind:variantHash and
-    // the live state collapses to kind:url.
-    const currentHash = await computeSequenceVideoHashCurrent(
-      baseInput,
-      stubScopedDb([F2])
-    );
-    expect(currentHash).not.toBe(dtoHash);
+  it('throws when a videoUrl no longer maps to any frame (deleted mid-flight)', () => {
+    // Only F2 remains; F1 was deleted. Falling back to kind:url here would
+    // silently match the trigger-time hash for legacy frames and route a
+    // stale merge onto the primary slot. Throwing forces the workflow to
+    // fail loudly on a raced delete rather than corrupt the primary.
+    return expect(
+      computeSequenceVideoHashCurrent(baseInput, stubScopedDb([F2]))
+    ).rejects.toThrow(/not found in sequence/);
   });
 
   it('returns the FromDto hash when sequenceId is omitted (no DB context)', async () => {

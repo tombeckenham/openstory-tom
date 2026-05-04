@@ -723,8 +723,6 @@ export interface MergeAudioVideoWorkflowInput extends SequenceWorkflowContext {
   mergedVideoVariantId: string;
   /** Source music variant id (from `sequence_music_variants`). */
   musicVariantId: string;
-  /** Total duration in milliseconds (for compose track timing) */
-  durationMs?: number;
 }
 
 export interface MergeAudioVideoWorkflowResult {

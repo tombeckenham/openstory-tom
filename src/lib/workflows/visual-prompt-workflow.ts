@@ -76,6 +76,20 @@ export const visualPromptWorkflow = createScopedWorkflow<
     const { scenes: scenesWithVisualPrompts } = await context.run(
       'merge-visual-prompts',
       async () => {
+        // Surface failed/canceled sub-invocations as a clear error rather than
+        // letting a missing `s.body` produce a TypeError on the .find() below.
+        const broken = visualPromptResults.filter(
+          (s) => s.isFailed || s.isCanceled || !s.body
+        );
+        if (broken.length > 0) {
+          const reasons = broken.map((s) =>
+            s.isCanceled ? 'canceled' : s.isFailed ? 'failed' : 'no-body'
+          );
+          throw new WorkflowValidationError(
+            `Visual prompt sub-invocation(s) did not return a body: [${reasons.join(', ')}] across ${broken.length}/${visualPromptResults.length} scenes`
+          );
+        }
+
         return {
           scenes: scenes.map((scene) => {
             const enrichment = visualPromptResults.find(

@@ -100,9 +100,14 @@ export function computeSequenceVideoHashFromDto(
  * payload. We re-read each frame's current `videoInputHash` and rebuild the
  * source list in `videoUrls` order.
  *
- * When `sequenceId` is omitted (anonymous merges with no DB context) or when
- * the sequence has no frames (raced delete), this falls back to the FromDto
- * hash so the workflow's existing short-circuits handle the cleanup.
+ * When `sequenceId` is omitted (anonymous merges with no DB context), this
+ * falls back to the FromDto hash so the workflow's existing short-circuits
+ * handle the cleanup.
+ *
+ * Throws when a `videoUrls` entry no longer maps to any sequence frame
+ * (raced delete). Falling back to `{kind: 'url'}` here would silently match
+ * the trigger-time hash and route a stale merge onto the primary slot,
+ * defeating the divergence check.
  */
 export async function computeSequenceVideoHashCurrent(
   input: MergeVideoWorkflowInput,
@@ -122,11 +127,15 @@ export async function computeSequenceVideoHashCurrent(
 
   const currentSources: SequenceVideoFrameSource[] = input.videoUrls.map(
     (url) => {
+      if (!byUrl.has(url)) {
+        throw new Error(
+          `[MergeVideo] Frame for url ${url} not found in sequence ${input.sequenceId} at write time — refusing to convergent-write a stale merge`
+        );
+      }
       const hash = byUrl.get(url);
-      // Fall back to `kind: 'url'` when the URL no longer maps to any frame
-      // (frame deleted mid-flight) or the frame's video has no input_hash
-      // (legacy data). This matches the trigger-time fallback so a convergent
-      // path still yields equal hashes.
+      // Frame exists but has no input_hash (legacy data). The trigger-time
+      // payload would also have been `{kind: 'url'}` for this frame, so
+      // hashes still align cleanly on the convergent path.
       if (hash) {
         return { kind: 'variantHash', hash };
       }

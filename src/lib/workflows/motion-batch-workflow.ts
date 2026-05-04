@@ -25,6 +25,7 @@ import {
 } from './merge-video-workflow';
 import { generateMotionWorkflow } from './motion-workflow';
 import { generateMusicWorkflow } from './music-workflow';
+import { resolveMotionBatchMergeMusicVariants } from './merge-variant-resolution';
 import { buildMergeVideoSourcesFromFrames } from './sequence-snapshots';
 
 export const motionBatchWorkflow =
@@ -115,7 +116,7 @@ export const motionBatchWorkflow =
       }
 
       // Step 3: Merge all frame videos into one
-      await context.invoke('merge-video', {
+      await context.invoke(MERGE_VIDEO_WORKFLOW_NAME, {
         workflow: mergeVideoWorkflow,
         label,
         body: {
@@ -132,43 +133,12 @@ export const motionBatchWorkflow =
       if (includeMusic) {
         const mergeAndMusicSources = await context.run(
           'get-merge-music-variants',
-          async () => {
-            const seq = scopedDb.sequence(sequenceId);
-            const musicStatus = await seq.getMusicStatus();
-
-            // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
-            if (!musicStatus?.musicModel) {
-              throw new Error(
-                'Music generation completed but no model recorded'
-              );
-            }
-
-            const [videoVariant, musicVariant] = await Promise.all([
-              scopedDb.sequenceVariants.getVideoPrimary(
-                sequenceId,
-                MERGE_VIDEO_WORKFLOW_NAME
-              ),
-              scopedDb.sequenceVariants.getMusicPrimary(
-                sequenceId,
-                musicStatus.musicModel
-              ),
-            ]);
-            if (!videoVariant || videoVariant.status !== 'completed') {
-              throw new Error(
-                'Merged video primary variant not found for completed merge'
-              );
-            }
-            if (!musicVariant || musicVariant.status !== 'completed') {
-              throw new Error(
-                'Music primary variant not found for completed music generation'
-              );
-            }
-
-            return {
-              mergedVideoVariantId: videoVariant.id,
-              musicVariantId: musicVariant.id,
-            };
-          }
+          async () =>
+            resolveMotionBatchMergeMusicVariants(
+              scopedDb,
+              sequenceId,
+              MERGE_VIDEO_WORKFLOW_NAME
+            )
         );
 
         await context.invoke('merge-audio-video', {

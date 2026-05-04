@@ -19,6 +19,7 @@ import { WorkflowValidationError } from '@/lib/workflow/errors';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
 import type { MergeAudioVideoWorkflowInput } from '@/lib/workflow/types';
+import { resolveMergeAudioVideoSourceUrls } from './merge-variant-resolution';
 
 export const mergeAudioVideoWorkflow = createScopedWorkflow<
   MergeAudioVideoWorkflowInput,
@@ -35,23 +36,13 @@ export const mergeAudioVideoWorkflow = createScopedWorkflow<
     }
     const seq = scopedDb.sequence(sequenceId);
 
-    const sources = await context.run('resolve-variant-urls', async () => {
-      const [videoVariant, musicVariant] = await Promise.all([
-        scopedDb.sequenceVariants.getVideoById(mergedVideoVariantId),
-        scopedDb.sequenceVariants.getMusicById(musicVariantId),
-      ]);
-      if (!videoVariant || !videoVariant.url) {
-        throw new WorkflowValidationError(
-          `Merged video variant ${mergedVideoVariantId} not found or missing url`
-        );
-      }
-      if (!musicVariant || !musicVariant.url) {
-        throw new WorkflowValidationError(
-          `Music variant ${musicVariantId} not found or missing url`
-        );
-      }
-      return { mergedVideoUrl: videoVariant.url, musicUrl: musicVariant.url };
-    });
+    const sources = await context.run('resolve-variant-urls', async () =>
+      resolveMergeAudioVideoSourceUrls(
+        scopedDb,
+        mergedVideoVariantId,
+        musicVariantId
+      )
+    );
     const { mergedVideoUrl, musicUrl } = sources;
 
     console.log(
@@ -64,7 +55,7 @@ export const mergeAudioVideoWorkflow = createScopedWorkflow<
         mergedVideoError: null,
       });
 
-      void getGenerationChannel(sequenceId).emit('generation.merge:progress', {
+      await getGenerationChannel(sequenceId).emit('generation.merge:progress', {
         step: 'audio-video',
         status: 'merging',
       });
@@ -143,7 +134,7 @@ export const mergeAudioVideoWorkflow = createScopedWorkflow<
         mergedVideoError: null,
       });
 
-      void getGenerationChannel(sequenceId).emit('generation.merge:progress', {
+      await getGenerationChannel(sequenceId).emit('generation.merge:progress', {
         step: 'audio-video',
         status: 'completed',
         mergedVideoUrl: storageResult.url,
@@ -171,10 +162,17 @@ export const mergeAudioVideoWorkflow = createScopedWorkflow<
           mergedVideoError: error,
         });
 
-        void getGenerationChannel(input.sequenceId).emit(
-          'generation.merge:progress',
-          { step: 'audio-video', status: 'failed' }
-        );
+        try {
+          await getGenerationChannel(input.sequenceId).emit(
+            'generation.merge:progress',
+            { step: 'audio-video', status: 'failed' }
+          );
+        } catch (emitError) {
+          console.error(
+            `[MergeAudioVideoWorkflow] Failed to emit failure event for sequence ${input.sequenceId}:`,
+            emitError
+          );
+        }
       }
       console.error(
         `[MergeAudioVideoWorkflow] Failed to mux sequence ${input.sequenceId}: ${error}`

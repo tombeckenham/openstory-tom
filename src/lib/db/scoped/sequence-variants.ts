@@ -41,6 +41,11 @@ export function createSequenceVariantsMethods(db: Database) {
           sql`${sequenceVideoVariants.divergedAt} IS NULL`
         )
       );
+    if (result.length > 1) {
+      throw new Error(
+        `[sequenceVariants] Multiple primary video variants found for sequence ${sequenceId} workflow ${workflow} — partial unique index violated`
+      );
+    }
     return result.at(0) ?? null;
   };
 
@@ -122,6 +127,11 @@ export function createSequenceVariantsMethods(db: Database) {
           sql`${sequenceMusicVariants.divergedAt} IS NULL`
         )
       );
+    if (result.length > 1) {
+      throw new Error(
+        `[sequenceVariants] Multiple primary music variants found for sequence ${sequenceId} model ${model} — partial unique index violated`
+      );
+    }
     return result.at(0) ?? null;
   };
 

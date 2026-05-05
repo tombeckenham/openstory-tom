@@ -1,4 +1,6 @@
 import { MusicModelSelector } from '@/components/model/music-model-selector';
+import { PromptHistorySheet } from '@/components/prompts/prompt-history-sheet';
+import { StalenessIndicator } from '@/components/staleness/staleness-indicator';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +17,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Film,
+  History,
   Loader2,
   Music,
   Volume2,
@@ -37,6 +40,9 @@ type MusicViewProps = {
   isMergingVideoAndMusic: boolean;
   /** Banner rendered above the audio player while `musicStatus === 'completed'`. */
   divergentBanner?: React.ReactNode;
+  isMusicPromptStale?: boolean;
+  onRegenerateMusicPrompt?: () => void;
+  isRegeneratingMusicPrompt?: boolean;
 };
 
 type LoadingButtonProps = React.ComponentProps<typeof Button> & {
@@ -133,6 +139,9 @@ export const MusicView: React.FC<MusicViewProps> = ({
   onMergeVideoAndMusic,
   isMergingVideoAndMusic,
   divergentBanner,
+  isMusicPromptStale,
+  onRegenerateMusicPrompt,
+  isRegeneratingMusicPrompt,
 }) => {
   const {
     musicStatus,
@@ -150,6 +159,42 @@ export const MusicView: React.FC<MusicViewProps> = ({
   const [editDuration, setEditDuration] = useState<number | undefined>(
     () => videoDuration
   );
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  const stalenessBanner =
+    isMusicPromptStale && onRegenerateMusicPrompt ? (
+      <StalenessIndicator
+        artifact="music-prompt"
+        entityType="sequence"
+        density="inline"
+        onRegenerate={onRegenerateMusicPrompt}
+      />
+    ) : null;
+
+  const historyButton = (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={() => setHistoryOpen(true)}
+      aria-label="Show music prompt history"
+    >
+      <History className="mr-2 h-4 w-4" />
+      History
+    </Button>
+  );
+
+  const historySheet = (
+    <PromptHistorySheet
+      open={historyOpen}
+      onOpenChange={setHistoryOpen}
+      mode="music"
+      sequenceId={sequence.id}
+      currentText={musicPrompt ?? ''}
+    />
+  );
+
+  void isRegeneratingMusicPrompt;
   const prevVideoDurationRef = useRef(videoDuration);
   if (videoDuration !== prevVideoDurationRef.current) {
     prevVideoDurationRef.current = videoDuration;
@@ -179,6 +224,7 @@ export const MusicView: React.FC<MusicViewProps> = ({
         icon={<Volume2 className="h-10 w-10 text-muted-foreground" />}
       >
         {divergentBanner}
+        {stalenessBanner}
         <audio
           controls
           src={musicUrl}
@@ -199,6 +245,7 @@ export const MusicView: React.FC<MusicViewProps> = ({
         <ReadOnlyField label="Tags" value={musicTags ?? 'Missing tags'} />
 
         <div className="flex justify-center gap-3">
+          {historyButton}
           <LoadingButton
             variant="outline"
             onClick={handleGenerate}
@@ -216,6 +263,7 @@ export const MusicView: React.FC<MusicViewProps> = ({
             Merge with Video
           </LoadingButton>
         </div>
+        {historySheet}
       </StatusPanel>
     );
   }
@@ -270,6 +318,7 @@ export const MusicView: React.FC<MusicViewProps> = ({
       icon={<Music className="h-8 w-8 text-muted-foreground" />}
       message={promptPending ? 'Preparing music…' : 'Music prompt ready'}
     >
+      {stalenessBanner}
       <FormField label="Prompt" htmlFor="music-prompt">
         <Textarea
           id="music-prompt"
@@ -318,15 +367,18 @@ export const MusicView: React.FC<MusicViewProps> = ({
         )}
       </FormField>
 
-      <LoadingButton
-        className="self-center"
-        onClick={handleGenerate}
-        disabled={!editPrompt}
-        isLoading={isGeneratingMusic}
-        loadingText="Generating…"
-      >
-        Generate Music
-      </LoadingButton>
+      <div className="flex justify-center gap-3">
+        {historyButton}
+        <LoadingButton
+          onClick={handleGenerate}
+          disabled={!editPrompt}
+          isLoading={isGeneratingMusic}
+          loadingText="Generating…"
+        >
+          Generate Music
+        </LoadingButton>
+      </div>
+      {historySheet}
     </StatusPanel>
   );
 };

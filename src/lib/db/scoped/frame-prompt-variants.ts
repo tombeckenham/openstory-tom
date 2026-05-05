@@ -17,13 +17,13 @@
 
 import type { MotionPromptParameters } from '@/lib/ai/scene-analysis.schema';
 import type { Database } from '@/lib/db/client';
-import { framePromptVariants, frames } from '@/lib/db/schema';
+import { framePromptVariants, frames, user } from '@/lib/db/schema';
 import type {
   FramePromptType,
   FramePromptVariant,
   FramePromptVariantComponents,
 } from '@/lib/db/schema';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, lte } from 'drizzle-orm';
 
 type WriteFramePromptVariantBase = {
   frameId: string;
@@ -158,6 +158,75 @@ export function createFramePromptVariantsMethods(db: Database) {
           )
         )
         .orderBy(desc(framePromptVariants.createdAt));
+    },
+
+    /**
+     * History list for the UI — joins author name. Newest first.
+     */
+    listByFrameWithAuthor: async (
+      frameId: string,
+      promptType: FramePromptType
+    ): Promise<
+      Array<FramePromptVariant & { createdByName: string | null }>
+    > => {
+      const rows = await db
+        .select({ variant: framePromptVariants, createdByName: user.name })
+        .from(framePromptVariants)
+        .leftJoin(user, eq(framePromptVariants.createdBy, user.id))
+        .where(
+          and(
+            eq(framePromptVariants.frameId, frameId),
+            eq(framePromptVariants.promptType, promptType)
+          )
+        )
+        .orderBy(desc(framePromptVariants.createdAt));
+      return rows.map((r) => ({
+        ...r.variant,
+        createdByName: r.createdByName,
+      }));
+    },
+
+    /** Fetch a single variant scoped to its frame. */
+    getByIdForFrame: async (
+      variantId: string,
+      frameId: string
+    ): Promise<FramePromptVariant | null> => {
+      const [row] = await db
+        .select()
+        .from(framePromptVariants)
+        .where(
+          and(
+            eq(framePromptVariants.id, variantId),
+            eq(framePromptVariants.frameId, frameId)
+          )
+        )
+        .limit(1);
+      return row ?? null;
+    },
+
+    /**
+     * Candidates for matching a `frame_variants.promptHash` (`simpleHash` of
+     * the prompt text) — pulls prompt variants of the right type that existed
+     * at or before `cutoff`, newest first. Caller filters by simpleHash.
+     */
+    listCandidatesAtOrBefore: async (
+      frameId: string,
+      promptType: FramePromptType,
+      cutoff: Date,
+      limit = 50
+    ): Promise<FramePromptVariant[]> => {
+      return await db
+        .select()
+        .from(framePromptVariants)
+        .where(
+          and(
+            eq(framePromptVariants.frameId, frameId),
+            eq(framePromptVariants.promptType, promptType),
+            lte(framePromptVariants.createdAt, cutoff)
+          )
+        )
+        .orderBy(desc(framePromptVariants.createdAt))
+        .limit(limit);
     },
 
     /** Most recent variant of a given type, or null if none exists. */

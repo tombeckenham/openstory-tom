@@ -1,7 +1,9 @@
 import { BillingGateDialog } from '@/components/billing/billing-gate-dialog';
 import { ImageModelSelector } from '@/components/model/image-model-selector';
 import { MotionModelSelector } from '@/components/model/motion-model-selector';
+import { PromptHistorySheet } from '@/components/prompts/prompt-history-sheet';
 import { DivergentAlternateBanner } from '@/components/staleness/divergent-alternate-banner';
+import { StalenessIndicator } from '@/components/staleness/staleness-indicator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { shortenPromptFn } from '@/functions/ai';
 import { generateFrameImageFn } from '@/functions/frame-image';
 import { generateFrameMotionFn } from '@/functions/motion-functions';
+import { regenerateFramePromptFn } from '@/functions/prompt-variants';
 import { BILLING_BALANCE_KEY } from '@/hooks/use-billing-balance';
 import { useFalBillingGate } from '@/hooks/use-billing-gate';
 import {
@@ -25,6 +28,10 @@ import {
   useSelectVariant,
   useSetImageFromVariant,
 } from '@/hooks/use-frames';
+import {
+  frameStalenessKey,
+  useFrameStaleness,
+} from '@/hooks/use-frame-staleness';
 import type { FrameVariant } from '@/lib/db/schema';
 import {
   DEFAULT_IMAGE_MODEL,
@@ -39,8 +46,8 @@ import {
 import type { AspectRatio } from '@/lib/constants/aspect-ratios';
 import { resolveMotionPrompt } from '@/lib/motion/resolve-motion-prompt';
 import type { Frame } from '@/types/database';
-import { useQueryClient } from '@tanstack/react-query';
-import { CopyIcon, Loader2, Minimize2 } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { CopyIcon, History, Loader2, Minimize2 } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { FrameStalenessBanners } from './frame-staleness-banners';
@@ -187,6 +194,9 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
     [frameDivergentVariants]
   );
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState<'visual' | 'motion' | null>(
+    null
+  );
   const [shortenStatus, setShortenStatus] = useState<{
     loading: boolean;
     error: string | null;
@@ -239,6 +249,31 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
     gateProps: falGateProps,
     stripeEnabled,
   } = useFalBillingGate();
+
+  const { data: staleness } = useFrameStaleness({
+    sequenceId,
+    frameId: frame?.id,
+  });
+  const regeneratePromptMutation = useMutation({
+    mutationFn: (promptType: 'visual' | 'motion') => {
+      if (!frame?.id) throw new Error('frame required');
+      return regenerateFramePromptFn({
+        data: { sequenceId, frameId: frame.id, promptType },
+      });
+    },
+    onSuccess: async () => {
+      if (frame?.id) {
+        await queryClient.invalidateQueries({
+          queryKey: frameStalenessKey(frame.id),
+        });
+      }
+    },
+    onError: (error) => {
+      toast.error('Prompt regenerate failed', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    },
+  });
 
   const handleCopy = useCallback(
     async (text: string | undefined, tabName: string) => {
@@ -638,8 +673,28 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
         <TabsTrigger value="cast">Cast</TabsTrigger>
         <TabsTrigger value="location">Location</TabsTrigger>
         <TabsTrigger value="elements">Elements</TabsTrigger>
-        <TabsTrigger value="image-prompt">Image</TabsTrigger>
-        <TabsTrigger value="motion-prompt">Motion</TabsTrigger>
+        <TabsTrigger value="image-prompt" className="gap-1.5">
+          Image
+          {staleness?.visualPrompt && (
+            <StalenessIndicator
+              artifact="visual-prompt"
+              entityType="frame"
+              density="corner-dot"
+              onRegenerate={() => regeneratePromptMutation.mutate('visual')}
+            />
+          )}
+        </TabsTrigger>
+        <TabsTrigger value="motion-prompt" className="gap-1.5">
+          Motion
+          {staleness?.motionPrompt && (
+            <StalenessIndicator
+              artifact="motion-prompt"
+              entityType="frame"
+              density="corner-dot"
+              onRegenerate={() => regeneratePromptMutation.mutate('motion')}
+            />
+          )}
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="script">
@@ -704,24 +759,46 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
             />
           </div>
 
-          {/* Shorten button */}
-          <Button
-            variant="outline"
-            onClick={() => void handleShortenPrompt()}
-            disabled={
-              shortenStatus.loading ||
-              isGenerating ||
-              !editedImagePrompt ||
-              editedImagePrompt.length < 20
-            }
-            className="w-full"
-          >
-            {shortenStatus.loading && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            )}
-            {!shortenStatus.loading && <Minimize2 className="mr-2 h-4 w-4" />}
-            {shortenStatus.loading ? 'Shortening…' : 'Shorten Prompt'}
-          </Button>
+          {/* Shorten + History buttons */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => void handleShortenPrompt()}
+              disabled={
+                shortenStatus.loading ||
+                isGenerating ||
+                !editedImagePrompt ||
+                editedImagePrompt.length < 20
+              }
+              className="flex-1"
+            >
+              {shortenStatus.loading && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {!shortenStatus.loading && <Minimize2 className="mr-2 h-4 w-4" />}
+              {shortenStatus.loading ? 'Shortening…' : 'Shorten Prompt'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setHistoryOpen('visual')}
+              disabled={!frame}
+              aria-label="Show visual prompt history"
+            >
+              <History className="mr-2 h-4 w-4" />
+              History
+            </Button>
+          </div>
+
+          {/* Prompt-stale regenerate banner */}
+          {staleness?.visualPrompt && (
+            <StalenessIndicator
+              artifact="visual-prompt"
+              entityType="frame"
+              density="inline"
+              onRegenerate={() => regeneratePromptMutation.mutate('visual')}
+            />
+          )}
 
           {/* Divergent alternate / staleness banners (issue #625) */}
           {divergentImageVariant && (
@@ -859,6 +936,29 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
             </div>
           )}
 
+          {/* History button */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setHistoryOpen('motion')}
+            disabled={!frame}
+            className="w-full"
+            aria-label="Show motion prompt history"
+          >
+            <History className="mr-2 h-4 w-4" />
+            History
+          </Button>
+
+          {/* Prompt-stale regenerate banner */}
+          {staleness?.motionPrompt && (
+            <StalenessIndicator
+              artifact="motion-prompt"
+              entityType="frame"
+              density="inline"
+              onRegenerate={() => regeneratePromptMutation.mutate('motion')}
+            />
+          )}
+
           {/* Divergent alternate banner for video variant */}
           {divergentVideoVariant && (
             <DivergentAlternateBanner
@@ -983,6 +1083,19 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
       </TabsContent>
 
       <BillingGateDialog {...falGateProps} stripeEnabled={stripeEnabled} />
+
+      {frame?.id && historyOpen && (
+        <PromptHistorySheet
+          open
+          onOpenChange={(open) => !open && setHistoryOpen(null)}
+          mode={historyOpen}
+          sequenceId={sequenceId}
+          frameId={frame.id}
+          currentText={
+            historyOpen === 'visual' ? imagePrompt || '' : rawMotionPrompt || ''
+          }
+        />
+      )}
     </Tabs>
   );
 };

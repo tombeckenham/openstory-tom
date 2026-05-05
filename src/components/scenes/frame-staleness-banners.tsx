@@ -2,10 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { DivergentAlternateBanner } from '@/components/staleness/divergent-alternate-banner';
 import { StalenessIndicator } from '@/components/staleness/staleness-indicator';
-import {
-  getFrameStalenessFn,
-  getSequenceImageVariantsFn,
-} from '@/functions/frames';
+import { getSequenceImageVariantsFn } from '@/functions/frames';
+import { useFrameStaleness } from '@/hooks/use-frame-staleness';
 import type { FrameVariant } from '@/lib/db/schema';
 
 type FrameStalenessBannersProps = {
@@ -36,15 +34,7 @@ export const FrameStalenessBanners: React.FC<FrameStalenessBannersProps> = ({
   onPromoteDivergent,
   onDiscardDivergent,
 }) => {
-  const { data: staleness } = useQuery({
-    queryKey: ['frame-staleness', frameId],
-    queryFn: () => {
-      if (!frameId) throw new Error('frameId required');
-      return getFrameStalenessFn({ data: { sequenceId, frameId } });
-    },
-    enabled: !!frameId,
-    staleTime: 30_000,
-  });
+  const { data: staleness } = useFrameStaleness({ sequenceId, frameId });
 
   // Same key as `scenes-view`; sharing it means the cache invalidation fired
   // by `stale:detected` reaches both the variant grid and this banner with one

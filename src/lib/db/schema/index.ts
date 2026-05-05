@@ -126,6 +126,11 @@ export type {
 // Frame Prompt Variants (visual/motion prompt history)
 export { framePromptVariants };
 
+export {
+  FRAME_PROMPT_TYPES,
+  PROMPT_VARIANT_SOURCES,
+} from './frame-prompt-variants';
+
 export type {
   FramePromptType,
   FramePromptVariant,

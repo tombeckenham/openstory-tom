@@ -308,11 +308,11 @@ export type PromptSceneContextHashInput = {
   scene: Scene;
   /** Sequence style config (look/feel knobs that influence prompt phrasing). */
   styleConfig: StyleConfig;
-  /** Character bible entries; order is preserved (scene-defined ordering). */
+  /** Character bible entries; sorted by `characterId` before hashing. */
   characterBible: readonly CharacterBibleEntry[];
-  /** Location bible entries; order is preserved. */
+  /** Location bible entries; sorted by `locationId` before hashing. */
   locationBible: readonly LocationBibleEntry[];
-  /** Element bible entries; order is preserved. */
+  /** Element bible entries; sorted by `token` before hashing. */
   elementBible?: readonly ElementBibleEntry[];
   /** Aspect ratio influences composition guidance in the prompt. */
   aspectRatio: string;
@@ -331,16 +331,38 @@ function sceneInputContext(
   return context;
 }
 
+/**
+ * Bibles are conceptually sets — re-ordering by the LLM or DB readback must
+ * not produce a different hash. Sorting by the analysis identity field makes
+ * the hash order-insensitive while keeping each row's structure intact.
+ */
+function sortedBibles(input: PromptSceneContextHashInput) {
+  const byKey = <T>(arr: readonly T[], key: (t: T) => string): T[] =>
+    [...arr].sort((a, b) => {
+      const ka = key(a);
+      const kb = key(b);
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
+  return {
+    characterBible: byKey(input.characterBible, (c) => c.characterId),
+    locationBible: byKey(input.locationBible, (l) => l.locationId),
+    elementBible: input.elementBible
+      ? byKey(input.elementBible, (e) => e.token)
+      : null,
+  };
+}
+
 export function computeVisualPromptInputHash(
   input: PromptSceneContextHashInput
 ): Promise<string> {
+  const bibles = sortedBibles(input);
   return sha256Hex({
     artifact: 'frame:visual-prompt',
     scene: sceneInputContext(input.scene),
     styleConfig: input.styleConfig,
-    characterBible: input.characterBible,
-    locationBible: input.locationBible,
-    elementBible: input.elementBible ?? null,
+    characterBible: bibles.characterBible,
+    locationBible: bibles.locationBible,
+    elementBible: bibles.elementBible,
     aspectRatio: trim(input.aspectRatio),
     analysisModel: trim(input.analysisModel),
   });
@@ -349,13 +371,14 @@ export function computeVisualPromptInputHash(
 export function computeMotionPromptInputHash(
   input: PromptSceneContextHashInput
 ): Promise<string> {
+  const bibles = sortedBibles(input);
   return sha256Hex({
     artifact: 'frame:motion-prompt',
     scene: sceneInputContext(input.scene),
     styleConfig: input.styleConfig,
-    characterBible: input.characterBible,
-    locationBible: input.locationBible,
-    elementBible: input.elementBible ?? null,
+    characterBible: bibles.characterBible,
+    locationBible: bibles.locationBible,
+    elementBible: bibles.elementBible,
     aspectRatio: trim(input.aspectRatio),
     analysisModel: trim(input.analysisModel),
   });

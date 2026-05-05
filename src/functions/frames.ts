@@ -1,4 +1,9 @@
 import { DEFAULT_IMAGE_MODEL, safeTextToImageModel } from '@/lib/ai/models';
+import {
+  computeMotionPromptInputHash,
+  computeVisualPromptInputHash,
+} from '@/lib/ai/input-hash';
+import { loadFramePromptContext } from '@/lib/ai/prompt-context';
 import type { FrameVariant, NewFrame } from '@/lib/db/schema';
 import { getGenerationChannel } from '@/lib/realtime';
 import { getVideoDownloadUrl } from '@/lib/motion/video-storage';
@@ -339,16 +344,13 @@ export const reorderFramesFn = createServerFn({ method: 'POST' })
   });
 
 /**
- * Returns staleness flags for a frame's artifacts. Stage 1 covers `thumbnail`
- * only — that's the artifact whose input hash actually flows through the
- * snapshot pipeline today. Other artifacts return `null` (= "unknown") so the
- * UI can render them defensively without us pretending they're up to date.
- *
- * Computed by re-deriving the current input hash from live scoped state and
- * comparing it to the stored `thumbnail_input_hash` via the scoped helper.
- * A null stored hash means "legacy artifact, no opinion" — the helper returns
- * false, which is the correct UX (don't push regenerate on something we never
- * tracked inputs for).
+ * Returns staleness flags for a frame's artifacts. Covers the rendered
+ * thumbnail plus the visual / motion prompts (stage 4). Each flag is
+ * computed by re-deriving the current input hash from live scoped state and
+ * comparing it to the stored `*_input_hash` via the scoped helper. A null
+ * stored hash means "legacy artifact, no opinion" — the helper returns
+ * false, which is the correct UX (don't push regenerate on something we
+ * never tracked inputs for).
  */
 export const getFrameStalenessFn = createServerFn({ method: 'GET' })
   .middleware([frameAccessMiddleware])
@@ -356,30 +358,62 @@ export const getFrameStalenessFn = createServerFn({ method: 'GET' })
   .handler(async ({ context }) => {
     const { frame, sequence, scopedDb } = context;
 
-    if (!frame.imagePrompt) {
-      return { thumbnail: false };
+    let thumbnail = false;
+    if (frame.imagePrompt) {
+      const [characters, locations] = await Promise.all([
+        scopedDb.characters.listWithSheets(sequence.id),
+        scopedDb.sequenceLocations.listWithReferences(sequence.id),
+      ]);
+
+      const snapshot = await buildRegenerateFrameSnapshot({
+        frame,
+        characters,
+        locations,
+        imageModel: safeTextToImageModel(frame.imageModel, DEFAULT_IMAGE_MODEL),
+        aspectRatio: sequence.aspectRatio,
+      });
+
+      thumbnail = await scopedDb.frames.isStale(
+        frame.id,
+        'thumbnail',
+        snapshot.snapshotInputHash
+      );
     }
 
-    const [characters, locations] = await Promise.all([
-      scopedDb.characters.listWithSheets(sequence.id),
-      scopedDb.sequenceLocations.listWithReferences(sequence.id),
-    ]);
+    let visualPrompt = false;
+    let motionPrompt = false;
 
-    const snapshot = await buildRegenerateFrameSnapshot({
-      frame,
-      characters,
-      locations,
-      imageModel: safeTextToImageModel(frame.imageModel, DEFAULT_IMAGE_MODEL),
-      aspectRatio: sequence.aspectRatio,
-    });
+    if (frame.metadata && frame.visualPromptInputHash) {
+      const latest = await scopedDb.framePromptVariants.getLatest(
+        frame.id,
+        'visual'
+      );
+      const ctx = await loadFramePromptContext({
+        scopedDb,
+        sequence,
+        scene: frame.metadata,
+        analysisModelOverride: latest?.analysisModel ?? null,
+      });
+      const liveHash = await computeVisualPromptInputHash(ctx);
+      visualPrompt = liveHash !== frame.visualPromptInputHash;
+    }
 
-    const thumbnail = await scopedDb.frames.isStale(
-      frame.id,
-      'thumbnail',
-      snapshot.snapshotInputHash
-    );
+    if (frame.metadata && frame.motionPromptInputHash) {
+      const latest = await scopedDb.framePromptVariants.getLatest(
+        frame.id,
+        'motion'
+      );
+      const ctx = await loadFramePromptContext({
+        scopedDb,
+        sequence,
+        scene: frame.metadata,
+        analysisModelOverride: latest?.analysisModel ?? null,
+      });
+      const liveHash = await computeMotionPromptInputHash(ctx);
+      motionPrompt = liveHash !== frame.motionPromptInputHash;
+    }
 
-    return { thumbnail };
+    return { thumbnail, visualPrompt, motionPrompt };
   });
 
 /**

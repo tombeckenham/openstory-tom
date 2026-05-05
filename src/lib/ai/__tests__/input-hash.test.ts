@@ -548,6 +548,23 @@ describe('prompt input hashes', () => {
     expect(motion).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  it('bible array order does not affect the visual prompt hash', async () => {
+    const second: CharacterBibleEntry = {
+      ...aliceCharacter,
+      characterId: 'c2',
+      name: 'Bob',
+    };
+    const orderA = await computeVisualPromptInputHash({
+      ...sceneCtx,
+      characterBible: [aliceCharacter, second],
+    });
+    const orderB = await computeVisualPromptInputHash({
+      ...sceneCtx,
+      characterBible: [second, aliceCharacter],
+    });
+    expect(orderA).toBe(orderB);
+  });
+
   it('changing the analysis model changes the visual prompt hash', async () => {
     const a = await computeVisualPromptInputHash(sceneCtx);
     const b = await computeVisualPromptInputHash({

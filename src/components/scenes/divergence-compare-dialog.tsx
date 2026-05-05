@@ -1,3 +1,4 @@
+import { PromptDiffView } from '@/components/prompts/prompt-diff-view';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -12,6 +13,12 @@ import { useEffect, useState } from 'react';
 import type { Frame, FrameVariant } from '@/lib/db/schema';
 import type { VariantType } from '@/lib/db/schema/frame-variants';
 
+export type DivergencePromptDiff = {
+  label: string;
+  before: string;
+  after: string;
+};
+
 type DivergenceCompareDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -23,10 +30,14 @@ type DivergenceCompareDialogProps = {
   isDiscarding?: boolean;
   /**
    * Optional list of upstream entity changes between the snapshot and live
-   * inputs. Stage 1 surfaces this as a flat string list; field-level diffs
-   * land in stage 4.
+   * inputs. Stage 1 surfaces this as a flat string list.
    */
   upstreamChanges?: string[];
+  /**
+   * Optional field-level prompt diff (stage 4). Renders a word-level diff
+   * panel when the divergence is prompt-driven.
+   */
+  promptDiff?: DivergencePromptDiff;
 };
 
 const ARTIFACT_LABEL: Record<VariantType, string> = {
@@ -100,6 +111,7 @@ export const DivergenceCompareDialog: React.FC<
   isPromoting = false,
   isDiscarding = false,
   upstreamChanges,
+  promptDiff,
 }) => {
   const live = liveAssetForVariant(frame, variant.variantType);
   const label = ARTIFACT_LABEL[variant.variantType];
@@ -165,6 +177,16 @@ export const DivergenceCompareDialog: React.FC<
                 <li key={change}>• {change}</li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {promptDiff && (
+          <div className="flex flex-col gap-2 rounded-md border bg-muted/30 p-3">
+            <span className="text-sm font-medium">{promptDiff.label}</span>
+            <PromptDiffView
+              before={promptDiff.before}
+              after={promptDiff.after}
+            />
           </div>
         )}
 

@@ -1,3 +1,4 @@
+import { DivergentAlternateBanner } from '@/components/staleness/divergent-alternate-banner';
 import {
   Card,
   CardDescription,
@@ -21,6 +22,13 @@ type SceneListItemProps = {
   variant?: 'stacked' | 'horizontal' | 'responsive';
   isRegeneratingImage?: boolean;
   isRegeneratingMotion?: boolean;
+  /**
+   * Set when the frame has a divergent alternate thumbnail awaiting review.
+   * Takes precedence over the staleness dot per the divergence-resolution
+   * spec — promoting the alternate resolves both states.
+   */
+  divergentVariantId?: string;
+  onCompareDivergent?: () => void;
 };
 
 const SceneListItemComponent: React.FC<SceneListItemProps> = ({
@@ -32,7 +40,15 @@ const SceneListItemComponent: React.FC<SceneListItemProps> = ({
   variant = 'responsive',
   isRegeneratingImage = false,
   isRegeneratingMotion = false,
+  divergentVariantId,
+  onCompareDivergent,
 }) => {
+  // Divergent alternate takes precedence: promoting it resolves staleness too.
+  const showDivergentDot = !!divergentVariantId;
+  const showStatusIndicator =
+    !showDivergentDot &&
+    (isCompleted ||
+      (frame && (isRegeneratingImage || isRegeneratingMotion || !isCompleted)));
   // Extract scene data from frame metadata
   const metadata = frame?.metadata;
 
@@ -44,18 +60,45 @@ const SceneListItemComponent: React.FC<SceneListItemProps> = ({
     ? undefined
     : (metadata?.originalScript.extract ?? frame.description ?? '');
 
+  // Skeleton state (no frame): suppress click handling and pointer cursor so
+  // a click during the loading window does not invoke the (now-undefined)
+  // onSelect callback or appear interactive.
+  const isSkeleton = !frame;
   return (
     <Card
       className={cn(
-        '@container/scene relative cursor-pointer transition-all',
+        '@container/scene relative transition-all',
+        isSkeleton ? 'pointer-events-none' : 'cursor-pointer',
         isActive ? 'border-primary bg-primary/5' : 'hover:bg-muted/50',
         variant === 'responsive' && '@[280px]/scene:py-3',
         variant === 'horizontal' && 'py-3',
         'py-3'
       )}
-      onClick={onSelect}
+      onClick={isSkeleton ? undefined : onSelect}
     >
-      {isCompleted && (
+      {showDivergentDot && (
+        <div
+          className="absolute right-3 top-3 z-10"
+          // The corner indicator is itself a focusable button; this wrapper
+          // exists only to halt click propagation so opening the dot doesn't
+          // also select the scene card behind it.
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          role="presentation"
+        >
+          <DivergentAlternateBanner
+            density="corner-dot"
+            variantId={divergentVariantId ?? ''}
+            artifact="thumbnail"
+            entityType="frame"
+            onCompare={() => onCompareDivergent?.()}
+            // Compare-only entry from the corner; promote/discard live in the dialog.
+            onPromote={() => onCompareDivergent?.()}
+            onDiscard={() => onCompareDivergent?.()}
+          />
+        </div>
+      )}
+      {showStatusIndicator && isCompleted && (
         <Check
           className={cn(
             'absolute right-4 top-4 z-10 h-6 w-6 p-1 rounded-full',
@@ -63,7 +106,8 @@ const SceneListItemComponent: React.FC<SceneListItemProps> = ({
           )}
         />
       )}
-      {frame &&
+      {showStatusIndicator &&
+        frame &&
         !isCompleted &&
         (isRegeneratingImage || isRegeneratingMotion) && (
           <Loader2
@@ -73,7 +117,8 @@ const SceneListItemComponent: React.FC<SceneListItemProps> = ({
             )}
           />
         )}
-      {frame &&
+      {showStatusIndicator &&
+        frame &&
         !isCompleted &&
         !isRegeneratingImage &&
         !isRegeneratingMotion && (
@@ -139,7 +184,8 @@ const areEqual = (
     prevProps.isCompleted !== nextProps.isCompleted ||
     prevProps.variant !== nextProps.variant ||
     prevProps.isRegeneratingImage !== nextProps.isRegeneratingImage ||
-    prevProps.isRegeneratingMotion !== nextProps.isRegeneratingMotion
+    prevProps.isRegeneratingMotion !== nextProps.isRegeneratingMotion ||
+    prevProps.divergentVariantId !== nextProps.divergentVariantId
   ) {
     return false;
   }

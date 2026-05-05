@@ -1,6 +1,7 @@
 import type { Frame } from '@/types/database';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import type { FrameVariant } from '@/lib/db/schema';
 import {
   getFramesFn,
   getFrameFn,
@@ -10,6 +11,10 @@ import {
   deleteFrameFn,
   deleteFramesBySequenceFn,
   reorderFramesFn,
+  getDivergentVariantsFn,
+  promoteVariantFn,
+  discardVariantFn,
+  undiscardVariantFn,
 } from '@/functions/frames';
 import {
   generateFramesFn,
@@ -72,7 +77,90 @@ export const frameKeys = {
   detail: (id: string) => [...frameKeys.details(), id] as const,
   imageModels: (sequenceId: string) =>
     [...frameKeys.all, 'image-models', sequenceId] as const,
+  divergentVariants: (sequenceId: string) =>
+    [...frameKeys.all, 'divergent-variants', sequenceId] as const,
 };
+
+// Hook to fetch the live (non-discarded) divergent alternates for a sequence.
+// The corner-dot indicator and inline banner both filter this list per frame.
+export function useDivergentVariants(
+  sequenceId?: string,
+  options?: { refetchInterval?: number | false }
+) {
+  return useQuery<FrameVariant[]>({
+    queryKey: frameKeys.divergentVariants(sequenceId ?? ''),
+    queryFn: async () => {
+      if (!sequenceId) throw new Error('sequenceId is required');
+      return getDivergentVariantsFn({ data: { sequenceId } });
+    },
+    enabled: !!sequenceId,
+    staleTime: 30_000,
+    refetchInterval: options?.refetchInterval ?? false,
+  });
+}
+
+// Promote a divergent alternate to the live primary slot.
+export function usePromoteVariantToPrimary() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    { frame: Frame; variantId: string },
+    Error,
+    { sequenceId: string; frameId: string; variantId: string }
+  >({
+    mutationFn: async (input) => {
+      const result = await promoteVariantFn({ data: input });
+      return result;
+    },
+    onSuccess: async ({ frame }, { sequenceId }) => {
+      queryClient.setQueryData(frameKeys.detail(frame.id), frame);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: frameKeys.list(sequenceId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: frameKeys.divergentVariants(sequenceId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['sequence-image-variants', sequenceId],
+        }),
+      ]);
+    },
+  });
+}
+
+// Discard a divergent alternate (sets discarded_at). Pairs with useUndiscard
+// for the toast Undo action.
+export function useDiscardVariant() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    { variantId: string; discardedAt: Date },
+    Error,
+    { sequenceId: string; frameId: string; variantId: string }
+  >({
+    mutationFn: async (input) => discardVariantFn({ data: input }),
+    onSuccess: async (_, { sequenceId }) => {
+      await queryClient.invalidateQueries({
+        queryKey: frameKeys.divergentVariants(sequenceId),
+      });
+    },
+  });
+}
+
+export function useUndiscardVariant() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    { variantId: string },
+    Error,
+    { sequenceId: string; frameId: string; variantId: string }
+  >({
+    mutationFn: async (input) => undiscardVariantFn({ data: input }),
+    onSuccess: async (_, { sequenceId }) => {
+      await queryClient.invalidateQueries({
+        queryKey: frameKeys.divergentVariants(sequenceId),
+      });
+    },
+  });
+}
 
 // Hook for listing frames by sequence with optional auto-refresh
 export function useFramesBySequence(

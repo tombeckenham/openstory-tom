@@ -12,7 +12,16 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { batchGenerateMotionFn } from '@/functions/motion-functions';
 import { smartRetryFn } from '@/functions/smart-retry';
 import { BILLING_BALANCE_KEY } from '@/hooks/use-billing-balance';
-import { frameKeys, useFramesBySequence } from '@/hooks/use-frames';
+import {
+  frameKeys,
+  useDiscardVariant,
+  useDivergentVariants,
+  useFramesBySequence,
+  usePromoteVariantToPrimary,
+  useUndiscardVariant,
+} from '@/hooks/use-frames';
+import { useStaleDetected } from '@/lib/realtime/use-stale-detected';
+import { DivergenceCompareDialog } from '@/components/scenes/divergence-compare-dialog';
 import { sequenceKeys, useSequence } from '@/hooks/use-sequences';
 import { useStyle } from '@/hooks/use-styles';
 import { safeTextToImageModel, DEFAULT_IMAGE_MODEL } from '@/lib/ai/models';
@@ -165,6 +174,96 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
     staleTime: 30_000,
     enabled: !!sequenceId,
   });
+
+  // Divergent alternates + realtime stale:detected wiring (issue #625).
+  // Mirror the frames-list polling fallback so the corner-dot still updates
+  // when realtime is down.
+  const { data: divergentVariants } = useDivergentVariants(
+    sequenceId,
+    shouldPoll ? { refetchInterval: 2000 } : undefined
+  );
+  useStaleDetected(sequenceId);
+  const promoteVariant = usePromoteVariantToPrimary();
+  const discardVariant = useDiscardVariant();
+  const undiscardVariant = useUndiscardVariant();
+  const [compareVariant, setCompareVariant] = useState<FrameVariant | null>(
+    null
+  );
+
+  const handleDiscardWithUndo = useCallback(
+    (variant: FrameVariant) => {
+      const restore = () => {
+        undiscardVariant.mutate(
+          {
+            sequenceId,
+            frameId: variant.frameId,
+            variantId: variant.id,
+          },
+          {
+            onError: (error) => {
+              toast.error('Failed to restore alternate', {
+                description:
+                  error instanceof Error ? error.message : 'Unknown error',
+              });
+            },
+          }
+        );
+      };
+      discardVariant.mutate(
+        { sequenceId, frameId: variant.frameId, variantId: variant.id },
+        {
+          onSuccess: () => {
+            // Only close the dialog after the mutation succeeds — on failure
+            // the user keeps the dialog open and can retry from there.
+            setCompareVariant(null);
+            toast('Alternate discarded', {
+              action: { label: 'Undo', onClick: restore },
+            });
+          },
+          onError: (error) => {
+            toast.error('Failed to discard alternate', {
+              description:
+                error instanceof Error ? error.message : 'Unknown error',
+            });
+          },
+        }
+      );
+    },
+    [sequenceId, discardVariant, undiscardVariant]
+  );
+
+  // If the frame backing the open compare dialog disappears (e.g. concurrent
+  // delete from another tab), close the dialog explicitly with a toast rather
+  // than silently null-rendering it.
+  useEffect(() => {
+    if (!compareVariant || !frames) return;
+    const stillExists = frames.some((f) => f.id === compareVariant.frameId);
+    if (!stillExists) {
+      toast.info('Scene was removed.');
+      setCompareVariant(null);
+    }
+  }, [compareVariant, frames]);
+
+  const handlePromote = useCallback(
+    (variant: FrameVariant) => {
+      promoteVariant.mutate(
+        { sequenceId, frameId: variant.frameId, variantId: variant.id },
+        {
+          onSuccess: () => {
+            setCompareVariant(null);
+            toast.success('Alternate promoted');
+          },
+          onError: (error) => {
+            toast.error('Failed to promote alternate', {
+              description:
+                error instanceof Error ? error.message : 'Unknown error',
+            });
+          },
+        }
+      );
+    },
+    [sequenceId, promoteVariant]
+  );
 
   const curSelectedFrameId = selectedFrameId || frames?.[0]?.id;
   const selectedFrame = useMemo(
@@ -490,6 +589,8 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
             hideBatchButton={
               phaseConfig.autoGenerateMotion && isGenerationActive
             }
+            divergentVariants={divergentVariants}
+            onCompareDivergent={(variant) => setCompareVariant(variant)}
           />
         </div>
 
@@ -543,9 +644,35 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
             variantForSelectedModel={variantForSelectedModel}
             onImageModelChange={setImageModelOverride}
             styleCategory={styleCategory}
+            frameDivergentVariants={divergentVariants?.filter(
+              (v) => v.frameId === curSelectedFrameId
+            )}
+            onCompareDivergent={(variant) => setCompareVariant(variant)}
           />
         </ScrollArea>
       </div>
+
+      {compareVariant &&
+        (() => {
+          const targetFrame = frames?.find(
+            (f) => f.id === compareVariant.frameId
+          );
+          if (!targetFrame) return null;
+          return (
+            <DivergenceCompareDialog
+              open={true}
+              onOpenChange={(open) => {
+                if (!open) setCompareVariant(null);
+              }}
+              frame={targetFrame}
+              variant={compareVariant}
+              onPromote={() => handlePromote(compareVariant)}
+              onDiscard={() => handleDiscardWithUndo(compareVariant)}
+              isPromoting={promoteVariant.isPending}
+              isDiscarding={discardVariant.isPending}
+            />
+          );
+        })()}
     </div>
   );
 };

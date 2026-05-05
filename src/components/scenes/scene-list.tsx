@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { AspectRatio } from '@/lib/constants/aspect-ratios';
-import type { Frame } from '@/types/database';
+import type { Frame, FrameVariant } from '@/lib/db/schema';
 import { Loader2, Video } from 'lucide-react';
 import { memo, useMemo, useState } from 'react';
 import { SceneListItem } from './scene-list-item';
@@ -18,6 +18,9 @@ type SceneListProps = {
   musicPromptsReady: boolean;
   /** Hide the batch motion button (e.g. while auto-generate motion is in flight). */
   hideBatchButton?: boolean;
+  /** Live divergent alternates for the current sequence (filtered per-frame). */
+  divergentVariants?: FrameVariant[];
+  onCompareDivergent?: (variant: FrameVariant) => void;
 };
 
 const isCompleted = (frame: Frame) => {
@@ -36,7 +39,20 @@ const SceneListComponent: React.FC<SceneListProps> = ({
   onBatchGenerateMotion,
   musicPromptsReady,
   hideBatchButton = false,
+  divergentVariants,
+  onCompareDivergent,
 }) => {
+  const divergentByFrameId = useMemo(() => {
+    const map = new Map<string, FrameVariant>();
+    for (const v of divergentVariants ?? []) {
+      // Image variant is what surfaces on the card. Other variant types
+      // live on their respective tabs per the spec's surfacing matrix.
+      if (v.variantType !== 'image') continue;
+      if (!map.has(v.frameId)) map.set(v.frameId, v);
+    }
+    return map;
+  }, [divergentVariants]);
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [includeMusic, setIncludeMusic] = useState(true);
 
@@ -107,25 +123,31 @@ const SceneListComponent: React.FC<SceneListProps> = ({
                 aspectRatio={aspectRatio}
                 isActive={false}
                 isCompleted={false}
-                onSelect={function (): void {
-                  throw new Error('Function not implemented.');
-                }}
               />
             ))}
 
           {frames &&
-            frames.map((frame) => (
-              <SceneListItem
-                key={frame.id}
-                frame={frame}
-                aspectRatio={aspectRatio}
-                isActive={frame.id === selectedFrameId}
-                isCompleted={isCompleted(frame)}
-                onSelect={() => onSelectFrame(frame.id)}
-                isRegeneratingImage={regeneratingImages.has(frame.id)}
-                isRegeneratingMotion={regeneratingMotion.has(frame.id)}
-              />
-            ))}
+            frames.map((frame) => {
+              const divergent = divergentByFrameId.get(frame.id);
+              return (
+                <SceneListItem
+                  key={frame.id}
+                  frame={frame}
+                  aspectRatio={aspectRatio}
+                  isActive={frame.id === selectedFrameId}
+                  isCompleted={isCompleted(frame)}
+                  onSelect={() => onSelectFrame(frame.id)}
+                  isRegeneratingImage={regeneratingImages.has(frame.id)}
+                  isRegeneratingMotion={regeneratingMotion.has(frame.id)}
+                  divergentVariantId={divergent?.id}
+                  onCompareDivergent={
+                    divergent
+                      ? () => onCompareDivergent?.(divergent)
+                      : undefined
+                  }
+                />
+              );
+            })}
         </div>
       </ScrollArea>
 
@@ -205,7 +227,17 @@ const areEqual = (
   }
 
   // Compare callback references
-  if (prevProps.onBatchGenerateMotion !== nextProps.onBatchGenerateMotion) {
+  if (
+    prevProps.onBatchGenerateMotion !== nextProps.onBatchGenerateMotion ||
+    prevProps.onCompareDivergent !== nextProps.onCompareDivergent
+  ) {
+    return false;
+  }
+
+  // Divergent / staleness inputs drive corner-dot indicators on each row.
+  // TanStack Query structural sharing keeps the array reference stable when
+  // contents are unchanged, so reference equality is sufficient here.
+  if (prevProps.divergentVariants !== nextProps.divergentVariants) {
     return false;
   }
 

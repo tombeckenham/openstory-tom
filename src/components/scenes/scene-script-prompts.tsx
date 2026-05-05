@@ -1,6 +1,7 @@
 import { BillingGateDialog } from '@/components/billing/billing-gate-dialog';
 import { ImageModelSelector } from '@/components/model/image-model-selector';
 import { MotionModelSelector } from '@/components/model/motion-model-selector';
+import { DivergentAlternateBanner } from '@/components/staleness/divergent-alternate-banner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -96,6 +97,9 @@ type SceneScriptPromptsProps = {
   onImageModelChange?: (model: string) => void;
   /** Current style category, used to show/hide style-restricted motion models */
   styleCategory?: string;
+  /** Live divergent alternates for the current frame across variant types. */
+  frameDivergentVariants?: FrameVariant[];
+  onCompareDivergent?: (variant: FrameVariant) => void;
 };
 
 type PromptTabContentProps = {
@@ -171,7 +175,17 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
   variantForSelectedModel,
   onImageModelChange,
   styleCategory,
+  frameDivergentVariants,
+  onCompareDivergent,
 }) => {
+  const divergentImageVariant = useMemo(
+    () => frameDivergentVariants?.find((v) => v.variantType === 'image'),
+    [frameDivergentVariants]
+  );
+  const divergentVideoVariant = useMemo(
+    () => frameDivergentVariants?.find((v) => v.variantType === 'video'),
+    [frameDivergentVariants]
+  );
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
   const [shortenStatus, setShortenStatus] = useState<{
     loading: boolean;
@@ -709,6 +723,18 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
             {shortenStatus.loading ? 'Shortening…' : 'Shorten Prompt'}
           </Button>
 
+          {/* Divergent alternate / staleness banners (issue #625) */}
+          {divergentImageVariant && (
+            <DivergentAlternateBanner
+              variantId={divergentImageVariant.id}
+              artifact="thumbnail"
+              entityType="frame"
+              onCompare={() => onCompareDivergent?.(divergentImageVariant)}
+              onPromote={() => onCompareDivergent?.(divergentImageVariant)}
+              onDiscard={() => onCompareDivergent?.(divergentImageVariant)}
+            />
+          )}
+
           {/* Image action button — variant-aware */}
           {variantIsCompleted && !variantAlreadySet ? (
             <Button
@@ -831,6 +857,18 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
                 {assembledPrompt}
               </p>
             </div>
+          )}
+
+          {/* Divergent alternate banner for video variant */}
+          {divergentVideoVariant && (
+            <DivergentAlternateBanner
+              variantId={divergentVideoVariant.id}
+              artifact="video"
+              entityType="frame"
+              onCompare={() => onCompareDivergent?.(divergentVideoVariant)}
+              onPromote={() => onCompareDivergent?.(divergentVideoVariant)}
+              onDiscard={() => onCompareDivergent?.(divergentVideoVariant)}
+            />
           )}
 
           {/* Regenerate button */}

@@ -71,6 +71,10 @@ export const frameVariants = sqliteTable(
     // Set when the variant was saved as a divergence (inputs changed between
     // workflow snapshot and write time) rather than as the primary artifact.
     divergedAt: integer('diverged_at', { mode: 'timestamp' }),
+    // Soft-delete marker for divergent alternates the user has dismissed.
+    // Kept (rather than hard-deleted) so the artifact stays addressable for
+    // recovery via the toast Undo action.
+    discardedAt: integer('discarded_at', { mode: 'timestamp' }),
 
     // Duration (relevant for video/audio variants)
     durationMs: integer('duration_ms'),
@@ -95,6 +99,9 @@ export const frameVariants = sqliteTable(
       .where(sql`${table.divergedAt} IS NULL`),
     // Divergent alternates: distinguished by input_hash, so multiple
     // divergences of the same model can coexist without overwriting each other.
+    // Invariant (enforced in the scoped methods): a primary variant —
+    // divergedAt IS NULL — must never have discardedAt set; discardedAt is
+    // the user-dismissal marker for divergent alternates only.
     uniqueIndex('frame_variants_divergent_key')
       .on(table.frameId, table.variantType, table.model, table.inputHash)
       .where(sql`${table.divergedAt} IS NOT NULL`),

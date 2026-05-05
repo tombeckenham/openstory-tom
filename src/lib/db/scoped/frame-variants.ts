@@ -4,8 +4,13 @@
  */
 
 import type { Database } from '@/lib/db/client';
-import type { FrameVariant, NewFrameVariant } from '@/lib/db/schema';
-import { frameVariants } from '@/lib/db/schema';
+import type {
+  Frame,
+  FrameVariant,
+  NewFrame,
+  NewFrameVariant,
+} from '@/lib/db/schema';
+import { frameVariants, frames } from '@/lib/db/schema';
 import type { VariantType } from '@/lib/db/schema/frame-variants';
 import { and, eq, sql } from 'drizzle-orm';
 
@@ -199,6 +204,150 @@ export function createFrameVariantsMethods(db: Database) {
       const stored = result[0].hash;
       if (stored === null) return false;
       return currentHash !== stored;
+    },
+
+    /**
+     * List divergent alternates for a frame (or all frames in a sequence) that
+     * have not been discarded. Ordered oldest-first by divergedAt so the UI
+     * surfaces the longest-pending alternate consistently.
+     */
+    listDivergentByFrame: async (
+      frameId: string,
+      variantType?: VariantType
+    ): Promise<FrameVariant[]> => {
+      const conditions = [
+        eq(frameVariants.frameId, frameId),
+        sql`${frameVariants.divergedAt} IS NOT NULL`,
+        sql`${frameVariants.discardedAt} IS NULL`,
+      ];
+      if (variantType) {
+        conditions.push(eq(frameVariants.variantType, variantType));
+      }
+      return db
+        .select()
+        .from(frameVariants)
+        .where(and(...conditions))
+        .orderBy(frameVariants.divergedAt);
+    },
+
+    listDivergentBySequence: async (
+      sequenceId: string
+    ): Promise<FrameVariant[]> => {
+      return db
+        .select()
+        .from(frameVariants)
+        .where(
+          and(
+            eq(frameVariants.sequenceId, sequenceId),
+            sql`${frameVariants.divergedAt} IS NOT NULL`,
+            sql`${frameVariants.discardedAt} IS NULL`
+          )
+        )
+        .orderBy(frameVariants.divergedAt);
+    },
+
+    /**
+     * Mark a divergent alternate as discarded. Idempotent; returns the
+     * timestamp set so the caller can stash it for an Undo action.
+     */
+    discard: async (variantId: string): Promise<Date> => {
+      const discardedAt = new Date();
+      const result = await db
+        .update(frameVariants)
+        .set({ discardedAt, updatedAt: discardedAt })
+        .where(eq(frameVariants.id, variantId))
+        .returning();
+      if (result.length === 0) {
+        throw new Error(`FrameVariant ${variantId} not found`);
+      }
+      return discardedAt;
+    },
+
+    /**
+     * Atomically replace the live primary on `frames` with the variant's
+     * fields and soft-delete the variant. Both writes run in a single
+     * `db.batch()` (one libSQL transaction) so partial failure isn't
+     * possible at the SQL layer.
+     *
+     * Pre-checks existence so a missing frame or variant fails fast with a
+     * specific error before the batch runs. Without the pre-check, a
+     * zero-row UPDATE silently succeeds inside the batch, forcing ambiguous
+     * post-batch reasoning about which side was missing.
+     */
+    promoteAtomically: async (
+      frameId: string,
+      frameUpdate: Partial<NewFrame>,
+      variantId: string
+    ): Promise<{ frame: Frame; discardedAt: Date }> => {
+      const [existingFrame] = await db
+        .select({ id: frames.id })
+        .from(frames)
+        .where(eq(frames.id, frameId));
+      if (!existingFrame) {
+        throw new Error(`Frame ${frameId} not found`);
+      }
+      const [existingVariant] = await db
+        .select({ id: frameVariants.id })
+        .from(frameVariants)
+        .where(eq(frameVariants.id, variantId));
+      if (!existingVariant) {
+        throw new Error(`FrameVariant ${variantId} not found`);
+      }
+
+      const now = new Date();
+      const updateFrame = db
+        .update(frames)
+        .set({ ...frameUpdate, updatedAt: now })
+        .where(eq(frames.id, frameId))
+        .returning();
+      const discardVariant = db
+        .update(frameVariants)
+        .set({ discardedAt: now, updatedAt: now })
+        .where(eq(frameVariants.id, variantId))
+        .returning();
+      const [frameRows, variantRows] = await db.batch([
+        updateFrame,
+        discardVariant,
+      ]);
+      // Existence was checked above. A zero-row result on either side means
+      // the row was deleted between the pre-check and the batch — surface
+      // it so the caller sees the inconsistency rather than silently
+      // discarding a nonexistent variant or "promoting" with no live frame.
+      if (frameRows.length === 0) {
+        throw new Error(`Frame ${frameId} disappeared during promote`);
+      }
+      if (variantRows.length === 0) {
+        throw new Error(`FrameVariant ${variantId} disappeared during promote`);
+      }
+      return { frame: frameRows[0], discardedAt: now };
+    },
+
+    /**
+     * Undo a previous discard by clearing discardedAt. Used by the sonner
+     * toast Undo action.
+     */
+    undiscard: async (variantId: string): Promise<void> => {
+      const result = await db
+        .update(frameVariants)
+        .set({ discardedAt: null, updatedAt: new Date() })
+        .where(eq(frameVariants.id, variantId))
+        .returning();
+      if (result.length === 0) {
+        throw new Error(`FrameVariant ${variantId} not found`);
+      }
+    },
+
+    /**
+     * Look up a divergent variant by id. Used by the promote/discard server
+     * functions to confirm the row exists and is still divergent before
+     * acting.
+     */
+    getById: async (variantId: string): Promise<FrameVariant | null> => {
+      const result = await db
+        .select()
+        .from(frameVariants)
+        .where(eq(frameVariants.id, variantId));
+      return result[0] ?? null;
     },
 
     deleteByFrame: async (frameId: string): Promise<number> => {

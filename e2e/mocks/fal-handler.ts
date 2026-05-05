@@ -5,9 +5,14 @@
  * serves both LLM (OpenRouter) and fal.ai traffic.
  *
  * - Replay: matches recorded JSON fixtures keyed by target host, method, path,
- *   and request body hash.
- * - Record: when FAL_RECORD=true, forwards to real fal.ai using FAL_KEY,
- *   writes the response to disk, then returns it.
+ *   and request body hash. Each fixture stores an ordered `responses` array
+ *   and a per-process cursor advances one entry per call (clamped at the
+ *   last entry), so polling endpoints walk through IN_QUEUE → IN_PROGRESS →
+ *   COMPLETED across successive identical requests.
+ * - Record: when FAL_RECORD=true, forwards to real fal.ai using FAL_KEY.
+ *   The first hit on a fixture path in this process overwrites the file
+ *   (fresh slate); subsequent hits append to `responses`, capturing the
+ *   real polling progression in one fixture.
  */
 
 import { createHash } from 'node:crypto';
@@ -21,6 +26,12 @@ import {
 import type * as http from 'node:http';
 import { resolve } from 'node:path';
 
+type ResponseEntry = {
+  status: number;
+  headers: Record<string, string>;
+  body: unknown;
+};
+
 type FixtureRecord = {
   request: {
     targetHost: string;
@@ -28,12 +39,73 @@ type FixtureRecord = {
     pathname: string;
     bodyHash: string;
   };
-  response: {
-    status: number;
-    headers: Record<string, string>;
-    body: unknown;
-  };
+  responses: ResponseEntry[];
 };
+
+// Pre-sequence format: a single `response` field. Read-only compat for
+// fixtures recorded before the multi-response migration.
+type LegacyFixtureRecord = {
+  request: FixtureRecord['request'];
+  response: ResponseEntry;
+};
+
+function loadFixture(filePath: string): FixtureRecord {
+  const raw: FixtureRecord | LegacyFixtureRecord = JSON.parse(
+    readFileSync(filePath, 'utf8')
+  );
+  const fixture: FixtureRecord =
+    'responses' in raw
+      ? raw
+      : { request: raw.request, responses: [raw.response] };
+  // Collapse consecutive identical-status responses on read too, not just on
+  // record. Legacy fixtures captured before write-time dedup may contain
+  // dozens of identical IN_PROGRESS polls; dedup'ing here lets the cursor
+  // reach the next state on the next call instead of after 60 calls.
+  return {
+    request: fixture.request,
+    responses: dedupConsecutiveStatuses(fixture.responses),
+  };
+}
+
+function dedupConsecutiveStatuses(entries: ResponseEntry[]): ResponseEntry[] {
+  const out: ResponseEntry[] = [];
+  for (const entry of entries) {
+    const last = out.at(-1);
+    if (last && last.status === entry.status && sameStatus(last, entry)) {
+      continue;
+    }
+    out.push(entry);
+  }
+  return out;
+}
+
+// True when both entries have a comparable JSON body with an identical
+// `status` string. Any other shape (string body, missing field, mismatched
+// type) returns false so the recorder appends rather than collapsing.
+function sameStatus(a: ResponseEntry, b: ResponseEntry): boolean {
+  const aStatus = readBodyStatus(a.body);
+  const bStatus = readBodyStatus(b.body);
+  return aStatus !== null && aStatus === bStatus;
+}
+
+function readBodyStatus(body: unknown): string | null {
+  if (body && typeof body === 'object' && 'status' in body) {
+    const status = (body as { status: unknown }).status;
+    return typeof status === 'string' ? status : null;
+  }
+  return null;
+}
+
+// Per-process replay cursor: index of the next response to serve for each
+// fixture file. Clamped at the last entry so over-polling lands on the
+// terminal state (e.g. COMPLETED) instead of erroring.
+const replayCursor = new Map<string, number>();
+
+// Per-process set of fixture paths already written during this record
+// session. First write to a path overwrites (fresh slate); subsequent writes
+// append to the `responses` array — that's how a status URL polled multiple
+// times accumulates IN_QUEUE → IN_PROGRESS → COMPLETED in one file.
+const recordedThisSession = new Set<string>();
 
 const FIXTURE_DIR = resolve(import.meta.dirname, '../fixtures/recorded/fal');
 
@@ -222,7 +294,7 @@ export function createFalHandler() {
           rawBody
         );
         if (upstream.status >= 400) {
-          const keyLen = (process.env.FAL_KEY ?? '').length;
+          const keyLen = process.env.FAL_KEY ? process.env.FAL_KEY.length : 0;
           console.warn(
             `[fal-mock] upstream ${upstream.status} from ${targetHost}${falPath} (FAL_KEY length=${keyLen}): ${upstream.body.slice(0, 500)}`
           );
@@ -231,15 +303,38 @@ export function createFalHandler() {
           writeResponse(res, upstream.status, upstream.headers, upstream.body);
           return true;
         }
-        const record: FixtureRecord = {
-          request: requestKey,
-          response: {
-            status: upstream.status,
-            headers: upstream.headers,
-            body: tryParseJson(upstream.body),
-          },
+        const newEntry: ResponseEntry = {
+          status: upstream.status,
+          headers: upstream.headers,
+          body: tryParseJson(upstream.body),
         };
-        writeFileSync(filePath, JSON.stringify(record, null, 2));
+        if (recordedThisSession.has(filePath) && existsSync(filePath)) {
+          const existing = loadFixture(filePath);
+          // Collapse consecutive identical statuses (e.g. dozens of
+          // IN_PROGRESS polls) so replay walks state transitions instantly
+          // instead of replaying the recording's wall-clock pace. Conservative:
+          // only fires when both entries have a comparable `body.status`
+          // string; any other shape falls through to a plain append.
+          const last = existing.responses.at(-1);
+          if (
+            last &&
+            sameStatus(last, newEntry) &&
+            last.status === newEntry.status
+          ) {
+            // Skip write entirely — the existing tail entry already
+            // represents this state.
+          } else {
+            existing.responses.push(newEntry);
+            writeFileSync(filePath, JSON.stringify(existing, null, 2));
+          }
+        } else {
+          const record: FixtureRecord = {
+            request: requestKey,
+            responses: [newEntry],
+          };
+          writeFileSync(filePath, JSON.stringify(record, null, 2));
+          recordedThisSession.add(filePath);
+        }
         appendDebugBodyLog(targetHost, method, falPath, bodyHash, rawBody);
         writeResponse(res, upstream.status, upstream.headers, upstream.body);
         return true;
@@ -254,17 +349,16 @@ export function createFalHandler() {
         return true;
       }
 
-      const fixture: FixtureRecord = JSON.parse(readFileSync(filePath, 'utf8'));
+      const fixture = loadFixture(filePath);
+      const cursor = replayCursor.get(filePath) ?? 0;
+      const idx = Math.min(cursor, fixture.responses.length - 1);
+      replayCursor.set(filePath, cursor + 1);
+      const entry = fixture.responses[idx];
       const body =
-        typeof fixture.response.body === 'string'
-          ? fixture.response.body
-          : JSON.stringify(fixture.response.body);
-      writeResponse(
-        res,
-        fixture.response.status,
-        fixture.response.headers,
-        body
-      );
+        typeof entry.body === 'string'
+          ? entry.body
+          : JSON.stringify(entry.body);
+      writeResponse(res, entry.status, entry.headers, body);
       return true;
     },
   };

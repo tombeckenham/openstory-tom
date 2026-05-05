@@ -256,6 +256,30 @@ export async function getTestCharacter(characterId: string): Promise<{
 }
 
 /**
+ * Get sequence-level music + merged-video status. Music is generated once
+ * per sequence (not per frame — see src/lib/workflows/music-workflow.ts:133
+ * TODO), and merging composes the muxed video, so the full pipeline is
+ * "done" when `mergedVideoStatus === 'completed'`.
+ */
+export async function getTestSequenceStatus(sequenceId: string): Promise<{
+  musicStatus: string | null;
+  musicUrl: string | null;
+  mergedVideoStatus: string | null;
+  mergedVideoUrl: string | null;
+} | null> {
+  const row = await testDb.query.sequences.findFirst({
+    where: { id: sequenceId },
+    columns: {
+      musicStatus: true,
+      musicUrl: true,
+      mergedVideoStatus: true,
+      mergedVideoUrl: true,
+    },
+  });
+  return row ?? null;
+}
+
+/**
  * Clean up all test sequences and related data for a team (use only when test isolation isn't needed)
  */
 export async function cleanupTestSequences(teamId: string): Promise<void> {

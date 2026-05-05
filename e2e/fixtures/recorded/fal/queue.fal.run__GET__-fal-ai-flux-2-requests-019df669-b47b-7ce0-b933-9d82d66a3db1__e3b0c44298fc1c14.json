@@ -1,0 +1,44 @@
+{
+  "request": {
+    "targetHost": "queue.fal.run",
+    "method": "GET",
+    "pathname": "/fal-ai/flux-2/requests/019df669-b47b-7ce0-b933-9d82d66a3db1",
+    "bodyHash": "e3b0c44298fc1c14"
+  },
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "connection": "keep-alive",
+        "content-length": "1396",
+        "content-type": "application/json",
+        "date": "Tue, 05 May 2026 04:33:37 GMT",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "vary": "origin, access-control-request-method, access-control-request-headers",
+        "x-fal-billable-units": "1",
+        "x-fal-request-id": "019df669-b47b-7ce0-b933-9d82d66a3db1",
+        "x-fal-served-from": "360f5994-ef42-4e16-819d-4ad60a9151e9",
+        "x-robots-tag": "noindex"
+      },
+      "body": {
+        "images": [
+          {
+            "url": "https://v3b.fal.media/files/b/0a98f1e9/Em-nNq18q-v-4YhaoIot4_TCjp5GHR.png",
+            "content_type": "image/png",
+            "file_name": "Em-nNq18q-v-4YhaoIot4_TCjp5GHR.png",
+            "file_size": null,
+            "width": 1024,
+            "height": 576
+          }
+        ],
+        "timings": {
+          "inference": 0.6191861531697214
+        },
+        "seed": 358813316,
+        "has_nsfw_concepts": [false],
+        "prompt": "Cinematic film still. Cut to eye-level: Producer slaps paper on desk. Reporter snatches it -- shallow DOF on hands unfolding, revealing bold headline: \"REVOLUTIONARY SKIN DROP: EFFORTLESSLY COOL.\". Art style: Modern social-first product photography with tactile, editorial energy. Products shown in real-life context -- hands opening packaging, fingers pressing textures, products on bathroom shelves, kitchen counters, rumpled linen. Close-up detail shots emphasize material and finish. Flat-lays with curated minimal arrangements. Color-matched backgrounds that complement the product. Every frame feels like something you would screenshot and save. Mood: Fresh, sensory, and effortlessly cool. Lighting: Bright natural window light with clean directional shadows. Direct on-camera flash for punchy editorial energy on select shots. No heavy diffusion -- let light feel real and immediate. Golden hour warmth for lifestyle moments. High-key and airy overall with pops of contrast. No text, no titles, no subtitles, no watermarks, no letters, no words, no signs, no UI elements."
+      }
+    }
+  ]
+}

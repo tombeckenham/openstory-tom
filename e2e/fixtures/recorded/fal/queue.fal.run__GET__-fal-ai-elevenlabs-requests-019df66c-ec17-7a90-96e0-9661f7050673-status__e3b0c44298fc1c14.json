@@ -1,0 +1,56 @@
+{
+  "request": {
+    "targetHost": "queue.fal.run",
+    "method": "GET",
+    "pathname": "/fal-ai/elevenlabs/requests/019df66c-ec17-7a90-96e0-9661f7050673/status",
+    "bodyHash": "e3b0c44298fc1c14"
+  },
+  "responses": [
+    {
+      "status": 202,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "connection": "keep-alive",
+        "content-length": "420",
+        "content-type": "application/json",
+        "date": "Tue, 05 May 2026 04:37:06 GMT",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "vary": "origin, access-control-request-method, access-control-request-headers",
+        "x-robots-tag": "noindex"
+      },
+      "body": {
+        "status": "IN_PROGRESS",
+        "request_id": "019df66c-ec17-7a90-96e0-9661f7050673",
+        "response_url": "https://queue.fal.run/fal-ai/elevenlabs/requests/019df66c-ec17-7a90-96e0-9661f7050673",
+        "status_url": "https://queue.fal.run/fal-ai/elevenlabs/requests/019df66c-ec17-7a90-96e0-9661f7050673/status",
+        "cancel_url": "https://queue.fal.run/fal-ai/elevenlabs/requests/019df66c-ec17-7a90-96e0-9661f7050673/cancel",
+        "logs": null,
+        "metrics": {}
+      }
+    },
+    {
+      "status": 200,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "connection": "keep-alive",
+        "content-length": "453",
+        "content-type": "application/json",
+        "date": "Tue, 05 May 2026 04:37:21 GMT",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "vary": "origin, access-control-request-method, access-control-request-headers",
+        "x-robots-tag": "noindex"
+      },
+      "body": {
+        "status": "COMPLETED",
+        "request_id": "019df66c-ec17-7a90-96e0-9661f7050673",
+        "response_url": "https://queue.fal.run/fal-ai/elevenlabs/requests/019df66c-ec17-7a90-96e0-9661f7050673",
+        "status_url": "https://queue.fal.run/fal-ai/elevenlabs/requests/019df66c-ec17-7a90-96e0-9661f7050673/status",
+        "cancel_url": "https://queue.fal.run/fal-ai/elevenlabs/requests/019df66c-ec17-7a90-96e0-9661f7050673/cancel",
+        "logs": null,
+        "metrics": {
+          "inference_time": 14.197535991668701
+        }
+      }
+    }
+  ]
+}

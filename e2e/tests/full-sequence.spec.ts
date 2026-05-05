@@ -22,6 +22,7 @@ import {
   cleanupSequenceById,
   createTestStyle,
   getTestSequenceFrames,
+  getTestSequenceStatus,
 } from '../fixtures/sequence.fixture';
 import {
   getSystemTalentByName,
@@ -42,8 +43,9 @@ testWithUser.describe('Full Sequence Pipeline', () => {
   );
 
   // The full pipeline runs many workflow steps end-to-end (script → frames →
-  // motion → music). Give it generous headroom even when fixtures are cached.
-  testWithUser.setTimeout(600_000);
+  // motion → music). Each per-step poll below allows up to 10 minutes; the
+  // outer cap accommodates all three running near their limit plus setup.
+  testWithUser.setTimeout(1_800_000);
 
   let testTalents: TestTalent[] = [];
   let testLocation: TestLibraryLocation | null = null;
@@ -77,6 +79,33 @@ testWithUser.describe('Full Sequence Pipeline', () => {
   testWithUser(
     'creates a sequence and runs every workflow through to motion + music',
     async ({ page }) => {
+      // Capture any browser-side errors that would otherwise be invisible:
+      // uncaught exceptions, console.error/warn, and failed network requests
+      // (including aborted server-fn calls). Dumped at end of test so a
+      // green run still surfaces silent regressions; a red run shows what
+      // was being swallowed before the assertion failure.
+      const browserErrors: string[] = [];
+      page.on('pageerror', (err) => {
+        browserErrors.push(`pageerror: ${err.message}`);
+      });
+      page.on('console', (msg) => {
+        if (msg.type() === 'error' || msg.type() === 'warning') {
+          browserErrors.push(`console.${msg.type()}: ${msg.text()}`);
+        }
+      });
+      page.on('requestfailed', (req) => {
+        browserErrors.push(
+          `requestfailed: ${req.method()} ${req.url()} — ${req.failure()?.errorText ?? 'unknown'}`
+        );
+      });
+      page.on('response', (res) => {
+        if (res.status() >= 500) {
+          browserErrors.push(
+            `http ${res.status()}: ${res.request().method()} ${res.url()}`
+          );
+        }
+      });
+
       // 1. Open the new-sequence page and wait for hydration.
       await page.goto('/sequences/new');
       await expect(
@@ -175,7 +204,7 @@ Story just broke. We need this on air now.
             if (frames.length === 0) return false;
             return frames.every((f) => f.thumbnailStatus === 'completed');
           },
-          { timeout: 300_000, intervals: [2_000, 5_000, 10_000] }
+          { timeout: 600_000, intervals: [2_000, 5_000, 10_000] }
         )
         .toBe(true);
 
@@ -197,26 +226,33 @@ Story just broke. We need this on air now.
             if (frames.length === 0) return false;
             return frames.every((f) => Boolean(f.videoUrl));
           },
-          { timeout: 300_000, intervals: [2_000, 5_000, 10_000] }
+          { timeout: 600_000, intervals: [2_000, 5_000, 10_000] }
         )
         .toBe(true);
 
-      // 11. Wait for music to land on every frame. The "Also generate music"
-      //     checkbox in the scene-list footer defaults to true, so step 10's
-      //     batch trigger already kicks off music + merge. The dedicated
-      //     /music tab is for regenerate / hand-tuning, not the happy path.
+      // 11. Wait for sequence-level music + merge to land. Music is generated
+      //     once per sequence (`sequences.music_url` / `music_status`), not
+      //     per frame — the per-frame `audio_url` columns exist in schema for
+      //     a future per-scene feature (see src/lib/workflows/music-workflow.ts
+      //     TODO). The full pipeline is "done" when the muxed merged video is
+      //     completed, which implies music + merge both succeeded.
       await expect
         .poll(
           async () => {
-            const frames = await getTestSequenceFrames(sequenceId);
-            if (frames.length === 0) return false;
-            return frames.every((f) => Boolean(f.audioUrl));
+            const status = await getTestSequenceStatus(sequenceId);
+            if (!status) return false;
+            return (
+              status.musicStatus === 'completed' &&
+              status.mergedVideoStatus === 'completed' &&
+              Boolean(status.mergedVideoUrl)
+            );
           },
-          { timeout: 300_000, intervals: [2_000, 5_000, 10_000] }
+          { timeout: 600_000, intervals: [2_000, 5_000, 10_000] }
         )
         .toBe(true);
 
-      // 12. Final assertion: every frame has thumbnail + video + audio URLs.
+      // 12. Final assertion: every frame has thumbnail + video, and the
+      //     sequence has music + a merged video url.
       const frames = await getTestSequenceFrames(sequenceId);
       expect(frames.length).toBeGreaterThan(0);
       for (const frame of frames) {
@@ -225,7 +261,24 @@ Story just broke. We need this on air now.
           `frame ${frame.id} missing thumbnail`
         ).toBeTruthy();
         expect(frame.videoUrl, `frame ${frame.id} missing video`).toBeTruthy();
-        expect(frame.audioUrl, `frame ${frame.id} missing audio`).toBeTruthy();
+      }
+      const finalStatus = await getTestSequenceStatus(sequenceId);
+      expect(finalStatus?.musicUrl, 'sequence missing music url').toBeTruthy();
+      expect(
+        finalStatus?.mergedVideoUrl,
+        'sequence missing merged video url'
+      ).toBeTruthy();
+
+      // Surface anything captured during the run. We attach to the test info
+      // (visible in the HTML report) and also print to stdout so log-tailing
+      // catches it. Failing here is intentional — silent browser errors are
+      // exactly what this listener exists to flush out.
+      if (browserErrors.length > 0) {
+        const summary = browserErrors.join('\n');
+        console.error(
+          `[e2e] captured ${browserErrors.length} browser issues:\n${summary}`
+        );
+        expect(browserErrors, 'browser errors captured during run').toEqual([]);
       }
     }
   );

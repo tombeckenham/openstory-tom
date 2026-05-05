@@ -45,6 +45,7 @@ export const PROMPT_VARIANT_SOURCES = [
   'ai-generated',
   'user-edit',
   'regenerated',
+  'restored',
 ] as const;
 export type PromptVariantSource = (typeof PROMPT_VARIANT_SOURCES)[number];
 

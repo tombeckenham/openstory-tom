@@ -29,6 +29,12 @@ type WriteSequenceMusicPromptVariantBase = {
  * `musicPromptInputHash` column on `sequences` is meaningless and staleness
  * detection silently breaks. User-edits forbid both fields so they cannot be
  * set by mistake.
+ *
+ * Restored rows carry the source variant's hash + analysisModel verbatim so
+ * the cached `musicPromptInputHash` column keeps tracking the upstream
+ * context that originally produced the prompt — restoring an old AI prompt
+ * must NOT silently disable staleness detection. Both fields can be null
+ * when the source is itself a user-edit (which never had a hash).
  */
 export type WriteSequenceMusicPromptVariantInput =
   WriteSequenceMusicPromptVariantBase &
@@ -42,6 +48,11 @@ export type WriteSequenceMusicPromptVariantInput =
           source: 'user-edit';
           inputHash?: never;
           analysisModel?: never;
+        }
+      | {
+          source: 'restored';
+          inputHash: string | null;
+          analysisModel: string | null;
         }
     );
 

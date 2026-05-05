@@ -1,10 +1,20 @@
 import { getFrameStalenessFn } from '@/functions/frames';
 import { useQuery } from '@tanstack/react-query';
 
+/**
+ * Per-artifact staleness state.
+ *   - `'stale'`     — stored input hash no longer matches a freshly-computed one.
+ *   - `'fresh'`     — stored input hash matches; the artifact is up-to-date.
+ *   - `'untracked'` — the artifact has no input hash on file (legacy data, or
+ *                     never generated). The UI must not show a regenerate
+ *                     prompt — we have no opinion to surface.
+ */
+export type ArtifactStaleness = 'stale' | 'fresh' | 'untracked';
+
 export type FrameStaleness = {
-  thumbnail: boolean;
-  visualPrompt: boolean;
-  motionPrompt: boolean;
+  thumbnail: ArtifactStaleness;
+  visualPrompt: ArtifactStaleness;
+  motionPrompt: ArtifactStaleness;
 };
 
 export const frameStalenessKey = (frameId: string | undefined) =>

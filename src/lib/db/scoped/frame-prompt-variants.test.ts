@@ -326,6 +326,110 @@ describe('frame_prompt_variants helper', () => {
     expect(refreshed.visualPromptInputHash).toBe('visual-hash');
     expect(refreshed.motionPromptInputHash).toBe('motion-hash');
   });
+
+  it('getByIdForFrame refuses to return a sibling frame variant (cross-frame guard)', async () => {
+    // Restore handlers rely on this guard to refuse a `variantId` that
+    // belongs to a different frame in the same sequence — without it, a
+    // user could restore frame A's prompt onto frame B by passing the wrong
+    // variantId. The frame-access middleware only checks the parent frame.
+    const methods = createFramePromptVariantsMethods(asDatabase(db));
+
+    const [siblingFrame] = await db
+      .insert(frames)
+      .values({ sequenceId, orderIndex: 1 })
+      .returning();
+
+    const ownVariant = await methods.write({
+      frameId,
+      promptType: 'visual',
+      text: 'belongs to frame A',
+      source: 'ai-generated',
+      inputHash: 'hash-A',
+      analysisModel: 'anthropic/claude-haiku-4.5',
+    });
+
+    // Lookup with the sibling frame's id must not succeed.
+    const wrongFrame = await methods.getByIdForFrame(
+      ownVariant.id,
+      siblingFrame.id
+    );
+    expect(wrongFrame).toBeNull();
+
+    // Sanity: the same lookup with the owning frame's id does return it.
+    const rightFrame = await methods.getByIdForFrame(ownVariant.id, frameId);
+    expect(rightFrame?.id).toBe(ownVariant.id);
+  });
+
+  it('restored row carries the source variant input_hash so staleness keeps tracking the original upstream context', async () => {
+    const methods = createFramePromptVariantsMethods(asDatabase(db));
+
+    // Original AI-generated prompt with a stored hash.
+    const original = await methods.write({
+      frameId,
+      promptType: 'visual',
+      text: 'AI prompt v1',
+      source: 'ai-generated',
+      inputHash: 'context-hash-1',
+      analysisModel: 'anthropic/claude-haiku-4.5',
+    });
+
+    // User then edits the prompt — clears the cached hash (existing
+    // semantics: a freeform edit no longer derives from upstream).
+    await methods.write({
+      frameId,
+      promptType: 'visual',
+      text: 'User edited prompt',
+      source: 'user-edit',
+    });
+
+    // Restoring the original AI prompt must re-populate the cached hash so
+    // the staleness check resumes detecting upstream drift. A regression
+    // that drops the hash here silently disables staleness forever.
+    const restored = await methods.write({
+      frameId,
+      promptType: 'visual',
+      text: original.text,
+      components: original.components,
+      parameters: original.parameters,
+      source: 'restored',
+      inputHash: original.inputHash,
+      analysisModel: original.analysisModel,
+    });
+    expect(restored.inputHash).toBe('context-hash-1');
+
+    const [refreshed] = await db
+      .select()
+      .from(frames)
+      .where(eq(frames.id, frameId));
+    expect(refreshed.imagePrompt).toBe('AI prompt v1');
+    expect(refreshed.visualPromptInputHash).toBe('context-hash-1');
+  });
+
+  it('restored row from a user-edit source carries null hash (no staleness opinion to forward)', async () => {
+    const methods = createFramePromptVariantsMethods(asDatabase(db));
+
+    const userEdit = await methods.write({
+      frameId,
+      promptType: 'visual',
+      text: 'Hand-written prompt',
+      source: 'user-edit',
+    });
+
+    // Restoring a user-edit must not synthesize a hash out of nothing —
+    // the source had none, so the restored row keeps null.
+    const restored = await methods.write({
+      frameId,
+      promptType: 'visual',
+      text: userEdit.text,
+      components: userEdit.components,
+      parameters: userEdit.parameters,
+      source: 'restored',
+      inputHash: userEdit.inputHash,
+      analysisModel: userEdit.analysisModel,
+    });
+    expect(restored.inputHash).toBeNull();
+    expect(restored.analysisModel).toBeNull();
+  });
 });
 
 describe('sequence_music_prompt_variants helper', () => {
@@ -447,5 +551,81 @@ describe('sequence_music_prompt_variants helper', () => {
       .where(eq(sequences.id, sequenceId));
     expect(refreshed.musicPrompt).toBe('AI music v2');
     expect(refreshed.musicPromptInputHash).toBe('music-context-hash');
+  });
+
+  it('getByIdForSequence refuses to return a sibling sequence variant (cross-sequence guard)', async () => {
+    const methods = createSequenceMusicPromptVariantsMethods(asDatabase(db));
+
+    // Reuse the seeded style so we can satisfy the not-null styleId on
+    // sequences without duplicating the style fixture here.
+    const [seededSequence] = await db
+      .select()
+      .from(sequences)
+      .where(eq(sequences.id, sequenceId));
+    const otherSequenceId = generateId();
+    await db.insert(sequences).values({
+      id: otherSequenceId,
+      teamId,
+      title: 'Other',
+      styleId: seededSequence.styleId,
+    });
+
+    const ownVariant = await methods.write({
+      sequenceId,
+      prompt: 'belongs to sequence A',
+      tags: 'epic',
+      source: 'ai-generated',
+      inputHash: 'music-hash-A',
+      analysisModel: 'anthropic/claude-haiku-4.5',
+    });
+
+    const wrongSequence = await methods.getByIdForSequence(
+      ownVariant.id,
+      otherSequenceId
+    );
+    expect(wrongSequence).toBeNull();
+
+    const rightSequence = await methods.getByIdForSequence(
+      ownVariant.id,
+      sequenceId
+    );
+    expect(rightSequence?.id).toBe(ownVariant.id);
+  });
+
+  it('restored music row carries the source variant input_hash so sequence staleness keeps tracking upstream context', async () => {
+    const methods = createSequenceMusicPromptVariantsMethods(asDatabase(db));
+
+    const original = await methods.write({
+      sequenceId,
+      prompt: 'AI music v1',
+      tags: 'epic',
+      source: 'ai-generated',
+      inputHash: 'music-hash-v1',
+      analysisModel: 'anthropic/claude-haiku-4.5',
+    });
+
+    await methods.write({
+      sequenceId,
+      prompt: 'User edit',
+      tags: 'rock',
+      source: 'user-edit',
+    });
+
+    const restored = await methods.write({
+      sequenceId,
+      prompt: original.prompt,
+      tags: original.tags,
+      source: 'restored',
+      inputHash: original.inputHash,
+      analysisModel: original.analysisModel,
+    });
+    expect(restored.inputHash).toBe('music-hash-v1');
+
+    const [refreshed] = await db
+      .select()
+      .from(sequences)
+      .where(eq(sequences.id, sequenceId));
+    expect(refreshed.musicPrompt).toBe('AI music v1');
+    expect(refreshed.musicPromptInputHash).toBe('music-hash-v1');
   });
 });

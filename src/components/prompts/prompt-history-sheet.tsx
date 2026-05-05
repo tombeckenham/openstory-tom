@@ -53,6 +53,7 @@ const SOURCE_LABEL: Record<PromptVariantSource, string> = {
   'ai-generated': 'AI',
   'user-edit': 'You',
   regenerated: 'Regenerated',
+  restored: 'Restored',
 };
 
 const SOURCE_VARIANT: Record<
@@ -62,6 +63,7 @@ const SOURCE_VARIANT: Record<
   'ai-generated': 'secondary',
   'user-edit': 'default',
   regenerated: 'outline',
+  restored: 'outline',
 };
 
 const TITLE: Record<PromptHistoryMode, string> = {
@@ -197,16 +199,25 @@ export const PromptHistorySheet: React.FC<PromptHistorySheetProps> = (
               {rows.map((row) => {
                 const expanded = expandedId === row.id;
                 const isCurrent = row.text === currentText;
+                const panelId = `prompt-history-panel-${row.id}`;
+                const triggerId = `prompt-history-trigger-${row.id}`;
                 return (
-                  <li key={row.id}>
+                  <li
+                    key={row.id}
+                    className={cn(
+                      'flex flex-col gap-2 rounded-md border p-3 transition-colors',
+                      isCurrent && 'border-primary/40 bg-primary/5'
+                    )}
+                  >
                     <button
+                      id={triggerId}
                       type="button"
                       onClick={() => setExpandedId(expanded ? null : row.id)}
                       aria-expanded={expanded}
+                      aria-controls={panelId}
                       className={cn(
-                        'flex w-full flex-col gap-2 rounded-md border p-3 text-left transition-colors',
-                        'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
-                        isCurrent && 'border-primary/40 bg-primary/5'
+                        'flex w-full flex-col gap-2 rounded-sm text-left transition-colors',
+                        'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50'
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -227,34 +238,37 @@ export const PromptHistorySheet: React.FC<PromptHistorySheetProps> = (
                           by {row.createdByName}
                         </span>
                       )}
-                      {expanded ? (
-                        <PromptDiffView before={currentText} after={row.text} />
-                      ) : (
+                      {!expanded && (
                         <p className="line-clamp-2 text-sm text-muted-foreground">
                           {row.text}
                         </p>
                       )}
-                      {expanded && !isCurrent && (
-                        <div
-                          className="flex justify-end"
-                          onClick={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => e.stopPropagation()}
-                          role="presentation"
-                        >
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={restoreMutation.isPending}
-                            onClick={() => restoreMutation.mutate(row.id)}
-                          >
-                            {restoreMutation.isPending && (
-                              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                            )}
-                            Restore this version
-                          </Button>
-                        </div>
-                      )}
                     </button>
+                    {expanded && (
+                      <div
+                        id={panelId}
+                        role="region"
+                        aria-labelledby={triggerId}
+                        className="flex flex-col gap-2"
+                      >
+                        <PromptDiffView before={currentText} after={row.text} />
+                        {!isCurrent && (
+                          <div className="flex justify-end">
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={restoreMutation.isPending}
+                              onClick={() => restoreMutation.mutate(row.id)}
+                            >
+                              {restoreMutation.isPending && (
+                                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                              )}
+                              Restore this version
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </li>
                 );
               })}

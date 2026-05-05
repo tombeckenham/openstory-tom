@@ -168,6 +168,7 @@ export const MusicView: React.FC<MusicViewProps> = ({
         entityType="sequence"
         density="inline"
         onRegenerate={onRegenerateMusicPrompt}
+        isRegenerating={isRegeneratingMusicPrompt}
       />
     ) : null;
 
@@ -194,7 +195,6 @@ export const MusicView: React.FC<MusicViewProps> = ({
     />
   );
 
-  void isRegeneratingMusicPrompt;
   const prevVideoDurationRef = useRef(videoDuration);
   if (videoDuration !== prevVideoDurationRef.current) {
     prevVideoDurationRef.current = videoDuration;

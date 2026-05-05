@@ -261,7 +261,10 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
         data: { sequenceId, frameId: frame.id, promptType },
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (result) => {
+      if (result.alreadyUpToDate) {
+        toast.info('Prompt is already up to date');
+      }
       if (frame?.id) {
         await queryClient.invalidateQueries({
           queryKey: frameStalenessKey(frame.id),
@@ -274,6 +277,16 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
       });
     },
   });
+
+  // Per-prompt-type busy flag — `regeneratePromptMutation.variables` is the
+  // payload of the in-flight request, so we know which tab's regenerate
+  // triggered it. Without this, both tabs' indicators would show busy whenever
+  // either was clicked.
+  const inFlightPromptType = regeneratePromptMutation.isPending
+    ? regeneratePromptMutation.variables
+    : null;
+  const isRegeneratingVisualPrompt = inFlightPromptType === 'visual';
+  const isRegeneratingMotionPrompt = inFlightPromptType === 'motion';
 
   const handleCopy = useCallback(
     async (text: string | undefined, tabName: string) => {
@@ -675,23 +688,25 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
         <TabsTrigger value="elements">Elements</TabsTrigger>
         <TabsTrigger value="image-prompt" className="gap-1.5">
           Image
-          {staleness?.visualPrompt && (
+          {staleness?.visualPrompt === 'stale' && (
             <StalenessIndicator
               artifact="visual-prompt"
               entityType="frame"
               density="corner-dot"
               onRegenerate={() => regeneratePromptMutation.mutate('visual')}
+              isRegenerating={isRegeneratingVisualPrompt}
             />
           )}
         </TabsTrigger>
         <TabsTrigger value="motion-prompt" className="gap-1.5">
           Motion
-          {staleness?.motionPrompt && (
+          {staleness?.motionPrompt === 'stale' && (
             <StalenessIndicator
               artifact="motion-prompt"
               entityType="frame"
               density="corner-dot"
               onRegenerate={() => regeneratePromptMutation.mutate('motion')}
+              isRegenerating={isRegeneratingMotionPrompt}
             />
           )}
         </TabsTrigger>
@@ -791,12 +806,13 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
           </div>
 
           {/* Prompt-stale regenerate banner */}
-          {staleness?.visualPrompt && (
+          {staleness?.visualPrompt === 'stale' && (
             <StalenessIndicator
               artifact="visual-prompt"
               entityType="frame"
               density="inline"
               onRegenerate={() => regeneratePromptMutation.mutate('visual')}
+              isRegenerating={isRegeneratingVisualPrompt}
             />
           )}
 
@@ -950,12 +966,13 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
           </Button>
 
           {/* Prompt-stale regenerate banner */}
-          {staleness?.motionPrompt && (
+          {staleness?.motionPrompt === 'stale' && (
             <StalenessIndicator
               artifact="motion-prompt"
               entityType="frame"
               density="inline"
               onRegenerate={() => regeneratePromptMutation.mutate('motion')}
+              isRegenerating={isRegeneratingMotionPrompt}
             />
           )}
 

@@ -344,13 +344,18 @@ export const reorderFramesFn = createServerFn({ method: 'POST' })
   });
 
 /**
- * Returns staleness flags for a frame's artifacts. Covers the rendered
- * thumbnail plus the visual / motion prompts (stage 4). Each flag is
+ * Returns staleness state for a frame's artifacts. Covers the rendered
+ * thumbnail plus the visual / motion prompts (stage 4). Each value is
  * computed by re-deriving the current input hash from live scoped state and
- * comparing it to the stored `*_input_hash` via the scoped helper. A null
- * stored hash means "legacy artifact, no opinion" — the helper returns
- * false, which is the correct UX (don't push regenerate on something we
- * never tracked inputs for).
+ * comparing it to the stored `*_input_hash` via the scoped helper.
+ *
+ * Three states per artifact:
+ *   - `'stale'`     — stored hash diverges from the freshly computed one.
+ *   - `'fresh'`     — stored hash matches.
+ *   - `'untracked'` — no stored hash (legacy artifact, or never generated).
+ *                     Distinct from `'fresh'` so the UI can suppress the
+ *                     regenerate prompt without lying about the artifact's
+ *                     freshness.
  */
 export const getFrameStalenessFn = createServerFn({ method: 'GET' })
   .middleware([frameAccessMiddleware])
@@ -358,7 +363,7 @@ export const getFrameStalenessFn = createServerFn({ method: 'GET' })
   .handler(async ({ context }) => {
     const { frame, sequence, scopedDb } = context;
 
-    let thumbnail = false;
+    let thumbnail: 'stale' | 'fresh' | 'untracked' = 'untracked';
     if (frame.imagePrompt) {
       const [characters, locations] = await Promise.all([
         scopedDb.characters.listWithSheets(sequence.id),
@@ -373,15 +378,20 @@ export const getFrameStalenessFn = createServerFn({ method: 'GET' })
         aspectRatio: sequence.aspectRatio,
       });
 
-      thumbnail = await scopedDb.frames.isStale(
+      // `isStale` returns false for both "fresh" and "no stored hash" — the
+      // imagePrompt-present check above narrows it to "fresh" when isStale
+      // returns false.
+      thumbnail = (await scopedDb.frames.isStale(
         frame.id,
         'thumbnail',
         snapshot.snapshotInputHash
-      );
+      ))
+        ? 'stale'
+        : 'fresh';
     }
 
-    let visualPrompt = false;
-    let motionPrompt = false;
+    let visualPrompt: 'stale' | 'fresh' | 'untracked' = 'untracked';
+    let motionPrompt: 'stale' | 'fresh' | 'untracked' = 'untracked';
 
     if (frame.metadata && frame.visualPromptInputHash) {
       const latest = await scopedDb.framePromptVariants.getLatest(
@@ -395,7 +405,8 @@ export const getFrameStalenessFn = createServerFn({ method: 'GET' })
         analysisModelOverride: latest?.analysisModel ?? null,
       });
       const liveHash = await computeVisualPromptInputHash(ctx);
-      visualPrompt = liveHash !== frame.visualPromptInputHash;
+      visualPrompt =
+        liveHash !== frame.visualPromptInputHash ? 'stale' : 'fresh';
     }
 
     if (frame.metadata && frame.motionPromptInputHash) {
@@ -410,7 +421,8 @@ export const getFrameStalenessFn = createServerFn({ method: 'GET' })
         analysisModelOverride: latest?.analysisModel ?? null,
       });
       const liveHash = await computeMotionPromptInputHash(ctx);
-      motionPrompt = liveHash !== frame.motionPromptInputHash;
+      motionPrompt =
+        liveHash !== frame.motionPromptInputHash ? 'stale' : 'fresh';
     }
 
     return { thumbnail, visualPrompt, motionPrompt };

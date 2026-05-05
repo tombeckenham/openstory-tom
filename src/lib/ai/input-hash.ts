@@ -352,12 +352,28 @@ function sortedBibles(input: PromptSceneContextHashInput) {
   };
 }
 
+/**
+ * Bumped when the canonical hashed body shape for prompt-input hashes
+ * changes — bumping forces every previously-stored hash to diverge from the
+ * freshly-computed one, which would normally surface to users as "stale"
+ * banners on unchanged content. The staleness handlers short-circuit when
+ * the stored hash is null, so the matching deploy step should null the
+ * `*_prompt_input_hash` columns on `frames` / `sequences` so legacy rows
+ * fall through that safe path until they're regenerated.
+ *
+ * Version history:
+ *   v1 — initial; bibles passed in DB readback order (non-deterministic).
+ *   v2 — bibles sorted by identity field inside `sortedBibles`.
+ */
+const PROMPT_INPUT_HASH_VERSION = 2;
+
 export function computeVisualPromptInputHash(
   input: PromptSceneContextHashInput
 ): Promise<string> {
   const bibles = sortedBibles(input);
   return sha256Hex({
     artifact: 'frame:visual-prompt',
+    hashVersion: PROMPT_INPUT_HASH_VERSION,
     scene: sceneInputContext(input.scene),
     styleConfig: input.styleConfig,
     characterBible: bibles.characterBible,
@@ -374,6 +390,7 @@ export function computeMotionPromptInputHash(
   const bibles = sortedBibles(input);
   return sha256Hex({
     artifact: 'frame:motion-prompt',
+    hashVersion: PROMPT_INPUT_HASH_VERSION,
     scene: sceneInputContext(input.scene),
     styleConfig: input.styleConfig,
     characterBible: bibles.characterBible,
@@ -395,6 +412,7 @@ export function computeMusicPromptInputHash(
 ): Promise<string> {
   return sha256Hex({
     artifact: 'sequence:music-prompt',
+    hashVersion: PROMPT_INPUT_HASH_VERSION,
     sceneSummaries: input.sceneSummaries,
     analysisModel: trim(input.analysisModel),
   });

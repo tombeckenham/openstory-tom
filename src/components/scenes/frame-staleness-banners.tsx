@@ -79,7 +79,7 @@ export const FrameStalenessBanners: React.FC<FrameStalenessBannersProps> = ({
     );
   }
 
-  if (staleness?.thumbnail) {
+  if (staleness?.thumbnail === 'stale') {
     return (
       <StalenessIndicator
         artifact="thumbnail"

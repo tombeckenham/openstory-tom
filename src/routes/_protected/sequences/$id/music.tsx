@@ -205,7 +205,10 @@ function MusicPage() {
 
   const regenerateMusicPrompt = useMutation({
     mutationFn: () => regenerateMusicPromptFn({ data: { sequenceId } }),
-    onSuccess: async () => {
+    onSuccess: async (result) => {
+      if (result.alreadyUpToDate) {
+        toast.info('Music prompt is already up to date');
+      }
       await queryClient.invalidateQueries({
         queryKey: musicPromptStalenessKey,
       });
@@ -241,7 +244,7 @@ function MusicPage() {
           onMergeVideoAndMusic={() => mergeVideoAndMusic.mutate()}
           isMergingVideoAndMusic={mergeVideoAndMusic.isPending}
           divergentBanner={divergentBanner}
-          isMusicPromptStale={musicPromptStaleness?.musicPrompt ?? false}
+          isMusicPromptStale={musicPromptStaleness?.musicPrompt === 'stale'}
           onRegenerateMusicPrompt={() => regenerateMusicPrompt.mutate()}
           isRegeneratingMusicPrompt={regenerateMusicPrompt.isPending}
         />

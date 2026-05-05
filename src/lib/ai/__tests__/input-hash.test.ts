@@ -565,6 +565,90 @@ describe('prompt input hashes', () => {
     expect(orderA).toBe(orderB);
   });
 
+  // canonicalize() treats a repeated object reference as a cycle, so each
+  // clone needs its own nested firstMention object.
+  const cloneLocation = (
+    overrides: Partial<LocationBibleEntry>
+  ): LocationBibleEntry => ({
+    ...beachLocation,
+    ...overrides,
+    firstMention: { sceneId: '', text: '', lineNumber: 0 },
+  });
+
+  it('locationBible order does not affect the visual prompt hash', async () => {
+    const first = cloneLocation({});
+    const second = cloneLocation({ locationId: 'l2', name: 'Forest' });
+    const orderA = await computeVisualPromptInputHash({
+      ...sceneCtx,
+      locationBible: [first, second],
+    });
+    const orderB = await computeVisualPromptInputHash({
+      ...sceneCtx,
+      locationBible: [second, first],
+    });
+    expect(orderA).toBe(orderB);
+  });
+
+  it('elementBible order does not affect the visual prompt hash', async () => {
+    const elementA = {
+      token: 'LOGO',
+      description: 'Red hex logo',
+      consistencyTag: 'red-hex-logo',
+      firstMention: { sceneId: 's1', text: 'LOGO', lineNumber: 1 },
+    };
+    const elementB = {
+      token: 'BADGE',
+      description: 'Police badge',
+      consistencyTag: 'police-badge',
+      firstMention: { sceneId: 's1', text: 'BADGE', lineNumber: 2 },
+    };
+    const orderA = await computeVisualPromptInputHash({
+      ...sceneCtx,
+      elementBible: [elementA, elementB],
+    });
+    const orderB = await computeVisualPromptInputHash({
+      ...sceneCtx,
+      elementBible: [elementB, elementA],
+    });
+    expect(orderA).toBe(orderB);
+  });
+
+  it('bible array order does not affect the motion prompt hash (all three bibles)', async () => {
+    const characterA: CharacterBibleEntry = { ...aliceCharacter };
+    const characterB: CharacterBibleEntry = {
+      ...aliceCharacter,
+      characterId: 'c2',
+      name: 'Bob',
+    };
+    const locationA = cloneLocation({});
+    const locationB = cloneLocation({ locationId: 'l2', name: 'Forest' });
+    const elementA = {
+      token: 'LOGO',
+      description: 'Red hex logo',
+      consistencyTag: 'red-hex-logo',
+      firstMention: { sceneId: 's1', text: 'LOGO', lineNumber: 1 },
+    };
+    const elementB = {
+      token: 'BADGE',
+      description: 'Police badge',
+      consistencyTag: 'police-badge',
+      firstMention: { sceneId: 's1', text: 'BADGE', lineNumber: 2 },
+    };
+    const orderA = await computeMotionPromptInputHash({
+      ...sceneCtx,
+      characterBible: [characterA, characterB],
+      locationBible: [locationA, locationB],
+      elementBible: [elementA, elementB],
+    });
+    const orderB = await computeMotionPromptInputHash({
+      ...sceneCtx,
+      characterBible: [characterB, characterA],
+      locationBible: [locationB, locationA],
+      elementBible: [elementB, elementA],
+    });
+    expect(orderA).toBe(orderB);
+  });
+
   it('changing the analysis model changes the visual prompt hash', async () => {
     const a = await computeVisualPromptInputHash(sceneCtx);
     const b = await computeVisualPromptInputHash({

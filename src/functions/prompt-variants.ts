@@ -8,7 +8,11 @@
  * `getFrameStalenessFn`).
  */
 
-import { computeMusicPromptInputHash } from '@/lib/ai/input-hash';
+import {
+  computeMotionPromptInputHash,
+  computeMusicPromptInputHash,
+  computeVisualPromptInputHash,
+} from '@/lib/ai/input-hash';
 import {
   DEFAULT_ANALYSIS_MODEL,
   getAnalysisModelById,
@@ -80,8 +84,12 @@ export const listSequenceMusicPromptVariantsFn = createServerFn({
   );
 
 // ---------------------------------------------------------------------------
-// Restore — append-only writes a new `'user-edit'` row using the chosen
-// variant's text. The original variant row is never mutated.
+// Restore — append-only writes a new `'restored'` row using the chosen
+// variant's text + structured components + input hash. Carrying the hash
+// forward keeps staleness detection alive: restoring an old AI prompt would
+// otherwise null out the cached `*_prompt_input_hash` and the staleness check
+// short-circuits to "fresh" forever. The original variant row is never
+// mutated.
 // ---------------------------------------------------------------------------
 
 const frameRestoreInput = z.object({
@@ -106,9 +114,11 @@ export const restoreFramePromptVariantFn = createServerFn({ method: 'POST' })
       frameId: data.frameId,
       promptType: chosen.promptType,
       text: chosen.text,
-      components: null,
-      parameters: null,
-      source: 'user-edit',
+      components: chosen.components,
+      parameters: chosen.parameters,
+      source: 'restored',
+      inputHash: chosen.inputHash,
+      analysisModel: chosen.analysisModel,
       createdBy: context.user.id,
     });
     return { variantId: inserted.id };
@@ -138,7 +148,9 @@ export const restoreSequenceMusicPromptVariantFn = createServerFn({
       sequenceId: data.sequenceId,
       prompt: chosen.prompt,
       tags: chosen.tags,
-      source: 'user-edit',
+      source: 'restored',
+      inputHash: chosen.inputHash,
+      analysisModel: chosen.analysisModel,
       createdBy: context.user.id,
     });
     return { variantId: inserted.id };
@@ -171,6 +183,21 @@ export const regenerateFramePromptFn = createServerFn({ method: 'POST' })
       scene: frame.metadata,
     });
 
+    // Bail if the cached input hash already matches the live recompute —
+    // otherwise every double-click enqueues a duplicate workflow run and
+    // appends a no-op `'regenerated'` history row.
+    const liveHash =
+      data.promptType === 'visual'
+        ? await computeVisualPromptInputHash(ctx)
+        : await computeMotionPromptInputHash(ctx);
+    const storedHash =
+      data.promptType === 'visual'
+        ? frame.visualPromptInputHash
+        : frame.motionPromptInputHash;
+    if (storedHash !== null && storedHash === liveHash) {
+      return { workflowRunId: null, alreadyUpToDate: true } as const;
+    }
+
     const baseInput:
       | VisualPromptSceneWorkflowInput
       | MotionPromptSceneWorkflowInput = {
@@ -193,12 +220,15 @@ export const regenerateFramePromptFn = createServerFn({ method: 'POST' })
         ? '/visual-prompt-scene'
         : '/motion-prompt-scene';
 
+    // Dedup by the live input hash so a QStash retry of the same upstream
+    // context collapses to one workflow run instead of N — `Date.now()` would
+    // defeat the deduplication entirely.
     const workflowRunId = await triggerWorkflow(urlPath, baseInput, {
-      deduplicationId: `prompt-${data.promptType}-${frame.id}-${Date.now()}`,
+      deduplicationId: `prompt-${data.promptType}-${frame.id}-${liveHash}`,
       label: buildWorkflowLabel(sequence.id),
     });
 
-    return { workflowRunId };
+    return { workflowRunId, alreadyUpToDate: false } as const;
   });
 
 const sequenceRegenerateInput = z.object({ sequenceId: ulidSchema });
@@ -224,6 +254,19 @@ export const regenerateMusicPromptFn = createServerFn({ method: 'POST' })
       getAnalysisModelById(sequence.analysisModel)?.id ??
       DEFAULT_ANALYSIS_MODEL;
 
+    // Bail if nothing has changed since the cached hash was written —
+    // otherwise every double-click enqueues a duplicate workflow run.
+    const liveHash = await computeMusicPromptInputHash({
+      sceneSummaries,
+      analysisModel: analysisModelId,
+    });
+    if (
+      sequence.musicPromptInputHash !== null &&
+      sequence.musicPromptInputHash === liveHash
+    ) {
+      return { workflowRunId: null, alreadyUpToDate: true } as const;
+    }
+
     const workflowRunId = await triggerWorkflow<MusicPromptWorkflowInput>(
       '/music-prompt',
       {
@@ -234,12 +277,14 @@ export const regenerateMusicPromptFn = createServerFn({ method: 'POST' })
         analysisModelId,
       },
       {
-        deduplicationId: `music-prompt-${sequence.id}-${Date.now()}`,
+        // Dedup by the live input hash so a QStash retry of the same upstream
+        // context collapses to one workflow run instead of N.
+        deduplicationId: `music-prompt-${sequence.id}-${liveHash}`,
         label: buildWorkflowLabel(sequence.id),
       }
     );
 
-    return { workflowRunId };
+    return { workflowRunId, alreadyUpToDate: false } as const;
   });
 
 // ---------------------------------------------------------------------------
@@ -253,8 +298,11 @@ export const getMusicPromptStalenessFn = createServerFn({ method: 'GET' })
   .handler(async ({ context }) => {
     const { sequence, scopedDb } = context;
 
+    // No stored hash: legacy sequence or never generated. Surface explicitly
+    // so the UI can suppress the "regenerate" prompt without claiming
+    // freshness.
     if (!sequence.musicPromptInputHash) {
-      return { musicPrompt: false };
+      return { musicPrompt: 'untracked' as const };
     }
 
     const frames = await scopedDb.frames.listBySequence(sequence.id);
@@ -262,7 +310,7 @@ export const getMusicPromptStalenessFn = createServerFn({ method: 'GET' })
       .map((f) => f.metadata)
       .filter((m): m is NonNullable<typeof m> => m !== null);
     if (scenes.length === 0) {
-      return { musicPrompt: false };
+      return { musicPrompt: 'untracked' as const };
     }
     const sceneSummaries = buildMusicSceneSummaries(scenes);
 
@@ -279,7 +327,12 @@ export const getMusicPromptStalenessFn = createServerFn({ method: 'GET' })
       analysisModel,
     });
 
-    return { musicPrompt: liveHash !== sequence.musicPromptInputHash };
+    return {
+      musicPrompt:
+        liveHash !== sequence.musicPromptInputHash
+          ? ('stale' as const)
+          : ('fresh' as const),
+    };
   });
 
 // ---------------------------------------------------------------------------

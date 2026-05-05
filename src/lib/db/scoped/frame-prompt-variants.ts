@@ -40,6 +40,12 @@ type WriteFramePromptVariantBase = {
  * `*_prompt_input_hash` column on `frames` is meaningless and staleness
  * detection silently breaks. User-edits have no upstream input surface and
  * forbid both fields so they cannot be set by mistake.
+ *
+ * Restored rows carry the source variant's hash + analysisModel verbatim so
+ * the cached `*_prompt_input_hash` column keeps tracking the upstream context
+ * that originally produced the prompt — restoring an old AI prompt must NOT
+ * silently disable staleness detection. Both fields can be null when the
+ * source is itself a user-edit (which never had a hash to begin with).
  */
 export type WriteFramePromptVariantInput = WriteFramePromptVariantBase &
   (
@@ -52,6 +58,11 @@ export type WriteFramePromptVariantInput = WriteFramePromptVariantBase &
         source: 'user-edit';
         inputHash?: never;
         analysisModel?: never;
+      }
+    | {
+        source: 'restored';
+        inputHash: string | null;
+        analysisModel: string | null;
       }
   );
 
@@ -92,6 +103,8 @@ export function createFramePromptVariantsMethods(db: Database) {
       const nextHash = input.source === 'user-edit' ? null : input.inputHash;
       const analysisModel =
         input.source === 'user-edit' ? null : input.analysisModel;
+      // 'restored' may carry a null hash (when restoring a user-edit row);
+      // treat it like a user-edit for the conflict-recovery select fallback.
 
       // Append first so a crash can't leave a stale pointer with no row
       // behind it. The reverse order would be unrecoverable.

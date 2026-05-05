@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, Loader2, X } from 'lucide-react';
 import {
   Alert,
   AlertAction,
@@ -36,6 +36,8 @@ type StalenessIndicatorProps = {
   onRegenerate: () => void;
   onDismiss?: () => void;
   density?: StalenessIndicatorDensity;
+  /** Workflow currently in flight — disables the regenerate trigger and shows a spinner so rapid clicks don't enqueue duplicate runs. */
+  isRegenerating?: boolean;
   className?: string;
 };
 
@@ -57,6 +59,7 @@ export const StalenessIndicator: React.FC<StalenessIndicatorProps> = ({
   onRegenerate,
   onDismiss,
   density = 'inline',
+  isRegenerating = false,
   className,
 }) => {
   const [dismissed, setDismissed] = useState(false);
@@ -75,21 +78,39 @@ export const StalenessIndicator: React.FC<StalenessIndicatorProps> = ({
       <button
         type="button"
         onClick={onRegenerate}
-        aria-label={ariaLabel}
-        title="Inputs changed — click to regenerate"
+        disabled={isRegenerating}
+        aria-label={
+          isRegenerating
+            ? `Regenerating ${ARTIFACT_LABEL[artifact]}…`
+            : ariaLabel
+        }
+        aria-busy={isRegenerating}
+        title={
+          isRegenerating
+            ? 'Regenerating…'
+            : 'Inputs changed — click to regenerate'
+        }
         data-slot="staleness-indicator-dot"
         data-artifact={artifact}
         data-entity-type={entityType}
         className={cn(
           'group relative inline-flex h-6 w-6 items-center justify-center rounded-full',
           'outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+          'disabled:cursor-not-allowed disabled:opacity-60',
           className
         )}
       >
-        <span
-          aria-hidden="true"
-          className="block h-2 w-2 rounded-full bg-amber-500 ring-2 ring-amber-500/30 transition-transform group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
-        />
+        {isRegenerating ? (
+          <Loader2
+            aria-hidden="true"
+            className="h-3 w-3 animate-spin text-amber-600 motion-reduce:animate-none"
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            className="block h-2 w-2 rounded-full bg-amber-500 ring-2 ring-amber-500/30 transition-transform group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+          />
+        )}
       </button>
     );
   }
@@ -116,8 +137,16 @@ export const StalenessIndicator: React.FC<StalenessIndicatorProps> = ({
           size="sm"
           variant="outline"
           onClick={onRegenerate}
+          disabled={isRegenerating}
+          aria-busy={isRegenerating}
         >
-          Regenerate
+          {isRegenerating && (
+            <Loader2
+              aria-hidden="true"
+              className="mr-2 h-3 w-3 animate-spin motion-reduce:animate-none"
+            />
+          )}
+          {isRegenerating ? 'Regenerating…' : 'Regenerate'}
         </Button>
         {onDismiss && (
           <Button

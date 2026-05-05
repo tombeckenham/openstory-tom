@@ -24,13 +24,11 @@ import {
   getTestSequenceFrames,
 } from '../fixtures/sequence.fixture';
 import {
-  cleanupTalentById,
-  createTestTalentSet,
+  getSystemTalentByName,
   type TestTalent,
 } from '../fixtures/talent.fixture';
 import {
-  cleanupLocationById,
-  createTestLibraryLocation,
+  getSystemLocationByName,
   type TestLibraryLocation,
 } from '../fixtures/location.fixture';
 import { resolve } from 'node:path';
@@ -53,15 +51,15 @@ testWithUser.describe('Full Sequence Pipeline', () => {
   let createdSequenceId: string | null = null;
 
   testWithUser.beforeEach(async ({ testUser }) => {
-    const suffix = crypto.randomUUID().slice(0, 8);
-    testTalents = await createTestTalentSet(testUser.teamId, [
-      `E2E Pipeline Actor One ${suffix}`,
-      `E2E Pipeline Actor Two ${suffix}`,
-    ]);
-    testLocation = await createTestLibraryLocation(
-      testUser.teamId,
-      `E2E Pipeline Location ${suffix}`
-    );
+    // Pull seeded system talent + locations rather than fabricating ones
+    // with placeholder URLs — workflows need real R2 reference images for
+    // character/location matching and sheet rendering. The seed runs in
+    // globalSetup (see e2e/global-setup.ts).
+    testTalents = [
+      await getSystemTalentByName('Sienna Blake'),
+      await getSystemTalentByName('Jude Calloway'),
+    ];
+    testLocation = await getSystemLocationByName('Sunlit Loft Studio');
     styleId = await createTestStyle(testUser.teamId);
   });
 
@@ -69,13 +67,9 @@ testWithUser.describe('Full Sequence Pipeline', () => {
     if (createdSequenceId && styleId) {
       await cleanupSequenceById(createdSequenceId, styleId);
     }
-    for (const t of testTalents) {
-      await cleanupTalentById(t.id);
-    }
-    if (testLocation) {
-      await cleanupLocationById(testLocation.id);
-    }
+    // System talent and locations are shared and seeded — never delete them.
     testTalents = [];
+    testLocation = null;
     styleId = null;
     createdSequenceId = null;
   });
@@ -185,14 +179,17 @@ Story just broke. We need this on air now.
         )
         .toBe(true);
 
-      // 10. Trigger motion generation. The button label may vary — fall back
-      //     to navigating to the scenes page action menu if needed.
+      // 10. Trigger motion generation. The scene-list footer renders a single
+      //     batch-generate button whose label is dynamic — `Writing motion
+      //     prompts…` / `Composing music…` / `Generating…` while preparing,
+      //     and `Generate {N} / {M} frame(s)` once ready. Match either the
+      //     ready label or the in-progress one and wait for it to be enabled.
       const motionButton = page
-        .getByRole('button', { name: /Generate motion/i })
+        .getByRole('button', { name: /Generate \d+ ?\/ ?\d+ frames?/i })
         .first();
-      if (await motionButton.isVisible().catch(() => false)) {
-        await motionButton.click();
-      }
+      await expect(motionButton).toBeVisible({ timeout: 120_000 });
+      await expect(motionButton).toBeEnabled({ timeout: 120_000 });
+      await motionButton.click();
       await expect
         .poll(
           async () => {
@@ -204,14 +201,10 @@ Story just broke. We need this on air now.
         )
         .toBe(true);
 
-      // 11. Trigger music generation via the dedicated tab.
-      await page.goto(`/sequences/${sequenceId}/music`);
-      const musicButton = page
-        .getByRole('button', { name: /Generate music|Generate audio/i })
-        .first();
-      if (await musicButton.isVisible().catch(() => false)) {
-        await musicButton.click();
-      }
+      // 11. Wait for music to land on every frame. The "Also generate music"
+      //     checkbox in the scene-list footer defaults to true, so step 10's
+      //     batch trigger already kicks off music + merge. The dedicated
+      //     /music tab is for regenerate / hand-tuning, not the happy path.
       await expect
         .poll(
           async () => {

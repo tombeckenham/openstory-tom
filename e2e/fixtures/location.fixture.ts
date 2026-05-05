@@ -3,7 +3,7 @@
  * Creates test library locations for testing location library flows
  */
 
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { ulid } from 'ulid';
 import { testDb } from './db-client';
 import { locationLibrary } from '@/lib/db/schema';
@@ -70,4 +70,34 @@ export async function cleanupLocationById(locationId: string): Promise<void> {
   await testDb
     .delete(locationLibrary)
     .where(eq(locationLibrary.id, locationId));
+}
+
+/**
+ * Look up a seeded system location by name. System locations are inserted by
+ * `scripts/seed.ts --test` during global setup; they have real R2 reference
+ * images so workflows can use them for location matching and sheet rendering.
+ * Tests should prefer these over fabricated locations with placeholder URLs.
+ */
+export async function getSystemLocationByName(
+  name: string
+): Promise<TestLibraryLocation> {
+  const rows = await testDb
+    .select()
+    .from(locationLibrary)
+    .where(
+      and(eq(locationLibrary.name, name), eq(locationLibrary.isPublic, true))
+    )
+    .limit(1);
+  if (rows.length === 0) {
+    throw new Error(
+      `System location "${name}" not found in test DB — was \`bun scripts/seed.ts --test\` run during global setup?`
+    );
+  }
+  const found = rows[0];
+  return {
+    id: found.id,
+    name: found.name,
+    teamId: found.teamId,
+    referenceImageUrl: found.referenceImageUrl ?? '',
+  };
 }

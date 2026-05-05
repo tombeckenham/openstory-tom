@@ -3,7 +3,7 @@
  * Creates test talent with sheets for testing talent selection flows
  */
 
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { ulid } from 'ulid';
 import { testDb } from './db-client';
 import { talent, talentSheets, talentMedia } from '@/lib/db/schema';
@@ -136,4 +136,43 @@ export async function cleanupTestTalent(teamId: string): Promise<void> {
  */
 export async function cleanupTalentById(talentId: string): Promise<void> {
   await testDb.delete(talent).where(eq(talent.id, talentId));
+}
+
+/**
+ * Look up a seeded system talent by name. System talents are inserted by
+ * `scripts/seed.ts --test` during global setup; they have real R2 reference
+ * images, so workflows can actually use them for character matching and
+ * sheet rendering. Tests should use these instead of fabricating talent
+ * with placeholder URLs.
+ */
+export async function getSystemTalentByName(name: string): Promise<TestTalent> {
+  const rows = await testDb
+    .select()
+    .from(talent)
+    .where(and(eq(talent.name, name), eq(talent.isPublic, true)))
+    .limit(1);
+  if (rows.length === 0) {
+    throw new Error(
+      `System talent "${name}" not found in test DB — was \`bun scripts/seed.ts --test\` run during global setup?`
+    );
+  }
+  const found = rows[0];
+  const sheets = await testDb
+    .select()
+    .from(talentSheets)
+    .where(
+      and(eq(talentSheets.talentId, found.id), eq(talentSheets.isDefault, true))
+    )
+    .limit(1);
+  if (sheets.length === 0) {
+    throw new Error(
+      `System talent "${name}" has no default sheet — re-run seed`
+    );
+  }
+  return {
+    id: found.id,
+    name: found.name,
+    teamId: found.teamId,
+    sheetId: sheets[0].id,
+  };
 }

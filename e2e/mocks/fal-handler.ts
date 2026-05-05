@@ -11,7 +11,13 @@
  */
 
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import type * as http from 'node:http';
 import { resolve } from 'node:path';
 
@@ -37,8 +43,59 @@ function ensureFixtureDir(): void {
   }
 }
 
+// ULIDs and UUIDs that appear in image_urls (R2 paths embed teamId, sequenceId,
+// frameId, and a fresh upload-suffix ULID per write) drift every test run, so
+// hashing the raw body produces a fresh fixture each time. Normalize them to
+// stable placeholders before hashing so the same logical request matches the
+// same fixture across runs. Record and replay use this same function, keeping
+// them symmetric.
+const ULID_RE = /\b[0-9A-HJKMNP-TV-Z]{26}\b/g;
+const UUID_RE =
+  /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+
+function normalizeForHash(body: string): string {
+  return body.replace(ULID_RE, '<ULID>').replace(UUID_RE, '<UUID>');
+}
+
 function hashBody(body: string): string {
-  return createHash('sha256').update(body).digest('hex').slice(0, 16);
+  return createHash('sha256')
+    .update(normalizeForHash(body))
+    .digest('hex')
+    .slice(0, 16);
+}
+
+// Diagnostic: each record-mode call appends one JSONL line with the model,
+// computed hash, and the *normalized* body (post ULID/UUID strip). After two
+// record passes, diff the entries with the same `model` to see exactly what
+// stayed volatile and is keeping fixtures from being reused.
+//
+// Path: e2e/fixtures/recorded/_debug-bodies.jsonl
+const DEBUG_LOG_PATH = resolve(
+  import.meta.dirname,
+  '../fixtures/recorded/_debug-bodies.jsonl'
+);
+
+function appendDebugBodyLog(
+  targetHost: string,
+  method: string,
+  pathname: string,
+  bodyHash: string,
+  rawBody: string
+): void {
+  if (process.env.FAL_RECORD !== 'true') return;
+  const entry = {
+    ts: new Date().toISOString(),
+    targetHost,
+    method,
+    pathname,
+    bodyHash,
+    normalizedBody: normalizeForHash(rawBody),
+  };
+  try {
+    appendFileSync(DEBUG_LOG_PATH, JSON.stringify(entry) + '\n');
+  } catch {
+    // diagnostic-only; don't break recording on log failure
+  }
 }
 
 function safeFilename(parts: string[]): string {
@@ -84,14 +141,16 @@ async function forwardToFal(
     );
   }
 
+  // Use Headers (case-insensitive) so set() replaces any inbound
+  // `authorization` from the dev server's fal-client. A plain object spread +
+  // capital-A `Authorization` leaves both keys distinct, and undici then
+  // joins them with a comma — fal rejects the malformed header with 401.
   const url = `https://${targetHost}${pathname}${search}`;
-  const upstreamHeaders: Record<string, string> = {
-    ...headers,
-    Authorization: `Key ${falKey}`,
-  };
-  delete upstreamHeaders.host;
-  delete upstreamHeaders['x-fal-target-host'];
-  delete upstreamHeaders['content-length'];
+  const upstreamHeaders = new Headers(headers);
+  upstreamHeaders.delete('host');
+  upstreamHeaders.delete('x-fal-target-host');
+  upstreamHeaders.delete('content-length');
+  upstreamHeaders.set('authorization', `Key ${falKey}`);
 
   const init: RequestInit = {
     method,
@@ -162,6 +221,16 @@ export function createFalHandler() {
           headers,
           rawBody
         );
+        if (upstream.status >= 400) {
+          const keyLen = (process.env.FAL_KEY ?? '').length;
+          console.warn(
+            `[fal-mock] upstream ${upstream.status} from ${targetHost}${falPath} (FAL_KEY length=${keyLen}): ${upstream.body.slice(0, 500)}`
+          );
+          // Don't bake error responses into the fixture set — surface the
+          // failure to the client so the test fails loudly instead.
+          writeResponse(res, upstream.status, upstream.headers, upstream.body);
+          return true;
+        }
         const record: FixtureRecord = {
           request: requestKey,
           response: {
@@ -171,6 +240,7 @@ export function createFalHandler() {
           },
         };
         writeFileSync(filePath, JSON.stringify(record, null, 2));
+        appendDebugBodyLog(targetHost, method, falPath, bodyHash, rawBody);
         writeResponse(res, upstream.status, upstream.headers, upstream.body);
         return true;
       }

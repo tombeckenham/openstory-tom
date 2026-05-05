@@ -34,14 +34,6 @@ import type {
 export type { FrameImageSceneSnapshot } from '@/lib/workflow/types';
 
 /**
- * Hard cap on snapshot-divergence re-queues for a single workflow chain.
- * Each re-queue runs `generateImageWithProvider` + `deductWorkflowCredits`
- * before the divergence check, so an upstream that thrashes in a tight loop
- * would otherwise burn credits indefinitely.
- */
-export const MAX_REQUEUE_DEPTH = 5;
-
-/**
  * Resolve the upstream talent-sheet's `input_hash` for a sequence character.
  * Returns `null` when the character has no talent assignment, when the talent
  * has no sheets, or when the sheet predates hash tracking.
@@ -53,8 +45,13 @@ export async function resolveTalentSheetHash(
   const character = await scopedDb.characters.getById(characterDbId);
   if (!character?.talentId) return null;
   const talent = await scopedDb.talent.getWithRelations(character.talentId);
+  // Exclude divergent sheets from the fallback identity. A divergent row's
+  // `inputHash` represents the parked workflow's snapshot, not the talent's
+  // current upstream identity — binding a downstream character sheet to it
+  // would fork off a stale lineage from first-time generation onward.
+  const convergentSheets = talent?.sheets.filter((s) => !s.divergedAt) ?? [];
   const defaultSheet =
-    talent?.sheets.find((s) => s.isDefault) ?? talent?.sheets[0];
+    convergentSheets.find((s) => s.isDefault) ?? convergentSheets[0];
   return defaultSheet?.inputHash ?? null;
 }
 

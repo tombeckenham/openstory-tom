@@ -66,14 +66,21 @@ function createTalentReadMethods(db: Database, teamId: string) {
 
       const talentWithoutDefault = talentIds.filter((id) => !sheetMap.has(id));
       if (talentWithoutDefault.length > 0) {
+        // Exclude divergent sheets from the "any sheet" fallback so a
+        // divergent first-time-generation row cannot leak into the
+        // talent's displayed identity. Convergent rows are returned in
+        // recency order; the most recent wins.
         const fallbackSheets = await db
           .select()
           .from(talentSheets)
           .where(
-            sql`${talentSheets.talentId} IN (${sql.join(
-              talentWithoutDefault.map((id) => sql`${id}`),
-              sql`, `
-            )})`
+            and(
+              sql`${talentSheets.talentId} IN (${sql.join(
+                talentWithoutDefault.map((id) => sql`${id}`),
+                sql`, `
+              )})`,
+              sql`${talentSheets.divergedAt} IS NULL`
+            )
           )
           .orderBy(desc(talentSheets.createdAt));
 
@@ -138,14 +145,21 @@ function createTalentReadMethods(db: Database, teamId: string) {
 
       const talentWithoutDefault = fetchedIds.filter((id) => !sheetMap.has(id));
       if (talentWithoutDefault.length > 0) {
+        // Exclude divergent sheets from the "any sheet" fallback so a
+        // divergent first-time-generation row cannot be cast as the talent's
+        // identity by downstream consumers (e.g. talent-matching workflow,
+        // which reads `defaultSheet?.imageUrl` for the LLM matching prompt).
         const fallbackSheets = await db
           .select()
           .from(talentSheets)
           .where(
-            sql`${talentSheets.talentId} IN (${sql.join(
-              talentWithoutDefault.map((id) => sql`${id}`),
-              sql`, `
-            )})`
+            and(
+              sql`${talentSheets.talentId} IN (${sql.join(
+                talentWithoutDefault.map((id) => sql`${id}`),
+                sql`, `
+              )})`,
+              sql`${talentSheets.divergedAt} IS NULL`
+            )
           )
           .orderBy(desc(talentSheets.createdAt));
 
@@ -292,7 +306,12 @@ export function createTalentMethods(
           .where(eq(talentSheets.talentId, data.talentId));
 
         const sheetCount = existingSheets[0]?.count ?? 0;
-        const shouldBeDefault = sheetCount === 0 || data.isDefault === true;
+        // Honor an explicit `isDefault` (including `false`) so callers writing
+        // a known non-default row — e.g. the divergence path in
+        // `library-talent-sheet-workflow` — don't get auto-promoted to default
+        // just because the talent has no sheets yet. Only fall back to the
+        // first-sheet auto-promote when isDefault is undefined.
+        const shouldBeDefault = data.isDefault ?? sheetCount === 0;
 
         if (shouldBeDefault && sheetCount > 0) {
           await db

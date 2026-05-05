@@ -16,6 +16,12 @@ import { frames } from './frames';
 
 import { frameVariants } from './frame-variants';
 
+import { characterSheetVariants } from './character-sheet-variants';
+
+import { locationSheetVariants } from './location-sheet-variants';
+
+import { talentSheetVariants } from './talent-sheet-variants';
+
 import { framePromptVariants } from './frame-prompt-variants';
 
 import { sequenceMusicPromptVariants } from './sequence-music-prompt-variants';
@@ -88,6 +94,34 @@ export type {
   NewFrameVariant,
   VariantType,
 } from './frame-variants';
+
+// Sheet Variants (Stage 2: divergent character/location/talent sheet outputs)
+export { characterSheetVariants };
+
+export type {
+  CharacterSheetVariant,
+  CharacterSheetVariantStatus,
+  NewCharacterSheetVariant,
+} from './character-sheet-variants';
+
+export { locationSheetVariants };
+
+export type {
+  LocationSheetVariant,
+  LocationSheetVariantParentType,
+  LocationSheetVariantStatus,
+  NewLocationSheetVariant,
+} from './location-sheet-variants';
+
+export { LOCATION_SHEET_VARIANT_PARENT_TYPES } from './location-sheet-variants';
+
+export { talentSheetVariants };
+
+export type {
+  NewTalentSheetVariant,
+  TalentSheetVariant,
+  TalentSheetVariantStatus,
+} from './talent-sheet-variants';
 
 // Frame Prompt Variants (visual/motion prompt history)
 export { framePromptVariants };
@@ -259,6 +293,9 @@ export const schema = {
   sequences,
   frames,
   frameVariants,
+  characterSheetVariants,
+  locationSheetVariants,
+  talentSheetVariants,
   framePromptVariants,
   sequenceMusicPromptVariants,
   sequenceVideoVariants,

@@ -1,22 +1,29 @@
 import { getChannelHistoryFn } from '@/functions/realtime-history';
 import { useRealtime } from '@/lib/realtime/client';
+import type { StaleDetectedPayload } from '@/lib/realtime';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
 import { talentKeys } from './use-talent';
 
 type GenerationPhase = 'sheet' | 'portrait';
 
-type SheetProgressEvent = {
-  event: string;
-  data: {
-    talentId: string;
-    status: 'generating' | 'sheet_ready' | 'completed' | 'failed';
-    sheetId?: string;
-    sheetImageUrl?: string;
-    headshotImageUrl?: string;
-    error?: string;
-  };
+type SheetProgressData = {
+  talentId: string;
+  status: 'generating' | 'sheet_ready' | 'completed' | 'failed';
+  sheetId?: string;
+  sheetImageUrl?: string;
+  headshotImageUrl?: string;
+  error?: string;
 };
+
+// Discriminated by `event` so narrowing on the event name reaches the right
+// branch. `StaleDetectedPayload` is the schema's discriminated union
+// (z.discriminatedUnion('entityType', ...)), so `data.entityType` narrows to
+// the literal — a hand-rolled `entityType: string` widening would defeat that
+// and was the structural pattern behind the round-1 talent-channel routing bug.
+type TalentRealtimeEvent =
+  | { event: 'talent.sheet:progress'; data: SheetProgressData }
+  | { event: 'generation.stale:detected'; data: StaleDetectedPayload };
 
 /**
  * Determine the current generation state from a sequence of history events.
@@ -87,13 +94,30 @@ export function useTalentSheetRealtime(talentId?: string) {
   }, [talentId, queryClient]);
 
   const handleEvent = useCallback(
-    (event: SheetProgressEvent) => {
-      const { event: eventName, data } = event;
+    (event: TalentRealtimeEvent) => {
+      if (event.event === 'generation.stale:detected') {
+        if (event.data.entityType !== 'talent') return;
+        // Divergent talent sheet was parked in `talent_sheet_variants`. The
+        // workflow already emitted `talent.sheet:progress` with status
+        // `completed` against the new variant sheet, so the spinner clears
+        // through that path. Refresh the talent detail/list so the new
+        // (non-default) sheet appears in the sheets list.
+        if (talentId) {
+          void queryClient.invalidateQueries({
+            queryKey: talentKeys.detail(talentId),
+          });
+        }
+        void queryClient.invalidateQueries({
+          queryKey: talentKeys.lists(),
+        });
+        return;
+      }
 
-      if (eventName !== 'talent.sheet:progress') return;
-      if (data.talentId !== talentId) return;
+      if (event.event !== 'talent.sheet:progress') return;
+      const sheetData = event.data;
+      if (sheetData.talentId !== talentId) return;
 
-      switch (data.status) {
+      switch (sheetData.status) {
         case 'generating':
           setIsGenerating(true);
           setPhase('sheet');
@@ -105,7 +129,7 @@ export function useTalentSheetRealtime(talentId?: string) {
           setPhase('portrait');
           // Invalidate to show the new sheet immediately
           void queryClient.invalidateQueries({
-            queryKey: talentKeys.detail(data.talentId),
+            queryKey: talentKeys.detail(sheetData.talentId),
           });
           break;
 
@@ -115,7 +139,7 @@ export function useTalentSheetRealtime(talentId?: string) {
           setError(null);
           // Invalidate talent queries to refresh sheets and headshot
           void queryClient.invalidateQueries({
-            queryKey: talentKeys.detail(data.talentId),
+            queryKey: talentKeys.detail(sheetData.talentId),
           });
           // Also invalidate list to show new headshot in talent grid
           void queryClient.invalidateQueries({
@@ -125,7 +149,7 @@ export function useTalentSheetRealtime(talentId?: string) {
 
         case 'failed':
           setIsGenerating(false);
-          setError(data.error ?? 'Sheet generation failed');
+          setError(sheetData.error ?? 'Sheet generation failed');
           break;
       }
     },
@@ -134,7 +158,7 @@ export function useTalentSheetRealtime(talentId?: string) {
 
   const { status } = useRealtime({
     channels: talentId ? [`talent:${talentId}`] : [],
-    events: ['talent.sheet:progress'] as const,
+    events: ['talent.sheet:progress', 'generation.stale:detected'] as const,
     onData: handleEvent,
     enabled: !!talentId,
   });

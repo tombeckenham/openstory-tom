@@ -1,4 +1,6 @@
 import { frameKeys } from '@/hooks/use-frames';
+import { sequenceCharacterKeys } from '@/hooks/use-sequence-characters';
+import { sequenceLocationKeys } from '@/hooks/use-sequence-locations';
 import { sequenceKeys } from '@/hooks/use-sequences';
 import type { Frame, Sequence } from '@/types/database';
 import type { QueryClient } from '@tanstack/react-query';
@@ -225,29 +227,57 @@ export function updateQueryCacheFromEvent(
     }
 
     case 'generation.stale:detected': {
-      // A divergent regeneration parked its result in `frame_variants`. Refetch
-      // image variants so the new alternate row shows up; also refetch the
-      // frame so its reverted thumbnail status (pending) reaches the UI.
-      // Frame staleness query is keyed per-frame; invalidate it so the
-      // indicator reappears if the user just dismissed it.
+      // A divergent regeneration parked its result in a `*_variants` table.
+      // This handler runs on the sequence channel, so it only fires for
+      // entityTypes routed there: `frame`, `character`, `location`. Per-entity
+      // channels handle their own invalidation (`useTalentSheetRealtime`,
+      // `useLocationSheetRealtime`) for `talent` and `library-location`.
       const entityType = getString(data, 'entityType');
       const entityId = getString(data, 'entityId');
-      if (entityType === 'frame' && entityId) {
-        debouncedInvalidate(
-          queryClient,
-          ['sequence-image-variants', sequenceId],
-          `image-variants:${sequenceId}`
-        );
-        debouncedInvalidate(
-          queryClient,
-          frameKeys.list(sequenceId),
-          `frames:${sequenceId}`
-        );
-        debouncedInvalidate(
-          queryClient,
-          ['frame-staleness', entityId],
-          `frame-staleness:${entityId}`
-        );
+      if (!entityId) break;
+      switch (entityType) {
+        case 'frame':
+          // Frame thumbnail/video divergence: refresh variants list, the frame
+          // itself (status reverts to pending), and per-frame staleness so the
+          // indicator reappears even if the user just dismissed it.
+          debouncedInvalidate(
+            queryClient,
+            ['sequence-image-variants', sequenceId],
+            `image-variants:${sequenceId}`
+          );
+          debouncedInvalidate(
+            queryClient,
+            frameKeys.list(sequenceId),
+            `frames:${sequenceId}`
+          );
+          debouncedInvalidate(
+            queryClient,
+            ['frame-staleness', entityId],
+            `frame-staleness:${entityId}`
+          );
+          break;
+
+        case 'character':
+          // Character sheet diverged into `character_sheet_variants`. The
+          // primary row's `sheetStatus` was settled to `completed` by the
+          // workflow; refetch so the spinner clears and any variant-surfacing
+          // UI picks up the new alternate.
+          debouncedInvalidate(
+            queryClient,
+            sequenceCharacterKeys.list(sequenceId),
+            `sequence-characters:${sequenceId}`
+          );
+          break;
+
+        case 'location':
+          // Sequence-location reference diverged into
+          // `location_sheet_variants` (parentType `sequence_location`).
+          debouncedInvalidate(
+            queryClient,
+            sequenceLocationKeys.list(sequenceId),
+            `sequence-locations:${sequenceId}`
+          );
+          break;
       }
       break;
     }

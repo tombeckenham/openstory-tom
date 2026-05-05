@@ -1,19 +1,24 @@
 import { getChannelHistoryFn } from '@/functions/realtime-history';
 import { useRealtime } from '@/lib/realtime/client';
+import type { StaleDetectedPayload } from '@/lib/realtime';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
 import { locationLibraryKeys } from './use-location-library';
 import { libraryLocationKeys } from './use-sequence-locations';
 
-type SheetProgressEvent = {
-  event: string;
-  data: {
-    locationId: string;
-    status: 'generating' | 'completed' | 'failed';
-    sheetImageUrl?: string;
-    error?: string;
-  };
+type SheetProgressData = {
+  locationId: string;
+  status: 'generating' | 'completed' | 'failed';
+  sheetImageUrl?: string;
+  error?: string;
 };
+
+// Discriminated by `event` so narrowing on the event name reaches the right
+// branch. `StaleDetectedPayload` is the schema's discriminated union, so
+// `data.entityType` narrows to the literal — see use-talent-realtime.ts.
+type LocationRealtimeEvent =
+  | { event: 'location.sheet:progress'; data: SheetProgressData }
+  | { event: 'generation.stale:detected'; data: StaleDetectedPayload };
 
 /**
  * Determine the current generation state from channel history.
@@ -67,13 +72,28 @@ export function useLocationSheetRealtime(locationId?: string) {
   }, [locationId]);
 
   const handleEvent = useCallback(
-    (event: SheetProgressEvent) => {
-      const { event: eventName, data } = event;
+    (event: LocationRealtimeEvent) => {
+      if (event.event === 'generation.stale:detected') {
+        if (event.data.entityType !== 'library-location') return;
+        // Library-location reference diverged into `location_sheet_variants`.
+        // The library row's primary reference is unchanged. Refetch detail
+        // and list so any variant-surfacing UI picks up the new alternate.
+        if (locationId) {
+          void queryClient.invalidateQueries({
+            queryKey: locationLibraryKeys.detail(locationId),
+          });
+        }
+        void queryClient.invalidateQueries({
+          queryKey: libraryLocationKeys.all,
+        });
+        return;
+      }
 
-      if (eventName !== 'location.sheet:progress') return;
-      if (data.locationId !== locationId) return;
+      if (event.event !== 'location.sheet:progress') return;
+      const sheetData = event.data;
+      if (sheetData.locationId !== locationId) return;
 
-      switch (data.status) {
+      switch (sheetData.status) {
         case 'generating':
           setIsGenerating(true);
           setError(null);
@@ -94,7 +114,7 @@ export function useLocationSheetRealtime(locationId?: string) {
 
         case 'failed':
           setIsGenerating(false);
-          setError(data.error ?? 'Sheet generation failed');
+          setError(sheetData.error ?? 'Sheet generation failed');
           break;
       }
     },
@@ -103,7 +123,7 @@ export function useLocationSheetRealtime(locationId?: string) {
 
   const { status } = useRealtime({
     channels: locationId ? [`location:${locationId}`] : [],
-    events: ['location.sheet:progress'] as const,
+    events: ['location.sheet:progress', 'generation.stale:detected'] as const,
     onData: handleEvent,
     enabled: !!locationId,
   });

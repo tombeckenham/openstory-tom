@@ -29,9 +29,13 @@ const TalentPickerCard: React.FC<TalentPickerCardProps> = ({
   talent,
   onClick,
 }) => {
-  // Get the default sheet or first sheet for the avatar
-  const sheet = talent.sheets.find((s) => s.isDefault) ?? talent.sheets[0];
-  // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- sheet is undefined when sheets array is empty
+  // Get the default sheet or first sheet for the avatar. Filter divergent
+  // sheets — they are stale-marked variants and must not stand in as the
+  // talent's primary identity.
+  const sheet =
+    talent.sheets.find((s) => s.isDefault && !s.divergedAt) ??
+    talent.sheets.find((s) => !s.divergedAt);
+  // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- sheet is undefined when no eligible row exists
   const imageUrl = sheet?.imageUrl ?? talent.imageUrl;
 
   return (

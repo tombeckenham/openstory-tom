@@ -227,12 +227,6 @@ export interface CharacterSheetWorkflowInput extends SequenceWorkflowContext {
   talentSheetInputHash?: string | null;
   /** Hash over the inlined DTO; validated by the snapshot middleware. */
   snapshotInputHash?: string;
-  /**
-   * Number of times this workflow has re-queued itself due to snapshot
-   * divergence. Bounded by `MAX_REQUEUE_DEPTH` to prevent a thrashing
-   * upstream from burning credits in a tight loop. Snapshot pattern only.
-   */
-  requeueDepth?: number;
 }
 
 /**
@@ -491,8 +485,6 @@ export interface LibraryTalentSheetWorkflowInput extends UserWorkflowContext {
   sheetName?: string;
   /** Hash over the inlined DTO; validated by the snapshot middleware. */
   snapshotInputHash?: string;
-  /** Snapshot-divergence re-queue depth; bounded by `MAX_REQUEUE_DEPTH`. */
-  requeueDepth?: number;
 }
 
 export interface LibraryTalentSheetWorkflowResult {
@@ -556,8 +548,6 @@ export interface LocationSheetWorkflowInput extends SequenceWorkflowContext {
   libraryLocationReferenceHash?: string | null;
   /** Hash over the inlined DTO; validated by the snapshot middleware. */
   snapshotInputHash?: string;
-  /** Snapshot-divergence re-queue depth; bounded by `MAX_REQUEUE_DEPTH`. */
-  requeueDepth?: number;
 }
 
 export interface LocationSheetWorkflowResult {

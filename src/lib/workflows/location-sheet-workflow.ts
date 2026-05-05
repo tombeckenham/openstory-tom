@@ -19,13 +19,7 @@ import {
 import { buildLocationSheetPrompt } from '@/lib/prompts/location-prompt';
 import { getGenerationChannel } from '@/lib/realtime';
 import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
-import { triggerWorkflow } from '@/lib/workflow/client';
-import {
-  SnapshotDivergedError,
-  SnapshotRequeueDepthExceededError,
-  isSnapshotDivergedFailure,
-  WorkflowValidationError,
-} from '@/lib/workflow/errors';
+import { WorkflowValidationError } from '@/lib/workflow/errors';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
 import type {
@@ -35,9 +29,11 @@ import type {
 import {
   computeLocationSheetHashCurrent,
   computeLocationSheetHashFromDto,
-  MAX_REQUEUE_DEPTH,
-  resolveLibraryLocationReferenceHash,
 } from './sheet-snapshots';
+import {
+  decideSheetDivergence,
+  saveDivergentLocationSheet,
+} from './sheet-divergence';
 
 export const locationSheetWorkflow = createScopedWorkflow<
   LocationSheetWorkflowInput,
@@ -145,6 +141,11 @@ export const locationSheetWorkflow = createScopedWorkflow<
     let referenceImagePath: string | undefined = undefined;
 
     if (input.locationDbId && input.teamId && input.sequenceId) {
+      // Capture narrowed values so inner async closures see `string`, not
+      // `string | undefined`.
+      const locationDbId = input.locationDbId;
+      const sequenceId = input.sequenceId;
+
       // Step 3: Upload to R2 storage
       const storageResult = await context.run('upload-to-storage', async () => {
         const imageUrl = imageResult.imageUrls[0];
@@ -184,108 +185,93 @@ export const locationSheetWorkflow = createScopedWorkflow<
         };
       });
 
-      // Step 4: Divergence-aware database write. If the upstream library
-      // location reference changed mid-flight, discard and re-queue.
+      // Step 4: Divergence-aware database write. On convergent, update the
+      // sequence location's primary reference. On divergent, preserve the
+      // artifact as a variant row (the helper emits `stale:detected`) and
+      // skip the primary update so the in-flight run does not overwrite a
+      // now-stale reference.
       const snapshot = context.snapshot;
       const reconcileOutcome = await context.run(
         'reconcile-database',
-        async (): Promise<'convergent' | 'divergent'> => {
+        async (): Promise<{ kind: 'convergent' } | { kind: 'divergent' }> => {
           console.log(
             '[LocationSheetWorkflow]',
             `Updating database for ${input.locationName}`
           );
 
-          if (snapshot) {
-            const currentHash = await snapshot.computeCurrent();
-            if (currentHash !== snapshot.snapshotInputHash) {
-              console.warn('[LocationSheetWorkflow] divergence detected', {
-                locationDbId: input.locationDbId,
-                snapshotInputHash: snapshot.snapshotInputHash,
-                currentHash,
-                orphanedStoragePath: storageResult.path,
-              });
-              return 'divergent';
-            }
+          const decision = decideSheetDivergence(
+            snapshot?.snapshotInputHash,
+            snapshot ? await snapshot.computeCurrent() : null
+          );
+
+          if (decision.kind === 'divergent') {
+            console.warn('[LocationSheetWorkflow] divergence detected', {
+              locationDbId,
+              snapshotInputHash: decision.snapshotInputHash,
+              currentInputHash: decision.currentInputHash,
+              storagePath: storageResult.path,
+            });
+            await saveDivergentLocationSheet({
+              scopedDb,
+              parent: {
+                type: 'sequence_location',
+                id: locationDbId,
+                sequenceId,
+              },
+              model: generationParams.model,
+              url: storageResult.url,
+              storagePath: storageResult.path,
+              workflowRunId: context.workflowRunId,
+              snapshotInputHash: decision.snapshotInputHash,
+            });
+            return { kind: 'divergent' };
           }
 
           await scopedDb.sequenceLocations.updateReference(
-            input.locationDbId,
+            locationDbId,
             storageResult.url,
             storageResult.path,
             snapshot?.snapshotInputHash ?? null
           );
-          return 'convergent';
+          return { kind: 'convergent' };
         }
       );
 
-      if (reconcileOutcome === 'divergent' && snapshot) {
-        const requeueDepth = (input.requeueDepth ?? 0) + 1;
-        const requeueOutcome = await context.run(
-          'emit-stale-and-requeue',
-          async (): Promise<'requeued' | 'depth-exceeded'> => {
-            if (requeueDepth > MAX_REQUEUE_DEPTH) {
-              console.warn('[LocationSheetWorkflow] re-queue depth exceeded', {
-                locationDbId: input.locationDbId,
-                locationName: input.locationName,
-                requeueDepth,
-                max: MAX_REQUEUE_DEPTH,
-              });
-              return 'depth-exceeded';
-            }
-
-            const refreshedLibraryHash =
-              await resolveLibraryLocationReferenceHash(
-                scopedDb,
-                input.locationDbId
-              );
-
-            const requeuePayload: LocationSheetWorkflowInput = {
-              ...input,
-              libraryLocationReferenceHash: refreshedLibraryHash,
-              requeueDepth,
-            };
-            requeuePayload.snapshotInputHash =
-              await computeLocationSheetHashFromDto(requeuePayload);
-
-            await triggerWorkflow('/location-sheet', requeuePayload, {
-              label: input.sequenceId
-                ? `location-sheet:${input.locationDbId}`
-                : undefined,
-              deduplicationId: `location-sheet-requeue-${input.locationDbId}-${requeuePayload.snapshotInputHash.slice(0, 16)}-d${requeueDepth}`,
-            });
-
-            if (input.sequenceId) {
-              await getGenerationChannel(input.sequenceId).emit(
-                'generation.stale:detected',
-                {
-                  entityType: 'location',
-                  entityId: input.locationDbId,
-                  artifact: 'sheet',
-                  snapshotInputHash: snapshot.snapshotInputHash,
-                }
-              );
-            }
-
-            console.log(
-              '[LocationSheetWorkflow]',
-              `Diverged for ${input.locationName}; re-queued with current inputs (depth=${requeueDepth})`
-            );
-            return 'requeued';
-          }
-        );
-
-        if (requeueOutcome === 'depth-exceeded') {
-          throw new SnapshotRequeueDepthExceededError(
-            `location-sheet hit MAX_REQUEUE_DEPTH for ${input.locationName}; marking failed`
-          );
-        }
-        throw new SnapshotDivergedError(
-          `location-sheet diverged for ${input.locationName}; re-queued with current inputs`
-        );
-      }
-
       referenceImagePath = storageResult.path;
       referenceImageUrl = storageResult.url;
+
+      if (reconcileOutcome.kind === 'divergent') {
+        // Helper already emitted `stale:detected` on the sequence channel.
+        // Settle the primary reference status so the UI does not stay wedged
+        // on "Regenerating…". The pre-existing `referenceImageUrl` (if any)
+        // remains the live primary — we deliberately did not overwrite it.
+        // For first-time generation the entity ends in `completed` with a
+        // null referenceImageUrl; the user can manually retry. Either way,
+        // flipping status to `completed` reflects "generation finished,
+        // primary unchanged, divergent variant saved alongside".
+        await context.run('settle-divergent-status', async () => {
+          await scopedDb.sequenceLocations.updateReferenceStatus(
+            locationDbId,
+            'completed'
+          );
+          await getGenerationChannel(sequenceId).emit(
+            'generation.location-sheet:progress',
+            {
+              locationId: locationDbId,
+              status: 'completed',
+            }
+          );
+        });
+        console.log(
+          '[LocationSheetWorkflow]',
+          `Diverged for ${input.locationName}; saved as variant`
+        );
+        return {
+          referenceImageUrl,
+          referenceImagePath,
+          locationDbId,
+        };
+      }
     }
 
     // Emit realtime event that generation is complete
@@ -319,14 +305,6 @@ export const locationSheetWorkflow = createScopedWorkflow<
     failureFunction: async ({ context, scopedDb, failResponse }) => {
       const input = context.requestPayload;
       const error = sanitizeFailResponse(failResponse);
-
-      if (isSnapshotDivergedFailure(failResponse)) {
-        console.log(
-          '[LocationSheetWorkflow]',
-          `Run aborted due to snapshot divergence for ${input.locationName}; re-queued run will continue`
-        );
-        return `Location sheet diverged for ${input.locationName}; re-queued`;
-      }
 
       // Mark location reference as failed
       if (input.locationDbId && input.teamId) {

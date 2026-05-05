@@ -91,6 +91,17 @@ export const talentSheets = sqliteTable(
       .default('manual_upload')
       .notNull(),
     inputHash: text('input_hash'),
+    /**
+     * Marks a sheet that landed via the snapshot-divergent path: the
+     * library-talent-sheet workflow runs against a stale identity, can't
+     * write the artifact to the talent's primary identity, and parks both
+     * a `talent_sheet_variants` row AND its parent `talent_sheets` row with
+     * this column set. UI consumers fall back through `sheets` to choose
+     * a display image when no `isDefault: true` row exists; that fallback
+     * filters out divergent rows so a stale-marked sheet cannot leak into
+     * the talent's primary identity for first-time-generation cases.
+     */
+    divergedAt: integer('diverged_at', { mode: 'timestamp' }),
     createdAt: integer('created_at', { mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),

@@ -208,24 +208,51 @@ export const realtimeSchema = {
     // (see workflow-snapshots-and-content-hash-staleness.md § "Divergence-on-completion")
     // so the live primary artifact is preserved. The UI uses this to surface
     // an "alternate available" affordance without polling.
-    'stale:detected': z.object({
-      entityType: z.enum([
-        'frame',
-        'character',
-        'location',
-        'library-location',
-        'talent',
-      ]),
-      entityId: z.string(),
-      artifact: z
-        .enum(['thumbnail', 'variant-image', 'video', 'audio', 'sheet'])
-        .optional(),
-      snapshotInputHash: z.string(),
-      // Populated for frame artifacts that landed in `frame_variants` as a
-      // divergent alternate; absent when the divergent result was discarded
-      // (e.g. sheets, sequence-level music) and merely re-queued.
-      divergedVariantId: z.string().optional(),
-    }),
+    //
+    // Discriminated by `entityType` so consumers can narrow the artifact enum
+    // per-branch and rely on `divergedVariantId` being present (every current
+    // emitter parks its result and references the new variant row's id; the
+    // helpers in `sheet-divergence.ts` and `regenerate-frames-workflow.ts` are
+    // the sole emit sites). A flat `z.object` here would let consumers redeclare
+    // the payload locally with a wider `entityType: string`, which is what
+    // masked the round-1 talent-channel routing bug.
+    'stale:detected': z.discriminatedUnion('entityType', [
+      z.object({
+        entityType: z.literal('frame'),
+        entityId: z.string(),
+        artifact: z.enum(['thumbnail', 'variant-image', 'video', 'audio']),
+        snapshotInputHash: z.string(),
+        divergedVariantId: z.string(),
+      }),
+      z.object({
+        entityType: z.literal('character'),
+        entityId: z.string(),
+        artifact: z.literal('sheet'),
+        snapshotInputHash: z.string(),
+        divergedVariantId: z.string(),
+      }),
+      z.object({
+        entityType: z.literal('location'),
+        entityId: z.string(),
+        artifact: z.literal('sheet'),
+        snapshotInputHash: z.string(),
+        divergedVariantId: z.string(),
+      }),
+      z.object({
+        entityType: z.literal('library-location'),
+        entityId: z.string(),
+        artifact: z.literal('sheet'),
+        snapshotInputHash: z.string(),
+        divergedVariantId: z.string(),
+      }),
+      z.object({
+        entityType: z.literal('talent'),
+        entityId: z.string(),
+        artifact: z.literal('sheet'),
+        snapshotInputHash: z.string(),
+        divergedVariantId: z.string(),
+      }),
+    ]),
 
     // Sequence events
     updated: z.object({
@@ -244,6 +271,16 @@ export const realtimeSchema = {
     }),
   },
 };
+
+/**
+ * Inferred payload type for `generation.stale:detected`. Exported so client
+ * hooks bind to the discriminated union directly instead of redeclaring the
+ * payload locally — local redeclarations widen `entityType` back to `string`
+ * and defeat the schema's branch narrowing.
+ */
+export type StaleDetectedPayload = z.infer<
+  (typeof realtimeSchema.generation)['stale:detected']
+>;
 
 let realtimeInstance: ReturnType<typeof createRealtime> | null = null;
 
@@ -269,15 +306,26 @@ export function getRealtime() {
 }
 
 /**
+ * Build a no-op channel stub when an id is missing. Logs a warning so a
+ * dropped emit is observable in production rather than silently lost — the
+ * channel-id helpers below are server-only, and a missing id is always a
+ * bug at the call site.
+ */
+function noopChannel(label: string): { emit: () => null } {
+  console.warn(
+    `[realtime] dropping ${label} emit: missing channel id — caller should guard on id presence before emitting`
+  );
+  return { emit: () => null };
+}
+
+/**
  * Get a channel for a specific sequence to emit/receive events.
  * @param sequenceId - The sequence ID to use as the channel identifier
  */
 export function getGenerationChannel(sequenceId?: string) {
   return sequenceId
     ? getRealtime().channel(sequenceId)
-    : {
-        emit: () => null,
-      };
+    : noopChannel('generation');
 }
 
 /**
@@ -287,9 +335,7 @@ export function getGenerationChannel(sequenceId?: string) {
 export function getTalentChannel(talentId?: string) {
   return talentId
     ? getRealtime().channel(`talent:${talentId}`)
-    : {
-        emit: () => null,
-      };
+    : noopChannel('talent');
 }
 
 /**
@@ -299,7 +345,5 @@ export function getTalentChannel(talentId?: string) {
 export function getLocationChannel(locationId?: string) {
   return locationId
     ? getRealtime().channel(`location:${locationId}`)
-    : {
-        emit: () => null,
-      };
+    : noopChannel('location');
 }

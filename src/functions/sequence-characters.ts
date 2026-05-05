@@ -86,11 +86,13 @@ export const recastCharacterFn = createServerFn({ method: 'POST' })
     }
     assertTalentAccessible(talentWithSheets, context.teamId);
 
+    // Filter divergent sheets out of the fallback chain — they are stale-
+    // marked variants and must not back the talent's casting identity.
     const defaultSheet =
       // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
-      talentWithSheets.sheets?.find((s) => s.isDefault) ??
+      talentWithSheets.sheets?.find((s) => s.isDefault && !s.divergedAt) ??
       // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
-      talentWithSheets.sheets?.[0];
+      talentWithSheets.sheets?.find((s) => !s.divergedAt);
 
     // Merge talent appearance with character role attributes
     const castingAttrs = buildCastingAttributes(

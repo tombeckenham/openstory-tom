@@ -19,6 +19,7 @@ import {
 import type {
   NewSequenceMusicVariant,
   NewSequenceVideoVariant,
+  Sequence,
   SequenceMusicVariant,
   SequenceVideoVariant,
 } from '@/lib/db/schema';
@@ -243,29 +244,117 @@ export function createSequenceVariantsMethods(db: Database) {
     },
 
     /**
-     * Promote a video variant: copies its url/path onto the live
-     * `sequences.mergedVideo*` columns. Existing UI keeps reading those.
+     * List divergent video alternates the user has not dismissed. Ordered
+     * oldest-first by `divergedAt` so the UI surfaces the longest-pending
+     * alternate consistently — same convention as `frameVariants.listDivergent*`.
      */
-    promoteVideoVariant: async (variantId: string): Promise<void> => {
+    listDivergentVideos: async (
+      sequenceId: string
+    ): Promise<SequenceVideoVariant[]> => {
+      return db
+        .select()
+        .from(sequenceVideoVariants)
+        .where(
+          and(
+            eq(sequenceVideoVariants.sequenceId, sequenceId),
+            sql`${sequenceVideoVariants.divergedAt} IS NOT NULL`,
+            sql`${sequenceVideoVariants.discardedAt} IS NULL`
+          )
+        )
+        .orderBy(sequenceVideoVariants.divergedAt);
+    },
+
+    /**
+     * Mark a divergent video alternate as discarded. Idempotent; returns the
+     * timestamp set so the caller can stash it for an Undo action.
+     */
+    discardVideoVariant: async (variantId: string): Promise<Date> => {
+      const discardedAt = new Date();
       const result = await db
+        .update(sequenceVideoVariants)
+        .set({ discardedAt, updatedAt: discardedAt })
+        .where(eq(sequenceVideoVariants.id, variantId))
+        .returning();
+      if (result.length === 0) {
+        throw new Error(`SequenceVideoVariant ${variantId} not found`);
+      }
+      return discardedAt;
+    },
+
+    /**
+     * Undo a previous video-variant discard. Used by the sonner toast Undo
+     * action.
+     */
+    undiscardVideoVariant: async (variantId: string): Promise<void> => {
+      const result = await db
+        .update(sequenceVideoVariants)
+        .set({ discardedAt: null, updatedAt: new Date() })
+        .where(eq(sequenceVideoVariants.id, variantId))
+        .returning();
+      if (result.length === 0) {
+        throw new Error(`SequenceVideoVariant ${variantId} not found`);
+      }
+    },
+
+    /**
+     * Atomically promote a video variant: copies its url/path onto the live
+     * `sequences.mergedVideo*` columns AND soft-deletes the variant row
+     * (`discardedAt = now()`) in a single libSQL batch so a partial failure
+     * cannot leave the live primary updated with the variant still appearing
+     * in the divergent list. Mirrors `frameVariants.promoteAtomically`.
+     */
+    promoteVideoVariant: async (
+      variantId: string
+    ): Promise<{ sequence: Sequence; discardedAt: Date }> => {
+      const variantRows = await db
         .select()
         .from(sequenceVideoVariants)
         .where(eq(sequenceVideoVariants.id, variantId));
-      const variant = result.at(0);
+      const variant = variantRows.at(0);
       if (!variant) {
         throw new Error(`SequenceVideoVariant ${variantId} not found`);
       }
-      await db
+      const [existingSequence] = await db
+        .select({ id: sequences.id })
+        .from(sequences)
+        .where(eq(sequences.id, variant.sequenceId));
+      if (!existingSequence) {
+        throw new Error(`Sequence ${variant.sequenceId} not found`);
+      }
+
+      const now = new Date();
+      const updateSequence = db
         .update(sequences)
         .set({
           mergedVideoUrl: variant.url,
           mergedVideoPath: variant.storagePath,
           mergedVideoStatus: 'completed',
-          mergedVideoGeneratedAt: variant.generatedAt ?? new Date(),
+          mergedVideoGeneratedAt: variant.generatedAt ?? now,
           mergedVideoError: null,
-          updatedAt: new Date(),
+          updatedAt: now,
         })
-        .where(eq(sequences.id, variant.sequenceId));
+        .where(eq(sequences.id, variant.sequenceId))
+        .returning();
+      const discardVariant = db
+        .update(sequenceVideoVariants)
+        .set({ discardedAt: now, updatedAt: now })
+        .where(eq(sequenceVideoVariants.id, variantId))
+        .returning();
+      const [sequenceRows, variantRows2] = await db.batch([
+        updateSequence,
+        discardVariant,
+      ]);
+      if (sequenceRows.length === 0) {
+        throw new Error(
+          `Sequence ${variant.sequenceId} disappeared during promote`
+        );
+      }
+      if (variantRows2.length === 0) {
+        throw new Error(
+          `SequenceVideoVariant ${variantId} disappeared during promote`
+        );
+      }
+      return { sequence: sequenceRows[0], discardedAt: now };
     },
 
     // ── Music variants ────────────────────────────────────────────────────
@@ -317,19 +406,140 @@ export function createSequenceVariantsMethods(db: Database) {
     },
 
     /**
-     * Promote a music variant: copies prompt/tags/url/path/model onto the
-     * live `sequences.music*` columns.
+     * Aggregate divergent-variant counts across a team's sequences. Powers
+     * the corner-dot indicator on the sequence dashboard — a single round-trip
+     * keyed by `teamId` instead of N per-sequence calls.
+     *
+     * Joins the `sequences` table to enforce team scoping at the SQL layer,
+     * then groups by `sequenceId` so the consumer gets one row per sequence
+     * that has any live divergent alternate. `hasVideo` / `hasMusic` separate
+     * the artifact axes so the tooltip can name which one diverged.
      */
-    promoteMusicVariant: async (variantId: string): Promise<void> => {
+    listDivergentByTeam: async (
+      teamId: string
+    ): Promise<
+      Array<{ sequenceId: string; hasVideo: boolean; hasMusic: boolean }>
+    > => {
+      const [videoRows, musicRows] = await Promise.all([
+        db
+          .select({ sequenceId: sequenceVideoVariants.sequenceId })
+          .from(sequenceVideoVariants)
+          .innerJoin(
+            sequences,
+            eq(sequences.id, sequenceVideoVariants.sequenceId)
+          )
+          .where(
+            and(
+              eq(sequences.teamId, teamId),
+              sql`${sequenceVideoVariants.divergedAt} IS NOT NULL`,
+              sql`${sequenceVideoVariants.discardedAt} IS NULL`
+            )
+          ),
+        db
+          .select({ sequenceId: sequenceMusicVariants.sequenceId })
+          .from(sequenceMusicVariants)
+          .innerJoin(
+            sequences,
+            eq(sequences.id, sequenceMusicVariants.sequenceId)
+          )
+          .where(
+            and(
+              eq(sequences.teamId, teamId),
+              sql`${sequenceMusicVariants.divergedAt} IS NOT NULL`,
+              sql`${sequenceMusicVariants.discardedAt} IS NULL`
+            )
+          ),
+      ]);
+
+      const byId = new Map<
+        string,
+        { sequenceId: string; hasVideo: boolean; hasMusic: boolean }
+      >();
+      for (const { sequenceId } of videoRows) {
+        const existing = byId.get(sequenceId);
+        if (existing) {
+          existing.hasVideo = true;
+        } else {
+          byId.set(sequenceId, { sequenceId, hasVideo: true, hasMusic: false });
+        }
+      }
+      for (const { sequenceId } of musicRows) {
+        const existing = byId.get(sequenceId);
+        if (existing) {
+          existing.hasMusic = true;
+        } else {
+          byId.set(sequenceId, { sequenceId, hasVideo: false, hasMusic: true });
+        }
+      }
+      return [...byId.values()];
+    },
+
+    listDivergentMusic: async (
+      sequenceId: string
+    ): Promise<SequenceMusicVariant[]> => {
+      return db
+        .select()
+        .from(sequenceMusicVariants)
+        .where(
+          and(
+            eq(sequenceMusicVariants.sequenceId, sequenceId),
+            sql`${sequenceMusicVariants.divergedAt} IS NOT NULL`,
+            sql`${sequenceMusicVariants.discardedAt} IS NULL`
+          )
+        )
+        .orderBy(sequenceMusicVariants.divergedAt);
+    },
+
+    discardMusicVariant: async (variantId: string): Promise<Date> => {
+      const discardedAt = new Date();
       const result = await db
+        .update(sequenceMusicVariants)
+        .set({ discardedAt, updatedAt: discardedAt })
+        .where(eq(sequenceMusicVariants.id, variantId))
+        .returning();
+      if (result.length === 0) {
+        throw new Error(`SequenceMusicVariant ${variantId} not found`);
+      }
+      return discardedAt;
+    },
+
+    undiscardMusicVariant: async (variantId: string): Promise<void> => {
+      const result = await db
+        .update(sequenceMusicVariants)
+        .set({ discardedAt: null, updatedAt: new Date() })
+        .where(eq(sequenceMusicVariants.id, variantId))
+        .returning();
+      if (result.length === 0) {
+        throw new Error(`SequenceMusicVariant ${variantId} not found`);
+      }
+    },
+
+    /**
+     * Atomically promote a music variant: copies prompt/tags/url/path/model
+     * onto the live `sequences.music*` columns AND soft-deletes the variant
+     * row in a single libSQL batch.
+     */
+    promoteMusicVariant: async (
+      variantId: string
+    ): Promise<{ sequence: Sequence; discardedAt: Date }> => {
+      const variantRows = await db
         .select()
         .from(sequenceMusicVariants)
         .where(eq(sequenceMusicVariants.id, variantId));
-      const variant = result.at(0);
+      const variant = variantRows.at(0);
       if (!variant) {
         throw new Error(`SequenceMusicVariant ${variantId} not found`);
       }
-      await db
+      const [existingSequence] = await db
+        .select({ id: sequences.id })
+        .from(sequences)
+        .where(eq(sequences.id, variant.sequenceId));
+      if (!existingSequence) {
+        throw new Error(`Sequence ${variant.sequenceId} not found`);
+      }
+
+      const now = new Date();
+      const updateSequence = db
         .update(sequences)
         .set({
           musicUrl: variant.url,
@@ -338,11 +548,32 @@ export function createSequenceVariantsMethods(db: Database) {
           musicTags: variant.tags,
           musicModel: variant.model,
           musicStatus: 'completed',
-          musicGeneratedAt: variant.generatedAt ?? new Date(),
+          musicGeneratedAt: variant.generatedAt ?? now,
           musicError: null,
-          updatedAt: new Date(),
+          updatedAt: now,
         })
-        .where(eq(sequences.id, variant.sequenceId));
+        .where(eq(sequences.id, variant.sequenceId))
+        .returning();
+      const discardVariant = db
+        .update(sequenceMusicVariants)
+        .set({ discardedAt: now, updatedAt: now })
+        .where(eq(sequenceMusicVariants.id, variantId))
+        .returning();
+      const [sequenceRows, variantRows2] = await db.batch([
+        updateSequence,
+        discardVariant,
+      ]);
+      if (sequenceRows.length === 0) {
+        throw new Error(
+          `Sequence ${variant.sequenceId} disappeared during promote`
+        );
+      }
+      if (variantRows2.length === 0) {
+        throw new Error(
+          `SequenceMusicVariant ${variantId} disappeared during promote`
+        );
+      }
+      return { sequence: sequenceRows[0], discardedAt: now };
     },
   };
 }

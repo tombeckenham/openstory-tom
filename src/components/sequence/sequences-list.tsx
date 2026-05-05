@@ -4,12 +4,14 @@ import { SequenceStatusBadge } from '@/components/sequence/sequence-status-badge
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useSequences } from '@/hooks/use-sequences';
+import { useTeamDivergentSequenceVariants } from '@/hooks/use-sequence-variants';
 import { getAspectRatioData } from '@/lib/constants/aspect-ratios';
 import { formatDistanceToNow } from '@/lib/format-date';
 import { formatDuration } from '@/lib/utils/format-duration';
 import { Route as sequencesScenesRoute } from '@/routes/_protected/sequences/$id/scenes';
 import { Calendar, Clock, Timer, VideoIcon } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
+import { useMemo } from 'react';
 import type React from 'react';
 
 interface SequencesListProps {
@@ -18,6 +20,20 @@ interface SequencesListProps {
 
 export const SequencesList: React.FC<SequencesListProps> = ({ teamId }) => {
   const { data: sequences, isLoading, error } = useSequences(teamId);
+  const { data: divergentByTeam } = useTeamDivergentSequenceVariants(
+    !!sequences && sequences.length > 0
+  );
+
+  const divergenceBySequence = useMemo(() => {
+    const map = new Map<string, { hasVideo: boolean; hasMusic: boolean }>();
+    for (const row of divergentByTeam ?? []) {
+      map.set(row.sequenceId, {
+        hasVideo: row.hasVideo,
+        hasMusic: row.hasMusic,
+      });
+    }
+    return map;
+  }, [divergentByTeam]);
 
   if (isLoading) {
     return (
@@ -52,6 +68,15 @@ export const SequencesList: React.FC<SequencesListProps> = ({ teamId }) => {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {sequences.map((sequence) => {
         const ratioData = getAspectRatioData(sequence.aspectRatio);
+        const divergence = divergenceBySequence.get(sequence.id);
+        const dotTitle =
+          divergence?.hasVideo && divergence.hasMusic
+            ? 'Alternate merged video and music available — click to compare'
+            : divergence?.hasVideo
+              ? 'Alternate merged video available — click to compare'
+              : divergence?.hasMusic
+                ? 'Alternate music track available — click to compare'
+                : null;
 
         return (
           <Link
@@ -59,7 +84,15 @@ export const SequencesList: React.FC<SequencesListProps> = ({ teamId }) => {
             to={sequencesScenesRoute.fullPath}
             params={{ id: sequence.id }}
           >
-            <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer h-full">
+            <Card className="relative p-6 hover:shadow-lg transition-shadow cursor-pointer h-full">
+              {dotTitle && (
+                <span
+                  aria-label={dotTitle}
+                  title={dotTitle}
+                  data-slot="sequence-card-divergent-dot"
+                  className="absolute top-2 right-2 inline-flex h-2 w-2 items-center justify-center rounded-full bg-sky-500 ring-2 ring-sky-500/30"
+                />
+              )}
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">

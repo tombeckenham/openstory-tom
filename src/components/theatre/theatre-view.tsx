@@ -31,12 +31,19 @@ type TheatreViewProps = {
   sequence: Sequence;
   onGenerateMergedVideo?: () => void;
   isGenerating?: boolean;
+  /**
+   * Optional banner rendered above the video player when in the
+   * `mergedVideoStatus === 'completed'` branch. Owned by the route, which
+   * holds the divergent-variant query + mutations.
+   */
+  divergentBanner?: React.ReactNode;
 };
 
 export const TheatreView: React.FC<TheatreViewProps> = ({
   sequence,
   onGenerateMergedVideo,
   isGenerating = false,
+  divergentBanner,
 }) => {
   const { mergedVideoStatus, mergedVideoUrl, mergedVideoError, aspectRatio } =
     sequence;
@@ -87,43 +94,46 @@ export const TheatreView: React.FC<TheatreViewProps> = ({
   // Completed state - show video
   if (mergedVideoStatus === 'completed' && mergedVideoUrl) {
     return (
-      <div className="relative">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-2 right-2 z-10 h-8 w-8 bg-black/50 text-white hover:bg-black/70"
-              aria-label="Share"
-            >
-              <Share2 className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => void handleCopyVideoUrl()}>
-              <Link className="h-4 w-4" />
-              Copy video URL
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleDownloadVideo}>
-              <Download className="h-4 w-4" />
-              Download video
-            </DropdownMenuItem>
-            {browserMerge.isEnabled && (
-              <DropdownMenuItem
-                onClick={browserMerge.start}
-                disabled={browserMerge.isRunning}
+      <div className="flex flex-col gap-3">
+        {divergentBanner}
+        <div className="relative">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-2 right-2 z-10 h-8 w-8 bg-black/50 text-white hover:bg-black/70"
+                aria-label="Share"
               >
-                {browserMerge.isRunning ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Film className="h-4 w-4" />
-                )}
-                Re-merge in browser (beta)
+                <Share2 className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => void handleCopyVideoUrl()}>
+                <Link className="h-4 w-4" />
+                Copy video URL
               </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <VideoPlayer src={mergedVideoUrl} aspectRatio={aspectRatio} />
+              <DropdownMenuItem onClick={handleDownloadVideo}>
+                <Download className="h-4 w-4" />
+                Download video
+              </DropdownMenuItem>
+              {browserMerge.isEnabled && (
+                <DropdownMenuItem
+                  onClick={browserMerge.start}
+                  disabled={browserMerge.isRunning}
+                >
+                  {browserMerge.isRunning ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Film className="h-4 w-4" />
+                  )}
+                  Re-merge in browser (beta)
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <VideoPlayer src={mergedVideoUrl} aspectRatio={aspectRatio} />
+        </div>
       </div>
     );
   }

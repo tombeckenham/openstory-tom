@@ -25,9 +25,17 @@ type StaleDetectedEvent = {
       | 'character'
       | 'location'
       | 'library-location'
-      | 'talent';
+      | 'talent'
+      | 'sequence';
     entityId: string;
-    artifact?: 'thumbnail' | 'variant-image' | 'video' | 'audio' | 'sheet';
+    artifact?:
+      | 'thumbnail'
+      | 'variant-image'
+      | 'video'
+      | 'audio'
+      | 'sheet'
+      | 'merged-video'
+      | 'music';
     snapshotInputHash: string;
     divergedVariantId?: string;
   };

@@ -32,6 +32,8 @@ const ARTIFACT_LABEL: Record<StalenessArtifact, string> = {
   'visual-prompt': 'visual prompt',
   'motion-prompt': 'motion prompt',
   'music-prompt': 'music prompt',
+  'merged-video': 'merged video',
+  music: 'music',
 };
 
 export const DivergentAlternateBanner: React.FC<

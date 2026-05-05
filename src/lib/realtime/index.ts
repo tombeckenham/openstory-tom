@@ -252,6 +252,17 @@ export const realtimeSchema = {
         snapshotInputHash: z.string(),
         divergedVariantId: z.string(),
       }),
+      // Sequence-level divergent artifacts (stage 3): the merged video or
+      // music track diverged from the live primary. `entityId` is the
+      // sequenceId; the divergent row sits in `sequence_video_variants` /
+      // `sequence_music_variants`.
+      z.object({
+        entityType: z.literal('sequence'),
+        entityId: z.string(),
+        artifact: z.enum(['merged-video', 'music']),
+        snapshotInputHash: z.string(),
+        divergedVariantId: z.string(),
+      }),
     ]),
 
     // Sequence events

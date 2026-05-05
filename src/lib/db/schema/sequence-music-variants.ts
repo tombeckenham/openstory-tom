@@ -60,6 +60,10 @@ export const sequenceMusicVariants = sqliteTable(
     // Staleness detection
     inputHash: text('input_hash'),
     divergedAt: integer('diverged_at', { mode: 'timestamp' }),
+    // Soft-delete marker for divergent alternates the user has dismissed.
+    // Mirrors `frame_variants.discarded_at` so the toast Undo flow can clear
+    // the row without losing the artifact.
+    discardedAt: integer('discarded_at', { mode: 'timestamp' }),
 
     createdAt: integer('created_at', { mode: 'timestamp' })
       .$defaultFn(() => new Date())

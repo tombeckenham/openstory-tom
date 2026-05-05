@@ -122,15 +122,25 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
         // Divergent single-video result: prior primary on `sequences.merged*`
         // stays authoritative. We never set merging-status on the
         // single-video path, but emit a terminal event so any in-flight UI
-        // spinner stops.
+        // spinner stops, plus a `stale:detected` so the divergent banner
+        // can surface inline without a refresh.
+        const divergedVariantId = writeResult.variant.id;
         await context.run('emit-divergent-single', async () => {
-          await getGenerationChannel(input.sequenceId).emit(
-            'generation.merge:progress',
-            { step: 'video', status: 'completed' }
-          );
+          const channel = getGenerationChannel(narrowedInput.sequenceId);
+          await channel.emit('generation.merge:progress', {
+            step: 'video',
+            status: 'completed',
+          });
+          await channel.emit('generation.stale:detected', {
+            entityType: 'sequence',
+            entityId: narrowedInput.sequenceId,
+            artifact: 'merged-video',
+            snapshotInputHash: inputHash,
+            divergedVariantId,
+          });
         });
         console.log(
-          `[MergeVideoWorkflow] Diverged single-video result for sequence ${input.sequenceId}; preserved as alternate (variant=${writeResult.variant.id})`
+          `[MergeVideoWorkflow] Diverged single-video result for sequence ${narrowedInput.sequenceId}; preserved as alternate (variant=${divergedVariantId})`
         );
         return { mergedVideoUrl: singleUrl, mergedVideoPath: null };
       }
@@ -237,20 +247,30 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
       // authoritative. `set-merging-status` set mergedVideoStatus='merging'
       // earlier, so reset to 'completed' here and emit a terminal event so
       // the UI doesn't hang at 'merging'. The alternate is preserved in
-      // `sequence_video_variants` for future surfacing.
+      // `sequence_video_variants` for future surfacing — `stale:detected`
+      // wakes the banner up without a refresh.
+      const divergedVariantId = writeResult.variant.id;
       await context.run('update-sequence-divergent', async () => {
         await seq.updateMergedVideoFields({
           mergedVideoStatus: 'completed',
           mergedVideoError: null,
         });
 
-        await getGenerationChannel(input.sequenceId).emit(
-          'generation.merge:progress',
-          { step: 'video', status: 'completed' }
-        );
+        const channel = getGenerationChannel(narrowedInput.sequenceId);
+        await channel.emit('generation.merge:progress', {
+          step: 'video',
+          status: 'completed',
+        });
+        await channel.emit('generation.stale:detected', {
+          entityType: 'sequence',
+          entityId: narrowedInput.sequenceId,
+          artifact: 'merged-video',
+          snapshotInputHash: inputHash,
+          divergedVariantId,
+        });
       });
       console.log(
-        `[MergeVideoWorkflow] Diverged merge result for sequence ${input.sequenceId}; preserved as alternate (variant=${writeResult.variant.id})`
+        `[MergeVideoWorkflow] Diverged merge result for sequence ${narrowedInput.sequenceId}; preserved as alternate (variant=${divergedVariantId})`
       );
       return {
         mergedVideoUrl: storageResult.url,

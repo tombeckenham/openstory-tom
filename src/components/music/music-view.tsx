@@ -35,6 +35,12 @@ type MusicViewProps = {
   isGeneratingMusic: boolean;
   onMergeVideoAndMusic: () => void;
   isMergingVideoAndMusic: boolean;
+  /**
+   * Optional banner rendered above the audio player when in the
+   * `musicStatus === 'completed'` branch. Owned by the route, which holds
+   * the divergent-variant query + mutations.
+   */
+  divergentBanner?: React.ReactNode;
 };
 
 type LoadingButtonProps = React.ComponentProps<typeof Button> & {
@@ -130,6 +136,7 @@ export const MusicView: React.FC<MusicViewProps> = ({
   isGeneratingMusic,
   onMergeVideoAndMusic,
   isMergingVideoAndMusic,
+  divergentBanner,
 }) => {
   const {
     musicStatus,
@@ -175,6 +182,7 @@ export const MusicView: React.FC<MusicViewProps> = ({
       <StatusPanel
         icon={<Volume2 className="h-10 w-10 text-muted-foreground" />}
       >
+        {divergentBanner}
         <audio
           controls
           src={musicUrl}

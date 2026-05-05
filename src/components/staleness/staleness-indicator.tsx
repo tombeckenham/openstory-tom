@@ -16,7 +16,9 @@ export type StalenessArtifact =
   | 'sheet'
   | 'visual-prompt'
   | 'motion-prompt'
-  | 'music-prompt';
+  | 'music-prompt'
+  | 'merged-video'
+  | 'music';
 
 export type StalenessEntityType =
   | 'frame'
@@ -45,6 +47,8 @@ const ARTIFACT_LABEL: Record<StalenessArtifact, string> = {
   'visual-prompt': 'visual prompt',
   'motion-prompt': 'motion prompt',
   'music-prompt': 'music prompt',
+  'merged-video': 'merged video',
+  music: 'music',
 };
 
 export const StalenessIndicator: React.FC<StalenessIndicatorProps> = ({

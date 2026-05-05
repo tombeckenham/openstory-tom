@@ -149,7 +149,7 @@ export async function durableLLMCall<TInput, TSchema extends z.ZodType>(
             },
           },
         },
-        debug: true,
+        debug: false,
       });
 
       console.log(`[LLM:${logName}] Call succeeded`);

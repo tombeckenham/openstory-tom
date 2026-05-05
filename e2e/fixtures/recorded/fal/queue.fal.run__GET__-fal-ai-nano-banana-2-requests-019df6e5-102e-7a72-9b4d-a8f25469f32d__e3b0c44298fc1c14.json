@@ -1,0 +1,39 @@
+{
+  "request": {
+    "targetHost": "queue.fal.run",
+    "method": "GET",
+    "pathname": "/fal-ai/nano-banana-2/requests/019df6e5-102e-7a72-9b4d-a8f25469f32d",
+    "bodyHash": "e3b0c44298fc1c14"
+  },
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "connection": "keep-alive",
+        "content-length": "233",
+        "content-type": "application/json",
+        "date": "Tue, 05 May 2026 06:49:11 GMT",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "vary": "origin, access-control-request-method, access-control-request-headers",
+        "x-fal-billable-units": "1.5",
+        "x-fal-request-id": "019df6e5-102e-7a72-9b4d-a8f25469f32d",
+        "x-fal-served-from": "ab1c3f18-dea6-4096-9a74-99b52d76440a",
+        "x-robots-tag": "noindex"
+      },
+      "body": {
+        "images": [
+          {
+            "url": "https://v3b.fal.media/files/b/0a98f512/2yluzAlEybvAeByQaBPXK_2G7pEkVF.png",
+            "content_type": "image/png",
+            "file_name": "2yluzAlEybvAeByQaBPXK_2G7pEkVF.png",
+            "file_size": null,
+            "width": null,
+            "height": null
+          }
+        ],
+        "description": ""
+      }
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "request": {
+    "targetHost": "queue.fal.run",
+    "method": "GET",
+    "pathname": "/fal-ai/flux-2/requests/019df6e4-3d8e-7ba3-8c11-3c18da32b737",
+    "bodyHash": "e3b0c44298fc1c14"
+  },
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "connection": "keep-alive",
+        "content-length": "1586",
+        "content-type": "application/json",
+        "date": "Tue, 05 May 2026 06:47:28 GMT",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "vary": "origin, access-control-request-method, access-control-request-headers",
+        "x-fal-billable-units": "1",
+        "x-fal-request-id": "019df6e4-3d8e-7ba3-8c11-3c18da32b737",
+        "x-fal-served-from": "d4a57cf8-7a55-47f3-81e3-a4e7bc940c62",
+        "x-robots-tag": "noindex"
+      },
+      "body": {
+        "images": [
+          {
+            "url": "https://v3b.fal.media/files/b/0a98f50c/kBKs-7dIoa2i31S0ABzya_VtL73JEa.png",
+            "content_type": "image/png",
+            "file_name": "kBKs-7dIoa2i31S0ABzya_VtL73JEa.png",
+            "file_size": null,
+            "width": 1024,
+            "height": 576
+          }
+        ],
+        "timings": {
+          "inference": 0.6284357709810138
+        },
+        "seed": 1361406222,
+        "has_nsfw_concepts": [false],
+        "prompt": "Cinematic film still. INT. NEWSROOM - LIVE FEED PREP - HIGH-KEY AIRY\n\nOverhead flat-lay: terminal screen pulses headline graphic -- clean whites, pink accents, light green glow (#E8F4E8). Reporter adjusts earpiece, golden hour warmth bathes face, natural skin tones pop true-to-life. Quick-cut macro: mic clip snaps tactile-close.\n\nShe straightens, cool poise. Red light blinks LIVE.. Art style: Modern social-first product photography with tactile, editorial energy. Products shown in real-life context -- hands opening packaging, fingers pressing textures, products on bathroom shelves, kitchen counters, rumpled linen. Close-up detail shots emphasize material and finish. Flat-lays with curated minimal arrangements. Color-matched backgrounds that complement the product. Every frame feels like something you would screenshot and save. Mood: Fresh, sensory, and effortlessly cool. Lighting: Bright natural window light with clean directional shadows. Direct on-camera flash for punchy editorial energy on select shots. No heavy diffusion -- let light feel real and immediate. Golden hour warmth for lifestyle moments. High-key and airy overall with pops of contrast. No text, no titles, no subtitles, no watermarks, no letters, no words, no signs, no UI elements."
+      }
+    }
+  ]
+}

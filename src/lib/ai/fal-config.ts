@@ -1,4 +1,11 @@
-import { fal } from '@fal-ai/client';
+import {
+  createFalClient as upstreamCreateFalClient,
+  fal,
+  type FalClient,
+  type RequestMiddleware,
+} from '@fal-ai/client';
+
+type FalConfig = NonNullable<Parameters<typeof upstreamCreateFalClient>[0]>;
 
 const FAL_HOSTS = new Set([
   'fal.run',
@@ -8,45 +15,18 @@ const FAL_HOSTS = new Set([
   'gateway.fal.ai',
 ]);
 
-type FalRequest = Parameters<
-  NonNullable<Parameters<typeof fal.config>[0]['requestMiddleware']>
->[0];
-
 let configured = false;
+let proxyMiddleware: RequestMiddleware | null = null;
 
-/**
- * Routes server-side fal.ai traffic through a proxy when FAL_PROXY_URL is set.
- *
- * fal-client's built-in `proxyUrl` only activates in the browser — see
- * @fal-ai/client/src/middleware.ts (`withProxy` no-ops when `window` is
- * undefined). Workflows run server-side, so we install a `requestMiddleware`
- * that rewrites fal hosts to the proxy origin while preserving the original
- * pathname. The proxy receives the original host via `x-fal-target-host`.
- *
- * fal-client's `createConfig` does `Object.assign({}, DEFAULT_CONFIG, config)`
- * — so any later `fal.config({...})` caller that omits `requestMiddleware`
- * silently wipes ours. The @tanstack/ai-fal adapters do exactly this on
- * construction. We monkey-patch `fal.config` so our middleware is always
- * composed in, regardless of what callers pass.
- */
-export function configureFalProxyFromEnv(): void {
-  if (configured) return;
-  const proxyUrl = process.env.FAL_PROXY_URL;
-  if (!proxyUrl) return;
-
+function buildProxyMiddleware(proxyUrl: string): RequestMiddleware {
   const proxy = new URL(proxyUrl);
-
-  const proxyMiddleware = async (request: FalRequest): Promise<FalRequest> => {
+  return async (request) => {
     const original = new URL(request.url);
     if (!FAL_HOSTS.has(original.hostname)) return request;
 
     const rewritten = new URL(proxy.toString());
     rewritten.pathname = proxy.pathname.replace(/\/$/, '') + original.pathname;
     rewritten.search = original.search;
-
-    console.log(
-      `[fal-proxy] ${request.method} ${original.hostname}${original.pathname} → ${rewritten.toString()}`
-    );
 
     return {
       ...request,
@@ -57,25 +37,68 @@ export function configureFalProxyFromEnv(): void {
       },
     };
   };
+}
+
+function composeMiddleware(
+  proxy: RequestMiddleware,
+  caller: RequestMiddleware | undefined
+): RequestMiddleware {
+  if (!caller) return proxy;
+  return async (req) => proxy(await caller(req));
+}
+
+/**
+ * Routes server-side fal.ai traffic through a proxy when FAL_PROXY_URL is set.
+ *
+ * fal-client's built-in `proxyUrl` only activates in the browser — see
+ * `@fal-ai/client/src/middleware.ts` (`withProxy` no-ops when `window` is
+ * undefined). Workflows run server-side, so we install a `requestMiddleware`
+ * that rewrites fal hosts to the proxy origin while preserving the original
+ * pathname. The proxy receives the original host via `x-fal-target-host`.
+ *
+ * Two paths reach fal.ai from this app: the `@tanstack/ai-fal` adapters call
+ * `fal.config({ credentials })` on the singleton and would otherwise wipe any
+ * `requestMiddleware` we set, so we monkey-patch `fal.config` to compose ours
+ * back in. The other path is callers that build a per-request client via
+ * `createFalClient(...)`; that returns an entirely independent client whose
+ * config closure the monkey-patch can't touch, so those callers must use the
+ * project-local `createFalClient` wrapper exported from this module.
+ */
+export function configureFalProxyFromEnv(): void {
+  if (configured) return;
+  configured = true;
+  const proxyUrl = process.env.FAL_PROXY_URL;
+  if (!proxyUrl) return;
+
+  const middleware = buildProxyMiddleware(proxyUrl);
+  proxyMiddleware = middleware;
 
   const originalConfig = fal.config.bind(fal);
-
-  const installWithProxy: typeof fal.config = (config) => {
-    console.log(
-      'installWithProxy - KEY',
-      String(process.env.FAL_KEY).slice(0, 5)
-    );
-    const callerMiddleware = config.requestMiddleware;
+  fal.config = (config) => {
     return originalConfig({
       ...config,
-      requestMiddleware: callerMiddleware
-        ? async (req) => proxyMiddleware(await callerMiddleware(req))
-        : proxyMiddleware,
+      requestMiddleware: composeMiddleware(
+        middleware,
+        config.requestMiddleware
+      ),
     });
   };
+  fal.config({});
+}
 
-  fal.config = installWithProxy;
-  installWithProxy({});
+/**
+ * Project-local wrapper around `@fal-ai/client`'s `createFalClient` that
+ * composes the env-configured proxy middleware into per-call clients. Use
+ * this instead of importing `createFalClient` directly so loudnorm /
+ * compose / any future per-call client respects FAL_PROXY_URL.
+ */
+export function createFalClient(config: FalConfig = {}): FalClient {
+  configureFalProxyFromEnv();
+  const middleware = proxyMiddleware;
+  if (!middleware) return upstreamCreateFalClient(config);
 
-  configured = true;
+  return upstreamCreateFalClient({
+    ...config,
+    requestMiddleware: composeMiddleware(middleware, config.requestMiddleware),
+  });
 }

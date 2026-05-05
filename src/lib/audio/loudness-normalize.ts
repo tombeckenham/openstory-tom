@@ -5,7 +5,7 @@
  * sits consistently below dialogue in the final video mix.
  */
 
-import { createFalClient } from '@fal-ai/client';
+import { createFalClient } from '@/lib/ai/fal-config';
 import { getEnv } from '#env';
 import type { ScopedDb } from '@/lib/db/scoped';
 

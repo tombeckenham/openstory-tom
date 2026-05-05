@@ -13,9 +13,9 @@ import { tanstackStartCookies } from 'better-auth/tanstack-start';
 
 import { getDb } from '#db-client';
 import { getEnv } from '#env';
+import { teamMembers, teams } from '@/lib/db/schema';
 import { sendOtpEmail } from '@/lib/services/email-service';
 import { passkey as passkeyPlugin } from '@better-auth/passkey';
-import { teams, teamMembers } from '@/lib/db/schema';
 
 // Singleton auth instance cache
 let _authInstance: ReturnType<typeof createAuth> | undefined;

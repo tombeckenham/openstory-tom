@@ -93,6 +93,7 @@ export async function describeElementImage(
     stream: false,
     temperature: 0.3,
     outputSchema: responseSchema,
+    debug: false,
   });
 
   return responseSchema.parse(result);

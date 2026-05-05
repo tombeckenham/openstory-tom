@@ -1,0 +1,29 @@
+{
+  "request": {
+    "targetHost": "queue.fal.run",
+    "method": "GET",
+    "pathname": "/fal-ai/ffmpeg-api/requests/019df6eb-a6f4-7a32-96af-5f985916e5db",
+    "bodyHash": "e3b0c44298fc1c14"
+  },
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "connection": "keep-alive",
+        "content-length": "182",
+        "content-type": "application/json",
+        "date": "Tue, 05 May 2026 06:55:59 GMT",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "vary": "origin, access-control-request-method, access-control-request-headers",
+        "x-fal-request-id": "019df6eb-a6f4-7a32-96af-5f985916e5db",
+        "x-fal-served-from": "98726cff-fa05-4341-811f-f2606e52e606",
+        "x-robots-tag": "noindex"
+      },
+      "body": {
+        "video_url": "https://v3b.fal.media/files/b/0a98f53f/hwtWrrK1LCfd-_dFpfc_N_output.mp4",
+        "thumbnail_url": "https://v3b.fal.media/files/b/0a98f53f/EuRUxxruGc-Fj3B00HdZ6_first_frame.jpg"
+      }
+    }
+  ]
+}

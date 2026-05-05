@@ -58,6 +58,7 @@ export async function mergeVideos({
       ...(targetFps && { target_fps: targetFps }),
       ...(resolution && { resolution }),
     },
+    debug: false,
   });
 
   const requestId = job.jobId;

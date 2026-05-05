@@ -203,6 +203,7 @@ function baseChatOptions(params: LLMRequestParams) {
     temperature: params.temperature,
     topP: params.top_p,
     modelOptions: buildModelOptions(params),
+    debug: false as const,
   };
 }
 
@@ -324,6 +325,7 @@ export async function callChat<TSchema extends z.ZodType>(
       metadata: logMetadata,
     },
     outputSchema: responseSchema,
+    debug: false,
   });
 
   console.log(`[LLM:${name}] Call succeeded`);

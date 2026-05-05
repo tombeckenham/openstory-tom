@@ -13,21 +13,21 @@
         "connection": "keep-alive",
         "content-length": "439",
         "content-type": "application/json",
-        "date": "Tue, 05 May 2026 04:37:07 GMT",
+        "date": "Tue, 05 May 2026 06:50:46 GMT",
         "strict-transport-security": "max-age=31536000; includeSubDomains",
         "vary": "origin, access-control-request-method, access-control-request-headers",
-        "x-fal-request-id": "019df66c-ef51-7650-85ee-d3cf3d9a5323",
+        "x-fal-request-id": "019df6e7-4d45-7370-be58-0dd83ff421ff",
         "x-robots-tag": "noindex"
       },
       "body": {
         "status": "IN_QUEUE",
-        "request_id": "019df66c-ef51-7650-85ee-d3cf3d9a5323",
-        "response_url": "https://queue.fal.run/fal-ai/kling-video/requests/019df66c-ef51-7650-85ee-d3cf3d9a5323",
-        "status_url": "https://queue.fal.run/fal-ai/kling-video/requests/019df66c-ef51-7650-85ee-d3cf3d9a5323/status",
-        "cancel_url": "https://queue.fal.run/fal-ai/kling-video/requests/019df66c-ef51-7650-85ee-d3cf3d9a5323/cancel",
+        "request_id": "019df6e7-4d45-7370-be58-0dd83ff421ff",
+        "response_url": "https://queue.fal.run/fal-ai/kling-video/requests/019df6e7-4d45-7370-be58-0dd83ff421ff",
+        "status_url": "https://queue.fal.run/fal-ai/kling-video/requests/019df6e7-4d45-7370-be58-0dd83ff421ff/status",
+        "cancel_url": "https://queue.fal.run/fal-ai/kling-video/requests/019df6e7-4d45-7370-be58-0dd83ff421ff/cancel",
         "logs": null,
         "metrics": {},
-        "queue_position": 0
+        "queue_position": 3
       }
     }
   ]

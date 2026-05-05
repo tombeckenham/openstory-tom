@@ -1,0 +1,143 @@
+{
+  "request": {
+    "targetHost": "queue.fal.run",
+    "method": "GET",
+    "pathname": "/fal-ai/ffmpeg-api/requests/019df6ea-8b3f-7860-a1f8-f74327c74163",
+    "bodyHash": "e3b0c44298fc1c14"
+  },
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "connection": "keep-alive",
+        "content-length": "3616",
+        "content-type": "application/json",
+        "date": "Tue, 05 May 2026 06:54:56 GMT",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "vary": "origin, access-control-request-method, access-control-request-headers",
+        "x-fal-request-id": "019df6ea-8b3f-7860-a1f8-f74327c74163",
+        "x-fal-served-from": "98726cff-fa05-4341-811f-f2606e52e606",
+        "x-robots-tag": "noindex"
+      },
+      "body": {
+        "video": {
+          "url": "https://v3b.fal.media/files/b/0a98f539/HVjC-MmL5vkRvTfUOjc3a_merged_video.mp4",
+          "content_type": "video/mp4",
+          "file_name": "merged_video.mp4",
+          "file_size": 32597491
+        },
+        "metadata": {
+          "final_fps": 24,
+          "final_width": 1928,
+          "final_height": 1072,
+          "total_duration": 78.41699800000002,
+          "has_audio": true,
+          "input_videos": [
+            {
+              "index": 1,
+              "fps": 24,
+              "width": 1928,
+              "height": 1072,
+              "duration": 10.041667,
+              "has_audio": true,
+              "sample_rate": 44100,
+              "url": "https://storage-dev.openstory.so/videos/teams/01KQVE7ZXMKBE0PE4A88P0AK7N/sequences/01KQVE880VF2ZMZ029NNJSD577/frames/01KQVE8D5HYTS45BSHPCDMEKD2/drop-soon_reporter-typing-urgently-in-modern-newsroom_wkf9sd_openstory.mp4"
+            },
+            {
+              "index": 2,
+              "fps": 24,
+              "width": 1928,
+              "height": 1072,
+              "duration": 4.041667,
+              "has_audio": true,
+              "sample_rate": 44100,
+              "url": "https://storage-dev.openstory.so/videos/teams/01KQVE7ZXMKBE0PE4A88P0AK7N/sequences/01KQVE880VF2ZMZ029NNJSD577/frames/01KQVE8DBBWSZ8W5KE962ZY29V/drop-soon_overhead-close-up-of-typing-keyboard_zrkhja_openstory.mp4"
+            },
+            {
+              "index": 3,
+              "fps": 24,
+              "width": 1928,
+              "height": 1072,
+              "duration": 12.041995,
+              "has_audio": true,
+              "sample_rate": 44100,
+              "url": "https://storage-dev.openstory.so/videos/teams/01KQVE7ZXMKBE0PE4A88P0AK7N/sequences/01KQVE880VF2ZMZ029NNJSD577/frames/01KQVE8DK6P345MZSRSR1XJXJ9/drop-soon_producer-rushes-in-with-breaking-news_9gzjzz_openstory.mp4"
+            },
+            {
+              "index": 4,
+              "fps": 24,
+              "width": 1928,
+              "height": 1072,
+              "duration": 5.041667,
+              "has_audio": true,
+              "sample_rate": 44100,
+              "url": "https://storage-dev.openstory.so/videos/teams/01KQVE7ZXMKBE0PE4A88P0AK7N/sequences/01KQVE880VF2ZMZ029NNJSD577/frames/01KQVE8DV7DVMRARC5HN3938CE/drop-soon_paper-exchange-at-desk_dwaa03_openstory.mp4"
+            },
+            {
+              "index": 5,
+              "fps": 24,
+              "width": 1928,
+              "height": 1072,
+              "duration": 10.041667,
+              "has_audio": true,
+              "sample_rate": 44100,
+              "url": "https://storage-dev.openstory.so/videos/teams/01KQVE7ZXMKBE0PE4A88P0AK7N/sequences/01KQVE880VF2ZMZ029NNJSD577/frames/01KQVE8E1Z278251WHTTD6S31B/drop-soon_reporter-reacts-to-story-and-counts-down_8z44se_openstory.mp4"
+            },
+            {
+              "index": 6,
+              "fps": 24,
+              "width": 1928,
+              "height": 1072,
+              "duration": 8.041667,
+              "has_audio": true,
+              "sample_rate": 44100,
+              "url": "https://storage-dev.openstory.so/videos/teams/01KQVE7ZXMKBE0PE4A88P0AK7N/sequences/01KQVE880VF2ZMZ029NNJSD577/frames/01KQVE8E87NEM22K50EXR7W3F8/drop-soon_live-feed-preparation-and-earpiece-adjustment_99pzfa_openstory.mp4"
+            },
+            {
+              "index": 7,
+              "fps": 24,
+              "width": 1928,
+              "height": 1072,
+              "duration": 6.041667,
+              "has_audio": true,
+              "sample_rate": 44100,
+              "url": "https://storage-dev.openstory.so/videos/teams/01KQVE7ZXMKBE0PE4A88P0AK7N/sequences/01KQVE880VF2ZMZ029NNJSD577/frames/01KQVE8EGH3DH4ZVE64WXTC333/drop-soon_city-skyline-view-through-rainy-window_cb5jrr_openstory.mp4"
+            },
+            {
+              "index": 8,
+              "fps": 24,
+              "width": 1928,
+              "height": 1072,
+              "duration": 10.041667,
+              "has_audio": true,
+              "sample_rate": 44100,
+              "url": "https://storage-dev.openstory.so/videos/teams/01KQVE7ZXMKBE0PE4A88P0AK7N/sequences/01KQVE880VF2ZMZ029NNJSD577/frames/01KQVE8ENVSB7YPDADX1DKJM74/drop-soon_reporter-delivers-breaking-news-voiceover_4cg52k_openstory.mp4"
+            },
+            {
+              "index": 9,
+              "fps": 24,
+              "width": 1928,
+              "height": 1072,
+              "duration": 8.041667,
+              "has_audio": true,
+              "sample_rate": 44100,
+              "url": "https://storage-dev.openstory.so/videos/teams/01KQVE7ZXMKBE0PE4A88P0AK7N/sequences/01KQVE880VF2ZMZ029NNJSD577/frames/01KQVE8EWS0ZD5V4MMWEJVSA0F/drop-soon_serum-product-insert-and-final-reporter-smile_v1cvav_openstory.mp4"
+            },
+            {
+              "index": 10,
+              "fps": 24,
+              "width": 1928,
+              "height": 1072,
+              "duration": 5.041667,
+              "has_audio": true,
+              "sample_rate": 44100,
+              "url": "https://storage-dev.openstory.so/videos/teams/01KQVE7ZXMKBE0PE4A88P0AK7N/sequences/01KQVE880VF2ZMZ029NNJSD577/frames/01KQVE8F4XXAETJZ42540A1Y9Q/drop-soon_title-card-and-fade-out_njt9t8_openstory.mp4"
+            }
+          ],
+          "video_count": 10
+        }
+      }
+    }
+  ]
+}

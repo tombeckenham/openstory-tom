@@ -115,18 +115,44 @@ function ensureFixtureDir(): void {
   }
 }
 
-// ULIDs and UUIDs that appear in image_urls (R2 paths embed teamId, sequenceId,
-// frameId, and a fresh upload-suffix ULID per write) drift every test run, so
-// hashing the raw body produces a fresh fixture each time. Normalize them to
-// stable placeholders before hashing so the same logical request matches the
-// same fixture across runs. Record and replay use this same function, keeping
-// them symmetric.
+// ULIDs, UUIDs, R2 upload-suffixes, and fal CDN paths all drift every test
+// run, so hashing the raw body produces a fresh fixture each time. Normalize
+// them to stable placeholders before hashing so the same logical request
+// matches the same fixture across runs. Record and replay use this same
+// function, keeping them symmetric.
+//
+// - ULIDs / UUIDs: teamId/sequenceId/frameId/requestId in URLs and bodies.
+// - UPLOAD_SUFFIX_RE: the ULID-tail shortHash baked into R2 filenames
+//   immediately before `_openstory.{ext}`. Two flavours coexist:
+//     • Frame-level uploads via `src/lib/{motion,audio}/*-storage.ts` use
+//       `ulid.slice(-6).toLowerCase()` between two slugs:
+//       `{slug}_{slug}_{shortHash}_openstory.{ext}`.
+//     • Merged-video uploads in `src/lib/workflows/merge-{audio-,}video-workflow.ts`
+//       use `generateId().slice(-8)` (Crockford uppercase) right after the
+//       directory: `merged/{shortHash}_openstory.{ext}`.
+//   The lookbehind on `[_/]` covers both — it anchors the match to a slug
+//   separator or a path boundary so we don't accidentally swallow a slug
+//   word that just happens to be 6+ alphanumerics.
+// - FAL_CDN_PATH_RE: fal CDN URLs of the shape
+//   `https://v3b.fal.media/files/b/<8 hex>/<base62-ish id>_<rest>.<ext>`
+//   that appear when a fal output (e.g. loudnorm normalized audio) is fed
+//   back into a downstream fal call (e.g. compose). The 8-hex bucket prefix
+//   and the file id both drift; we collapse them to a single placeholder
+//   while preserving the trailing `_<rest>.<ext>` so different logical
+//   outputs (normalized_audio.wav vs output.mp4) still hash distinctly.
 const ULID_RE = /\b[0-9A-HJKMNP-TV-Z]{26}\b/g;
 const UUID_RE =
   /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+const UPLOAD_SUFFIX_RE = /(?<=[_/])[0-9A-Za-z]{6,16}_openstory\./g;
+const FAL_CDN_PATH_RE =
+  /\/files\/b\/[0-9a-f]{6,12}\/[A-Za-z0-9_-]{10,}(?=[_.])/g;
 
 function normalizeForHash(body: string): string {
-  return body.replace(ULID_RE, '<ULID>').replace(UUID_RE, '<UUID>');
+  return body
+    .replace(ULID_RE, '<ULID>')
+    .replace(UUID_RE, '<UUID>')
+    .replace(UPLOAD_SUFFIX_RE, '<HASH>_openstory.')
+    .replace(FAL_CDN_PATH_RE, '/files/b/<FAL>/<FAL>');
 }
 
 function hashBody(body: string): string {

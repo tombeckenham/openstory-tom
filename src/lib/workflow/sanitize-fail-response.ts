@@ -50,12 +50,15 @@ function extractRawMessage(value: unknown): string {
   }
   if (typeof value !== 'object') return '';
 
-  const obj: Record<string, unknown> = Object.fromEntries(
-    Object.getOwnPropertyNames(value).map((k) => [
-      k,
-      Reflect.get(value, k) as unknown,
-    ])
-  );
+  // Index by name so we also pick up non-enumerable own properties like
+  // Error.message — Object.entries would skip those. We've already narrowed
+  // value to a non-null object, so the cast is safe by construction.
+  // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion -- narrowed above
+  const record = value as Record<string, unknown>;
+  const obj: Record<string, unknown> = {};
+  for (const k of Object.getOwnPropertyNames(value)) {
+    obj[k] = record[k];
+  }
   for (const field of [
     'message',
     'error',

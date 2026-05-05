@@ -24,11 +24,7 @@ type CommonProps = {
   onDiscard: () => void;
   isPromoting?: boolean;
   isDiscarding?: boolean;
-  /**
-   * Optional list of upstream entity changes between the snapshot and live
-   * inputs. Stage 3 surfaces this as a flat string list; field-level diffs
-   * land in stage 4.
-   */
+  /** Flat string list of upstream entity changes between snapshot and live inputs. */
   upstreamChanges?: string[];
 };
 
@@ -56,8 +52,6 @@ const VideoSidePreview: React.FC<{
       </div>
     );
   }
-  // The compare-dialog video side is a transient surface — reuse VideoPlayer
-  // so aspect-ratio + skeletons match the rest of the app.
   return <VideoPlayer src={src} aspectRatio={aspectRatio} />;
 };
 
@@ -85,11 +79,9 @@ function buildMusicDiffRows(
   variant: SequenceMusicVariant
 ): DiffRow[] {
   const rows: DiffRow[] = [];
-  const liveDuration = sequence.musicGeneratedAt
-    ? // We don't track live music duration on the sequence row; leave it
-      // unknown rather than guess.
-      '—'
-    : '—';
+  // We don't track live music duration on the sequence row, so the live side
+  // stays unknown rather than guessed.
+  const liveDuration = '—';
   if ((sequence.musicPrompt ?? '') !== (variant.prompt ?? '')) {
     rows.push({
       label: 'Prompt',

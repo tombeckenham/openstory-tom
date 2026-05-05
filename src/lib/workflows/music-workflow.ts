@@ -141,8 +141,7 @@ export const generateMusicWorkflow = createScopedWorkflow<MusicWorkflowInput>(
         // authoritative. Reset musicStatus from 'generating' (set above) back
         // to 'completed' and emit a terminal event so the UI doesn't hang on
         // a spinner. The alternate is preserved in `sequence_music_variants`
-        // for future surfacing — `stale:detected` wakes the banner up
-        // without a refresh.
+        // for future surfacing.
         const divergedVariantId = writeResult.variant.id;
         await context.run('update-sequence-music-divergent', async () => {
           const seq = scopedDb.sequence(sequenceId);

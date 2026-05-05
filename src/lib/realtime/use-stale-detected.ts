@@ -1,4 +1,5 @@
 import { frameKeys } from '@/hooks/use-frames';
+import type { StaleDetectedPayload } from '@/lib/realtime';
 import { useRealtime } from '@/lib/realtime/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
@@ -17,28 +18,12 @@ export function formatStaleToastMessage(count: number): string {
     : `${count} alternate versions are available.`;
 }
 
+// Bind to the schema's discriminated union so `data.entityType` narrows to a
+// literal — a hand-rolled `entityType: string` defeats branch narrowing and
+// was the structural pattern behind the round-1 talent-channel routing bug.
 type StaleDetectedEvent = {
-  event: string;
-  data: {
-    entityType:
-      | 'frame'
-      | 'character'
-      | 'location'
-      | 'library-location'
-      | 'talent'
-      | 'sequence';
-    entityId: string;
-    artifact?:
-      | 'thumbnail'
-      | 'variant-image'
-      | 'video'
-      | 'audio'
-      | 'sheet'
-      | 'merged-video'
-      | 'music';
-    snapshotInputHash: string;
-    divergedVariantId?: string;
-  };
+  event: 'generation.stale:detected';
+  data: StaleDetectedPayload;
 };
 
 type DebounceState = {

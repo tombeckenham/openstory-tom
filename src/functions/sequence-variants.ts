@@ -1,9 +1,5 @@
 /**
- * Server Functions: Sequence-level variant promotion / discard
- * Stage 3 UI surface (#659) on top of #619's `sequence_video_variants` /
- * `sequence_music_variants` tables and `scopedDb.sequenceVariants` methods.
- *
- * Mirrors the frame-variants pattern in `src/functions/frames.ts`:
+ * Server functions for sequence-level merged-video / music variants:
  *   - `getDivergent*Fn` reads the live divergent alternates.
  *   - `promote*VariantFn` atomically copies variant fields onto `sequences.*`
  *     and soft-deletes the variant row, then emits a synthetic terminal
@@ -23,6 +19,38 @@ const variantInputSchema = z.object({
   sequenceId: ulidSchema,
   variantId: ulidSchema,
 });
+
+/**
+ * Shape needed to decide whether a variant is promotable. Both video and music
+ * variant rows satisfy this — the precondition check is identical for both.
+ */
+export type SequenceVariantPromoteCandidate = {
+  id: string;
+  sequenceId: string;
+  divergedAt: Date | null;
+  discardedAt: Date | null;
+  url: string | null;
+};
+
+/**
+ * Throw if `variant` is not a promotable live divergent alternate of
+ * `sequenceId`. Extracted so the precondition logic — cross-sequence check,
+ * live-ness check, asset-presence check — is unit-testable independent of the
+ * server-fn harness.
+ */
+export function assertSequenceVariantPromotable<
+  T extends SequenceVariantPromoteCandidate,
+>(variant: T | null, sequenceId: string): asserts variant is T {
+  if (!variant || variant.sequenceId !== sequenceId) {
+    throw new Error('Variant not found for this sequence');
+  }
+  if (variant.divergedAt === null || variant.discardedAt !== null) {
+    throw new Error('Variant is not a live divergent alternate');
+  }
+  if (!variant.url) {
+    throw new Error('Variant has no asset to promote');
+  }
+}
 
 // ── Read: divergent alternates ──────────────────────────────────────────────
 
@@ -79,15 +107,7 @@ export const promoteSequenceVideoVariantFn = createServerFn({ method: 'POST' })
     const variant = await scopedDb.sequenceVariants.getVideoById(
       data.variantId
     );
-    if (!variant || variant.sequenceId !== sequence.id) {
-      throw new Error('Variant not found for this sequence');
-    }
-    if (variant.divergedAt === null || variant.discardedAt !== null) {
-      throw new Error('Variant is not a live divergent alternate');
-    }
-    if (!variant.url) {
-      throw new Error('Variant has no asset to promote');
-    }
+    assertSequenceVariantPromotable(variant, sequence.id);
 
     const { sequence: updatedSequence } =
       await scopedDb.sequenceVariants.promoteVideoVariant(variant.id);
@@ -123,15 +143,7 @@ export const promoteSequenceMusicVariantFn = createServerFn({ method: 'POST' })
     const variant = await scopedDb.sequenceVariants.getMusicById(
       data.variantId
     );
-    if (!variant || variant.sequenceId !== sequence.id) {
-      throw new Error('Variant not found for this sequence');
-    }
-    if (variant.divergedAt === null || variant.discardedAt !== null) {
-      throw new Error('Variant is not a live divergent alternate');
-    }
-    if (!variant.url) {
-      throw new Error('Variant has no asset to promote');
-    }
+    assertSequenceVariantPromotable(variant, sequence.id);
 
     const { sequence: updatedSequence } =
       await scopedDb.sequenceVariants.promoteMusicVariant(variant.id);

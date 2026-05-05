@@ -304,6 +304,15 @@ export function updateQueryCacheFromEvent(
             sequenceKeys.detail(sequenceId),
             `sequence:${sequenceId}`
           );
+          // Team-aggregate dashboard query: corner-dot on /sequences depends
+          // on it, and the dashboard route doesn't subscribe to per-sequence
+          // channels — invalidate here so a divergence appearing while the
+          // user sits on the dashboard surfaces without staleTime/focus delay.
+          debouncedInvalidate(
+            queryClient,
+            ['sequence-divergent-by-team'],
+            'sequence-divergent-by-team'
+          );
           break;
         }
       }

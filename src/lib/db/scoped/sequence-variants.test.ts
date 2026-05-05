@@ -17,6 +17,7 @@ import {
 import { type Client, createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
+import { eq } from 'drizzle-orm';
 import { generateId } from '@/lib/db/id';
 import {
   sequenceMusicVariants,
@@ -324,7 +325,7 @@ describe('createSequenceVariantsMethods — video', () => {
     expect(all).toHaveLength(2);
   });
 
-  it('promoteVideoVariant copies a divergent variant onto sequences.mergedVideo*', async () => {
+  it('promoteVideoVariant copies a divergent variant onto sequences.mergedVideo* AND soft-deletes the source row in one batch', async () => {
     const methods = createSequenceVariantsMethods(db);
     await methods.upsertVideoPrimary({
       sequenceId,
@@ -348,7 +349,7 @@ describe('createSequenceVariantsMethods — video', () => {
       divergedAt: new Date('2026-04-29T00:00:00Z'),
     });
 
-    await methods.promoteVideoVariant(divergent.id);
+    const { discardedAt } = await methods.promoteVideoVariant(divergent.id);
 
     const rows = await db.select().from(sequences);
     const updated = rows.find((s) => s.id === sequenceId);
@@ -356,6 +357,29 @@ describe('createSequenceVariantsMethods — video', () => {
     expect(updated?.mergedVideoUrl).toBe('https://example.com/new.mp4');
     expect(updated?.mergedVideoPath).toBe('/p/new.mp4');
     expect(updated?.mergedVideoStatus).toBe('completed');
+
+    // Atomic-promote leg: the source variant must disappear from the divergent
+    // list. Without this assertion, a regression dropping the second batch
+    // statement would leave the alternate visible forever. SQLite stores
+    // timestamps at second resolution, so compare floored seconds.
+    const variantRow = await methods.getVideoById(divergent.id);
+    expect(variantRow?.discardedAt).not.toBeNull();
+    expect(Math.floor((variantRow?.discardedAt?.getTime() ?? 0) / 1000)).toBe(
+      Math.floor(discardedAt.getTime() / 1000)
+    );
+    const stillDivergent = await methods.listDivergentVideos(sequenceId);
+    expect(stillDivergent).toHaveLength(0);
+  });
+
+  it('promoteVideoVariant throws when the variant id does not exist', async () => {
+    const methods = createSequenceVariantsMethods(db);
+    let error: Error | null = null;
+    try {
+      await methods.promoteVideoVariant(generateId());
+    } catch (e) {
+      error = e as Error;
+    }
+    expect(error?.message).toMatch(/not found/);
   });
 });
 
@@ -394,9 +418,24 @@ describe('createSequenceVariantsMethods — music', () => {
     expect(primary?.url).toBe('https://example.com/m1.mp3');
   });
 
-  it('promoteMusicVariant copies prompt/tags/url onto sequences.music*', async () => {
+  it('promoteMusicVariant copies prompt/tags/url onto sequences.music* AND soft-deletes the source row in one batch', async () => {
     const methods = createSequenceVariantsMethods(db);
-    const variant = await methods.upsertMusicPrimary({
+    // Seed a divergent alternate via the divergence-routing path so the
+    // variant has divergedAt set — then promote it.
+    await methods.upsertMusicPrimary({
+      sequenceId,
+      url: 'https://example.com/old.mp3',
+      storagePath: null,
+      prompt: 'old',
+      tags: 'old',
+      durationSeconds: 60,
+      model: 'cassette',
+      status: 'completed',
+      generatedAt: new Date('2026-04-01T00:00:00Z'),
+      error: null,
+      inputHash: 'old-hash',
+    });
+    const divergent = await methods.insertDivergentMusic({
       sequenceId,
       url: 'https://example.com/m.mp3',
       storagePath: '/p/m.mp3',
@@ -405,11 +444,13 @@ describe('createSequenceVariantsMethods — music', () => {
       durationSeconds: 60,
       model: 'cassette',
       status: 'completed',
-      generatedAt: new Date(),
+      generatedAt: new Date('2026-04-29T00:00:00Z'),
       error: null,
-      inputHash: 'mh',
+      inputHash: 'new-hash',
+      divergedAt: new Date('2026-04-29T00:00:00Z'),
     });
-    await methods.promoteMusicVariant(variant.id);
+
+    const { discardedAt } = await methods.promoteMusicVariant(divergent.id);
 
     const rows = await db.select().from(sequences);
     const updated = rows.find((s) => s.id === sequenceId);
@@ -418,6 +459,27 @@ describe('createSequenceVariantsMethods — music', () => {
     expect(updated?.musicPrompt).toBe('jazzy');
     expect(updated?.musicModel).toBe('cassette');
     expect(updated?.musicStatus).toBe('completed');
+
+    // Atomic-promote leg: source row must be soft-deleted in the same batch.
+    // SQLite stores timestamps at second resolution.
+    const variantRow = await methods.getMusicById(divergent.id);
+    expect(variantRow?.discardedAt).not.toBeNull();
+    expect(Math.floor((variantRow?.discardedAt?.getTime() ?? 0) / 1000)).toBe(
+      Math.floor(discardedAt.getTime() / 1000)
+    );
+    const stillDivergent = await methods.listDivergentMusic(sequenceId);
+    expect(stillDivergent).toHaveLength(0);
+  });
+
+  it('promoteMusicVariant throws when the variant id does not exist', async () => {
+    const methods = createSequenceVariantsMethods(db);
+    let error: Error | null = null;
+    try {
+      await methods.promoteMusicVariant(generateId());
+    } catch (e) {
+      error = e as Error;
+    }
+    expect(error?.message).toMatch(/not found/);
   });
 
   it('insertDivergentMusic idempotent on retry', async () => {
@@ -465,5 +527,128 @@ describe('createSequenceVariantsMethods — music', () => {
       divergedAt,
     });
     expect(second.id).toBe(first.id);
+  });
+});
+
+describe('listDivergentByTeam', () => {
+  it('excludes variants belonging to a different team, excludes discarded rows, and merges video+music flags per sequence', async () => {
+    const methods = createSequenceVariantsMethods(db);
+
+    // Build a second team with its own sequence sharing the same style.
+    const otherTeamId = generateId();
+    await db.insert(teams).values({
+      id: otherTeamId,
+      name: 'Other',
+      slug: 'other',
+    });
+    const [otherStyle] = await db
+      .insert(styles)
+      .values({
+        teamId: otherTeamId,
+        name: 'default',
+        config: {
+          mood: 'neutral',
+          artStyle: 'cinematic',
+          lighting: 'natural',
+          colorPalette: ['#000', '#fff'],
+          cameraWork: 'static',
+          referenceFilms: [],
+          colorGrading: 'neutral',
+        },
+      })
+      .returning();
+    const otherSequenceId = generateId();
+    await db.insert(sequences).values({
+      id: otherSequenceId,
+      teamId: otherTeamId,
+      title: 'Other',
+      styleId: otherStyle.id,
+    });
+
+    // Add a second sequence on the seed team so we can test the
+    // "video+music on the same sequence merge into one row" axis as well as
+    // the "two sequences => two rows" axis.
+    const secondSeedSequenceId = generateId();
+    const [seedStyle] = await db
+      .select()
+      .from(styles)
+      .where(eq(styles.teamId, team.id));
+    await db.insert(sequences).values({
+      id: secondSeedSequenceId,
+      teamId: team.id,
+      title: 'S2',
+      styleId: seedStyle.id,
+    });
+
+    const divergedAt = new Date('2026-04-29T00:00:00Z');
+
+    // Live divergent video on seed team's primary sequence.
+    await db.insert(sequenceVideoVariants).values({
+      sequenceId,
+      workflow: 'merge-video',
+      url: 'https://example.com/v-divergent.mp4',
+      status: 'completed',
+      inputHash: 'v-hash',
+      divergedAt,
+    });
+
+    // Live divergent music ALSO on the same primary sequence (should collapse
+    // with the video row to a single { hasVideo: true, hasMusic: true } entry).
+    await db.insert(sequenceMusicVariants).values({
+      sequenceId,
+      model: 'cassette',
+      url: 'https://example.com/m-divergent.mp3',
+      status: 'completed',
+      inputHash: 'm-hash',
+      divergedAt,
+    });
+
+    // Live divergent music on the second seed-team sequence (separate row).
+    await db.insert(sequenceMusicVariants).values({
+      sequenceId: secondSeedSequenceId,
+      model: 'cassette',
+      url: 'https://example.com/m2-divergent.mp3',
+      status: 'completed',
+      inputHash: 'm2-hash',
+      divergedAt,
+    });
+
+    // Discarded divergent video on the seed team — must be excluded.
+    await db.insert(sequenceVideoVariants).values({
+      sequenceId: secondSeedSequenceId,
+      workflow: 'merge-video',
+      url: 'https://example.com/v-discarded.mp4',
+      status: 'completed',
+      inputHash: 'discarded-hash',
+      divergedAt,
+      discardedAt: new Date('2026-04-30T00:00:00Z'),
+    });
+
+    // Live divergent video on the OTHER team — must be excluded by team scope.
+    await db.insert(sequenceVideoVariants).values({
+      sequenceId: otherSequenceId,
+      workflow: 'merge-video',
+      url: 'https://example.com/other.mp4',
+      status: 'completed',
+      inputHash: 'other-hash',
+      divergedAt,
+    });
+
+    const rows = await methods.listDivergentByTeam(team.id);
+    const byId = new Map(rows.map((r) => [r.sequenceId, r]));
+
+    expect(rows).toHaveLength(2);
+    expect(byId.get(sequenceId)).toEqual({
+      sequenceId,
+      hasVideo: true,
+      hasMusic: true,
+    });
+    expect(byId.get(secondSeedSequenceId)).toEqual({
+      sequenceId: secondSeedSequenceId,
+      hasVideo: false,
+      hasMusic: true,
+    });
+    // Other team's sequence must not appear.
+    expect(byId.has(otherSequenceId)).toBe(false);
   });
 });

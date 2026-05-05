@@ -108,6 +108,9 @@ export function usePromoteSequenceVideoVariant() {
         queryClient.invalidateQueries({
           queryKey: sequenceKeys.detail(sequenceId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: sequenceVariantKeys.divergentByTeam(),
+        }),
       ]);
     },
   });
@@ -122,9 +125,14 @@ export function useDiscardSequenceVideoVariant() {
   >({
     mutationFn: async (input) => discardSequenceVideoVariantFn({ data: input }),
     onSuccess: async (_, { sequenceId }) => {
-      await queryClient.invalidateQueries({
-        queryKey: sequenceVariantKeys.divergentVideo(sequenceId),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: sequenceVariantKeys.divergentVideo(sequenceId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sequenceVariantKeys.divergentByTeam(),
+        }),
+      ]);
     },
   });
 }
@@ -135,9 +143,14 @@ export function useUndiscardSequenceVideoVariant() {
     mutationFn: async (input) =>
       undiscardSequenceVideoVariantFn({ data: input }),
     onSuccess: async (_, { sequenceId }) => {
-      await queryClient.invalidateQueries({
-        queryKey: sequenceVariantKeys.divergentVideo(sequenceId),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: sequenceVariantKeys.divergentVideo(sequenceId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sequenceVariantKeys.divergentByTeam(),
+        }),
+      ]);
     },
   });
 }
@@ -161,6 +174,9 @@ export function usePromoteSequenceMusicVariant() {
         queryClient.invalidateQueries({
           queryKey: sequenceKeys.detail(sequenceId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: sequenceVariantKeys.divergentByTeam(),
+        }),
       ]);
     },
   });
@@ -175,9 +191,14 @@ export function useDiscardSequenceMusicVariant() {
   >({
     mutationFn: async (input) => discardSequenceMusicVariantFn({ data: input }),
     onSuccess: async (_, { sequenceId }) => {
-      await queryClient.invalidateQueries({
-        queryKey: sequenceVariantKeys.divergentMusic(sequenceId),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: sequenceVariantKeys.divergentMusic(sequenceId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sequenceVariantKeys.divergentByTeam(),
+        }),
+      ]);
     },
   });
 }
@@ -188,9 +209,14 @@ export function useUndiscardSequenceMusicVariant() {
     mutationFn: async (input) =>
       undiscardSequenceMusicVariantFn({ data: input }),
     onSuccess: async (_, { sequenceId }) => {
-      await queryClient.invalidateQueries({
-        queryKey: sequenceVariantKeys.divergentMusic(sequenceId),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: sequenceVariantKeys.divergentMusic(sequenceId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: sequenceVariantKeys.divergentByTeam(),
+        }),
+      ]);
     },
   });
 }

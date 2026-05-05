@@ -54,8 +54,6 @@ function MusicPage() {
   // Subscribe to realtime events (audio:progress updates sequence cache)
   useGenerationStream(sequenceId);
 
-  // Sequence-scoped stale:detected → invalidates the divergent-music query +
-  // shows the toast.
   useSequenceStaleDetected(sequenceId);
 
   const generating = sequence?.musicStatus === 'generating';

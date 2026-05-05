@@ -122,8 +122,7 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
         // Divergent single-video result: prior primary on `sequences.merged*`
         // stays authoritative. We never set merging-status on the
         // single-video path, but emit a terminal event so any in-flight UI
-        // spinner stops, plus a `stale:detected` so the divergent banner
-        // can surface inline without a refresh.
+        // spinner stops, plus a `stale:detected` for the divergent banner.
         const divergedVariantId = writeResult.variant.id;
         await context.run('emit-divergent-single', async () => {
           const channel = getGenerationChannel(narrowedInput.sequenceId);
@@ -247,8 +246,7 @@ export const mergeVideoWorkflow = createScopedWorkflow<MergeVideoWorkflowInput>(
       // authoritative. `set-merging-status` set mergedVideoStatus='merging'
       // earlier, so reset to 'completed' here and emit a terminal event so
       // the UI doesn't hang at 'merging'. The alternate is preserved in
-      // `sequence_video_variants` for future surfacing — `stale:detected`
-      // wakes the banner up without a refresh.
+      // `sequence_video_variants` for future surfacing.
       const divergedVariantId = writeResult.variant.id;
       await context.run('update-sequence-divergent', async () => {
         await seq.updateMergedVideoFields({

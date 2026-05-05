@@ -40,9 +40,8 @@ function TheatrePage() {
     },
   });
 
-  // Polling fallback mirrors `scenes-view`: only poll while merging when
-  // realtime might be down. Otherwise rely on `useSequenceStaleDetected` +
-  // realtime invalidation to keep the divergent list fresh.
+  // Only poll while merging in case realtime is down. Otherwise rely on
+  // `useSequenceStaleDetected` + realtime invalidation.
   const merging = sequence?.mergedVideoStatus === 'merging';
   const { data: divergentVideoVariants } = useSequenceDivergentVideoVariants(
     sequenceId,
@@ -124,8 +123,7 @@ function TheatrePage() {
     [sequenceId, promoteVariant]
   );
 
-  // Pick the longest-pending divergent video alternate (oldest divergedAt).
-  // The scoped reader already orders by divergedAt; just take the first.
+  // Reader orders by divergedAt asc — first row is the oldest pending.
   const latestDivergent = divergentVideoVariants?.[0];
 
   const divergentBanner = latestDivergent ? (

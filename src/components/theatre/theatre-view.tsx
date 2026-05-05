@@ -31,11 +31,7 @@ type TheatreViewProps = {
   sequence: Sequence;
   onGenerateMergedVideo?: () => void;
   isGenerating?: boolean;
-  /**
-   * Optional banner rendered above the video player when in the
-   * `mergedVideoStatus === 'completed'` branch. Owned by the route, which
-   * holds the divergent-variant query + mutations.
-   */
+  /** Banner rendered above the video player while `mergedVideoStatus === 'completed'`. */
   divergentBanner?: React.ReactNode;
 };
 

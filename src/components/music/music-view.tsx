@@ -35,11 +35,7 @@ type MusicViewProps = {
   isGeneratingMusic: boolean;
   onMergeVideoAndMusic: () => void;
   isMergingVideoAndMusic: boolean;
-  /**
-   * Optional banner rendered above the audio player when in the
-   * `musicStatus === 'completed'` branch. Owned by the route, which holds
-   * the divergent-variant query + mutations.
-   */
+  /** Banner rendered above the audio player while `musicStatus === 'completed'`. */
   divergentBanner?: React.ReactNode;
 };
 

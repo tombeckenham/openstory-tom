@@ -1,3 +1,4 @@
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -20,7 +21,7 @@ import { sequenceKeys } from '@/hooks/use-sequences';
 import type { PromptVariantSource } from '@/lib/db/schema';
 import { cn } from '@/lib/utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { PromptDiffView } from './prompt-diff-view';
@@ -101,7 +102,12 @@ export const PromptHistorySheet: React.FC<PromptHistorySheetProps> = (
       ? (['prompt-variants', 'music', sequenceId] as const)
       : (['prompt-variants', mode, frameId] as const);
 
-  const { data: rows, isLoading } = useQuery<Row[]>({
+  const {
+    data: rows,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery<Row[]>({
     queryKey,
     queryFn: async () => {
       if (mode === 'music') {
@@ -190,6 +196,28 @@ export const PromptHistorySheet: React.FC<PromptHistorySheetProps> = (
               <Skeleton className="h-20 w-full" />
               <Skeleton className="h-20 w-full" />
             </div>
+          ) : error ? (
+            // Distinguish "couldn't load" from "no history" — falling through
+            // to the empty state would invite the user to overwrite history
+            // they actually still have.
+            <Alert variant="destructive" className="mt-2">
+              <AlertCircle aria-hidden="true" />
+              <AlertTitle>Couldn't load history</AlertTitle>
+              <AlertDescription className="flex flex-col gap-2">
+                <span>
+                  {error instanceof Error ? error.message : 'Unknown error'}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void refetch()}
+                  className="self-start"
+                >
+                  Retry
+                </Button>
+              </AlertDescription>
+            </Alert>
           ) : !rows || rows.length === 0 ? (
             <p className="pt-4 text-sm text-muted-foreground">
               No history yet — generate or edit a prompt to start a record.

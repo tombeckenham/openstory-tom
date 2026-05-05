@@ -1,10 +1,3 @@
-/**
- * Convert scoped DB rows back to the bible-entry shapes the prompt-input
- * hashers and prompt-scene workflows consume. The hashers sort by analysis ID
- * before hashing, so this helper does not need to preserve any particular
- * order.
- */
-
 import type {
   CharacterBibleEntry,
   ElementBibleEntry,

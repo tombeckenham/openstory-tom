@@ -297,7 +297,9 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
         setCopiedTab(tabName);
         setTimeout(() => setCopiedTab(null), 2000);
       } catch (error) {
-        console.error('Failed to copy to clipboard:', error);
+        toast.error('Failed to copy', {
+          description: error instanceof Error ? error.message : 'Unknown error',
+        });
       }
     },
     []
@@ -416,12 +418,14 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
       // The optimistic update shows 'generating' instantly, and the workflow
       // will update the server status which auto-polling will detect
     } catch (error) {
-      console.error('Failed to regenerate image:', error);
-
       if (isInsufficientCreditsError(error)) {
         showFalGate();
         void queryClient.invalidateQueries({
           queryKey: [...BILLING_BALANCE_KEY],
+        });
+      } else {
+        toast.error('Image generation failed', {
+          description: error instanceof Error ? error.message : 'Unknown error',
         });
       }
 
@@ -488,12 +492,14 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
 
       // Don't invalidate immediately - let auto-polling pick up server updates
     } catch (error) {
-      console.error('Failed to regenerate motion:', error);
-
       if (isInsufficientCreditsError(error)) {
         showFalGate();
         void queryClient.invalidateQueries({
           queryKey: [...BILLING_BALANCE_KEY],
+        });
+      } else {
+        toast.error('Motion generation failed', {
+          description: error instanceof Error ? error.message : 'Unknown error',
         });
       }
 
@@ -526,8 +532,9 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
         model: selectedImageModel,
       });
     } catch (error) {
-      console.error('Failed to generate scene variants:', error);
-      // Error handling is done by the mutation hook
+      toast.error('Scene variants generation failed', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }, [frame, generateVariants, selectedImageModel, onRegenerateStart]);
 
@@ -541,11 +548,9 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
           variantIndex: index,
         });
       } catch (error) {
-        console.error(
-          'Failed to select variant:',
-          error instanceof Error ? error.message : error
-        );
-        // Error handling is done by the mutation hook
+        toast.error('Failed to select variant', {
+          description: error instanceof Error ? error.message : 'Unknown error',
+        });
       }
     },
     [frame, selectVariant]
@@ -693,7 +698,6 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
               artifact="visual-prompt"
               entityType="frame"
               density="corner-dot"
-              onRegenerate={() => regeneratePromptMutation.mutate('visual')}
               isRegenerating={isRegeneratingVisualPrompt}
             />
           )}
@@ -705,7 +709,6 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
               artifact="motion-prompt"
               entityType="frame"
               density="corner-dot"
-              onRegenerate={() => regeneratePromptMutation.mutate('motion')}
               isRegenerating={isRegeneratingMotionPrompt}
             />
           )}
@@ -816,15 +819,12 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
             />
           )}
 
-          {/* Divergent alternate / staleness banners (issue #625) */}
           {divergentImageVariant && (
             <DivergentAlternateBanner
               variantId={divergentImageVariant.id}
               artifact="thumbnail"
               entityType="frame"
               onCompare={() => onCompareDivergent?.(divergentImageVariant)}
-              onPromote={() => onCompareDivergent?.(divergentImageVariant)}
-              onDiscard={() => onCompareDivergent?.(divergentImageVariant)}
             />
           )}
 
@@ -976,15 +976,12 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
             />
           )}
 
-          {/* Divergent alternate banner for video variant */}
           {divergentVideoVariant && (
             <DivergentAlternateBanner
               variantId={divergentVideoVariant.id}
               artifact="video"
               entityType="frame"
               onCompare={() => onCompareDivergent?.(divergentVideoVariant)}
-              onPromote={() => onCompareDivergent?.(divergentVideoVariant)}
-              onDiscard={() => onCompareDivergent?.(divergentVideoVariant)}
             />
           )}
 

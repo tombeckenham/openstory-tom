@@ -73,8 +73,16 @@ export const FrameStalenessBanners: React.FC<FrameStalenessBannersProps> = ({
         artifact="thumbnail"
         entityType="frame"
         onCompare={() => onCompareDivergent?.(latestDivergent.id)}
-        onPromote={() => onPromoteDivergent?.(latestDivergent.id)}
-        onDiscard={() => onDiscardDivergent?.(latestDivergent.id)}
+        onPromote={
+          onPromoteDivergent
+            ? () => onPromoteDivergent(latestDivergent.id)
+            : undefined
+        }
+        onDiscard={
+          onDiscardDivergent
+            ? () => onDiscardDivergent(latestDivergent.id)
+            : undefined
+        }
       />
     );
   }

@@ -1,10 +1,3 @@
-/**
- * Build the upstream context that prompt-input hashes are derived from. Used
- * by the staleness server fns and the regenerate-prompt actions so the live
- * recompute sees the same DTO shape as `visual-prompt-scene` /
- * `motion-prompt-scene` / `music-prompt` workflows.
- */
-
 import {
   charactersToBible,
   sequenceElementsToBible,

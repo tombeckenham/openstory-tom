@@ -360,10 +360,6 @@ function sortedBibles(input: PromptSceneContextHashInput) {
  * the stored hash is null, so the matching deploy step should null the
  * `*_prompt_input_hash` columns on `frames` / `sequences` so legacy rows
  * fall through that safe path until they're regenerated.
- *
- * Version history:
- *   v1 — initial; bibles passed in DB readback order (non-deterministic).
- *   v2 — bibles sorted by identity field inside `sortedBibles`.
  */
 const PROMPT_INPUT_HASH_VERSION = 2;
 

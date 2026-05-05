@@ -161,6 +161,16 @@ export const MusicView: React.FC<MusicViewProps> = ({
   );
   const [historyOpen, setHistoryOpen] = useState(false);
 
+  // Resync the textarea when the source-of-truth musicPrompt changes from
+  // outside (regenerate, restore, realtime update). Without this, a successful
+  // regenerate updates `sequence.musicPrompt` but the textarea keeps showing
+  // the user's stale value.
+  const prevMusicPromptRef = useRef(musicPrompt);
+  if (musicPrompt !== prevMusicPromptRef.current) {
+    prevMusicPromptRef.current = musicPrompt;
+    setEditPrompt(musicPrompt ?? '');
+  }
+
   const stalenessBanner =
     isMusicPromptStale && onRegenerateMusicPrompt ? (
       <StalenessIndicator

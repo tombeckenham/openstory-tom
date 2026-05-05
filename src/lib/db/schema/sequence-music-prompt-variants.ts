@@ -74,10 +74,14 @@ export const sequenceMusicPromptVariants = sqliteTable(
     ),
     // Idempotency: a workflow retry that re-emits the same AI prompt for the
     // same upstream context must not create a duplicate row. User-edits and
-    // legacy rows have null `input_hash` and are excluded from the constraint.
-    uniqueIndex('uq_sequence_music_prompt_variants_sequence_input_hash')
+    // legacy rows have null `input_hash` and are excluded; `source = 'restored'`
+    // is also excluded so restoring an existing AI hash still appends an audit
+    // row to history.
+    uniqueIndex('uq_sequence_music_prompt_variants_sequence_hash_ai')
       .on(table.sequenceId, table.inputHash)
-      .where(sql`${table.inputHash} IS NOT NULL`),
+      .where(
+        sql`${table.inputHash} IS NOT NULL AND ${table.source} != 'restored'`
+      ),
   ]
 );
 

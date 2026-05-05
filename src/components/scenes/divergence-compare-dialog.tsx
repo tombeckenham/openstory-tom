@@ -28,15 +28,9 @@ type DivergenceCompareDialogProps = {
   onDiscard: () => void;
   isPromoting?: boolean;
   isDiscarding?: boolean;
-  /**
-   * Optional list of upstream entity changes between the snapshot and live
-   * inputs. Stage 1 surfaces this as a flat string list.
-   */
+  /** Optional list of upstream entity changes between the snapshot and live inputs. */
   upstreamChanges?: string[];
-  /**
-   * Optional field-level prompt diff (stage 4). Renders a word-level diff
-   * panel when the divergence is prompt-driven.
-   */
+  /** Optional field-level prompt diff — rendered as a word-level diff panel. */
   promptDiff?: DivergencePromptDiff;
 };
 

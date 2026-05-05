@@ -1,0 +1,88 @@
+import type { Scene } from '@/lib/ai/scene-analysis.schema';
+import { describe, expect, it } from 'bun:test';
+import { buildMusicSceneSummaries } from './music-scene-summaries';
+
+const baseMetadata: NonNullable<Scene['metadata']> = {
+  title: 'Title',
+  storyBeat: 'Beat',
+  durationSeconds: 8,
+  location: 'Location',
+  timeOfDay: 'day',
+};
+
+const sceneWithMetadata = (
+  overrides: Partial<Scene> = {},
+  metadataOverrides: Partial<NonNullable<Scene['metadata']>> = {}
+): Scene =>
+  ({
+    sceneId: 's1',
+    sceneNumber: 1,
+    originalScript: { extract: '', lineNumber: 1, dialogue: '' },
+    metadata: { ...baseMetadata, ...metadataOverrides },
+    ...overrides,
+  }) as Scene;
+
+describe('buildMusicSceneSummaries', () => {
+  it('throws with sceneId in the message when a scene is missing metadata', () => {
+    // The throw is the safety contract: silently defaulting to "Untitled Scene"
+    // would hash-alias corrupt scenes with real ones, keeping the music
+    // prompt's input_hash matching after upstream metadata went missing.
+    const broken = { sceneId: 'scene-broken' } as unknown as Scene;
+    expect(() => buildMusicSceneSummaries([broken])).toThrow(/scene-broken/);
+  });
+
+  it('propagates every metadata field verbatim', () => {
+    const scene = sceneWithMetadata(
+      {},
+      {
+        title: 'Pickup',
+        storyBeat: 'inciting',
+        durationSeconds: 12,
+        location: 'rooftop',
+        timeOfDay: 'night',
+      }
+    );
+
+    const [summary] = buildMusicSceneSummaries([scene]);
+
+    expect(summary).toEqual({
+      sceneId: 's1',
+      title: 'Pickup',
+      storyBeat: 'inciting',
+      durationSeconds: 12,
+      location: 'rooftop',
+      timeOfDay: 'night',
+      visualSummary: '',
+    });
+  });
+
+  it('falls back to empty string for visualSummary when prompts.visual is absent', () => {
+    const scene = sceneWithMetadata();
+    const [summary] = buildMusicSceneSummaries([scene]);
+    expect(summary.visualSummary).toBe('');
+  });
+
+  it('uses prompts.visual.components.atmosphere when present', () => {
+    const scene = sceneWithMetadata({
+      prompts: {
+        visual: {
+          fullPrompt: 'full',
+          negativePrompt: '',
+          components: {
+            sceneDescription: '',
+            subject: '',
+            lighting: '',
+            camera: '',
+            composition: '',
+            style: '',
+            technical: '',
+            atmosphere: 'tense corporate',
+          },
+        },
+      },
+    } as Partial<Scene>);
+
+    const [summary] = buildMusicSceneSummaries([scene]);
+    expect(summary.visualSummary).toBe('tense corporate');
+  });
+});

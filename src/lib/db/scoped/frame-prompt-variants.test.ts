@@ -396,6 +396,20 @@ describe('frame_prompt_variants helper', () => {
       analysisModel: original.analysisModel,
     });
     expect(restored.inputHash).toBe('context-hash-1');
+    // Restore must append a NEW history row, not silently return the source
+    // AI row when its hash is still unique on the frame. The previous unique
+    // index keyed on (frame, type, input_hash) collapsed restore-of-existing-
+    // hash into onConflictDoNothing, dropping the audit row.
+    expect(restored.id).not.toBe(original.id);
+    expect(restored.source).toBe('restored');
+
+    const history = await methods.listByFrame(frameId, 'visual');
+    expect(history).toHaveLength(3);
+    expect(history.map((r) => r.source)).toEqual([
+      'restored',
+      'user-edit',
+      'ai-generated',
+    ]);
 
     const [refreshed] = await db
       .select()
@@ -403,6 +417,39 @@ describe('frame_prompt_variants helper', () => {
       .where(eq(frames.id, frameId));
     expect(refreshed.imagePrompt).toBe('AI prompt v1');
     expect(refreshed.visualPromptInputHash).toBe('context-hash-1');
+  });
+
+  it('restoring an AI prompt that is currently live still appends a restored row (audit trail)', async () => {
+    // Without the partial-index `source != 'restored'` exclusion, this case
+    // hit onConflictDoNothing and silently returned the original AI row.
+    const methods = createFramePromptVariantsMethods(asDatabase(db));
+
+    const original = await methods.write({
+      frameId,
+      promptType: 'visual',
+      text: 'AI prompt v1',
+      source: 'ai-generated',
+      inputHash: 'context-hash-1',
+      analysisModel: 'anthropic/claude-haiku-4.5',
+    });
+
+    const restored = await methods.write({
+      frameId,
+      promptType: 'visual',
+      text: original.text,
+      components: original.components,
+      parameters: original.parameters,
+      source: 'restored',
+      inputHash: original.inputHash,
+      analysisModel: original.analysisModel,
+    });
+
+    expect(restored.id).not.toBe(original.id);
+    expect(restored.source).toBe('restored');
+    expect(restored.inputHash).toBe('context-hash-1');
+
+    const history = await methods.listByFrame(frameId, 'visual');
+    expect(history).toHaveLength(2);
   });
 
   it('restored row from a user-edit source carries null hash (no staleness opinion to forward)', async () => {
@@ -620,6 +667,18 @@ describe('sequence_music_prompt_variants helper', () => {
       analysisModel: original.analysisModel,
     });
     expect(restored.inputHash).toBe('music-hash-v1');
+    // Restore must append a new audit row even when the source AI hash is
+    // still unique on the sequence.
+    expect(restored.id).not.toBe(original.id);
+    expect(restored.source).toBe('restored');
+
+    const history = await methods.listBySequence(sequenceId);
+    expect(history).toHaveLength(3);
+    expect(history.map((r) => r.source)).toEqual([
+      'restored',
+      'user-edit',
+      'ai-generated',
+    ]);
 
     const [refreshed] = await db
       .select()

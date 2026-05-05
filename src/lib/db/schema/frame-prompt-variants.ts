@@ -97,10 +97,14 @@ export const framePromptVariants = sqliteTable(
     ),
     // Idempotency: a workflow retry that re-emits the same AI prompt for the
     // same upstream context must not create a duplicate row. User-edits and
-    // legacy rows have null `input_hash` and are excluded from the constraint.
-    uniqueIndex('uq_frame_prompt_variants_frame_type_input_hash')
+    // legacy rows have null `input_hash` and are excluded; `source = 'restored'`
+    // is also excluded so a restore that carries forward an existing AI hash
+    // still appends an audit row to history.
+    uniqueIndex('uq_frame_prompt_variants_frame_type_hash_ai')
       .on(table.frameId, table.promptType, table.inputHash)
-      .where(sql`${table.inputHash} IS NOT NULL`),
+      .where(
+        sql`${table.inputHash} IS NOT NULL AND ${table.source} != 'restored'`
+      ),
   ]
 );
 

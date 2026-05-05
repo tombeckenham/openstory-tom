@@ -394,35 +394,51 @@ export const getFrameStalenessFn = createServerFn({ method: 'GET' })
     let motionPrompt: 'stale' | 'fresh' | 'untracked' = 'untracked';
 
     if (frame.metadata && frame.visualPromptInputHash) {
-      const latest = await scopedDb.framePromptVariants.getLatest(
-        frame.id,
-        'visual'
-      );
-      const ctx = await loadFramePromptContext({
-        scopedDb,
-        sequence,
-        scene: frame.metadata,
-        analysisModelOverride: latest?.analysisModel ?? null,
-      });
-      const liveHash = await computeVisualPromptInputHash(ctx);
-      visualPrompt =
-        liveHash !== frame.visualPromptInputHash ? 'stale' : 'fresh';
+      try {
+        const latest = await scopedDb.framePromptVariants.getLatest(
+          frame.id,
+          'visual'
+        );
+        const ctx = await loadFramePromptContext({
+          scopedDb,
+          sequence,
+          scene: frame.metadata,
+          analysisModelOverride: latest?.analysisModel ?? null,
+        });
+        const liveHash = await computeVisualPromptInputHash(ctx);
+        visualPrompt =
+          liveHash !== frame.visualPromptInputHash ? 'stale' : 'fresh';
+      } catch (error) {
+        // Context unavailable (e.g., style deleted mid-flight). Stay
+        // 'untracked' — fail-open as 'fresh' would silently lie to the user.
+        console.warn(
+          `[getFrameStalenessFn] visual staleness uncomputable for frame ${frame.id}:`,
+          error
+        );
+      }
     }
 
     if (frame.metadata && frame.motionPromptInputHash) {
-      const latest = await scopedDb.framePromptVariants.getLatest(
-        frame.id,
-        'motion'
-      );
-      const ctx = await loadFramePromptContext({
-        scopedDb,
-        sequence,
-        scene: frame.metadata,
-        analysisModelOverride: latest?.analysisModel ?? null,
-      });
-      const liveHash = await computeMotionPromptInputHash(ctx);
-      motionPrompt =
-        liveHash !== frame.motionPromptInputHash ? 'stale' : 'fresh';
+      try {
+        const latest = await scopedDb.framePromptVariants.getLatest(
+          frame.id,
+          'motion'
+        );
+        const ctx = await loadFramePromptContext({
+          scopedDb,
+          sequence,
+          scene: frame.metadata,
+          analysisModelOverride: latest?.analysisModel ?? null,
+        });
+        const liveHash = await computeMotionPromptInputHash(ctx);
+        motionPrompt =
+          liveHash !== frame.motionPromptInputHash ? 'stale' : 'fresh';
+      } catch (error) {
+        console.warn(
+          `[getFrameStalenessFn] motion staleness uncomputable for frame ${frame.id}:`,
+          error
+        );
+      }
     }
 
     return { thumbnail, visualPrompt, motionPrompt };

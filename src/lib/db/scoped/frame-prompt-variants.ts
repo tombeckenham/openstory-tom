@@ -103,8 +103,6 @@ export function createFramePromptVariantsMethods(db: Database) {
       const nextHash = input.source === 'user-edit' ? null : input.inputHash;
       const analysisModel =
         input.source === 'user-edit' ? null : input.analysisModel;
-      // 'restored' may carry a null hash (when restoring a user-edit row);
-      // treat it like a user-edit for the conflict-recovery select fallback.
 
       // Append first so a crash can't leave a stale pointer with no row
       // behind it. The reverse order would be unrecoverable.

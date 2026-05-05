@@ -21,9 +21,8 @@ export const frameStalenessKey = (frameId: string | undefined) =>
   ['frame-staleness', frameId] as const;
 
 /**
- * Single source of truth for a frame's per-artifact staleness flags. Shared
- * by `<FrameStalenessBanners>` and the tab-label dot in
- * `<SceneScriptPrompts>` so both cache hits land on the same query.
+ * Shared query for frame staleness — consumers must use this hook rather
+ * than an inline `useQuery` so cache invalidation hits one entry.
  */
 export function useFrameStaleness(args: {
   sequenceId: string;

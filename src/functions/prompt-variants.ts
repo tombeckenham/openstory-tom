@@ -1,13 +1,3 @@
-/**
- * Stage 4 prompt history / restore / regenerate / staleness server fns.
- *
- * Reads `frame_prompt_variants` and `sequence_music_prompt_variants` for the
- * History UI, writes append-only `'user-edit'` rows for restore, triggers
- * the prompt-scene / music-prompt workflows for regenerate, and exposes a
- * music-prompt staleness check (visual / motion staleness lives on
- * `getFrameStalenessFn`).
- */
-
 import {
   computeMotionPromptInputHash,
   computeMusicPromptInputHash,
@@ -39,6 +29,35 @@ import { z } from 'zod';
 import { frameAccessMiddleware, sequenceAccessMiddleware } from './middleware';
 
 const promptTypeSchema = z.enum(FRAME_PROMPT_TYPES);
+
+/**
+ * Stable deduplication ID for frame-prompt regeneration. Workflow retries with
+ * the same upstream context must collapse to a single run, so this string
+ * cannot include timestamps or random suffixes.
+ */
+export function framePromptDedupId(
+  promptType: 'visual' | 'motion',
+  frameId: string,
+  liveHash: string
+): string {
+  return `prompt-${promptType}-${frameId}-${liveHash}`;
+}
+
+/** Stable deduplication ID for music-prompt regeneration — see above. */
+export function musicPromptDedupId(
+  sequenceId: string,
+  liveHash: string
+): string {
+  return `music-prompt-${sequenceId}-${liveHash}`;
+}
+
+/** True when a cached hash means there is no work for the regeneration to do. */
+export function isPromptUpToDate(
+  storedHash: string | null,
+  liveHash: string
+): boolean {
+  return storedHash !== null && storedHash === liveHash;
+}
 
 export type FramePromptVariantWithAuthor = FramePromptVariant & {
   createdByName: string | null;
@@ -83,15 +102,9 @@ export const listSequenceMusicPromptVariantsFn = createServerFn({
     }
   );
 
-// ---------------------------------------------------------------------------
-// Restore — append-only writes a new `'restored'` row using the chosen
-// variant's text + structured components + input hash. Carrying the hash
-// forward keeps staleness detection alive: restoring an old AI prompt would
-// otherwise null out the cached `*_prompt_input_hash` and the staleness check
-// short-circuits to "fresh" forever. The original variant row is never
-// mutated.
-// ---------------------------------------------------------------------------
-
+// Restore carries the source variant's input_hash forward so staleness keeps
+// tracking the upstream context — restoring an old AI prompt without the hash
+// would short-circuit the staleness check to "fresh" forever.
 const frameRestoreInput = z.object({
   sequenceId: ulidSchema,
   frameId: ulidSchema,
@@ -156,11 +169,6 @@ export const restoreSequenceMusicPromptVariantFn = createServerFn({
     return { variantId: inserted.id };
   });
 
-// ---------------------------------------------------------------------------
-// Regenerate — fires a workflow with the current upstream context. The
-// workflow lands a `'regenerated'` row with a populated `input_hash`.
-// ---------------------------------------------------------------------------
-
 const frameRegenerateInput = z.object({
   sequenceId: ulidSchema,
   frameId: ulidSchema,
@@ -194,7 +202,7 @@ export const regenerateFramePromptFn = createServerFn({ method: 'POST' })
       data.promptType === 'visual'
         ? frame.visualPromptInputHash
         : frame.motionPromptInputHash;
-    if (storedHash !== null && storedHash === liveHash) {
+    if (isPromptUpToDate(storedHash, liveHash)) {
       return { workflowRunId: null, alreadyUpToDate: true } as const;
     }
 
@@ -224,7 +232,7 @@ export const regenerateFramePromptFn = createServerFn({ method: 'POST' })
     // context collapses to one workflow run instead of N — `Date.now()` would
     // defeat the deduplication entirely.
     const workflowRunId = await triggerWorkflow(urlPath, baseInput, {
-      deduplicationId: `prompt-${data.promptType}-${frame.id}-${liveHash}`,
+      deduplicationId: framePromptDedupId(data.promptType, frame.id, liveHash),
       label: buildWorkflowLabel(sequence.id),
     });
 
@@ -260,10 +268,7 @@ export const regenerateMusicPromptFn = createServerFn({ method: 'POST' })
       sceneSummaries,
       analysisModel: analysisModelId,
     });
-    if (
-      sequence.musicPromptInputHash !== null &&
-      sequence.musicPromptInputHash === liveHash
-    ) {
+    if (isPromptUpToDate(sequence.musicPromptInputHash, liveHash)) {
       return { workflowRunId: null, alreadyUpToDate: true } as const;
     }
 
@@ -279,18 +284,13 @@ export const regenerateMusicPromptFn = createServerFn({ method: 'POST' })
       {
         // Dedup by the live input hash so a QStash retry of the same upstream
         // context collapses to one workflow run instead of N.
-        deduplicationId: `music-prompt-${sequence.id}-${liveHash}`,
+        deduplicationId: musicPromptDedupId(sequence.id, liveHash),
         label: buildWorkflowLabel(sequence.id),
       }
     );
 
     return { workflowRunId, alreadyUpToDate: false } as const;
   });
-
-// ---------------------------------------------------------------------------
-// Music-prompt staleness — frame visual/motion staleness lives on
-// `getFrameStalenessFn`, but music is a sequence-level artifact.
-// ---------------------------------------------------------------------------
 
 export const getMusicPromptStalenessFn = createServerFn({ method: 'GET' })
   .middleware([sequenceAccessMiddleware])
@@ -305,45 +305,49 @@ export const getMusicPromptStalenessFn = createServerFn({ method: 'GET' })
       return { musicPrompt: 'untracked' as const };
     }
 
-    const frames = await scopedDb.frames.listBySequence(sequence.id);
-    const scenes = frames
-      .map((f) => f.metadata)
-      .filter((m): m is NonNullable<typeof m> => m !== null);
-    if (scenes.length === 0) {
+    try {
+      const frames = await scopedDb.frames.listBySequence(sequence.id);
+      const scenes = frames
+        .map((f) => f.metadata)
+        .filter((m): m is NonNullable<typeof m> => m !== null);
+      if (scenes.length === 0) {
+        return { musicPrompt: 'untracked' as const };
+      }
+      const sceneSummaries = buildMusicSceneSummaries(scenes);
+
+      const latest = await scopedDb.sequenceMusicPromptVariants.getLatest(
+        sequence.id
+      );
+      const analysisModel =
+        latest?.analysisModel ??
+        getAnalysisModelById(sequence.analysisModel)?.id ??
+        DEFAULT_ANALYSIS_MODEL;
+
+      const liveHash = await computeMusicPromptInputHash({
+        sceneSummaries,
+        analysisModel,
+      });
+
+      return {
+        musicPrompt:
+          liveHash !== sequence.musicPromptInputHash
+            ? ('stale' as const)
+            : ('fresh' as const),
+      };
+    } catch (error) {
+      // Hash uncomputable (e.g., scene metadata missing a required field).
+      // Surface as untracked so the UI doesn't lie about freshness.
+      console.warn(
+        `[getMusicPromptStalenessFn] uncomputable for sequence ${sequence.id}:`,
+        error
+      );
       return { musicPrompt: 'untracked' as const };
     }
-    const sceneSummaries = buildMusicSceneSummaries(scenes);
-
-    const latest = await scopedDb.sequenceMusicPromptVariants.getLatest(
-      sequence.id
-    );
-    const analysisModel =
-      latest?.analysisModel ??
-      getAnalysisModelById(sequence.analysisModel)?.id ??
-      DEFAULT_ANALYSIS_MODEL;
-
-    const liveHash = await computeMusicPromptInputHash({
-      sceneSummaries,
-      analysisModel,
-    });
-
-    return {
-      musicPrompt:
-        liveHash !== sequence.musicPromptInputHash
-          ? ('stale' as const)
-          : ('fresh' as const),
-    };
   });
 
-// ---------------------------------------------------------------------------
-// Field-level prompt diff for the divergence compare dialog.
-//
-// The variant carries `promptHash` (`simpleHash` of the prompt text); we look
-// up the prompt-variants row whose `text` hashes to the same value and that
-// was current at the variant's `createdAt`. Compared to the live cached
-// prompt, that's the field-level diff for the divergence.
-// ---------------------------------------------------------------------------
-
+// Variant `promptHash` is `simpleHash(text)` (32-bit, non-crypto). We match
+// against prompt-variant rows that existed at or before the variant's
+// `createdAt` to recover the prompt that produced it.
 const variantPromptDiffInput = z.object({
   sequenceId: ulidSchema,
   variantId: ulidSchema,
@@ -364,7 +368,14 @@ export const getDivergentVariantPromptDiffFn = createServerFn({
     const variant = await context.scopedDb.frameVariants.getById(
       data.variantId
     );
-    if (!variant || variant.sequenceId !== data.sequenceId) return null;
+    if (!variant) return null;
+    // Auth boundary: don't silently collapse cross-sequence access into a
+    // 'no diff' return — that would mask an authorization bug.
+    if (variant.sequenceId !== data.sequenceId) {
+      throw new Error('Variant does not belong to this sequence');
+    }
+    // No diff to render: legacy variant without a prompt snapshot, or audio
+    // variants which have no field-level prompt diff.
     if (!variant.promptHash) return null;
     if (variant.variantType === 'audio') return null;
 
@@ -379,12 +390,26 @@ export const getDivergentVariantPromptDiffFn = createServerFn({
     const matched = candidates.find(
       (c) => simpleHash(c.text) === variant.promptHash
     );
-    if (!matched) return null;
+    if (!matched) {
+      // Hash chain broken — the prompt that produced this variant has been
+      // pruned or never recorded. Log so operations notices history loss
+      // instead of silently rendering an empty diff dialog.
+      console.warn(
+        `[getDivergentVariantPromptDiffFn] no candidate prompt matched ${variant.id}`
+      );
+      return null;
+    }
 
     const [frameRow] = await context.scopedDb.frames.getByIds([
       variant.frameId,
     ]);
-    if (!frameRow) return null;
+    if (!frameRow) {
+      // FK invariant violation — variant references a frame that no longer
+      // exists.
+      throw new Error(
+        `Frame ${variant.frameId} missing for variant ${variant.id}`
+      );
+    }
     const live =
       promptType === 'visual' ? frameRow.imagePrompt : frameRow.motionPrompt;
     if (!live) return null;

@@ -72,6 +72,7 @@ type PartialSequence = {
   styleId: string | null;
   videoModel: string;
   aspectRatio: AspectRatio;
+  analysisModel: string;
 };
 
 export type FrameContext = TeamContext & {

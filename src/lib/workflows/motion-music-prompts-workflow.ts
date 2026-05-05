@@ -14,9 +14,9 @@ import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
 import type {
   MotionMusicPromptsWorkflowInput,
   MotionMusicPromptsWorkflowResult,
-  MusicSceneSummary,
 } from '@/lib/workflow/types';
 import { reinforceInstrumentalTags } from '../prompts/music-prompt';
+import { buildMusicSceneSummaries } from './music-scene-summaries';
 import { motionPromptWorkflow } from './motion-prompt-workflow';
 import { generateMusicPromptWorflow } from './music-prompt-workflow';
 
@@ -65,17 +65,7 @@ export const motionMusicPromptsWorkflow = createScopedWorkflow<
     );
 
     // Build scene summaries for music design (uses snapped durations)
-    const sceneSummaries: MusicSceneSummary[] = scenesWithSnappedDurations.map(
-      (scene) => ({
-        sceneId: scene.sceneId,
-        title: scene.metadata?.title || 'Untitled Scene',
-        storyBeat: scene.metadata?.storyBeat || '',
-        durationSeconds: scene.metadata?.durationSeconds || 5,
-        location: scene.metadata?.location || '',
-        timeOfDay: scene.metadata?.timeOfDay || '',
-        visualSummary: scene.prompts?.visual?.components.atmosphere || '',
-      })
-    );
+    const sceneSummaries = buildMusicSceneSummaries(scenesWithSnappedDurations);
 
     // Run motion prompts and music design in parallel
     const [motionPromptsResults, musicDesignResult] = await Promise.all([

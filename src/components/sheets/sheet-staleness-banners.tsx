@@ -68,11 +68,20 @@ export const SheetStalenessBanners: React.FC<SheetStalenessBannersProps> = ({
   }
 
   if (isStale && onRegenerate) {
-    return (
+    // corner-dot is a non-interactive presentational signal; the inline
+    // banner carries the regenerate action.
+    return density === 'corner-dot' ? (
       <StalenessIndicator
         artifact="sheet"
         entityType={entityType}
-        density={density}
+        density="corner-dot"
+        className={className}
+      />
+    ) : (
+      <StalenessIndicator
+        artifact="sheet"
+        entityType={entityType}
+        density="inline"
         onRegenerate={onRegenerate}
         className={className}
       />

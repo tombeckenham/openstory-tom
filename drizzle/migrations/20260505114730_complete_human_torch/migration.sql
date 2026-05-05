@@ -1,0 +1,4 @@
+DROP INDEX IF EXISTS `uq_frame_prompt_variants_frame_type_input_hash`;--> statement-breakpoint
+DROP INDEX IF EXISTS `uq_sequence_music_prompt_variants_sequence_input_hash`;--> statement-breakpoint
+CREATE UNIQUE INDEX `uq_frame_prompt_variants_frame_type_hash_ai` ON `frame_prompt_variants` (`frame_id`,`prompt_type`,`input_hash`) WHERE "frame_prompt_variants"."input_hash" IS NOT NULL AND "frame_prompt_variants"."source" != 'restored';--> statement-breakpoint
+CREATE UNIQUE INDEX `uq_sequence_music_prompt_variants_sequence_hash_ai` ON `sequence_music_prompt_variants` (`sequence_id`,`input_hash`) WHERE "sequence_music_prompt_variants"."input_hash" IS NOT NULL AND "sequence_music_prompt_variants"."source" != 'restored';

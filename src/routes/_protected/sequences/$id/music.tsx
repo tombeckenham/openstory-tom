@@ -1,6 +1,10 @@
 import { MusicView, MusicViewSkeleton } from '@/components/music/music-view';
 import { SequenceVariantCompareDialog } from '@/components/sequence/sequence-variant-compare-dialog';
 import { DivergentAlternateBanner } from '@/components/staleness/divergent-alternate-banner';
+import {
+  getMusicPromptStalenessFn,
+  regenerateMusicPromptFn,
+} from '@/functions/prompt-variants';
 import { generateMusicFn, mergeVideoAndMusicFn } from '@/functions/sequences';
 import { useFramesBySequence } from '@/hooks/use-frames';
 import { useSequence, sequenceKeys } from '@/hooks/use-sequences';
@@ -15,7 +19,7 @@ import { useGenerationStream } from '@/lib/realtime/use-generation-stream';
 import { useSequenceStaleDetected } from '@/lib/realtime/use-sequence-stale-detected';
 import { usePostHog } from '@posthog/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import type { Sequence } from '@/types/database';
@@ -189,6 +193,36 @@ function MusicPage() {
     />
   ) : null;
 
+  const musicPromptStalenessKey = [
+    'music-prompt-staleness',
+    sequenceId,
+  ] as const;
+  const { data: musicPromptStaleness } = useQuery({
+    queryKey: musicPromptStalenessKey,
+    queryFn: () => getMusicPromptStalenessFn({ data: { sequenceId } }),
+    staleTime: 30_000,
+  });
+
+  const regenerateMusicPrompt = useMutation({
+    mutationFn: () => regenerateMusicPromptFn({ data: { sequenceId } }),
+    onSuccess: async (result) => {
+      if (result.alreadyUpToDate) {
+        toast.info('Music prompt is already up to date');
+      }
+      await queryClient.invalidateQueries({
+        queryKey: musicPromptStalenessKey,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: sequenceKeys.detail(sequenceId),
+      });
+    },
+    onError: (error) => {
+      toast.error('Music prompt regenerate failed', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    },
+  });
+
   if (isLoading || !sequence) {
     return (
       <div className="flex-1 p-4">
@@ -210,6 +244,9 @@ function MusicPage() {
           onMergeVideoAndMusic={() => mergeVideoAndMusic.mutate()}
           isMergingVideoAndMusic={mergeVideoAndMusic.isPending}
           divergentBanner={divergentBanner}
+          isMusicPromptStale={musicPromptStaleness?.musicPrompt === 'stale'}
+          onRegenerateMusicPrompt={() => regenerateMusicPrompt.mutate()}
+          isRegeneratingMusicPrompt={regenerateMusicPrompt.isPending}
         />
       </div>
       {compareVariant && (

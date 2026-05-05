@@ -1,4 +1,9 @@
 import { DEFAULT_IMAGE_MODEL, safeTextToImageModel } from '@/lib/ai/models';
+import {
+  computeMotionPromptInputHash,
+  computeVisualPromptInputHash,
+} from '@/lib/ai/input-hash';
+import { loadFramePromptContext } from '@/lib/ai/prompt-context';
 import type { FrameVariant, NewFrame } from '@/lib/db/schema';
 import { getGenerationChannel } from '@/lib/realtime';
 import { getVideoDownloadUrl } from '@/lib/motion/video-storage';
@@ -339,16 +344,18 @@ export const reorderFramesFn = createServerFn({ method: 'POST' })
   });
 
 /**
- * Returns staleness flags for a frame's artifacts. Stage 1 covers `thumbnail`
- * only — that's the artifact whose input hash actually flows through the
- * snapshot pipeline today. Other artifacts return `null` (= "unknown") so the
- * UI can render them defensively without us pretending they're up to date.
+ * Returns staleness state for a frame's artifacts. Covers the rendered
+ * thumbnail plus the visual / motion prompts (stage 4). Each value is
+ * computed by re-deriving the current input hash from live scoped state and
+ * comparing it to the stored `*_input_hash` via the scoped helper.
  *
- * Computed by re-deriving the current input hash from live scoped state and
- * comparing it to the stored `thumbnail_input_hash` via the scoped helper.
- * A null stored hash means "legacy artifact, no opinion" — the helper returns
- * false, which is the correct UX (don't push regenerate on something we never
- * tracked inputs for).
+ * Three states per artifact:
+ *   - `'stale'`     — stored hash diverges from the freshly computed one.
+ *   - `'fresh'`     — stored hash matches.
+ *   - `'untracked'` — no stored hash (legacy artifact, or never generated).
+ *                     Distinct from `'fresh'` so the UI can suppress the
+ *                     regenerate prompt without lying about the artifact's
+ *                     freshness.
  */
 export const getFrameStalenessFn = createServerFn({ method: 'GET' })
   .middleware([frameAccessMiddleware])
@@ -356,30 +363,85 @@ export const getFrameStalenessFn = createServerFn({ method: 'GET' })
   .handler(async ({ context }) => {
     const { frame, sequence, scopedDb } = context;
 
-    if (!frame.imagePrompt) {
-      return { thumbnail: false };
+    let thumbnail: 'stale' | 'fresh' | 'untracked' = 'untracked';
+    if (frame.imagePrompt) {
+      const [characters, locations] = await Promise.all([
+        scopedDb.characters.listWithSheets(sequence.id),
+        scopedDb.sequenceLocations.listWithReferences(sequence.id),
+      ]);
+
+      const snapshot = await buildRegenerateFrameSnapshot({
+        frame,
+        characters,
+        locations,
+        imageModel: safeTextToImageModel(frame.imageModel, DEFAULT_IMAGE_MODEL),
+        aspectRatio: sequence.aspectRatio,
+      });
+
+      // `isStale` returns false for both "fresh" and "no stored hash" — the
+      // imagePrompt-present check above narrows it to "fresh" when isStale
+      // returns false.
+      thumbnail = (await scopedDb.frames.isStale(
+        frame.id,
+        'thumbnail',
+        snapshot.snapshotInputHash
+      ))
+        ? 'stale'
+        : 'fresh';
     }
 
-    const [characters, locations] = await Promise.all([
-      scopedDb.characters.listWithSheets(sequence.id),
-      scopedDb.sequenceLocations.listWithReferences(sequence.id),
-    ]);
+    let visualPrompt: 'stale' | 'fresh' | 'untracked' = 'untracked';
+    let motionPrompt: 'stale' | 'fresh' | 'untracked' = 'untracked';
 
-    const snapshot = await buildRegenerateFrameSnapshot({
-      frame,
-      characters,
-      locations,
-      imageModel: safeTextToImageModel(frame.imageModel, DEFAULT_IMAGE_MODEL),
-      aspectRatio: sequence.aspectRatio,
-    });
+    if (frame.metadata && frame.visualPromptInputHash) {
+      try {
+        const latest = await scopedDb.framePromptVariants.getLatest(
+          frame.id,
+          'visual'
+        );
+        const ctx = await loadFramePromptContext({
+          scopedDb,
+          sequence,
+          scene: frame.metadata,
+          analysisModelOverride: latest?.analysisModel ?? null,
+        });
+        const liveHash = await computeVisualPromptInputHash(ctx);
+        visualPrompt =
+          liveHash !== frame.visualPromptInputHash ? 'stale' : 'fresh';
+      } catch (error) {
+        // Context unavailable (e.g., style deleted mid-flight). Stay
+        // 'untracked' — fail-open as 'fresh' would silently lie to the user.
+        console.warn(
+          `[getFrameStalenessFn] visual staleness uncomputable for frame ${frame.id}:`,
+          error
+        );
+      }
+    }
 
-    const thumbnail = await scopedDb.frames.isStale(
-      frame.id,
-      'thumbnail',
-      snapshot.snapshotInputHash
-    );
+    if (frame.metadata && frame.motionPromptInputHash) {
+      try {
+        const latest = await scopedDb.framePromptVariants.getLatest(
+          frame.id,
+          'motion'
+        );
+        const ctx = await loadFramePromptContext({
+          scopedDb,
+          sequence,
+          scene: frame.metadata,
+          analysisModelOverride: latest?.analysisModel ?? null,
+        });
+        const liveHash = await computeMotionPromptInputHash(ctx);
+        motionPrompt =
+          liveHash !== frame.motionPromptInputHash ? 'stale' : 'fresh';
+      } catch (error) {
+        console.warn(
+          `[getFrameStalenessFn] motion staleness uncomputable for frame ${frame.id}:`,
+          error
+        );
+      }
+    }
 
-    return { thumbnail };
+    return { thumbnail, visualPrompt, motionPrompt };
   });
 
 /**

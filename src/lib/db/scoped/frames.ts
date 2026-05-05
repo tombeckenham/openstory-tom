@@ -19,6 +19,7 @@ type FrameWithSequence = Frame & {
     | 'styleId'
     | 'videoModel'
     | 'aspectRatio'
+    | 'analysisModel'
   >;
 };
 
@@ -252,6 +253,7 @@ export function createFramesMethods(db: Database) {
               styleId: true,
               videoModel: true,
               aspectRatio: true,
+              analysisModel: true,
             },
           },
         },

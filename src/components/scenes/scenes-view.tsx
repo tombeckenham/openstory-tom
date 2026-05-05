@@ -22,6 +22,7 @@ import {
 } from '@/hooks/use-frames';
 import { useStaleDetected } from '@/lib/realtime/use-stale-detected';
 import { DivergenceCompareDialog } from '@/components/scenes/divergence-compare-dialog';
+import { getDivergentVariantPromptDiffFn } from '@/functions/prompt-variants';
 import { sequenceKeys, useSequence } from '@/hooks/use-sequences';
 import { useStyle } from '@/hooks/use-styles';
 import { safeTextToImageModel, DEFAULT_IMAGE_MODEL } from '@/lib/ai/models';
@@ -43,6 +44,50 @@ import { toast } from 'sonner';
 
 type ScenesViewProps = {
   sequenceId: string;
+};
+
+const CompareWithPromptDiff: React.FC<{
+  sequenceId: string;
+  frame: Frame;
+  variant: FrameVariant;
+  onClose: () => void;
+  onPromote: () => void;
+  onDiscard: () => void;
+  isPromoting: boolean;
+  isDiscarding: boolean;
+}> = ({
+  sequenceId,
+  frame,
+  variant,
+  onClose,
+  onPromote,
+  onDiscard,
+  isPromoting,
+  isDiscarding,
+}) => {
+  const { data: promptDiff } = useQuery({
+    queryKey: ['variant-prompt-diff', sequenceId, variant.id],
+    queryFn: () =>
+      getDivergentVariantPromptDiffFn({
+        data: { sequenceId, variantId: variant.id },
+      }),
+    staleTime: 30_000,
+  });
+  return (
+    <DivergenceCompareDialog
+      open={true}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      frame={frame}
+      variant={variant}
+      onPromote={onPromote}
+      onDiscard={onDiscard}
+      isPromoting={isPromoting}
+      isDiscarding={isDiscarding}
+      promptDiff={promptDiff ?? undefined}
+    />
+  );
 };
 
 // Full class names required for Tailwind JIT to detect at build time
@@ -659,13 +704,11 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
           );
           if (!targetFrame) return null;
           return (
-            <DivergenceCompareDialog
-              open={true}
-              onOpenChange={(open) => {
-                if (!open) setCompareVariant(null);
-              }}
+            <CompareWithPromptDiff
+              sequenceId={sequenceId}
               frame={targetFrame}
               variant={compareVariant}
+              onClose={() => setCompareVariant(null)}
               onPromote={() => handlePromote(compareVariant)}
               onDiscard={() => handleDiscardWithUndo(compareVariant)}
               isPromoting={promoteVariant.isPending}

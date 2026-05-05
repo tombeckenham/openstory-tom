@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, Loader2, X } from 'lucide-react';
 import {
   Alert,
   AlertAction,
@@ -30,14 +30,30 @@ export type StalenessEntityType =
 
 export type StalenessIndicatorDensity = 'inline' | 'corner-dot';
 
-type StalenessIndicatorProps = {
+type StalenessIndicatorBaseProps = {
   artifact: StalenessArtifact;
   entityType: StalenessEntityType;
-  onRegenerate: () => void;
-  onDismiss?: () => void;
-  density?: StalenessIndicatorDensity;
+  /** Workflow currently in flight — disables the regenerate trigger and shows a spinner so rapid clicks don't enqueue duplicate runs. */
+  isRegenerating?: boolean;
   className?: string;
 };
+
+type StalenessIndicatorProps = StalenessIndicatorBaseProps &
+  (
+    | {
+        density?: 'inline';
+        onRegenerate: () => void;
+        onDismiss?: () => void;
+      }
+    | {
+        // Non-interactive: safe to nest inside other interactive parents
+        // (e.g. TabsTrigger). No regenerate handler — drive that from the
+        // tab body's inline banner instead.
+        density: 'corner-dot';
+        onRegenerate?: never;
+        onDismiss?: never;
+      }
+  );
 
 const ARTIFACT_LABEL: Record<StalenessArtifact, string> = {
   thumbnail: 'image',
@@ -51,49 +67,67 @@ const ARTIFACT_LABEL: Record<StalenessArtifact, string> = {
   music: 'music',
 };
 
-export const StalenessIndicator: React.FC<StalenessIndicatorProps> = ({
-  artifact,
-  entityType,
-  onRegenerate,
-  onDismiss,
-  density = 'inline',
-  className,
-}) => {
+export const StalenessIndicator: React.FC<StalenessIndicatorProps> = (
+  props
+) => {
+  const {
+    artifact,
+    entityType,
+    density = 'inline',
+    isRegenerating = false,
+    className,
+  } = props;
   const [dismissed, setDismissed] = useState(false);
 
   if (dismissed) return null;
 
-  const handleDismiss = () => {
-    setDismissed(true);
-    onDismiss?.();
-  };
-
   const ariaLabel = `Stale ${ARTIFACT_LABEL[artifact]} on this ${entityType} — inputs changed since it was generated`;
 
   if (density === 'corner-dot') {
+    // Non-interactive: corner-dot is a presentational signal that nests inside
+    // tab triggers and other interactive parents. Regeneration always happens
+    // from the tab body's inline banner where there's room for proper UX.
     return (
-      <button
-        type="button"
-        onClick={onRegenerate}
-        aria-label={ariaLabel}
-        title="Inputs changed — click to regenerate"
+      <span
+        role="img"
+        aria-label={
+          isRegenerating
+            ? `Regenerating ${ARTIFACT_LABEL[artifact]}…`
+            : ariaLabel
+        }
+        aria-busy={isRegenerating || undefined}
+        title={
+          isRegenerating ? 'Regenerating…' : 'Inputs changed since generation'
+        }
         data-slot="staleness-indicator-dot"
         data-artifact={artifact}
         data-entity-type={entityType}
         className={cn(
-          'group relative inline-flex h-6 w-6 items-center justify-center rounded-full',
-          'outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+          'inline-flex h-4 w-4 items-center justify-center',
           className
         )}
       >
-        <span
-          aria-hidden="true"
-          className="block h-2 w-2 rounded-full bg-amber-500 ring-2 ring-amber-500/30 transition-transform group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
-        />
-      </button>
+        {isRegenerating ? (
+          <Loader2
+            aria-hidden="true"
+            className="h-3 w-3 animate-spin text-amber-600 motion-reduce:animate-none"
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            className="block h-2 w-2 rounded-full bg-amber-500 ring-2 ring-amber-500/30"
+          />
+        )}
+      </span>
     );
   }
 
+  // Inline density.
+  const { onRegenerate, onDismiss } = props;
+  const handleDismiss = () => {
+    setDismissed(true);
+    onDismiss?.();
+  };
   return (
     <Alert
       data-slot="staleness-indicator"
@@ -116,8 +150,16 @@ export const StalenessIndicator: React.FC<StalenessIndicatorProps> = ({
           size="sm"
           variant="outline"
           onClick={onRegenerate}
+          disabled={isRegenerating}
+          aria-busy={isRegenerating}
         >
-          Regenerate
+          {isRegenerating && (
+            <Loader2
+              aria-hidden="true"
+              className="mr-2 h-3 w-3 animate-spin motion-reduce:animate-none"
+            />
+          )}
+          {isRegenerating ? 'Regenerating…' : 'Regenerate'}
         </Button>
         {onDismiss && (
           <Button

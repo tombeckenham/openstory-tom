@@ -12,7 +12,7 @@
  */
 
 import type { Database } from '@/lib/db/client';
-import { sequenceMusicPromptVariants, sequences } from '@/lib/db/schema';
+import { sequenceMusicPromptVariants, sequences, user } from '@/lib/db/schema';
 import type { SequenceMusicPromptVariant } from '@/lib/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 
@@ -29,6 +29,12 @@ type WriteSequenceMusicPromptVariantBase = {
  * `musicPromptInputHash` column on `sequences` is meaningless and staleness
  * detection silently breaks. User-edits forbid both fields so they cannot be
  * set by mistake.
+ *
+ * Restored rows carry the source variant's hash + analysisModel verbatim so
+ * the cached `musicPromptInputHash` column keeps tracking the upstream
+ * context that originally produced the prompt — restoring an old AI prompt
+ * must NOT silently disable staleness detection. Both fields can be null
+ * when the source is itself a user-edit (which never had a hash).
  */
 export type WriteSequenceMusicPromptVariantInput =
   WriteSequenceMusicPromptVariantBase &
@@ -42,6 +48,11 @@ export type WriteSequenceMusicPromptVariantInput =
           source: 'user-edit';
           inputHash?: never;
           analysisModel?: never;
+        }
+      | {
+          source: 'restored';
+          inputHash: string | null;
+          analysisModel: string | null;
         }
     );
 
@@ -129,6 +140,45 @@ export function createSequenceMusicPromptVariantsMethods(db: Database) {
         .from(sequenceMusicPromptVariants)
         .where(eq(sequenceMusicPromptVariants.sequenceId, sequenceId))
         .orderBy(desc(sequenceMusicPromptVariants.createdAt))
+        .limit(1);
+      return row ?? null;
+    },
+
+    /** History list for the UI — joins author name. Newest first. */
+    listBySequenceWithAuthor: async (
+      sequenceId: string
+    ): Promise<
+      Array<SequenceMusicPromptVariant & { createdByName: string | null }>
+    > => {
+      const rows = await db
+        .select({
+          variant: sequenceMusicPromptVariants,
+          createdByName: user.name,
+        })
+        .from(sequenceMusicPromptVariants)
+        .leftJoin(user, eq(sequenceMusicPromptVariants.createdBy, user.id))
+        .where(eq(sequenceMusicPromptVariants.sequenceId, sequenceId))
+        .orderBy(desc(sequenceMusicPromptVariants.createdAt));
+      return rows.map((r) => ({
+        ...r.variant,
+        createdByName: r.createdByName,
+      }));
+    },
+
+    /** Fetch a single music prompt variant scoped to its sequence. */
+    getByIdForSequence: async (
+      variantId: string,
+      sequenceId: string
+    ): Promise<SequenceMusicPromptVariant | null> => {
+      const [row] = await db
+        .select()
+        .from(sequenceMusicPromptVariants)
+        .where(
+          and(
+            eq(sequenceMusicPromptVariants.id, variantId),
+            eq(sequenceMusicPromptVariants.sequenceId, sequenceId)
+          )
+        )
         .limit(1);
       return row ?? null;
     },

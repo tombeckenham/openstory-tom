@@ -18,8 +18,10 @@ type DivergentAlternateBannerProps = {
   artifact: StalenessArtifact;
   entityType: StalenessEntityType;
   onCompare: () => void;
-  onPromote: () => void;
-  onDiscard: () => void;
+  /** Inline-only: promote button is rendered only when this is provided. */
+  onPromote?: () => void;
+  /** Inline-only: discard button is rendered only when this is provided. */
+  onDiscard?: () => void;
   density?: StalenessIndicatorDensity;
   className?: string;
 };
@@ -96,12 +98,16 @@ export const DivergentAlternateBanner: React.FC<
         <Button type="button" size="sm" variant="outline" onClick={onCompare}>
           Compare
         </Button>
-        <Button type="button" size="sm" onClick={onPromote}>
-          Promote
-        </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={onDiscard}>
-          Discard
-        </Button>
+        {onPromote && (
+          <Button type="button" size="sm" onClick={onPromote}>
+            Promote
+          </Button>
+        )}
+        {onDiscard && (
+          <Button type="button" size="sm" variant="ghost" onClick={onDiscard}>
+            Discard
+          </Button>
+        )}
       </AlertAction>
     </Alert>
   );

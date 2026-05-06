@@ -75,12 +75,12 @@ export async function uploadFile(
     // use the SDK uniformly.
     //
     // Modes:
-    //   unset (default) → replay if cached, else upload + save fixture
+    //   unset (default) → strict: replay only, throw on miss
     //   record          → always upload + overwrite fixture (force re-record)
-    //   strict          → replay only; throw on miss (CI guard)
+    //   strict          → same as default (kept for explicit opt-in)
     if (getEnv().E2E_TEST === 'true') {
       const fp = { bucket, key, contentType: options?.contentType };
-      const mode = process.env.R2_MOCK_MODE;
+      const mode = process.env.R2_MOCK_MODE ?? 'strict';
 
       if (mode !== 'record') {
         const cached = tryReplayR2Upload(fp);

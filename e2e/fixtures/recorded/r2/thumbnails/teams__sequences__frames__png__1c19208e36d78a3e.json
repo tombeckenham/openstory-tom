@@ -1,0 +1,15 @@
+{
+  "request": {
+    "bucket": "thumbnails",
+    "key": "thumbnails/teams/01KQY10D09JHYAZW09HGB7N9CG/sequences/01KQY10XGT523K0E9432A0R2JA/frames/01KQY110MD24CXKTX8FVQ02CQV/01KQY131YMZ9BV9ZHQKFAWNQAQ.png",
+    "normalisedKey": "thumbnails/teams/<ULID>/sequences/<ULID>/frames/<ULID>/<ULID>.png",
+    "contentType": "image/png",
+    "bodyHash": "1549985742f8c224c2d1509abae11f1370e7c2711ebcf860cc7704166adada84",
+    "bodySize": 5940723
+  },
+  "response": {
+    "path": "thumbnails/teams/01KQY10D09JHYAZW09HGB7N9CG/sequences/01KQY10XGT523K0E9432A0R2JA/frames/01KQY110MD24CXKTX8FVQ02CQV/01KQY131YMZ9BV9ZHQKFAWNQAQ.png",
+    "publicUrl": "https://storage-dev.openstory.so/thumbnails/teams/01KQY10D09JHYAZW09HGB7N9CG/sequences/01KQY10XGT523K0E9432A0R2JA/frames/01KQY110MD24CXKTX8FVQ02CQV/01KQY131YMZ9BV9ZHQKFAWNQAQ.png",
+    "fullPath": "thumbnails/teams/01KQY10D09JHYAZW09HGB7N9CG/sequences/01KQY10XGT523K0E9432A0R2JA/frames/01KQY110MD24CXKTX8FVQ02CQV/01KQY131YMZ9BV9ZHQKFAWNQAQ.png"
+  }
+}

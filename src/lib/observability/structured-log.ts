@@ -61,7 +61,7 @@ const DIM = '\x1b[2m';
 function emitDevLog(log: StructuredLog): void {
   const { label, color } = LEVEL_STYLES[log.level];
   const method = log.method ?? '';
-  const path = log.path ?? log.name;
+  const path = log.source === 'serverFn' ? log.name : (log.path ?? log.name);
   const ms = `${DIM}${log.durationMs}ms${RESET}`;
 
   let line = `${color}${label}${RESET} ${method} ${path} ${ms}`;

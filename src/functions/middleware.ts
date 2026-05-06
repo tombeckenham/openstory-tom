@@ -302,9 +302,8 @@ export const stripeWebhookMiddleware = createMiddleware().server(
  * Basic auth middleware - requires authenticated user
  * Adds user and session to context
  */
-export const authMiddleware = createMiddleware({ type: 'function' })
-  .middleware([loggerMiddleware])
-  .server(async ({ next }) => {
+export const authMiddleware = createMiddleware({ type: 'function' }).server(
+  async ({ next }) => {
     const request = getRequest();
     const auth = getAuth();
     const session = await auth.api.getSession({ headers: request.headers });
@@ -319,7 +318,8 @@ export const authMiddleware = createMiddleware({ type: 'function' })
         session,
       },
     });
-  });
+  }
+);
 
 /**
  * Tracing middleware — wraps the request in an OTel trace-context with the

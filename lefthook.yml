@@ -26,4 +26,4 @@ pre-commit:
       stage_fixed: true
     migration-safety:
       glob: 'drizzle/migrations/**/*.sql'
-      run: bun scripts/check-migrations.ts --ci
+      run: bun scripts/check-migrations.ts {staged_files}

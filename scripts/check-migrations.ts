@@ -13,32 +13,30 @@
  * incident on 2026-04-29.
  *
  * Modes:
- *   bun scripts/check-migrations.ts                       Local pre-migrate
- *                                                         gate against pending
- *                                                         migrations.
- *   bun scripts/check-migrations.ts --allow-destructive   Bypass for local.
- *   bun scripts/check-migrations.ts --all                 Scan all, not just
- *                                                         pending.
- *   bun scripts/check-migrations.ts --ci                  Scan all, emit
- *                                                         SARIF, exit 1 on
- *                                                         findings, no prose.
- *   bun scripts/check-migrations.ts --sarif-out=<path>    Write SARIF to path
- *                                                         (used with --ci).
+ *   bun scripts/check-migrations.ts file1.sql file2.sql ...
+ *     Scan the given files (used by lefthook with {staged_files}).
+ *
+ *   bun scripts/check-migrations.ts
+ *     Scan all migrations not yet recorded in the local journal.
+ *
+ *   bun scripts/check-migrations.ts --all
+ *     Scan every migration on disk.
+ *
+ *   bun scripts/check-migrations.ts --allow-destructive
+ *     Bypass the failure exit code (escape hatch for local dev).
  *
  * Exit codes:
  *   0 — no findings
  *   1 — findings found and not bypassed
  */
 
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'fs';
-import { basename, join } from 'path';
+import { existsSync, readFileSync, readdirSync } from 'fs';
+import { basename, isAbsolute, join } from 'path';
 
 const REPO_ROOT = join(import.meta.dir, '..');
 const MIGRATIONS_DIR = join(REPO_ROOT, 'drizzle/migrations');
 const JOURNAL_PATH = join(MIGRATIONS_DIR, 'meta/_journal.json');
 const SCHEMA_DIR = join(REPO_ROOT, 'src/lib/db/schema');
-const MANUAL_APPLY_HINT =
-  'Apply manually via `wrangler d1` after exporting a snapshot, then dismiss this alert. See issue #612.';
 
 type DestructiveOperation = {
   file: string;
@@ -80,19 +78,18 @@ function getAppliedMigrations(): Set<string> {
 
 /**
  * Build a map of parent table -> number of inbound CASCADE FKs by scanning
- * the Drizzle schema. Used to escalate DROP TABLE findings against
- * cascade-heavy parents to SARIF "error" level. Best-effort regex parser:
- * if a schema file uses an unusual definition style it just won't contribute,
- * which only loses precision — every DROP TABLE is still flagged.
+ * the Drizzle schema. Used to annotate DROP TABLE findings with the
+ * blast-radius count. Best-effort regex parser: an unusual definition style
+ * just won't contribute, which only loses precision — every DROP TABLE is
+ * still flagged.
  */
 function buildCascadeMap(): Map<string, number> {
   const cascadesByParent = new Map<string, number>();
   if (!existsSync(SCHEMA_DIR)) return cascadesByParent;
 
   const files = readdirSync(SCHEMA_DIR).filter((f) => f.endsWith('.ts'));
-
-  // Pass 1: variable name -> SQL table name
   const varToTable = new Map<string, string>();
+
   for (const f of files) {
     const content = readFileSync(join(SCHEMA_DIR, f), 'utf-8');
     const re =
@@ -103,11 +100,8 @@ function buildCascadeMap(): Map<string, number> {
     }
   }
 
-  // Pass 2: count cascade FKs per parent
   for (const f of files) {
     const content = readFileSync(join(SCHEMA_DIR, f), 'utf-8');
-    // Matches: .references(() => parentVar.id, { onDelete: 'cascade' })
-    // Tolerates whitespace/newlines between the arrow and onDelete.
     const re =
       /references\s*\(\s*\(\s*\)\s*=>\s*(\w+)\.\w+\s*,\s*\{[^}]*onDelete\s*:\s*['"]cascade['"]/gs;
     let m: RegExpExecArray | null;
@@ -140,8 +134,7 @@ function findDestructiveOperations(
       let match: RegExpExecArray | null;
       while ((match = pattern.exec(line)) !== null) {
         const table = match[1].replace(/[`"[\]]/g, '');
-        // Ignore the staging tables drizzle creates during a rebuild — they
-        // are intra-migration scratch space, not the real concern.
+        // __new_X are intra-migration scratch tables, not real concerns.
         if (table.startsWith('__new_')) continue;
         operations.push({
           file: fileName,
@@ -158,164 +151,57 @@ function findDestructiveOperations(
   return operations;
 }
 
-type SarifResult = {
-  ruleId: string;
-  level: 'warning' | 'error';
-  message: { text: string };
-  locations: Array<{
-    physicalLocation: {
-      artifactLocation: { uri: string };
-      region: { startLine: number };
-    };
-  }>;
-  partialFingerprints: { migrationTag: string };
-};
-
-function sarifFor(
-  ops: Array<DestructiveOperation & { migrationDir: string }>
-): unknown {
-  const results: SarifResult[] = ops.map((op) => {
-    const isDropTable = op.operation === 'DROP TABLE';
-    const cascading = isDropTable && op.cascadeChildCount > 0;
-    const level: 'warning' | 'error' = cascading ? 'error' : 'warning';
-    const cascadeNote = cascading
-      ? ` Schema has ${op.cascadeChildCount} inbound ON DELETE CASCADE FK${op.cascadeChildCount === 1 ? '' : 's'} pointing at this table; on D1/Turso these will fire and delete child rows.`
-      : '';
-    return {
-      ruleId: 'D1_DESTRUCTIVE_TABLE_REBUILD',
-      level,
-      message: {
-        text: `${op.operation} on \`${op.table}\` is unsafe on Cloudflare D1 and Turso libSQL: drizzle-kit's HTTP migrator joins all statements into one body which gets wrapped in an implicit transaction, inside which PRAGMA foreign_keys=OFF is silently ignored.${cascadeNote} ${MANUAL_APPLY_HINT}`,
-      },
-      locations: [
-        {
-          physicalLocation: {
-            artifactLocation: {
-              uri: `drizzle/migrations/${op.migrationDir}/${op.file}`,
-            },
-            region: { startLine: op.line },
-          },
-        },
-      ],
-      partialFingerprints: { migrationTag: op.migrationDir },
-    };
-  });
-
-  return {
-    version: '2.1.0',
-    $schema:
-      'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json',
-    runs: [
-      {
-        tool: {
-          driver: {
-            name: 'openstory-migration-safety',
-            informationUri:
-              'https://github.com/openstory-so/openstory/issues/612',
-            rules: [
-              {
-                id: 'D1_DESTRUCTIVE_TABLE_REBUILD',
-                name: 'D1DestructiveTableRebuild',
-                shortDescription: {
-                  text: 'Destructive SQL is unsafe on D1/Turso HTTP migrator',
-                },
-                fullDescription: {
-                  text: 'drizzle-kit emits the SQLite table-rebuild pattern (DROP TABLE -> INSERT SELECT -> RENAME) for many schema changes, and posts all statements in one HTTP body. D1 and Turso wrap multi-statement bodies in an implicit transaction; SQLite silently ignores PRAGMA foreign_keys=OFF inside a transaction; ON DELETE CASCADE fires on the implicit per-row deletes that DROP TABLE performs. Verified in production on 2026-04-29.',
-                },
-                helpUri: 'https://github.com/openstory-so/openstory/issues/612',
-                defaultConfiguration: { level: 'warning' },
-              },
-            ],
-          },
-        },
-        results,
-      },
-    ],
-  };
-}
-
-function listSqlFiles(dir: string, all: boolean): string[] {
-  if (!existsSync(dir)) return [];
-  const top = readdirSync(dir).filter((f) => f.endsWith('.sql'));
+function listSqlFiles(all: boolean): string[] {
+  if (!existsSync(MIGRATIONS_DIR)) return [];
+  const top = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql'));
   const fromDirs: string[] = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+  for (const entry of readdirSync(MIGRATIONS_DIR, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
-    const inner = join(dir, entry.name, 'migration.sql');
+    const inner = join(MIGRATIONS_DIR, entry.name, 'migration.sql');
     if (existsSync(inner)) fromDirs.push(`${entry.name}/migration.sql`);
   }
   const all_ = [...top, ...fromDirs];
-  if (all) return all_;
+  if (all) return all_.map((f) => join(MIGRATIONS_DIR, f));
   const applied = getAppliedMigrations();
-  if (applied.size === 0) return all_;
-  return all_.filter(
-    (f) => !applied.has(f) && !applied.has(f.split('/').pop() ?? f)
-  );
+  if (applied.size === 0) return all_.map((f) => join(MIGRATIONS_DIR, f));
+  return all_
+    .filter((f) => !applied.has(f) && !applied.has(f.split('/').pop() ?? f))
+    .map((f) => join(MIGRATIONS_DIR, f));
 }
 
 function main(): void {
   const args = process.argv.slice(2);
-  const ci = args.includes('--ci');
   const allowDestructive = args.includes('--allow-destructive');
-  const checkAll = args.includes('--all') || ci;
-  const sarifOut = args
-    .find((a) => a.startsWith('--sarif-out='))
-    ?.slice('--sarif-out='.length);
+  const checkAll = args.includes('--all');
+  const positional = args.filter((a) => !a.startsWith('--'));
 
   const cascadesByParent = buildCascadeMap();
-  const migrations = listSqlFiles(MIGRATIONS_DIR, checkAll);
 
-  type Op = DestructiveOperation & { migrationDir: string };
-  const allOps: Op[] = [];
-  for (const m of migrations) {
-    const filePath = join(MIGRATIONS_DIR, m);
-    const dir = m.includes('/') ? m.split('/')[0] : m.replace(/\.sql$/, '');
-    const ops = findDestructiveOperations(filePath, cascadesByParent);
-    for (const op of ops) allOps.push({ ...op, migrationDir: dir });
-  }
+  const targets =
+    positional.length > 0
+      ? positional.map((p) => (isAbsolute(p) ? p : join(process.cwd(), p)))
+      : listSqlFiles(checkAll);
 
-  if (sarifOut) {
-    writeFileSync(sarifOut, JSON.stringify(sarifFor(allOps), null, 2));
-  }
-
-  if (ci) {
-    if (allOps.length === 0) {
-      console.log('No destructive operations detected.');
-      process.exit(0);
+  const allOps: Array<DestructiveOperation & { migrationDir: string }> = [];
+  for (const filePath of targets) {
+    if (!existsSync(filePath)) continue;
+    const dir = filePath.includes('/drizzle/migrations/')
+      ? filePath
+          .split('/drizzle/migrations/')[1]
+          .split('/')[0]
+          .replace(/\.sql$/, '')
+      : 'unknown';
+    for (const op of findDestructiveOperations(filePath, cascadesByParent)) {
+      allOps.push({ ...op, migrationDir: dir });
     }
-    const errors = allOps.filter(
-      (op) => op.operation === 'DROP TABLE' && op.cascadeChildCount > 0
-    );
-    const warnings = allOps.length - errors.length;
-    console.log(
-      `Found ${allOps.length} destructive operation(s): ${errors.length} error, ${warnings} warning.`
-    );
-    for (const op of allOps) {
-      const tag =
-        op.operation === 'DROP TABLE' && op.cascadeChildCount > 0
-          ? 'ERROR'
-          : 'WARN';
-      const cascade =
-        op.cascadeChildCount > 0
-          ? ` (${op.cascadeChildCount} cascade child FK${op.cascadeChildCount === 1 ? '' : 's'})`
-          : '';
-      console.log(
-        `  [${tag}] ${op.migrationDir}/${op.file}:${op.line} ${op.operation} \`${op.table}\`${cascade}`
-      );
-    }
-    process.exit(1);
   }
 
-  // Local interactive mode
-  console.log('Checking migrations for destructive operations…\n');
-  if (migrations.length === 0) {
-    console.log('No pending migrations.');
-    process.exit(0);
-  }
   if (allOps.length === 0) {
-    console.log('No destructive operations found.');
+    console.log('No destructive operations detected.');
     process.exit(0);
   }
-  console.log('DESTRUCTIVE OPERATIONS DETECTED:\n');
+
+  console.log('Destructive operations detected:\n');
   for (const op of allOps) {
     const cascade =
       op.operation === 'DROP TABLE' && op.cascadeChildCount > 0
@@ -332,9 +218,7 @@ function main(): void {
   );
   console.log('  1. Refactor the schema change to use ALTER TABLE column ops,');
   console.log('  2. Apply manually via `wrangler d1` after a snapshot,');
-  console.log(
-    '  3. Or pass --allow-destructive if you know what you are doing.'
-  );
+  console.log('  3. Or pass --allow-destructive if data loss is intentional.');
 
   if (allowDestructive) {
     console.log('\n--allow-destructive set; proceeding.');

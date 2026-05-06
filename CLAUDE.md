@@ -317,7 +317,7 @@ This is what destroyed `team_members`, `session`, `account`, and `passkey` in pr
 2. **Apply destructive migrations manually.** Run `wrangler d1 export` to snapshot first, then apply the migration file directly via the D1 dashboard or `wrangler d1` (the `--file=…` form). Do not let `db:migrate:turso` / `db:migrate:d1` run it.
 3. **Avoid `ON DELETE CASCADE`** on FKs to long-lived parent tables (`user`, `teams`, `sequences`). Use `'restrict'` or `'no action'` and clean up children in app code.
 
-**CI guardrail:** `.github/workflows/migration-safety.yml` runs `scripts/check-migrations.ts --ci` on every PR that touches `drizzle/migrations/**` or `src/lib/db/schema/**`, emits SARIF, and posts findings to the repo Security tab. `DROP TABLE` against a parent with inbound CASCADE FKs is reported at `error` level. When you flag-fix a finding (refactor or hand-apply), dismiss the alert in the Security tab with a reason — the migration tag is the partial fingerprint, so the dismissal sticks across reruns.
+**Local guardrail:** `scripts/check-migrations.ts` runs as a Lefthook pre-commit step on staged `drizzle/migrations/**/*.sql` files. It flags `DROP TABLE`, `TRUNCATE`, `DELETE FROM`, and `ALTER TABLE … DROP COLUMN`, and annotates each `DROP TABLE` with the count of inbound `ON DELETE CASCADE` FKs it found in the schema (so a high blast radius is visible at commit time). To bypass for a migration you've decided to apply manually: `bun scripts/check-migrations.ts --allow-destructive`.
 
 References: [drizzle-orm#3065](https://github.com/drizzle-team/drizzle-orm/issues/3065), [workers-sdk#5438](https://github.com/cloudflare/workers-sdk/issues/5438), [SQLite foreign_keys docs](https://sqlite.org/foreignkeys.html#fk_enable).
 

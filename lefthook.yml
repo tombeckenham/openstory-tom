@@ -24,3 +24,6 @@ pre-commit:
       glob: '*.{ts,tsx,mts,cts}'
       run: bun run --bun tsgo --noEmit
       stage_fixed: true
+    migration-safety:
+      glob: 'drizzle/migrations/**/*.sql'
+      run: bun scripts/check-migrations.ts {staged_files}

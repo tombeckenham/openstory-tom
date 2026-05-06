@@ -305,6 +305,22 @@ bun db:migrate   # Apply migrations to local.db
 - **Typed JSONB**: `frame.metadata` typed as `Scene`
 - **DB access ONLY in server handlers** (never in components)
 
+### D1 / Turso table-rebuild trap (read before changing schema)
+
+drizzle-kit's HTTP migrators (`d1-http`, `turso`) join all migration statements into a single HTTP body. Both D1 and Turso libSQL wrap multi-statement bodies in an implicit transaction, and SQLite **silently** ignores `PRAGMA foreign_keys = OFF` inside a transaction. So when the standard SQLite "table rebuild" pattern (`CREATE __new_X` → `INSERT SELECT` → `DROP X` → `RENAME`) drops the parent table, every inbound `ON DELETE CASCADE` FK fires and child rows are deleted.
+
+This is what destroyed `team_members`, `session`, `account`, and `passkey` in production on 2026-04-29 (issue #612, migration `20260428013041_productive_kabuki`). `PRAGMA defer_foreign_keys = ON` does **not** help — it defers constraint _checks_ but CASCADE still fires.
+
+**Workarounds (in order of preference):**
+
+1. **Avoid table rebuilds.** Prefer `ALTER TABLE … RENAME COLUMN / ADD COLUMN / DROP COLUMN`. SQLite (and D1/Turso) supports these without a rebuild.
+2. **Apply destructive migrations manually.** Run `wrangler d1 export` to snapshot first, then apply the migration file directly via the D1 dashboard or `wrangler d1` (the `--file=…` form). Do not let `db:migrate:turso` / `db:migrate:d1` run it.
+3. **Avoid `ON DELETE CASCADE`** on FKs to long-lived parent tables (`user`, `teams`, `sequences`). Use `'restrict'` or `'no action'` and clean up children in app code.
+
+**Local guardrail:** `scripts/check-migrations.ts` runs as a Lefthook pre-commit step on staged `drizzle/migrations/**/*.sql` files. It flags `DROP TABLE`, `TRUNCATE`, `DELETE FROM`, and `ALTER TABLE … DROP COLUMN`, and annotates each `DROP TABLE` with the count of inbound `ON DELETE CASCADE` FKs it found in the schema (so a high blast radius is visible at commit time). To bypass for a migration you've decided to apply manually: `bun scripts/check-migrations.ts --allow-destructive`.
+
+References: [drizzle-orm#3065](https://github.com/drizzle-team/drizzle-orm/issues/3065), [workers-sdk#5438](https://github.com/cloudflare/workers-sdk/issues/5438), [SQLite foreign_keys docs](https://sqlite.org/foreignkeys.html#fk_enable).
+
 ---
 
 ## React Patterns

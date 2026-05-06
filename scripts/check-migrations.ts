@@ -1,122 +1,148 @@
 #!/usr/bin/env bun
 /**
- * Pre-migration safety check script
+ * Migration safety check.
  *
- * Scans migration files for destructive operations (DROP TABLE, TRUNCATE, etc.)
- * and requires explicit confirmation before allowing migrations to proceed.
+ * Flags destructive SQL in drizzle migrations. The standard SQLite
+ * "table rebuild" pattern (DROP X -> INSERT SELECT -> RENAME __new_X) is
+ * structurally unsafe on Cloudflare D1 and Turso libSQL because their HTTP
+ * /query endpoints wrap multi-statement bodies in an implicit transaction,
+ * inside which `PRAGMA foreign_keys=OFF` is silently ignored — so any
+ * inbound `ON DELETE CASCADE` fires when the parent table is dropped.
  *
- * Usage:
- *   bun scripts/check-migrations.ts                    # Check and warn
- *   bun scripts/check-migrations.ts --allow-destructive  # Bypass warning
+ * See GitHub issue #612 for the verified mechanism and the production
+ * incident on 2026-04-29.
+ *
+ * Modes:
+ *   bun scripts/check-migrations.ts file1.sql file2.sql ...
+ *     Scan the given files (used by lefthook with {staged_files}).
+ *
+ *   bun scripts/check-migrations.ts
+ *     Scan all migrations not yet recorded in the local journal.
+ *
+ *   bun scripts/check-migrations.ts --all
+ *     Scan every migration on disk.
+ *
+ *   bun scripts/check-migrations.ts --allow-destructive
+ *     Bypass the failure exit code (escape hatch for local dev).
  *
  * Exit codes:
- *   0 - Safe to proceed (no destructive operations or --allow-destructive flag)
- *   1 - Destructive operations found, user should review
+ *   0 — no findings
+ *   1 — findings found and not bypassed
  */
 
-import { readFileSync, readdirSync, existsSync } from 'fs';
-import { join, basename } from 'path';
+import { existsSync, readFileSync, readdirSync } from 'fs';
+import { basename, isAbsolute, join } from 'path';
 
-const MIGRATIONS_DIR = join(import.meta.dir, '../drizzle/migrations');
+const REPO_ROOT = join(import.meta.dir, '..');
+const MIGRATIONS_DIR = join(REPO_ROOT, 'drizzle/migrations');
 const JOURNAL_PATH = join(MIGRATIONS_DIR, 'meta/_journal.json');
+const SCHEMA_DIR = join(REPO_ROOT, 'src/lib/db/schema');
 
 type DestructiveOperation = {
   file: string;
   line: number;
   operation: string;
   statement: string;
-  isSafeRecreation: boolean;
+  table: string;
+  cascadeChildCount: number;
 };
 
 type Journal = {
-  entries: Array<{
-    idx: number;
-    version: string;
-    when: number;
-    tag: string;
-    breakpoints: boolean;
-  }>;
+  entries: Array<{ idx: number; tag: string }>;
 };
 
-// Patterns that indicate destructive operations
 const DESTRUCTIVE_PATTERNS = [
   {
     pattern: /DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?`?([^`\s;]+)`?/gi,
     name: 'DROP TABLE',
   },
-  { pattern: /TRUNCATE\s+(?:TABLE\s+)?`?([^`\s;]+)`?/gi, name: 'TRUNCATE' },
-  { pattern: /DELETE\s+FROM\s+`?([^`\s;]+)`?\s*(?:;|$)/gi, name: 'DELETE ALL' },
+  {
+    pattern: /TRUNCATE\s+(?:TABLE\s+)?`?([^`\s;]+)`?/gi,
+    name: 'TRUNCATE',
+  },
+  {
+    pattern: /DELETE\s+FROM\s+`?([^`\s;]+)`?\s*(?:;|$)/gi,
+    name: 'DELETE ALL',
+  },
   {
     pattern: /ALTER\s+TABLE\s+`?([^`\s;]+)`?\s+DROP\s+COLUMN/gi,
     name: 'DROP COLUMN',
   },
-];
-
-// Pattern for SQLite safe table recreation (not actually destructive)
-const SAFE_RECREATION_PATTERN =
-  /DROP\s+TABLE\s+`?([^`\s;]+)`?.*?ALTER\s+TABLE\s+`?__new_\1`?\s+RENAME/gis;
+] as const;
 
 function getAppliedMigrations(): Set<string> {
-  if (!existsSync(JOURNAL_PATH)) {
-    return new Set();
-  }
-
+  if (!existsSync(JOURNAL_PATH)) return new Set();
   const journal: Journal = JSON.parse(readFileSync(JOURNAL_PATH, 'utf-8'));
   return new Set(journal.entries.map((e) => `${e.tag}.sql`));
 }
 
-function getPendingMigrations(): string[] {
-  if (!existsSync(MIGRATIONS_DIR)) {
-    return [];
+/**
+ * Build a map of parent table -> number of inbound CASCADE FKs by scanning
+ * the Drizzle schema. Used to annotate DROP TABLE findings with the
+ * blast-radius count. Best-effort regex parser: an unusual definition style
+ * just won't contribute, which only loses precision — every DROP TABLE is
+ * still flagged.
+ */
+function buildCascadeMap(): Map<string, number> {
+  const cascadesByParent = new Map<string, number>();
+  if (!existsSync(SCHEMA_DIR)) return cascadesByParent;
+
+  const files = readdirSync(SCHEMA_DIR).filter((f) => f.endsWith('.ts'));
+  const varToTable = new Map<string, string>();
+
+  for (const f of files) {
+    const content = readFileSync(join(SCHEMA_DIR, f), 'utf-8');
+    const re =
+      /export\s+const\s+(\w+)\s*=\s*sqliteTable\s*\(\s*['"]([^'"]+)['"]/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(content)) !== null) {
+      varToTable.set(m[1], m[2]);
+    }
   }
 
-  const applied = getAppliedMigrations();
-  const allFiles = readdirSync(MIGRATIONS_DIR).filter((f) =>
-    f.endsWith('.sql')
-  );
-
-  // Return all migrations if journal is empty (fresh db), otherwise only pending
-  if (applied.size === 0) {
-    return allFiles;
+  for (const f of files) {
+    const content = readFileSync(join(SCHEMA_DIR, f), 'utf-8');
+    const re =
+      /references\s*\(\s*\(\s*\)\s*=>\s*(\w+)\.\w+\s*,\s*\{[^}]*onDelete\s*:\s*['"]cascade['"]/gs;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(content)) !== null) {
+      const parentTable = varToTable.get(m[1]);
+      if (!parentTable) continue;
+      cascadesByParent.set(
+        parentTable,
+        (cascadesByParent.get(parentTable) ?? 0) + 1
+      );
+    }
   }
 
-  return allFiles.filter((f) => !applied.has(f));
+  return cascadesByParent;
 }
 
-function findDestructiveOperations(filePath: string): DestructiveOperation[] {
+function findDestructiveOperations(
+  filePath: string,
+  cascadesByParent: Map<string, number>
+): DestructiveOperation[] {
   const content = readFileSync(filePath, 'utf-8');
   const fileName = basename(filePath);
+  const lines = content.split('\n');
   const operations: DestructiveOperation[] = [];
 
-  // Check for safe SQLite table recreation pattern
-  const safeRecreations = new Set<string>();
-  let match: RegExpExecArray | null;
-
-  // Reset regex
-  SAFE_RECREATION_PATTERN.lastIndex = 0;
-  while ((match = SAFE_RECREATION_PATTERN.exec(content)) !== null) {
-    safeRecreations.add(match[1].toLowerCase());
-  }
-
-  // Find all destructive operations
-  const lines = content.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-
     for (const { pattern, name } of DESTRUCTIVE_PATTERNS) {
       pattern.lastIndex = 0;
+      let match: RegExpExecArray | null;
       while ((match = pattern.exec(line)) !== null) {
-        const tableName = match[1].toLowerCase();
-        const isSafeRecreation =
-          safeRecreations.has(tableName) || tableName.startsWith('__new_');
-
+        const table = match[1].replace(/[`"[\]]/g, '');
+        // __new_X are intra-migration scratch tables, not real concerns.
+        if (table.startsWith('__new_')) continue;
         operations.push({
           file: fileName,
           line: i + 1,
           operation: name,
-          statement:
-            line.trim().substring(0, 80) + (line.length > 80 ? '…' : ''),
-          isSafeRecreation,
+          statement: line.trim().slice(0, 120),
+          table,
+          cascadeChildCount: cascadesByParent.get(table) ?? 0,
         });
       }
     }
@@ -125,92 +151,79 @@ function findDestructiveOperations(filePath: string): DestructiveOperation[] {
   return operations;
 }
 
+function listSqlFiles(all: boolean): string[] {
+  if (!existsSync(MIGRATIONS_DIR)) return [];
+  const top = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql'));
+  const fromDirs: string[] = [];
+  for (const entry of readdirSync(MIGRATIONS_DIR, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const inner = join(MIGRATIONS_DIR, entry.name, 'migration.sql');
+    if (existsSync(inner)) fromDirs.push(`${entry.name}/migration.sql`);
+  }
+  const all_ = [...top, ...fromDirs];
+  if (all) return all_.map((f) => join(MIGRATIONS_DIR, f));
+  const applied = getAppliedMigrations();
+  if (applied.size === 0) return all_.map((f) => join(MIGRATIONS_DIR, f));
+  return all_
+    .filter((f) => !applied.has(f) && !applied.has(f.split('/').pop() ?? f))
+    .map((f) => join(MIGRATIONS_DIR, f));
+}
+
 function main(): void {
   const args = process.argv.slice(2);
   const allowDestructive = args.includes('--allow-destructive');
   const checkAll = args.includes('--all');
+  const positional = args.filter((a) => !a.startsWith('--'));
 
-  console.log('🔍 Checking migrations for destructive operations…\n');
+  const cascadesByParent = buildCascadeMap();
 
-  const migrations = checkAll
-    ? readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql'))
-    : getPendingMigrations();
+  const targets =
+    positional.length > 0
+      ? positional.map((p) => (isAbsolute(p) ? p : join(process.cwd(), p)))
+      : listSqlFiles(checkAll);
 
-  if (migrations.length === 0) {
-    console.log('✅ No pending migrations to check.\n');
-    process.exit(0);
-  }
-
-  console.log(
-    `Checking ${migrations.length} ${checkAll ? 'total' : 'pending'} migration(s):\n`
-  );
-
-  const allOperations: DestructiveOperation[] = [];
-
-  for (const migration of migrations) {
-    const filePath = join(MIGRATIONS_DIR, migration);
-    const operations = findDestructiveOperations(filePath);
-    allOperations.push(...operations);
-  }
-
-  // Separate truly destructive from safe recreations
-  const dangerous = allOperations.filter((op) => !op.isSafeRecreation);
-  const safeRecreations = allOperations.filter((op) => op.isSafeRecreation);
-
-  if (safeRecreations.length > 0) {
-    console.log('ℹ️  Safe table recreations (SQLite pattern):');
-    for (const op of safeRecreations) {
-      console.log(`   ${op.file}:${op.line} - ${op.operation}`);
+  const allOps: Array<DestructiveOperation & { migrationDir: string }> = [];
+  for (const filePath of targets) {
+    if (!existsSync(filePath)) continue;
+    const dir = filePath.includes('/drizzle/migrations/')
+      ? filePath
+          .split('/drizzle/migrations/')[1]
+          .split('/')[0]
+          .replace(/\.sql$/, '')
+      : 'unknown';
+    for (const op of findDestructiveOperations(filePath, cascadesByParent)) {
+      allOps.push({ ...op, migrationDir: dir });
     }
-    console.log('');
   }
 
-  if (dangerous.length === 0) {
-    console.log('✅ No destructive operations found. Safe to proceed.\n');
+  if (allOps.length === 0) {
+    console.log('No destructive operations detected.');
     process.exit(0);
   }
 
-  // Found destructive operations
-  console.log('⚠️  DESTRUCTIVE OPERATIONS DETECTED:\n');
-
-  for (const op of dangerous) {
-    console.log(`   📁 ${op.file}:${op.line}`);
-    console.log(`   ❌ ${op.operation}`);
-    console.log(`      ${op.statement}`);
-    console.log('');
+  console.log('Destructive operations detected:\n');
+  for (const op of allOps) {
+    const cascade =
+      op.operation === 'DROP TABLE' && op.cascadeChildCount > 0
+        ? ` ⚠ ${op.cascadeChildCount} cascade child FK(s)`
+        : '';
+    console.log(
+      `  ${op.migrationDir}/${op.file}:${op.line} — ${op.operation} \`${op.table}\`${cascade}`
+    );
+    console.log(`    ${op.statement}`);
   }
-
-  console.log('─'.repeat(60));
   console.log('');
-  console.log('These operations may cause DATA LOSS:');
-  console.log('');
-
-  const tables = [
-    ...new Set(
-      dangerous.map((op) => op.statement.match(/`([^`]+)`/)?.[1] || 'unknown')
-    ),
-  ];
-  for (const table of tables) {
-    console.log(`  • Table "${table}" may be dropped or truncated`);
-  }
-
-  console.log('');
+  console.log(
+    'These are unsafe on D1/Turso HTTP migrators (issue #612). Either:'
+  );
+  console.log('  1. Refactor the schema change to use ALTER TABLE column ops,');
+  console.log('  2. Apply manually via `wrangler d1` after a snapshot,');
+  console.log('  3. Or pass --allow-destructive if data loss is intentional.');
 
   if (allowDestructive) {
-    console.log('⚡ --allow-destructive flag set. Proceeding anyway.\n');
+    console.log('\n--allow-destructive set; proceeding.');
     process.exit(0);
   }
-
-  console.log('To proceed with these migrations, either:');
-  console.log('');
-  console.log('  1. Review and fix the migration files, then regenerate');
-  console.log(
-    '  2. Run with --allow-destructive flag if data loss is intentional:'
-  );
-  console.log('');
-  console.log('     bun db:migrate:local --allow-destructive');
-  console.log('');
-
   process.exit(1);
 }
 

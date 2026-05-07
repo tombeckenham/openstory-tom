@@ -70,6 +70,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: e2e-output
+          # `.output` starts with a dot; v4 skips hidden paths by default.
+          include-hidden-files: true
           path: .output
           retention-days: 1
           if-no-files-found: error

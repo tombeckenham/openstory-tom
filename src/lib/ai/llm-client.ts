@@ -65,9 +65,9 @@ export type LLMRequestParams = {
  * https://openrouter.ai/docs/guides/features/structured-outputs
  */
 const STRUCTURED_OUTPUT_MODELS = new Set([
-  'x-ai/grok-4.1-fast',
+  'x-ai/grok-4.3',
   'anthropic/claude-sonnet-4.6',
-  'x-ai/grok-4.20-beta',
+  'x-ai/grok-4.20',
   'anthropic/claude-opus-4.6',
   'deepseek/deepseek-v3.2',
   'z-ai/glm-5',

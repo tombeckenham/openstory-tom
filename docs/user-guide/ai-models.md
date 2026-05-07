@@ -13,9 +13,9 @@ These LLM models analyze your script, extract scenes, characters, and locations,
 
 | Model             | Provider  | Context Window | License                  |
 | ----------------- | --------- | -------------- | ------------------------ |
-| Grok 4.1 Fast     | xAI       | 2M tokens      | Proprietary              |
+| Grok 4.3          | xAI       | 1M tokens      | Proprietary              |
 | Claude Sonnet 4.6 | Anthropic | 1M tokens      | Proprietary              |
-| Grok 4.2          | xAI       | 2M tokens      | Proprietary              |
+| Grok 4.20         | xAI       | 2M tokens      | Proprietary              |
 | Claude Opus 4.6   | Anthropic | 1M tokens      | Proprietary              |
 | Mistral Small 4   | Mistral   | 262K tokens    | Open Source (Apache 2.0) |
 | DeepSeek V3.2     | DeepSeek  | 164K tokens    | Open Source (MIT)        |

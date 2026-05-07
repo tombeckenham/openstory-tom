@@ -5,13 +5,13 @@
 
 export const SCRIPT_ANALYSIS_MODELS = [
   {
-    id: 'x-ai/grok-4.1-fast',
-    name: 'Grok 4.1 Fast',
+    id: 'x-ai/grok-4.3',
+    name: 'Grok 4.3',
     provider: 'xAI',
     license: 'proprietary' as const,
     qualityRank: 1,
-    contextWindow: 2_000_000,
-    description: 'Fast agentic model with 2M context',
+    contextWindow: 1_048_576,
+    description: 'Frontier xAI reasoning model with 1M context',
   },
   {
     id: 'anthropic/claude-sonnet-4.6',
@@ -23,8 +23,8 @@ export const SCRIPT_ANALYSIS_MODELS = [
     description: 'State-of-the-art coding and structured output',
   },
   {
-    id: 'x-ai/grok-4.20-beta',
-    name: 'Grok 4.2',
+    id: 'x-ai/grok-4.20',
+    name: 'Grok 4.20',
     provider: 'xAI',
     license: 'proprietary' as const,
     qualityRank: 3,
@@ -166,7 +166,7 @@ export function getContextWindow(modelId: string): number {
 /**
  * Default model to use when none is specified
  */
-export const DEFAULT_ANALYSIS_MODEL: AnalysisModelId = 'x-ai/grok-4.1-fast';
+export const DEFAULT_ANALYSIS_MODEL: AnalysisModelId = 'x-ai/grok-4.3';
 
 /**
  * Image generation models are now in src/lib/ai/models.ts

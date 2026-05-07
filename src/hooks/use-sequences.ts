@@ -78,7 +78,7 @@ export function useCreateSequence() {
           analysisModels: input.analysisModels || [DEFAULT_ANALYSIS_MODEL],
           teamId: input.teamId,
           aspectRatio: input.aspectRatio,
-          imageModel: input.imageModel,
+          imageModels: input.imageModels,
           videoModel: input.videoModel,
           autoGenerateMotion: input.autoGenerateMotion,
           autoGenerateMusic: input.autoGenerateMusic,

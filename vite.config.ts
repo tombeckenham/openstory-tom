@@ -14,6 +14,11 @@ import viteReact from '@vitejs/plugin-react';
 const debugTreeshake = process.env.DEBUG_TREESHAKE_OFF !== '1';
 const debugVisualizer = process.env.DEBUG_VISUALIZER === '1';
 const isDev = process.env.NODE_ENV !== 'production';
+// E2E build: prod-shaped server bundle that uses local sqlite (file:test.db)
+// instead of Turso, so CI can run the built server without cloud DB credentials.
+// Activates the `e2e` key in package.json `imports.#db-client`.
+const isE2EBuild = process.env.BUILD_E2E === '1';
+const e2eConditions = isE2EBuild ? ['e2e'] : [];
 
 /**
  * Rolldown reorders CJS-to-ESM wrappers: tsyringe checks for
@@ -42,6 +47,7 @@ function reflectMetadataPolyfill(): import('vite').Plugin {
 export default defineConfig({
   resolve: {
     tsconfigPaths: true,
+    conditions: e2eConditions,
   },
   server: {
     port: 3000,
@@ -121,6 +127,9 @@ export default defineConfig({
     ],
   },
   ssr: {
+    resolve: {
+      conditions: e2eConditions,
+    },
     noExternal: [
       '@upstash/realtime',
       '@videojs/react',

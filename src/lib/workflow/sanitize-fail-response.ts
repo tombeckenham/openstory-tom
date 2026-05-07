@@ -14,15 +14,7 @@ const CF_ERROR_CODES: Record<string, string> = {
  * This function extracts the inner error and maps known codes to friendly messages.
  */
 export function sanitizeFailResponse(failResponse: unknown): string {
-  const raw =
-    typeof failResponse === 'string'
-      ? failResponse.trim()
-      : failResponse == null
-        ? ''
-        : (failResponse instanceof Error
-            ? failResponse.message
-            : JSON.stringify(failResponse)
-          ).trim();
+  const raw = extractRawMessage(failResponse).trim();
   if (!raw) return 'Unknown error';
 
   // Extract inner message from QStash wrapper pattern
@@ -42,6 +34,50 @@ export function sanitizeFailResponse(failResponse: unknown): string {
   }
 
   return message;
+}
+
+// QStash failure functions can receive a failResponse whose `JSON.stringify`
+// renders as `"{}"` because the error's enumerable own properties are empty
+// (e.g. an Error reconstituted across step boundaries, a fetch Response, or
+// an HTTPError-style object). Walk known message-bearing fields and the full
+// property set including non-enumerables before giving up.
+function extractRawMessage(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value == null) return '';
+  if (value instanceof Error) return value.message || value.toString();
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (typeof value !== 'object') return '';
+
+  // Index by name so we also pick up non-enumerable own properties like
+  // Error.message — Object.entries would skip those. We've already narrowed
+  // value to a non-null object, so the cast is safe by construction.
+  // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion -- narrowed above
+  const record = value as Record<string, unknown>;
+  const obj: Record<string, unknown> = {};
+  for (const k of Object.getOwnPropertyNames(value)) {
+    obj[k] = record[k];
+  }
+  for (const field of [
+    'message',
+    'error',
+    'description',
+    'statusText',
+  ] as const) {
+    const candidate = obj[field];
+    if (typeof candidate === 'string' && candidate.trim()) return candidate;
+  }
+  if (typeof obj.cause !== 'undefined') {
+    const fromCause = extractRawMessage(obj.cause);
+    if (fromCause) return fromCause;
+  }
+
+  // Fall back to JSON.stringify of the full property set (including
+  // non-enumerables) so values like Error.message that would normally
+  // serialize to "{}" are visible.
+  const serialized = JSON.stringify(obj);
+  return serialized && serialized !== '{}' ? serialized : '';
 }
 
 /**

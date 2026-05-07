@@ -49,7 +49,37 @@ describe('sanitizeFailResponse', () => {
 
   test('handles non-string values', () => {
     expect(sanitizeFailResponse(42)).toBe('42');
-    expect(sanitizeFailResponse({ error: 'bad' })).toBe('{"error":"bad"}');
+  });
+
+  test('extracts message-bearing field from object failResponse', () => {
+    expect(sanitizeFailResponse({ error: 'bad' })).toBe('bad');
+    expect(sanitizeFailResponse({ message: 'something broke' })).toBe(
+      'something broke'
+    );
+    expect(sanitizeFailResponse({ statusText: 'Bad Gateway' })).toBe(
+      'Bad Gateway'
+    );
+  });
+
+  test('walks Error.cause when top-level is empty', () => {
+    const cause = new Error('underlying cause');
+    expect(sanitizeFailResponse({ cause })).toBe('underlying cause');
+  });
+
+  test('serializes non-enumerable Error fields instead of returning "{}"', () => {
+    // Errors crossing QStash step boundaries lose their `instanceof Error`
+    // identity but keep `.message` as a non-enumerable own property — the
+    // old `JSON.stringify` path rendered these as the useless string "{}".
+    const errlike = Object.create(null) as Record<string, unknown>;
+    Object.defineProperty(errlike, 'message', {
+      value: 'lost across boundary',
+      enumerable: false,
+    });
+    expect(sanitizeFailResponse(errlike)).toBe('lost across boundary');
+  });
+
+  test('returns "Unknown error" for an empty object', () => {
+    expect(sanitizeFailResponse({})).toBe('Unknown error');
   });
 });
 

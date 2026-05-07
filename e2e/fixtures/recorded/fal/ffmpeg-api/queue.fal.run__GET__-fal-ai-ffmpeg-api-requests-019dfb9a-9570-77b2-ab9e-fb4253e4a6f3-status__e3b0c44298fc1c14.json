@@ -1,0 +1,56 @@
+{
+  "request": {
+    "targetHost": "queue.fal.run",
+    "method": "GET",
+    "pathname": "/fal-ai/ffmpeg-api/requests/019dfb9a-9570-77b2-ab9e-fb4253e4a6f3/status",
+    "bodyHash": "e3b0c44298fc1c14"
+  },
+  "responses": [
+    {
+      "status": 202,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "connection": "keep-alive",
+        "content-length": "418",
+        "content-type": "application/json",
+        "date": "Wed, 06 May 2026 04:45:05 GMT",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "vary": "origin, access-control-request-method, access-control-request-headers",
+        "x-robots-tag": "noindex"
+      },
+      "body": {
+        "status": "IN_PROGRESS",
+        "request_id": "019dfb9a-9570-77b2-ab9e-fb4253e4a6f3",
+        "response_url": "https://queue.fal.run/fal-ai/ffmpeg-api/requests/019dfb9a-9570-77b2-ab9e-fb4253e4a6f3",
+        "status_url": "https://queue.fal.run/fal-ai/ffmpeg-api/requests/019dfb9a-9570-77b2-ab9e-fb4253e4a6f3/status",
+        "cancel_url": "https://queue.fal.run/fal-ai/ffmpeg-api/requests/019dfb9a-9570-77b2-ab9e-fb4253e4a6f3/cancel",
+        "logs": [],
+        "metrics": {}
+      }
+    },
+    {
+      "status": 200,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "connection": "keep-alive",
+        "content-length": "450",
+        "content-type": "application/json",
+        "date": "Wed, 06 May 2026 04:45:31 GMT",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "vary": "origin, access-control-request-method, access-control-request-headers",
+        "x-robots-tag": "noindex"
+      },
+      "body": {
+        "status": "COMPLETED",
+        "request_id": "019dfb9a-9570-77b2-ab9e-fb4253e4a6f3",
+        "response_url": "https://queue.fal.run/fal-ai/ffmpeg-api/requests/019dfb9a-9570-77b2-ab9e-fb4253e4a6f3",
+        "status_url": "https://queue.fal.run/fal-ai/ffmpeg-api/requests/019dfb9a-9570-77b2-ab9e-fb4253e4a6f3/status",
+        "cancel_url": "https://queue.fal.run/fal-ai/ffmpeg-api/requests/019dfb9a-9570-77b2-ab9e-fb4253e4a6f3/cancel",
+        "logs": [],
+        "metrics": {
+          "inference_time": 21.04973816871643
+        }
+      }
+    }
+  ]
+}

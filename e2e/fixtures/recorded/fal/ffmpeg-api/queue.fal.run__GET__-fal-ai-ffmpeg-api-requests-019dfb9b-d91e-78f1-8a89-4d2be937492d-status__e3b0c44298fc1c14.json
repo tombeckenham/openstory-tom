@@ -1,0 +1,32 @@
+{
+  "request": {
+    "targetHost": "queue.fal.run",
+    "method": "GET",
+    "pathname": "/fal-ai/ffmpeg-api/requests/019dfb9b-d91e-78f1-8a89-4d2be937492d/status",
+    "bodyHash": "e3b0c44298fc1c14"
+  },
+  "responses": [
+    {
+      "status": 202,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "connection": "keep-alive",
+        "content-length": "418",
+        "content-type": "application/json",
+        "date": "Wed, 06 May 2026 04:46:28 GMT",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "vary": "origin, access-control-request-method, access-control-request-headers",
+        "x-robots-tag": "noindex"
+      },
+      "body": {
+        "status": "IN_PROGRESS",
+        "request_id": "019dfb9b-d91e-78f1-8a89-4d2be937492d",
+        "response_url": "https://queue.fal.run/fal-ai/ffmpeg-api/requests/019dfb9b-d91e-78f1-8a89-4d2be937492d",
+        "status_url": "https://queue.fal.run/fal-ai/ffmpeg-api/requests/019dfb9b-d91e-78f1-8a89-4d2be937492d/status",
+        "cancel_url": "https://queue.fal.run/fal-ai/ffmpeg-api/requests/019dfb9b-d91e-78f1-8a89-4d2be937492d/cancel",
+        "logs": [],
+        "metrics": {}
+      }
+    }
+  ]
+}

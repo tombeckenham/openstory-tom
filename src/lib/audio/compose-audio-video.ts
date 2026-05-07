@@ -4,7 +4,7 @@
  * Unlike merge-audio-video which replaces video audio, compose mixes both audio sources together.
  */
 
-import { createFalClient } from '@fal-ai/client';
+import { createFalClient } from '@/lib/ai/fal-config';
 import type { QueueStatus } from '@fal-ai/client';
 import { getEnv } from '#env';
 import type { ScopedDb } from '@/lib/db/scoped';

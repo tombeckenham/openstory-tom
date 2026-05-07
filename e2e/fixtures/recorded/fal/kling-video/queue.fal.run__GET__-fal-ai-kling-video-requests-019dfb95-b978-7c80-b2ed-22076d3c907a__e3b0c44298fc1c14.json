@@ -1,0 +1,34 @@
+{
+  "request": {
+    "targetHost": "queue.fal.run",
+    "method": "GET",
+    "pathname": "/fal-ai/kling-video/requests/019dfb95-b978-7c80-b2ed-22076d3c907a",
+    "bodyHash": "e3b0c44298fc1c14"
+  },
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "connection": "keep-alive",
+        "content-length": "164",
+        "content-type": "application/json",
+        "date": "Wed, 06 May 2026 04:42:18 GMT",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "vary": "origin, access-control-request-method, access-control-request-headers",
+        "x-fal-billable-units": "12.0",
+        "x-fal-request-id": "019dfb95-b978-7c80-b2ed-22076d3c907a",
+        "x-fal-served-from": "5bb9e1c3-f8c5-4930-85e8-bf581376136c",
+        "x-robots-tag": "noindex"
+      },
+      "body": {
+        "video": {
+          "url": "https://v3b.fal.media/files/b/0a9913dd/-Ig-UiW5DaMZUP5YedpRv_output.mp4",
+          "content_type": "video/mp4",
+          "file_name": "output.mp4",
+          "file_size": 20066735
+        }
+      }
+    }
+  ]
+}

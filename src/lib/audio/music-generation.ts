@@ -205,6 +205,7 @@ async function callFalAudio(
     prompt: shape.prompt,
     duration: shape.duration,
     modelOptions: shape.modelOptions,
+    debug: false,
   });
 
   if (!result.audio.url) {

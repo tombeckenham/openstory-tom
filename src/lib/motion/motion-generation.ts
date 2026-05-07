@@ -111,6 +111,7 @@ export async function submitMotionJob(
     }),
     prompt: optimisedPrompt,
     modelOptions,
+    debug: false,
   });
 
   // Log the job submission details

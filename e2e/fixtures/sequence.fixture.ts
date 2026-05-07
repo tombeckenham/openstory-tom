@@ -42,7 +42,7 @@ const TEST_IMAGES = {
 /**
  * Create a test style for the team (required by sequence)
  */
-async function createTestStyle(teamId: string): Promise<string> {
+export async function createTestStyle(teamId: string): Promise<string> {
   const styleId = ulid();
   const now = new Date();
 
@@ -168,6 +168,39 @@ export async function createTestCharacter(
 }
 
 /**
+ * Get all frames for a sequence ordered by orderIndex.
+ * Used by the full-sequence spec to poll until every frame has its
+ * thumbnail/video/music URLs set during the e2e workflow run.
+ */
+export async function getTestSequenceFrames(sequenceId: string): Promise<
+  Array<{
+    id: string;
+    orderIndex: number;
+    thumbnailUrl: string | null;
+    thumbnailStatus: string | null;
+    videoUrl: string | null;
+    videoStatus: string | null;
+    audioUrl: string | null;
+    audioStatus: string | null;
+  }>
+> {
+  const rows = await testDb.query.frames.findMany({
+    where: { sequenceId },
+    columns: {
+      id: true,
+      orderIndex: true,
+      thumbnailUrl: true,
+      thumbnailStatus: true,
+      videoUrl: true,
+      videoStatus: true,
+      audioUrl: true,
+      audioStatus: true,
+    },
+  });
+  return rows.sort((a, b) => a.orderIndex - b.orderIndex);
+}
+
+/**
  * Get a frame by ID to verify test assertions
  */
 export async function getTestFrame(frameId: string): Promise<{
@@ -220,6 +253,30 @@ export async function getTestCharacter(characterId: string): Promise<{
     talentId: result.talentId,
     sheetStatus: result.sheetStatus,
   };
+}
+
+/**
+ * Get sequence-level music + merged-video status. Music is generated once
+ * per sequence (not per frame — see src/lib/workflows/music-workflow.ts:133
+ * TODO), and merging composes the muxed video, so the full pipeline is
+ * "done" when `mergedVideoStatus === 'completed'`.
+ */
+export async function getTestSequenceStatus(sequenceId: string): Promise<{
+  musicStatus: string | null;
+  musicUrl: string | null;
+  mergedVideoStatus: string | null;
+  mergedVideoUrl: string | null;
+} | null> {
+  const row = await testDb.query.sequences.findFirst({
+    where: { id: sequenceId },
+    columns: {
+      musicStatus: true,
+      musicUrl: true,
+      mergedVideoStatus: true,
+      mergedVideoUrl: true,
+    },
+  });
+  return row ?? null;
 }
 
 /**

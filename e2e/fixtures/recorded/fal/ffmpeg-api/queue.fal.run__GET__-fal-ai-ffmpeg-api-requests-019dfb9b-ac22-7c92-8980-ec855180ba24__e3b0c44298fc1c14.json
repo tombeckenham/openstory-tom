@@ -1,0 +1,34 @@
+{
+  "request": {
+    "targetHost": "queue.fal.run",
+    "method": "GET",
+    "pathname": "/fal-ai/ffmpeg-api/requests/019dfb9b-ac22-7c92-8980-ec855180ba24",
+    "bodyHash": "e3b0c44298fc1c14"
+  },
+  "responses": [
+    {
+      "status": 200,
+      "headers": {
+        "access-control-allow-credentials": "true",
+        "connection": "keep-alive",
+        "content-length": "214",
+        "content-type": "application/json",
+        "date": "Wed, 06 May 2026 04:46:27 GMT",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "vary": "origin, access-control-request-method, access-control-request-headers",
+        "x-fal-request-id": "019dfb9b-ac22-7c92-8980-ec855180ba24",
+        "x-fal-served-from": "bea13c6e-18c3-4f45-bd51-2cfd10e24fef",
+        "x-robots-tag": "noindex"
+      },
+      "body": {
+        "audio": {
+          "url": "https://v3b.fal.media/files/b/0a9913f5/IBuufhWYgoegU-V0RYzIt_normalized_audio.wav",
+          "content_type": "application/octet-stream",
+          "file_name": "normalized_audio.wav",
+          "file_size": 59945482
+        },
+        "summary": null
+      }
+    }
+  ]
+}

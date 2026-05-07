@@ -22,6 +22,10 @@ import {
   type StorageFileInfo,
   type UploadResult,
 } from './buckets';
+import {
+  record as recordR2Upload,
+  tryReplay as tryReplayR2Upload,
+} from './r2-recorder';
 
 export function createR2Client(): S3Client {
   const accountId = getEnv().R2_ACCOUNT_ID;
@@ -66,8 +70,47 @@ export async function uploadFile(
   const key = buildR2Key(bucket, path);
 
   try {
-    // Use Bun's native S3 client for ReadableStream — AWS SDK v3 in Bun
-    // doesn't reliably handle streaming uploads (see commit afdb5ccf).
+    // E2E: try fixture first, lazy-record on miss. We have to buffer the
+    // body upfront for fingerprinting, so skip the Bun streaming branch and
+    // use the SDK uniformly.
+    //
+    // Modes:
+    //   unset (default) → strict: replay only, throw on miss
+    //   record          → always upload + overwrite fixture (force re-record)
+    //   strict          → same as default (kept for explicit opt-in)
+    if (getEnv().E2E_TEST === 'true') {
+      const fp = { bucket, key, contentType: options?.contentType };
+      const mode = process.env.R2_MOCK_MODE ?? 'strict';
+
+      if (mode !== 'record') {
+        const cached = tryReplayR2Upload(fp);
+        // Cache hit: return without ever consuming the body. For uploads
+        // sourced from a fetch ReadableStream (most workflow uploads), this
+        // skips pulling MBs from fal CDN.
+        if (cached) return cached;
+        if (mode === 'strict') {
+          throw new Error(
+            `[r2-mock] No fixture for ${bucket}/${path} and R2_MOCK_MODE=strict. Re-record locally without the strict flag to populate.`
+          );
+        }
+      }
+
+      // Cache miss (or force-record): now we need the bytes.
+      const body = await toUint8Array(file);
+      const result = await sdkPutObject(
+        bucketName,
+        key,
+        body,
+        bucket,
+        path,
+        options
+      );
+      recordR2Upload(fp, body, result);
+      return result;
+    }
+
+    // Production: Use Bun's native S3 client for ReadableStream — AWS SDK v3
+    // in Bun doesn't reliably handle streaming uploads (see commit afdb5ccf).
     // Note: Bun's S3Options doesn't support cacheControl, so streamed files
     // won't get cache headers. This only affects local dev / Railway.
     // Use the `Bun` global rather than `import('bun')` so Vite's import
@@ -89,39 +132,45 @@ export async function uploadFile(
       return { path: key, publicUrl, fullPath: key };
     }
 
-    const client = createR2Client();
-
-    let body: Uint8Array;
-    if (file instanceof Uint8Array) {
-      body = file;
-    } else if (file instanceof ArrayBuffer) {
-      body = new Uint8Array(file);
-    } else {
-      body = new Uint8Array(await file.arrayBuffer());
-    }
-
-    const command = new PutObjectCommand({
-      Bucket: bucketName,
-      Key: key,
-      Body: body,
-      ContentType: options?.contentType,
-      CacheControl: options?.cacheControl ?? 'public, max-age=31536000',
-    });
-
-    await client.send(command);
-
-    const publicUrl = getPublicUrl(bucket, path);
-
-    return {
-      path: key,
-      publicUrl,
-      fullPath: key,
-    };
+    const body = await toUint8Array(file);
+    return sdkPutObject(bucketName, key, body, bucket, path, options);
   } catch (error) {
     throw new Error(
       `Failed to upload file to ${bucket}/${path}: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }
+}
+
+async function toUint8Array(
+  file: File | Blob | ArrayBuffer | Uint8Array | ReadableStream<Uint8Array>
+): Promise<Uint8Array> {
+  if (file instanceof Uint8Array) return file;
+  if (file instanceof ArrayBuffer) return new Uint8Array(file);
+  if (file instanceof ReadableStream) {
+    return new Uint8Array(await new Response(file).arrayBuffer());
+  }
+  return new Uint8Array(await file.arrayBuffer());
+}
+
+async function sdkPutObject(
+  bucketName: string,
+  key: string,
+  body: Uint8Array,
+  bucket: StorageBucket,
+  path: string,
+  options?: { contentType?: string; cacheControl?: string }
+): Promise<UploadResult> {
+  const client = createR2Client();
+  const command = new PutObjectCommand({
+    Bucket: bucketName,
+    Key: key,
+    Body: body,
+    ContentType: options?.contentType,
+    CacheControl: options?.cacheControl ?? 'public, max-age=31536000',
+  });
+  await client.send(command);
+  const publicUrl = getPublicUrl(bucket, path);
+  return { path: key, publicUrl, fullPath: key };
 }
 
 export async function getSignedUrl(

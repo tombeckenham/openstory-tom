@@ -36,7 +36,7 @@ jobs:
       - name: Check formatting
         run: bun format:check
 
-      - name: Run tests
+      - name: Run testsß
         run: bun test
 
   build-e2e:
@@ -66,8 +66,6 @@ jobs:
           VITE_APP_URL: http://localhost:3001
           VITE_DISABLE_DEVTOOLS: 'true'
           VITE_R2_PUBLIC_ASSETS_DOMAIN: ${{ vars.VITE_R2_PUBLIC_ASSETS_DOMAIN }}
-          VITE_PUBLIC_POSTHOG_PROJECT_TOKEN: ${{ secrets.VITE_PUBLIC_POSTHOG_PROJECT_TOKEN }}
-          VITE_PUBLIC_POSTHOG_HOST: ${{ vars.VITE_PUBLIC_POSTHOG_HOST }}
 
       - name: Upload .output artifact
         uses: actions/upload-artifact@v4

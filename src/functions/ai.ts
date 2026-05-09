@@ -233,13 +233,11 @@ export const enhanceScriptStreamFn = createServerFn({ method: 'POST' })
         }
       : undefined;
 
-    // Web search only makes sense when we're not already grounding on
-    // user-provided reference images. Also disable during E2E recording —
-    // the plugin can cause the model to emit tool_calls, which sends the
-    // @tanstack/ai agent loop around for a second OpenRouter call and
-    // produces duplicate fixtures for the same logical enhance.
-    const useWebSearchPlugin =
-      elements.length === 0 && getEnv().E2E_RECORD !== '1';
+    // Disable web search during E2E recording: the plugin can cause the
+    // model to emit tool_calls, which makes @tanstack/ai's agent loop
+    // iterate a second time and produce a duplicate OpenRouter call per
+    // logical enhance.
+    const useWebSearchPlugin = getEnv().E2E_RECORD !== '1';
     for await (const chunk of callLLMStream({
       model,
       messages,

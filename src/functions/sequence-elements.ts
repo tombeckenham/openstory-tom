@@ -1,4 +1,3 @@
-import { getEnv } from '#env';
 import { getSignedUploadUrl } from '#storage';
 import { describeElementImage } from '@/lib/ai/element-vision';
 import { generateId } from '@/lib/db/id';
@@ -16,16 +15,6 @@ import { createServerFn } from '@tanstack/react-start';
 import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 import { authWithTeamMiddleware, sequenceAccessMiddleware } from './middleware';
-
-/**
- * E2E_RECORD=1 captures real upstream calls into fixtures. E2E_TEST=true with
- * E2E_RECORD unset is replay-only — vision calls would miss the fixture and
- * either error or capture an unwanted new fixture, so skip them in replay.
- */
-function shouldRunVisionInE2E(): boolean {
-  const env = getEnv();
-  return env.E2E_TEST !== 'true' || env.E2E_RECORD === '1';
-}
 
 async function triggerElementVision(
   elementId: string,
@@ -101,9 +90,6 @@ export const analyzeDraftElementFn = createServerFn({ method: 'POST' })
     )
   )
   .handler(async ({ context, data }) => {
-    if (!shouldRunVisionInE2E()) {
-      return { description: null, consistencyTag: null };
-    }
     const openRouterApiKeyInfo =
       await context.scopedDb.apiKeys.resolveKey('openrouter');
     const result = await describeElementImage({
@@ -155,19 +141,15 @@ export const finalizeElementUploadFn = createServerFn({ method: 'POST' })
       visionStatus: 'pending',
     });
 
-    // Kick off vision workflow — do not block the upload response. During E2E
-    // recording (E2E_RECORD=1) we still trigger so aimock captures the vision
-    // call into a fixture; replay-only runs skip it.
-    if (shouldRunVisionInE2E()) {
-      await triggerElementVision(
-        element.id,
-        element.sequenceId,
-        element.imageUrl,
-        element.uploadedFilename,
-        context.teamId,
-        context.user.id
-      );
-    }
+    // Kick off vision workflow — do not block the upload response.
+    await triggerElementVision(
+      element.id,
+      element.sequenceId,
+      element.imageUrl,
+      element.uploadedFilename,
+      context.teamId,
+      context.user.id
+    );
 
     return element;
   });

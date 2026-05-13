@@ -14,6 +14,11 @@ import {
 } from '@/lib/schemas/frame.schemas';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
 import { reconcileStaleFrameStatuses } from '@/lib/workflow/reconcile';
+import {
+  extractContinuityFromPrompt,
+  hasContinuityAdditions,
+  mergeContinuityAdditions,
+} from '@/lib/workflows/extract-continuity-from-prompt';
 import { buildRegenerateFrameSnapshot } from '@/lib/workflows/regenerate-frames-snapshot';
 import { createServerFn } from '@tanstack/react-start';
 import { zodValidator } from '@tanstack/zod-adapter';
@@ -303,7 +308,57 @@ export const updateFrameFn = createServerFn({ method: 'POST' })
     )
   )
   .handler(async ({ data, context }) => {
-    const { sequenceId: _, frameId, ...updateData } = data;
+    const { sequenceId, frameId, ...updateData } = data;
+
+    // When a user edits a prompt, auto-link any element/cast/location tags
+    // they mentioned by additively merging them into frame.metadata.continuity
+    // so the next generation pulls those references in (#683). Skip when the
+    // prompt value hasn't actually changed, so plain saves stay a single
+    // UPDATE with no extra reads.
+    const imagePromptChanged =
+      updateData.imagePrompt !== undefined &&
+      updateData.imagePrompt !== context.frame.imagePrompt;
+    const motionPromptChanged =
+      updateData.motionPrompt !== undefined &&
+      updateData.motionPrompt !== context.frame.motionPrompt;
+    const frameMetadata = context.frame.metadata;
+    if (
+      (imagePromptChanged || motionPromptChanged) &&
+      frameMetadata?.continuity
+    ) {
+      const existingContinuity = frameMetadata.continuity;
+      const newImagePrompt = imagePromptChanged ? updateData.imagePrompt : null;
+      const newMotionPrompt = motionPromptChanged
+        ? updateData.motionPrompt
+        : null;
+      const promptText = [newImagePrompt, newMotionPrompt]
+        .filter((s): s is string => typeof s === 'string' && s.length > 0)
+        .join('\n');
+
+      if (promptText.length > 0) {
+        const [characters, elements, locations] = await Promise.all([
+          context.scopedDb.characters.list(sequenceId),
+          context.scopedDb.sequenceElements.list(sequenceId),
+          context.scopedDb.sequenceLocations.list(sequenceId),
+        ]);
+
+        const additions = extractContinuityFromPrompt({
+          promptText,
+          characters,
+          elements,
+          locations,
+          existing: existingContinuity,
+        });
+
+        if (hasContinuityAdditions(additions)) {
+          updateData.metadata = {
+            ...frameMetadata,
+            continuity: mergeContinuityAdditions(existingContinuity, additions),
+          };
+        }
+      }
+    }
+
     return context.scopedDb.frames.update(frameId, updateData);
   });
 

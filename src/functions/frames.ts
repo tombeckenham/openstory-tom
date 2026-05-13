@@ -14,11 +14,7 @@ import {
 } from '@/lib/schemas/frame.schemas';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
 import { reconcileStaleFrameStatuses } from '@/lib/workflow/reconcile';
-import {
-  extractContinuityFromPrompt,
-  hasContinuityAdditions,
-  mergeContinuityAdditions,
-} from '@/lib/workflows/extract-continuity-from-prompt';
+import { rescanContinuityFromPrompt } from '@/lib/scenes/rescan-continuity-from-prompt';
 import { buildRegenerateFrameSnapshot } from '@/lib/workflows/regenerate-frames-snapshot';
 import { createServerFn } from '@tanstack/react-start';
 import { zodValidator } from '@tanstack/zod-adapter';
@@ -326,36 +322,25 @@ export const updateFrameFn = createServerFn({ method: 'POST' })
       (imagePromptChanged || motionPromptChanged) &&
       frameMetadata?.continuity
     ) {
-      const existingContinuity = frameMetadata.continuity;
-      const newImagePrompt = imagePromptChanged ? updateData.imagePrompt : null;
-      const newMotionPrompt = motionPromptChanged
-        ? updateData.motionPrompt
-        : null;
-      const promptText = [newImagePrompt, newMotionPrompt]
+      const promptText = [
+        imagePromptChanged ? updateData.imagePrompt : null,
+        motionPromptChanged ? updateData.motionPrompt : null,
+      ]
         .filter((s): s is string => typeof s === 'string' && s.length > 0)
         .join('\n');
 
-      if (promptText.length > 0) {
-        const [characters, elements, locations] = await Promise.all([
-          context.scopedDb.characters.list(sequenceId),
-          context.scopedDb.sequenceElements.list(sequenceId),
-          context.scopedDb.sequenceLocations.list(sequenceId),
-        ]);
+      const rescan = await rescanContinuityFromPrompt({
+        scopedDb: context.scopedDb,
+        sequenceId,
+        existing: frameMetadata.continuity,
+        promptText,
+      });
 
-        const additions = extractContinuityFromPrompt({
-          promptText,
-          characters,
-          elements,
-          locations,
-          existing: existingContinuity,
-        });
-
-        if (hasContinuityAdditions(additions)) {
-          updateData.metadata = {
-            ...frameMetadata,
-            continuity: mergeContinuityAdditions(existingContinuity, additions),
-          };
-        }
+      if (rescan.changed) {
+        updateData.metadata = {
+          ...frameMetadata,
+          continuity: rescan.continuity,
+        };
       }
     }
 

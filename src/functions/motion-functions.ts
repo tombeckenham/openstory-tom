@@ -22,6 +22,7 @@ import type {
 } from '@/lib/workflow/types';
 
 import { resolveMotionPrompt } from '@/lib/motion/resolve-motion-prompt';
+import { rescanContinuityFromPrompt } from '@/lib/scenes/rescan-continuity-from-prompt';
 import { buildMergeVideoSourcesFromFrames } from '@/lib/workflows/sequence-snapshots';
 
 import { frameAccessMiddleware, sequenceAccessMiddleware } from './middleware';
@@ -50,6 +51,25 @@ export const generateFrameMotionFn = createServerFn({ method: 'POST' })
 
     const userEditedPrompt = Boolean(data.prompt);
     const prompt = data.prompt || resolveMotionPrompt(frame, model);
+
+    // Auto-link any element/cast/location tags the user mentioned in their
+    // edited motion prompt into frame.metadata.continuity, so downstream
+    // consumers (next image regenerate, frame-image reference attachment)
+    // see the new references. Motion itself uses image-to-video and doesn't
+    // re-attach references here, but persisting keeps the data consistent.
+    if (userEditedPrompt && frame.metadata?.continuity) {
+      const rescan = await rescanContinuityFromPrompt({
+        scopedDb: context.scopedDb,
+        sequenceId: sequence.id,
+        existing: frame.metadata.continuity,
+        promptText: prompt,
+      });
+      if (rescan.changed) {
+        await context.scopedDb.frames.update(frame.id, {
+          metadata: { ...frame.metadata, continuity: rescan.continuity },
+        });
+      }
+    }
 
     const duration = data.duration ?? snapDuration(undefined, model);
 

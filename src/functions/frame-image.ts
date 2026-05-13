@@ -25,6 +25,7 @@ import {
   regenerateFrameSchema,
 } from '@/lib/schemas/frame.schemas';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
+import { rescanContinuityFromPrompt } from '@/lib/scenes/rescan-continuity-from-prompt';
 import { triggerWorkflow } from '@/lib/workflow/client';
 import { buildWorkflowLabel } from '@/lib/workflow/labels';
 import type {
@@ -138,19 +139,41 @@ export const generateFrameImageFn = createServerFn({ method: 'POST' })
       throw new Error('Frame has no prompt or description to regenerate from');
     }
 
+    // Auto-link any element/cast/location tags the user mentioned in their
+    // edited prompt before computing reference attachment, so a freshly-
+    // mentioned LOGO gets its reference image attached to THIS regeneration.
+    // updateFrameFn does the same rescan, but the UI never calls it — the
+    // regenerate buttons are the only persistence path for prompts today.
+    const userEditedPrompt = data.prompt !== undefined;
+    const baseContinuity = frame.metadata?.continuity;
+    let continuity = baseContinuity;
+    if (userEditedPrompt && frame.metadata && baseContinuity) {
+      const rescan = await rescanContinuityFromPrompt({
+        scopedDb: context.scopedDb,
+        sequenceId: sequence.id,
+        existing: baseContinuity,
+        promptText: prompt,
+      });
+      if (rescan.changed) {
+        continuity = rescan.continuity;
+        await context.scopedDb.frames.update(frame.id, {
+          metadata: { ...frame.metadata, continuity: rescan.continuity },
+        });
+      }
+    }
+
     const allCharacters = await context.scopedDb.characters.listWithSheets(
       sequence.id
     );
-    const characterTags = frame.metadata?.continuity?.characterTags ?? [];
     const characterReferences = buildCharacterReferenceImages(
-      matchCharactersToScene(allCharacters, characterTags)
+      matchCharactersToScene(allCharacters, continuity?.characterTags ?? [])
     );
 
     const allLocations =
       await context.scopedDb.sequenceLocations.listWithReferences(sequence.id);
     const locationReferences = getSceneLocationReferenceImages(
       allLocations,
-      frame.metadata?.continuity?.environmentTag ?? '',
+      continuity?.environmentTag ?? '',
       frame.metadata?.metadata?.location ?? ''
     );
 
@@ -160,7 +183,7 @@ export const generateFrameImageFn = createServerFn({ method: 'POST' })
     const elementReferences = buildElementReferenceImages(
       matchElementsToScene(
         allElements,
-        frame.metadata?.continuity?.elementTags ?? [],
+        continuity?.elementTags ?? [],
         frame.metadata?.originalScript.extract ?? ''
       )
     );
@@ -188,7 +211,7 @@ export const generateFrameImageFn = createServerFn({ method: 'POST' })
         ...locationReferences,
         ...elementReferences,
       ],
-      userEditedPrompt: data.prompt !== undefined,
+      userEditedPrompt,
     };
 
     const workflowRunId = await triggerWorkflow('/image', workflowInput, {

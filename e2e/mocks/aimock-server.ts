@@ -15,7 +15,12 @@
  * Browser-side mocks (R2, QStash) remain in handlers.ts via Playwright routes.
  */
 
-import { LLMock, loadFixtureFile, type Fixture } from '@copilotkit/aimock';
+import {
+  LLMock,
+  loadFixtureFile,
+  type ChatCompletionRequest,
+  type Fixture,
+} from '@copilotkit/aimock';
 import {
   existsSync,
   mkdirSync,
@@ -134,6 +139,49 @@ const ULID_OR_UUID_SPLIT_RE = new RegExp(
   'i'
 );
 
+// fal request bodies for non-prompt models (ffmpeg-api/loudnorm/compose,
+// kling image-to-video, nano-banana-2-edit) contain R2 URLs and fal CDN
+// URLs that drift every run. aimock's built-in fal handler matches on the
+// JSON-stringified body when no `prompt` field is present, so without
+// normalization those fixtures never match across runs. Mirrors the
+// deleted custom fal-handler.ts:normalizeForHash exactly:
+//   - UPLOAD_SUFFIX: the ULID-tail shortHash baked into R2 filenames
+//     (e.g. `merged/<8 hex>_openstory.mp4` or
+//     `<slug>_<slug>_<6 hex>_openstory.<ext>`).
+//   - FAL_CDN_PATH: fal output URLs of the shape
+//     `/files/b/<8 hex>/<base62 id>_<rest>.<ext>`. Collapse the bucket+id
+//     while preserving the `_<rest>.<ext>` suffix so different logical
+//     outputs (normalized_audio.wav vs output.mp4) still differ.
+const FAL_UPLOAD_SUFFIX_RE = /(?<=[_/])[0-9A-Za-z]{6,16}_openstory\./g;
+const FAL_CDN_PATH_RE =
+  /\/files\/b\/[0-9a-f]{6,12}\/[A-Za-z0-9_-]{10,}(?=[_.])/g;
+
+function normalizeFalContent(content: string): string {
+  return content
+    .replace(ULID_TOKEN_RE, '<ULID>')
+    .replace(UUID_TOKEN_RE, '<UUID>')
+    .replace(FAL_UPLOAD_SUFFIX_RE, '<HASH>_openstory.')
+    .replace(FAL_CDN_PATH_RE, '/files/b/<FAL>/<FAL>');
+}
+
+// aimock applies this to both the live request (router.js:38) and the
+// recorder's fixture-match build (recorder.js:172), so record and replay
+// stay symmetric — both sides see normalized content.
+// Setting a transform also flips string matching from `.includes()` to
+// `===` (router.js:39); openrouter fixtures are unaffected because
+// `tolerateRuntimeIds` rewrites their userMessage matchers as RegExps,
+// which always use `.test()`.
+function falRequestTransform(
+  req: ChatCompletionRequest
+): ChatCompletionRequest {
+  if (req._endpointType !== 'fal') return req;
+  const messages = req.messages.map((msg) => {
+    if (msg.role !== 'user' || typeof msg.content !== 'string') return msg;
+    return { ...msg, content: normalizeFalContent(msg.content) };
+  });
+  return { ...req, messages };
+}
+
 function escapeRegex(literal: string): string {
   return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -167,8 +215,14 @@ let mockServer: LLMock | null = null;
 export async function startAimockServer(): Promise<string> {
   mockServer = new LLMock({
     port: AIMOCK_PORT,
-    strict: true,
+    // Strict replay returns 503 on unmatched requests. aimock's fal
+    // dispatcher (fal.js:240) checks strict mode BEFORE the record branch,
+    // so leaving strict on during recording would 503 every fal call
+    // instead of proxying upstream. Gate it on recording mode: strict for
+    // CI replay, lenient while recording so the proxy/record path runs.
+    strict: !E2E_RECORDING,
     logLevel: 'info',
+    requestTransform: falRequestTransform,
     // Record only when E2E_RECORD=1 (real key from .env.local). Default is
     // strict replay against the recorded fixtures — CI runs without the flag
     // so a missing fixture fails fast instead of proxying to live OpenRouter.

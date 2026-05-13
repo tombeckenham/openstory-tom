@@ -1,10 +1,18 @@
 /**
  * aimock Server for E2E Tests
  *
- * Provides a standalone OpenAI-compatible mock server that intercepts
- * server-side LLM calls (OpenRouter) during E2E tests.
+ * Standalone mock server that intercepts server-side AI traffic during E2E
+ * tests. Handles OpenRouter (LLM) and fal.ai (image/video/audio) natively:
  *
- * Browser-side mocks (fal.ai, R2, QStash) remain in handlers.ts via Playwright routes.
+ * - OpenRouter: aimock's OpenAI-compatible dispatcher matches against
+ *   recorded fixtures under `fixtures/recorded/openrouter/<stage>/`.
+ * - fal.ai: aimock's built-in `/fal/*` dispatcher (server.js dispatch at
+ *   `FAL_PREFIX_RE`) reads the `x-fal-target-host` header that
+ *   `src/lib/ai/fal-config.ts` already stamps on fal requests, and matches
+ *   against recorded fixtures under `fixtures/recorded/fal/`. No `mount()`
+ *   needed — the library handles it.
+ *
+ * Browser-side mocks (R2, QStash) remain in handlers.ts via Playwright routes.
  */
 
 import { LLMock, loadFixtureFile, type Fixture } from '@copilotkit/aimock';
@@ -19,16 +27,20 @@ import {
 } from 'node:fs';
 import { resolve } from 'node:path';
 import { E2E_RECORDING } from '../recording-mode';
-import { createFalHandler } from './fal-handler';
 
 const AIMOCK_PORT = 4010;
 const FIXTURE_DIR = resolve(
   import.meta.dirname,
   '../fixtures/recorded/openrouter'
 );
+const FAL_FIXTURE_DIR = resolve(
+  import.meta.dirname,
+  '../fixtures/recorded/fal'
+);
 // aimock's recorder writes flat into a single directory; we point it here and
 // `sortStagingFixtures()` (run on shutdown) classifies each new file by its
-// `userMessage` prefix and moves it into the right stage subfolder.
+// provider-key prefix (`openai-…` vs `fal-…`) and moves it into the right
+// subfolder of `fixtures/recorded/`.
 const RECORD_STAGING_DIR = resolve(FIXTURE_DIR, '_unsorted');
 
 // Maps a fixture's `userMessage` prefix to the stage subfolder it belongs in.
@@ -186,10 +198,14 @@ export async function startAimockServer(): Promise<string> {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- intentional readonly→mutable widening to install push/unshift hooks
   patchFixturesArray(mockServer.getFixtures() as Fixture[]);
 
-  // Mount fal.ai handler at /fal so workflows can hit fal endpoints via
-  // FAL_PROXY_URL=http://localhost:4010/fal. The handler manages its own
-  // record/replay (aimock's record providers don't speak fal).
-  mockServer.mount('/fal', createFalHandler());
+  // fal.ai fixtures: aimock's built-in /fal/* dispatcher matches against the
+  // same fixture pool. Loaded raw — no ULID tolerance or fingerprint stamping
+  // (those are OpenRouter-shaped concerns). When recording, `handleFal`
+  // auto-derives `providers.fal = https://${x-fal-target-host}`, so no extra
+  // record-providers entry is needed.
+  if (existsSync(FAL_FIXTURE_DIR)) {
+    mockServer.addFixtures(loadFixturesRecursive(FAL_FIXTURE_DIR));
+  }
 
   const url = await mockServer.start();
   console.log(`[e2e] aimock server started at ${url}`);
@@ -222,10 +238,12 @@ function classifyStage(filePath: string): string | null {
   );
 }
 
-// Walk `_unsorted/` and move each freshly-recorded fixture into its stage
-// subfolder by `userMessage` prefix. Runs on shutdown of any E2E_RECORD=1
-// run, so recordings end up in the curated layout regardless of whether the
-// caller used `bun test:e2e:record:full` or the wrapper script.
+// Walk `_unsorted/` and move each freshly-recorded fixture into the right
+// curated subfolder. aimock's recorder names files `<providerKey>-…json`
+// (recorder.js:196), so we route by prefix: `fal-…` into `fixtures/recorded/fal/`,
+// and `openai-…` (used for OpenRouter) into a stage subfolder of
+// `fixtures/recorded/openrouter/` keyed by the fixture's userMessage prefix.
+// Runs on shutdown of any E2E_RECORD=1 run.
 function sortStagingFixtures(): void {
   if (!existsSync(RECORD_STAGING_DIR)) return;
 
@@ -241,6 +259,12 @@ function sortStagingFixtures(): void {
   let sorted = 0;
   for (const name of files) {
     const src = resolve(RECORD_STAGING_DIR, name);
+    if (name.startsWith('fal-')) {
+      mkdirSync(FAL_FIXTURE_DIR, { recursive: true });
+      renameSync(src, resolve(FAL_FIXTURE_DIR, name));
+      sorted++;
+      continue;
+    }
     const stage = classifyStage(src);
     if (stage === null) {
       console.warn(

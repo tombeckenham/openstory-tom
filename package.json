@@ -207,7 +207,7 @@
     "@chromatic-com/storybook": "^5.1.2",
     "@clack/prompts": "^1.2.0",
     "@cloudflare/vite-plugin": "^1.33.0",
-    "@copilotkit/aimock": "^1.14.3",
+    "@copilotkit/aimock": "^1.23.0",
     "@faker-js/faker": "^10.4.0",
     "@storybook/addon-a11y": "^10.3.5",
     "@storybook/addon-docs": "^10.3.5",

@@ -1,0 +1,15 @@
+{
+  "request": {
+    "bucket": "videos",
+    "key": "videos/teams/01KRJ3NE1F0QW2VV1AKMNNH61E/sequences/01KRJ3NKHWXWPBCM67R9WSSTSG/frames/01KRJ3NQMYVWQSEQP2HMKQX2BQ/untitled_pre-live-preparations-and-go-live_k97qjy_openstory.mp4",
+    "normalisedKey": "videos/teams/<ULID>/sequences/<ULID>/frames/<ULID>/untitled_pre-live-preparations-and-go-live_<HASH>_openstory.mp4",
+    "contentType": "video/mp4",
+    "bodyHash": "6cfe7a78f5df2cfe2954a4ab771637bb0601e8d6c72197e9ce6d9d292078b58f",
+    "bodySize": 12344292
+  },
+  "response": {
+    "path": "videos/teams/01KRJ3NE1F0QW2VV1AKMNNH61E/sequences/01KRJ3NKHWXWPBCM67R9WSSTSG/frames/01KRJ3NQMYVWQSEQP2HMKQX2BQ/untitled_pre-live-preparations-and-go-live_k97qjy_openstory.mp4",
+    "publicUrl": "https://storage-dev.openstory.so/videos/teams/01KRJ3NE1F0QW2VV1AKMNNH61E/sequences/01KRJ3NKHWXWPBCM67R9WSSTSG/frames/01KRJ3NQMYVWQSEQP2HMKQX2BQ/untitled_pre-live-preparations-and-go-live_k97qjy_openstory.mp4",
+    "fullPath": "videos/teams/01KRJ3NE1F0QW2VV1AKMNNH61E/sequences/01KRJ3NKHWXWPBCM67R9WSSTSG/frames/01KRJ3NQMYVWQSEQP2HMKQX2BQ/untitled_pre-live-preparations-and-go-live_k97qjy_openstory.mp4"
+  }
+}

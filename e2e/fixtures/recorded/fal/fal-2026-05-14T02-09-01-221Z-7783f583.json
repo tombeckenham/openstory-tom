@@ -1,0 +1,24 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Handheld camera holds a subtle static lock-off with natural micro-movement at eye-level slightly above, focused on the reporter's hands moving with effortless precision across the glowing terminal keyboard in rhythmic keystrokes. Fingers tense and tap steadily as the reporter speaks the line with calm professional delivery and minimal head nod. Rain streaks trace downward on the wide background window under bright directional light, casting shifting clean shadows over the desk surfaces while fabric edges flutter faintly from ventilation.\n\n[REPORTER, calm professional]: \"We go live in ten.\"\n\nAmbient sounds: rain pattering on windows, quiet newsroom hum. rhythmic keyboard clacking, subtle finger taps on keys.",
+        "model": "fal-ai/kling-video/v3/pro/image-to-video",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "video": {
+            "url": "https://v3b.fal.media/files/b/0a9a1e45/HuceLgy8hn7wiZ92hMequ_output.mp4",
+            "content_type": "video/mp4",
+            "file_name": "output.mp4",
+            "file_size": 12225064
+          }
+        },
+        "status": 200
+      }
+    }
+  ]
+}

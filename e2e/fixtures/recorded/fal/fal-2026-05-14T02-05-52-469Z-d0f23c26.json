@@ -1,0 +1,24 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Instrumental ambient electronic track evoking a fresh, sensory and effortlessly cool atmosphere that builds subtle anticipation through the newsroom preparations for live broadcast, using steady pulsing synths and atmospheric pads.",
+        "model": "fal-ai/elevenlabs/music",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "audio": {
+            "url": "https://v3b.fal.media/files/b/0a9a1e33/Ki8gW6yESaktYH5noK2yC_music_generated.mp3",
+            "content_type": "audio/mpeg",
+            "file_name": "music_generated.mp3",
+            "file_size": 384149
+          }
+        },
+        "status": 200
+      }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Handheld camera snaps through rapid quick cuts: fingers twist dimmer switches with precise motion, eyes snap forward locking onto lens, then rapid cut to monitor screen flaring bright with scrolling text. Camera pushes in slightly as the reporter leans forward into frame with steady posture. Quick cut back to eyes for final lock. Reporter delivers line with minimal head nod and direct gaze.\n\n[REPORTER, steady confident]: \"We're live.\"\n\nAmbient sounds: quiet newsroom hum with faint monitor beeps. light dimmer clicks, subtle fabric rustle.",
+        "model": "fal-ai/kling-video/v3/pro/image-to-video",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "video": {
+            "url": "https://v3b.fal.media/files/b/0a9a1e3e/HPD1FeElqyd4RS4fxNGAz_output.mp4",
+            "content_type": "video/mp4",
+            "file_name": "output.mp4",
+            "file_size": 12344292
+          }
+        },
+        "status": 200
+      }
+    }
+  ]
+}

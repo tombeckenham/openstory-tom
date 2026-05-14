@@ -1,0 +1,29 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Modern social-first product photography with tactile editorial energy captured on bright natural window light, REPORTER hands positioned with effortless precision over the glowing terminal keyboard mid-keystroke in a sleek newsroom at night, fingers tensed with potential energy and rhythmic detail as they hover above the keys, wide window in the background showing crisp tactile rain streaks casting clean directional shadows across minimalist desks and surfaces, shallow depth of field emphasizing the hands and terminal with airy bokeh on the background, high-key true-to-life color grading featuring crisp whites and neutral tones punctuated by one accent hue, dynamic handheld framing with natural micro-movement from an eye-level slightly above angle",
+        "model": "fal-ai/nano-banana-2",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/0a9a1e2e/SWm23VDuOF5fu076fQCZT_coBnfWlm.png",
+              "content_type": "image/png",
+              "file_name": "SWm23VDuOF5fu076fQCZT_coBnfWlm.png",
+              "file_size": null,
+              "width": null,
+              "height": null
+            }
+          ],
+          "description": ""
+        },
+        "status": 200
+      }
+    }
+  ]
+}

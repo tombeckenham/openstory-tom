@@ -1,0 +1,15 @@
+{
+  "request": {
+    "bucket": "videos",
+    "key": "videos/teams/01KRJ3NE1F0QW2VV1AKMNNH61E/sequences/01KRJ3NKHWXWPBCM67R9WSSTSG/frames/01KRJ3NQETAX12NQ4EN6WC18S9/untitled_producer-enters-with-breaking-news_9mjv2f_openstory.mp4",
+    "normalisedKey": "videos/teams/<ULID>/sequences/<ULID>/frames/<ULID>/untitled_producer-enters-with-breaking-news_<HASH>_openstory.mp4",
+    "contentType": "video/mp4",
+    "bodyHash": "e5fabbd5d1837e8a26071169cf4086fe91e4702e5b0424d96dc81a636343f95a",
+    "bodySize": 11363062
+  },
+  "response": {
+    "path": "videos/teams/01KRJ3NE1F0QW2VV1AKMNNH61E/sequences/01KRJ3NKHWXWPBCM67R9WSSTSG/frames/01KRJ3NQETAX12NQ4EN6WC18S9/untitled_producer-enters-with-breaking-news_9mjv2f_openstory.mp4",
+    "publicUrl": "https://storage-dev.openstory.so/videos/teams/01KRJ3NE1F0QW2VV1AKMNNH61E/sequences/01KRJ3NKHWXWPBCM67R9WSSTSG/frames/01KRJ3NQETAX12NQ4EN6WC18S9/untitled_producer-enters-with-breaking-news_9mjv2f_openstory.mp4",
+    "fullPath": "videos/teams/01KRJ3NE1F0QW2VV1AKMNNH61E/sequences/01KRJ3NKHWXWPBCM67R9WSSTSG/frames/01KRJ3NQETAX12NQ4EN6WC18S9/untitled_producer-enters-with-breaking-news_9mjv2f_openstory.mp4"
+  }
+}

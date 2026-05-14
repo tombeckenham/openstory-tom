@@ -1,0 +1,29 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "9-panel cinematic storyboard sheet derived from Image 1. Mix Wide, Medium, and Tight shots of the same scene. No borders between panels.\n\nLayout: 3x3 grid (9 panels) in a 16:9 landscape image.\n\nScene: Modern social-first product photography with tactile editorial energy captured on bright natural window light, REPORTER hands positioned with effortless precision over the glowing terminal keyboard mid-keystroke in a sleek newsroom at night, fingers tensed with potential energy and rhythmic detail as they hover above the keys, wide window in the background showing crisp tactile rain streaks casting clean directional shadows across minimalist desks and surfaces, shallow depth of field emphasizing the hands and terminal with airy bokeh on the background, high-key true-to-life color grading featuring crisp whites and neutral tones punctuated by one accent hue, dynamic handheld framing with natural micro-movement from an eye-level slightly above angle\n\nMatch Image 1 exactly: same character(s) (face, hair, skin, clothing), lighting, color grade, and texture. If character reference sheets are provided, use them for likeness — do not render them as separate panels.\n\nNo text, dialogue bubbles, scene numbers, or watermarks.\n\n\n  <reference-images>\n    - Image 1 [PRIMARY SOURCE]: Primary source scene — generate 9 variant shots from this image\n    \n  </reference-images>",
+        "model": "fal-ai/nano-banana-2/edit",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/0a9a1e31/bN0i2Y3e0nToNn7lc4rjD_NzcpRRSQ.png",
+              "content_type": "image/png",
+              "file_name": "bN0i2Y3e0nToNn7lc4rjD_NzcpRRSQ.png",
+              "file_size": null,
+              "width": null,
+              "height": null
+            }
+          ],
+          "description": ""
+        },
+        "status": 200
+      }
+    }
+  ]
+}

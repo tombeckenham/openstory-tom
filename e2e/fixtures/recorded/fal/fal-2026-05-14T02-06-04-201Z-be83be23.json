@@ -1,0 +1,29 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "9-panel cinematic storyboard sheet derived from Image 1. Mix Wide, Medium, and Tight shots of the same scene. No borders between panels.\n\nLayout: 3x3 grid (9 panels) in a 16:9 landscape image.\n\nScene: Modern social-first editorial photography with clean tactile energy, PRODUCER rushing forward into the sleek newsroom at night, fingers pressing the printed lede with urgency as the page lands on the counter amid curated minimal chaos of scattered papers and equipment, rain streaks visible on the wide window under bright natural light casting clean directional shadows across polished surfaces, high-key airy atmosphere with crisp whites and subtle warmth, handheld camera angle with shallow depth of field and natural micro-movement, dynamic slight overhead framing that emphasizes the moment the page hits the counter.\n\nMatch Image 1 exactly: same character(s) (face, hair, skin, clothing), lighting, color grade, and texture. If character reference sheets are provided, use them for likeness — do not render them as separate panels.\n\nNo text, dialogue bubbles, scene numbers, or watermarks.\n\n\n  <reference-images>\n    - Image 1 [PRIMARY SOURCE]: Primary source scene — generate 9 variant shots from this image\n    \n  </reference-images>",
+        "model": "fal-ai/nano-banana-2/edit",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/0a9a1e31/LcjjBAG6-tIR-OV1z-ufM_4Cm2GDt1.png",
+              "content_type": "image/png",
+              "file_name": "LcjjBAG6-tIR-OV1z-ufM_4Cm2GDt1.png",
+              "file_size": null,
+              "width": null,
+              "height": null
+            }
+          ],
+          "description": ""
+        },
+        "status": 200
+      }
+    }
+  ]
+}

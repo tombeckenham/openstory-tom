@@ -1,0 +1,24 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Handheld camera pushes in dynamically with natural micro-movement, tracking the producer as they rush forward from the left and slam the printed page onto the counter with urgency, the sheet landing flat amid minimal desk clutter. The producer leans over the counter, torso tense and hand pressing firmly down while delivering the line with sharp gestures and intense focus.\nUrgent energy fills the space as fabric shifts on their sleeve and faint particles drift through the bright window light, rain continuing its steady streaks on the glass behind.\n\n[PRODUCER, urgent tense]: \"Story just broke. We need this on air now.\"\n\nAmbient sounds: quiet newsroom hum with faint rain on windows. urgent footsteps on floor, printed page slapping hard onto counter, paper crinkle on impact.",
+        "model": "fal-ai/kling-video/v3/pro/image-to-video",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "video": {
+            "url": "https://v3b.fal.media/files/b/0a9a1e3d/tiRo4IEAeP_lcFvsp7c3b_output.mp4",
+            "content_type": "video/mp4",
+            "file_name": "output.mp4",
+            "file_size": 11363062
+          }
+        },
+        "status": 200
+      }
+    }
+  ]
+}

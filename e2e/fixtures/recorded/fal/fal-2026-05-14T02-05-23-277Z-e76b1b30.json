@@ -1,0 +1,29 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Modern editorial product photography style shot of REPORTER leaning in toward the lens with muscles tensed and steady confident gaze locking directly on camera, in a newsroom environment at night filled with desks scattered with papers and monitors showing glowing text in the softly blurred background, golden-hour warmth edging the frame with bright natural window light casting clean directional shadows and subtle flares across the surfaces, high-key airy composition with true-to-life colors and lifted shadows, shallow depth of field emphasizing the poised moment of going live while keeping the surrounding controlled chaos in soft bokeh, dynamic handheld framing with natural energy and crisp tactile detail on fabrics and desk textures.",
+        "model": "fal-ai/nano-banana-2",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/0a9a1e2e/pBqReJeGNV_qfFh4yuS0H_P17NC44B.png",
+              "content_type": "image/png",
+              "file_name": "pBqReJeGNV_qfFh4yuS0H_P17NC44B.png",
+              "file_size": null,
+              "width": null,
+              "height": null
+            }
+          ],
+          "description": ""
+        },
+        "status": 200
+      }
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "9-panel cinematic storyboard sheet derived from Image 1. Mix Wide, Medium, and Tight shots of the same scene. No borders between panels.\n\nLayout: 3x3 grid (9 panels) in a 16:9 landscape image.\n\nScene: A single locked frame lingers on the rain-kissed glass of a large window at night, delicate droplets streaking down the pane in true-to-life textures while the soft city glow reflects in realistic tones across every wet surface, shallow depth of field keeps the foreground droplets sharp with the blurred urban lights beyond creating gentle bokeh, clean directional window light mixed with distant neon warmth producing natural highlights and soft shadows without heavy diffusion, bright natural light overall with a hint of golden-hour warmth at the edges for an airy yet moody atmosphere, eye-level angle with slight overhead tilt emphasizing tactile water details on the glass, modern social-first editorial photography style with true-to-life color and crisp whites lifted against the dark night outside.\n\nMatch Image 1 exactly: same character(s) (face, hair, skin, clothing), lighting, color grade, and texture. If character reference sheets are provided, use them for likeness — do not render them as separate panels.\n\nNo text, dialogue bubbles, scene numbers, or watermarks.\n\n\n  <reference-images>\n    - Image 1 [PRIMARY SOURCE]: Primary source scene — generate 9 variant shots from this image\n    \n  </reference-images>",
+        "model": "fal-ai/nano-banana-2/edit",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/0a9a1e31/tNmho_3d7Alt3ohU2LXNu_gWwgyvFL.png",
+              "content_type": "image/png",
+              "file_name": "tNmho_3d7Alt3ohU2LXNu_gWwgyvFL.png",
+              "file_size": null,
+              "width": null,
+              "height": null
+            }
+          ],
+          "description": ""
+        },
+        "status": 200
+      }
+    }
+  ]
+}

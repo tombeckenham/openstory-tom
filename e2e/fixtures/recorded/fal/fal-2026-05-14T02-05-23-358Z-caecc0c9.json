@@ -1,0 +1,29 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Modern social-first editorial photography with clean tactile energy, PRODUCER rushing forward into the sleek newsroom at night, fingers pressing the printed lede with urgency as the page lands on the counter amid curated minimal chaos of scattered papers and equipment, rain streaks visible on the wide window under bright natural light casting clean directional shadows across polished surfaces, high-key airy atmosphere with crisp whites and subtle warmth, handheld camera angle with shallow depth of field and natural micro-movement, dynamic slight overhead framing that emphasizes the moment the page hits the counter.",
+        "model": "fal-ai/nano-banana-2",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/0a9a1e2e/IOQnO_ytAlTMPcTOwCEaV_nCCfzoxA.png",
+              "content_type": "image/png",
+              "file_name": "IOQnO_ytAlTMPcTOwCEaV_nCCfzoxA.png",
+              "file_size": null,
+              "width": null,
+              "height": null
+            }
+          ],
+          "description": ""
+        },
+        "status": 200
+      }
+    }
+  ]
+}

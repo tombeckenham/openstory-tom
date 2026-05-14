@@ -3,6 +3,7 @@ import { MotionProgressBanner } from '@/components/generation/motion-progress-ba
 import { ScenePlayer } from '@/components/motion/scene-player';
 import { MobileSceneDrawer } from '@/components/scenes/mobile-scene-drawer';
 import { SceneList } from '@/components/scenes/scene-list';
+import type { BatchGenerateMotionArgs } from '@/components/scenes/scene-list';
 import {
   SceneScriptPrompts,
   type TabValue,
@@ -25,7 +26,14 @@ import { DivergenceCompareDialog } from '@/components/scenes/divergence-compare-
 import { getDivergentVariantPromptDiffFn } from '@/functions/prompt-variants';
 import { sequenceKeys, useSequence } from '@/hooks/use-sequences';
 import { useStyle } from '@/hooks/use-styles';
-import { safeTextToImageModel, DEFAULT_IMAGE_MODEL } from '@/lib/ai/models';
+import {
+  DEFAULT_IMAGE_MODEL,
+  DEFAULT_MUSIC_MODEL,
+  DEFAULT_VIDEO_MODEL,
+  safeAudioModel,
+  safeImageToVideoModel,
+  safeTextToImageModel,
+} from '@/lib/ai/models';
 import {
   DEFAULT_ASPECT_RATIO,
   type AspectRatio,
@@ -177,6 +185,14 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
   const isProcessing = sequence?.status === 'processing';
   const { data: style } = useStyle(sequence?.styleId ?? '');
   const styleCategory = style?.category ?? undefined;
+  const sequenceMotionModel = safeImageToVideoModel(
+    sequence?.videoModel,
+    DEFAULT_VIDEO_MODEL
+  );
+  const sequenceMusicModel = safeAudioModel(
+    sequence?.musicModel,
+    DEFAULT_MUSIC_MODEL
+  );
 
   // Phase config from DB — set in stone when the workflow was triggered
   const phaseConfig = useMemo<GenerationPhaseConfig>(
@@ -492,7 +508,11 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
 
   // Handler for batch motion generation (server determines eligible frames)
   const handleBatchMotionGeneration = useCallback(
-    async (includeMusic: boolean) => {
+    async ({
+      includeMusic,
+      motionModel,
+      musicModel,
+    }: BatchGenerateMotionArgs) => {
       // Optimistic: compute eligible frames locally (same filter as backend)
       const eligibleFrameIds = (frames ?? [])
         .filter(
@@ -526,11 +546,18 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
         sequence_id: sequenceId,
         include_music: includeMusic,
         eligible_frame_count: eligibleFrameIds.length,
+        motion_model: motionModel,
+        music_model: includeMusic ? musicModel : undefined,
       });
 
       try {
         await batchGenerateMotionFn({
-          data: { sequenceId, includeMusic },
+          data: {
+            sequenceId,
+            includeMusic,
+            model: motionModel,
+            musicModel: includeMusic ? musicModel : undefined,
+          },
         });
       } catch (error) {
         setRegeneratingMotion((prev) =>
@@ -636,6 +663,9 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
             }
             divergentVariants={divergentVariants}
             onCompareDivergent={(variant) => setCompareVariant(variant)}
+            initialMotionModel={sequenceMotionModel}
+            initialMusicModel={sequenceMusicModel}
+            styleCategory={styleCategory}
           />
         </div>
 
@@ -653,6 +683,9 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
             hideBatchButton={
               phaseConfig.autoGenerateMotion && isGenerationActive
             }
+            initialMotionModel={sequenceMotionModel}
+            initialMusicModel={sequenceMusicModel}
+            styleCategory={styleCategory}
           />
         </div>
 

@@ -37,7 +37,7 @@ type FrameResult =
   | { frameId: string; success: true; imageUrl: string }
   | { frameId: string; success: false; error: string };
 
-function buildEditPrompt(args: {
+export function buildEditPrompt(args: {
   token: string;
   newDescription: string;
   previousDescription: string | null;
@@ -75,6 +75,16 @@ export const replaceElementWorkflow = createScopedWorkflow<
       `Starting replace for element ${token} (${elementId}) — ${affectedFrameIds.length} affected frames`
     );
 
+    // Emit :start exactly once from the workflow side (the server fn no
+    // longer emits). Fires before vision so subscribers see the full
+    // lifecycle even if vision throws.
+    await context.run('emit-start', async () => {
+      await getGenerationChannel(sequenceId).emit(
+        'generation.replace-element:start',
+        { elementId, frameCount: affectedFrameIds.length }
+      );
+    });
+
     // Step 1: re-run vision on the new element image so future scene
     // generations and prompts have the correct description + consistencyTag.
     const visionResult = await context.run('describe-new-element', async () => {
@@ -99,19 +109,18 @@ export const replaceElementWorkflow = createScopedWorkflow<
     });
 
     if (affectedFrameIds.length === 0) {
+      await context.run('emit-complete-empty', async () => {
+        await getGenerationChannel(sequenceId).emit(
+          'generation.replace-element:complete',
+          { elementId, successCount: 0, failedCount: 0 }
+        );
+      });
       return {
         elementId,
         framesEdited: 0,
         framesFailed: 0,
       };
     }
-
-    await context.run('emit-start', async () => {
-      await getGenerationChannel(sequenceId).emit(
-        'generation.replace-element:start',
-        { elementId, frameCount: affectedFrameIds.length }
-      );
-    });
 
     const sequence = await context.run('load-sequence', () =>
       scopedDb.sequences.getById(sequenceId)
@@ -125,14 +134,20 @@ export const replaceElementWorkflow = createScopedWorkflow<
     const aspectRatio = sequence.aspectRatio;
     const imageModel = input.imageModel ?? DEFAULT_IMAGE_MODEL;
 
-    const frames = await context.run('load-frames', () =>
+    // Frames captured at trigger time may have been deleted mid-flight. Treat
+    // missing frames as skipped rather than aborting the whole batch (matches
+    // the per-frame `skipped-deleted` pattern in regenerate-frames-workflow).
+    const liveFrames = await context.run('load-frames', () =>
       scopedDb.frames.getByIds(affectedFrameIds)
     );
-    if (frames.length !== affectedFrameIds.length) {
-      const found = new Set(frames.map((f) => f.id));
-      const missing = affectedFrameIds.filter((id) => !found.has(id));
-      throw new Error(
-        `[ReplaceElementWorkflow] Missing frames for element ${token}: ${missing.join(', ')}`
+    const liveFrameIds = new Set(liveFrames.map((f) => f.id));
+    const skippedDeletedFrameIds = affectedFrameIds.filter(
+      (id) => !liveFrameIds.has(id)
+    );
+    if (skippedDeletedFrameIds.length > 0) {
+      console.warn(
+        '[ReplaceElementWorkflow]',
+        `Skipping ${skippedDeletedFrameIds.length} deleted frame(s): ${skippedDeletedFrameIds.join(', ')}`
       );
     }
 
@@ -143,7 +158,7 @@ export const replaceElementWorkflow = createScopedWorkflow<
     });
 
     const results: FrameResult[] = await Promise.all(
-      frames.map(async (frame): Promise<FrameResult> => {
+      liveFrames.map(async (frame): Promise<FrameResult> => {
         const sourceImageUrl = frame.thumbnailUrl;
         if (!sourceImageUrl) {
           // Frame has no image to edit — replacement only meaningful when a
@@ -232,6 +247,21 @@ export const replaceElementWorkflow = createScopedWorkflow<
     const successCount = results.filter((r) => r.success).length;
     const failedCount = results.length - successCount;
 
+    // If every frame failed at image-edit (and there *was* at least one to
+    // edit), surface as a real failure instead of a green :complete. Skipped-
+    // deleted frames are not counted against the success-floor because they
+    // never had a chance to run.
+    if (results.length > 0 && successCount === 0) {
+      const firstFailure = results.find((r) => !r.success);
+      const sampleReason =
+        firstFailure && !firstFailure.success
+          ? firstFailure.error
+          : 'image edit failed';
+      throw new Error(
+        `[ReplaceElementWorkflow] All ${results.length} frame edit(s) failed for ${token}: ${sampleReason}`
+      );
+    }
+
     await context.run('emit-complete', async () => {
       await getGenerationChannel(sequenceId).emit(
         'generation.replace-element:complete',
@@ -241,7 +271,7 @@ export const replaceElementWorkflow = createScopedWorkflow<
 
     console.log(
       '[ReplaceElementWorkflow]',
-      `Completed: ${successCount} edited, ${failedCount} failed for element ${token}`
+      `Completed: ${successCount} edited, ${failedCount} failed, ${skippedDeletedFrameIds.length} skipped-deleted for element ${token}`
     );
 
     return {
@@ -255,18 +285,25 @@ export const replaceElementWorkflow = createScopedWorkflow<
       const input = context.requestPayload;
       const error = sanitizeFailResponse(failResponse);
 
-      // Mark vision failed so the UI surfaces the problem on the element row;
-      // the new image is already persisted so the user can retry by uploading
-      // again or by triggering vision separately.
+      // The failure could be in the vision step (visionStatus still
+      // `analyzing`) or in the image-edit step (vision succeeded → status is
+      // `completed`). Only downgrade vision in the first case; otherwise the
+      // element card would mislead the user into thinking the description
+      // analysis failed when it was actually the per-frame edit.
       try {
-        await scopedDb.sequenceElements.updateVisionStatus(
-          input.elementId,
-          'failed',
-          error
+        const current = await scopedDb.sequenceElements.getById(
+          input.elementId
         );
+        if (current && current.visionStatus !== 'completed') {
+          await scopedDb.sequenceElements.updateVisionStatus(
+            input.elementId,
+            'failed',
+            error
+          );
+        }
       } catch (e) {
         console.error(
-          '[ReplaceElementWorkflow] Failed to persist vision error:',
+          '[ReplaceElementWorkflow] Failed to read/persist vision error:',
           e
         );
       }

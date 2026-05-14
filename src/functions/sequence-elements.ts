@@ -20,6 +20,21 @@ import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 import { authWithTeamMiddleware, sequenceAccessMiddleware } from './middleware';
 
+/**
+ * Sequence-element storage paths must live exactly under
+ * `elements/<teamId>/`. `startsWith` alone accepts traversal artifacts like
+ * `elements/<myTeamId>/../<otherTeamId>/x` — R2 stores keys literally so the
+ * practical blast radius is small, but rejecting `..` and `//` segments closes
+ * the namespace boundary explicitly.
+ */
+function isValidElementStoragePath(path: string, teamId: string): boolean {
+  const prefix = `elements/${teamId}/`;
+  if (!path.startsWith(prefix)) return false;
+  const rest = path.slice(prefix.length);
+  if (rest.length === 0) return false;
+  return !rest.split('/').some((seg) => seg === '' || seg === '..');
+}
+
 async function triggerElementVision(
   elementId: string,
   sequenceId: string,
@@ -142,7 +157,7 @@ export const finalizeElementUploadFn = createServerFn({ method: 'POST' })
     )
   )
   .handler(async ({ context, data }) => {
-    if (!data.path.startsWith(`elements/${context.teamId}/`)) {
+    if (!isValidElementStoragePath(data.path, context.teamId)) {
       throw new Error('Invalid storage path');
     }
 
@@ -252,6 +267,19 @@ export const getFrameIdsForElementFn = createServerFn({ method: 'GET' })
   });
 
 /**
+ * Batched frame counts for every element in the sequence. Use this from the
+ * elements grid to avoid the N+1 where each card fetched its own frame IDs.
+ */
+export const getFrameCountsByElementFn = createServerFn({ method: 'GET' })
+  .middleware([sequenceAccessMiddleware])
+  .inputValidator(zodValidator(z.object({ sequenceId: ulidSchema })))
+  .handler(async ({ context }) => {
+    return await context.scopedDb.sequenceElements.getFrameCountsByElement(
+      context.sequence.id
+    );
+  });
+
+/**
  * Replace an element's image. Persists the new image on the element row,
  * then triggers the `replace-element` workflow which re-runs vision on the
  * new image and edits each affected frame to swap the element while keeping
@@ -271,7 +299,7 @@ export const replaceSequenceElementFn = createServerFn({ method: 'POST' })
     )
   )
   .handler(async ({ context, data }) => {
-    if (!data.path.startsWith(`elements/${context.teamId}/`)) {
+    if (!isValidElementStoragePath(data.path, context.teamId)) {
       throw new Error('Invalid storage path');
     }
 
@@ -306,11 +334,6 @@ export const replaceSequenceElementFn = createServerFn({ method: 'POST' })
         data.elementId
       );
 
-    await getGenerationChannel(context.sequence.id).emit(
-      'generation.replace-element:start',
-      { elementId: data.elementId, frameCount: affectedFrameIds.length }
-    );
-
     const workflowInput: ReplaceElementWorkflowInput = {
       userId: context.user.id,
       teamId: context.teamId,
@@ -323,11 +346,28 @@ export const replaceSequenceElementFn = createServerFn({ method: 'POST' })
       affectedFrameIds,
     };
 
-    const workflowRunId = await triggerWorkflow(
-      '/replace-element',
-      workflowInput,
-      { label: buildWorkflowLabel(context.sequence.id) }
-    );
+    // Workflow emits :start/:complete/:failed exclusively (matches the recast
+    // pattern). If the trigger throws here, the element is stranded in
+    // `analyzing` — recover by marking vision failed and emitting :failed so
+    // any UI subscriber sees a final lifecycle event.
+    let workflowRunId: string;
+    try {
+      workflowRunId = await triggerWorkflow('/replace-element', workflowInput, {
+        label: buildWorkflowLabel(context.sequence.id),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      await context.scopedDb.sequenceElements.updateVisionStatus(
+        data.elementId,
+        'failed',
+        message
+      );
+      await getGenerationChannel(context.sequence.id).emit(
+        'generation.replace-element:failed',
+        { elementId: data.elementId, error: message }
+      );
+      throw err;
+    }
 
     return {
       element: updated,

@@ -11,6 +11,7 @@ import {
   type FileUploadProps,
 } from '@/components/ui/file-upload';
 import {
+  useFrameCountsForAllElements,
   useSequenceElements,
   useUploadElementToSequence,
 } from '@/hooks/use-sequence-elements';
@@ -25,6 +26,7 @@ type ElementsViewProps = {
 
 export const ElementsView: React.FC<ElementsViewProps> = ({ sequenceId }) => {
   const { data: elements = [] } = useSequenceElements(sequenceId);
+  const { data: frameCounts } = useFrameCountsForAllElements(sequenceId);
   const uploadMutation = useUploadElementToSequence();
   const [files, setFiles] = useState<File[]>([]);
 
@@ -107,7 +109,12 @@ export const ElementsView: React.FC<ElementsViewProps> = ({ sequenceId }) => {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {elements.map((el) => (
-            <ElementCard key={el.id} element={el} sequenceId={sequenceId} />
+            <ElementCard
+              key={el.id}
+              element={el}
+              sequenceId={sequenceId}
+              affectedFrameCount={frameCounts?.[el.id] ?? 0}
+            />
           ))}
         </div>
       )}

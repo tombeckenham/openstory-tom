@@ -1,7 +1,6 @@
 import { Button } from '@/components/ui/button';
 import {
   useDeleteSequenceElement,
-  useFrameIdsForElement,
   useRenameSequenceElementToken,
   useReplaceSequenceElement,
 } from '@/hooks/use-sequence-elements';
@@ -14,16 +13,17 @@ import { ReplaceElementConfirmDialog } from './replace-element-confirm-dialog';
 type ElementCardProps = {
   element: SequenceElement;
   sequenceId: string;
+  affectedFrameCount: number;
 };
 
 export const ElementCard: React.FC<ElementCardProps> = ({
   element,
   sequenceId,
+  affectedFrameCount,
 }) => {
   const deleteMutation = useDeleteSequenceElement();
   const renameMutation = useRenameSequenceElementToken();
   const replaceMutation = useReplaceSequenceElement();
-  const { data: frameData } = useFrameIdsForElement(sequenceId, element.id);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -141,9 +141,10 @@ export const ElementCard: React.FC<ElementCardProps> = ({
             <span>{element.description ?? 'No description'}</span>
           )}
         </div>
-        {frameData && frameData.count > 0 ? (
+        {affectedFrameCount > 0 ? (
           <p className="text-xs text-muted-foreground/70">
-            Used in {frameData.count} frame{frameData.count === 1 ? '' : 's'}
+            Used in {affectedFrameCount} frame
+            {affectedFrameCount === 1 ? '' : 's'}
           </p>
         ) : null}
       </div>
@@ -166,7 +167,7 @@ export const ElementCard: React.FC<ElementCardProps> = ({
           onConfirm={handleConfirm}
           token={element.token}
           newFilename={pendingFile.name}
-          affectedFrameCount={frameData?.count ?? 0}
+          affectedFrameCount={affectedFrameCount}
           isLoading={replaceMutation.isPending}
         />
       ) : null}

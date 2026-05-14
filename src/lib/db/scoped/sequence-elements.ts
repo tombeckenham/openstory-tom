@@ -197,5 +197,45 @@ export function createSequenceElementsMethods(db: Database) {
         })
         .map((f) => f.id);
     },
+
+    /**
+     * Frame counts for *all* elements in a sequence, computed in a single
+     * scan over frames + elements. The elements grid renders N cards, each of
+     * which previously called `getFrameIdsForElement` — an N+1 over the full
+     * frame set. Returns a token→count map (elementId would re-issue per
+     * element on the client; the grid only needs counts).
+     */
+    getFrameCountsByElement: async (
+      sequenceId: string
+    ): Promise<Record<string, number>> => {
+      const allElements = await db
+        .select()
+        .from(sequenceElements)
+        .where(eq(sequenceElements.sequenceId, sequenceId));
+      const counts: Record<string, number> = {};
+      for (const el of allElements) {
+        counts[el.id] = 0;
+      }
+      if (allElements.length === 0) return counts;
+
+      const allFrames = await db
+        .select()
+        .from(frames)
+        .where(eq(frames.sequenceId, sequenceId));
+
+      for (const frame of allFrames as Frame[]) {
+        const elementTags = frame.metadata?.continuity?.elementTags ?? [];
+        const sceneScript = frame.metadata?.originalScript.extract ?? '';
+        const matched = matchElementsToScene(
+          allElements,
+          elementTags,
+          sceneScript
+        );
+        for (const el of matched) {
+          counts[el.id] = (counts[el.id] ?? 0) + 1;
+        }
+      }
+      return counts;
+    },
   };
 }

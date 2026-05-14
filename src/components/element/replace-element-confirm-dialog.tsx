@@ -37,27 +37,25 @@ export const ReplaceElementConfirmDialog: React.FC<
         <AlertDialogHeader>
           <AlertDialogTitle>Replace {token}?</AlertDialogTitle>
           <AlertDialogDescription>
-            <span className="block">
-              The new image{' '}
-              <span className="font-mono text-foreground">{newFilename}</span>{' '}
-              will replace the existing {token} reference.
-            </span>
-            {affectedFrameCount > 0 ? (
-              <span className="mt-2 block">
-                <strong>
-                  {affectedFrameCount} frame
-                  {affectedFrameCount !== 1 ? 's' : ''}
-                </strong>{' '}
-                referencing {token} will be edited to swap the element while
-                keeping the rest of the frame intact.
-              </span>
-            ) : (
-              <span className="mt-2 block">
-                No frames currently reference {token} — only the element image
-                will change.
-              </span>
-            )}
+            The new image{' '}
+            <span className="font-mono text-foreground">{newFilename}</span>{' '}
+            will replace the existing {token} reference.
           </AlertDialogDescription>
+          {affectedFrameCount > 0 ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              <strong>
+                {affectedFrameCount} frame
+                {affectedFrameCount !== 1 ? 's' : ''}
+              </strong>{' '}
+              referencing {token} will be edited to swap the element while
+              keeping the rest of the frame intact.
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">
+              No frames currently reference {token} — only the element image
+              will change.
+            </p>
+          )}
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>

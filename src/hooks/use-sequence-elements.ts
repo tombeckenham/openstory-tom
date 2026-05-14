@@ -2,6 +2,7 @@ import {
   analyzeDraftElementFn,
   deleteSequenceElementFn,
   finalizeElementUploadFn,
+  getFrameCountsByElementFn,
   getFrameIdsForElementFn,
   listSequenceElementsFn,
   presignDraftElementUploadFn,
@@ -19,6 +20,8 @@ export const sequenceElementKeys = {
     ['sequence-elements', sequenceId] as const,
   framesForElement: (sequenceId: string, elementId: string) =>
     ['sequence-elements', sequenceId, 'frames', elementId] as const,
+  frameCountsBySequence: (sequenceId: string) =>
+    ['sequence-elements', sequenceId, 'frame-counts'] as const,
 };
 
 export function useSequenceElements(sequenceId: string | undefined) {
@@ -184,6 +187,22 @@ export function useRenameSequenceElementToken() {
   });
 }
 
+/**
+ * Frame counts for *all* elements in a sequence, fetched in one query.
+ * Use this from the elements grid to avoid the per-card N+1.
+ */
+export function useFrameCountsForAllElements(sequenceId: string | undefined) {
+  return useQuery({
+    queryKey: sequenceId
+      ? sequenceElementKeys.frameCountsBySequence(sequenceId)
+      : ['sequence-elements', 'frame-counts', 'none'],
+    queryFn: () =>
+      getFrameCountsByElementFn({ data: { sequenceId: sequenceId ?? '' } }),
+    enabled: Boolean(sequenceId),
+    staleTime: 60 * 1000,
+  });
+}
+
 /** Frame count + IDs for frames that reference this element by token */
 export function useFrameIdsForElement(
   sequenceId: string | undefined,
@@ -243,6 +262,11 @@ export function useReplaceSequenceElement() {
         queryKey: sequenceElementKeys.framesForElement(
           variables.sequenceId,
           variables.elementId
+        ),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: sequenceElementKeys.frameCountsBySequence(
+          variables.sequenceId
         ),
       });
       // Affected frames will be edited; refresh frame views.

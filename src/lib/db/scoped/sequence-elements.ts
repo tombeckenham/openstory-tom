@@ -7,10 +7,12 @@ import { and, eq, inArray, like, or, sql } from 'drizzle-orm';
 import type { Database } from '@/lib/db/client';
 import type {
   ElementVisionStatus,
+  Frame,
   NewSequenceElement,
   SequenceElement,
 } from '@/lib/db/schema';
-import { sequenceElements } from '@/lib/db/schema';
+import { frames, sequenceElements } from '@/lib/db/schema';
+import { matchElementsToScene } from '@/lib/workflows/scene-matching';
 
 export function createSequenceElementsMethods(db: Database) {
   const update = async (
@@ -164,6 +166,36 @@ export function createSequenceElementsMethods(db: Database) {
         .where(eq(sequenceElements.id, id));
       // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- DB result may be undefined
       return (result.rowsAffected ?? 0) > 0;
+    },
+
+    getFrameIdsForElement: async (
+      sequenceId: string,
+      elementId: string
+    ): Promise<string[]> => {
+      const elementResult = await db
+        .select()
+        .from(sequenceElements)
+        .where(eq(sequenceElements.id, elementId));
+      const element = elementResult[0] ?? null;
+      // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: DB query may return undefined
+      if (!element || element.sequenceId !== sequenceId) {
+        return [];
+      }
+
+      const allFrames = await db
+        .select()
+        .from(frames)
+        .where(eq(frames.sequenceId, sequenceId));
+
+      return (allFrames as Frame[])
+        .filter((frame) => {
+          const elementTags = frame.metadata?.continuity?.elementTags ?? [];
+          const sceneScript = frame.metadata?.originalScript.extract ?? '';
+          return (
+            matchElementsToScene([element], elementTags, sceneScript).length > 0
+          );
+        })
+        .map((f) => f.id);
     },
   };
 }

@@ -2,10 +2,12 @@ import {
   analyzeDraftElementFn,
   deleteSequenceElementFn,
   finalizeElementUploadFn,
+  getFrameIdsForElementFn,
   listSequenceElementsFn,
   presignDraftElementUploadFn,
   presignElementUploadFn,
   renameSequenceElementTokenFn,
+  replaceSequenceElementFn,
 } from '@/functions/sequence-elements';
 import type { SequenceElement } from '@/lib/db/schema';
 import { putToR2 } from '@/lib/utils/upload';
@@ -15,6 +17,8 @@ export const sequenceElementKeys = {
   all: ['sequence-elements'] as const,
   bySequence: (sequenceId: string) =>
     ['sequence-elements', sequenceId] as const,
+  framesForElement: (sequenceId: string, elementId: string) =>
+    ['sequence-elements', sequenceId, 'frames', elementId] as const,
 };
 
 export function useSequenceElements(sequenceId: string | undefined) {
@@ -176,6 +180,73 @@ export function useRenameSequenceElementToken() {
       void queryClient.invalidateQueries({
         queryKey: sequenceElementKeys.bySequence(variables.sequenceId),
       });
+    },
+  });
+}
+
+/** Frame count + IDs for frames that reference this element by token */
+export function useFrameIdsForElement(
+  sequenceId: string | undefined,
+  elementId: string | undefined
+) {
+  return useQuery({
+    queryKey:
+      sequenceId && elementId
+        ? sequenceElementKeys.framesForElement(sequenceId, elementId)
+        : ['sequence-elements', 'frames', 'none'],
+    queryFn: () =>
+      getFrameIdsForElementFn({
+        data: { sequenceId: sequenceId ?? '', elementId: elementId ?? '' },
+      }),
+    enabled: Boolean(sequenceId) && Boolean(elementId),
+    staleTime: 60 * 1000,
+  });
+}
+
+/**
+ * Replace an element image: presign → R2 → finalize.
+ * Triggers per-frame image edits via the replace-element workflow.
+ */
+export function useReplaceSequenceElement() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: {
+      file: File;
+      sequenceId: string;
+      elementId: string;
+      onProgress?: (percent: number) => void;
+    }) => {
+      const presign = await presignElementUploadFn({
+        data: { filename: data.file.name, sequenceId: data.sequenceId },
+      });
+      await putToR2(
+        presign.uploadUrl,
+        data.file,
+        presign.contentType,
+        data.onProgress
+      );
+      return await replaceSequenceElementFn({
+        data: {
+          sequenceId: data.sequenceId,
+          elementId: data.elementId,
+          publicUrl: presign.publicUrl,
+          path: presign.path,
+          filename: data.file.name,
+        },
+      });
+    },
+    onSuccess: (_result, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: sequenceElementKeys.bySequence(variables.sequenceId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: sequenceElementKeys.framesForElement(
+          variables.sequenceId,
+          variables.elementId
+        ),
+      });
+      // Affected frames will be edited; refresh frame views.
+      void queryClient.invalidateQueries({ queryKey: ['frames'] });
     },
   });
 }

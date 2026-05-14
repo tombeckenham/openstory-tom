@@ -1,6 +1,7 @@
 import { getSignedUploadUrl } from '#storage';
 import { describeElementImage } from '@/lib/ai/element-vision';
 import { generateId } from '@/lib/db/id';
+import { getGenerationChannel } from '@/lib/realtime';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
 import { deriveTokenFromFilename } from '@/lib/sequence-elements/derive-token';
 import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
@@ -10,7 +11,10 @@ import {
 } from '@/lib/utils/file';
 import { triggerWorkflow } from '@/lib/workflow/client';
 import { buildWorkflowLabel } from '@/lib/workflow/labels';
-import type { ElementVisionWorkflowInput } from '@/lib/workflow/types';
+import type {
+  ElementVisionWorkflowInput,
+  ReplaceElementWorkflowInput,
+} from '@/lib/workflow/types';
 import { createServerFn } from '@tanstack/react-start';
 import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
@@ -226,4 +230,108 @@ export const renameSequenceElementTokenFn = createServerFn({ method: 'POST' })
     return await context.scopedDb.sequenceElements.update(data.elementId, {
       token: unique,
     });
+  });
+
+// ============================================================================
+// Frame IDs / Replace
+// ============================================================================
+
+/** Get frame IDs for all frames that reference an element by token */
+export const getFrameIdsForElementFn = createServerFn({ method: 'GET' })
+  .middleware([sequenceAccessMiddleware])
+  .inputValidator(
+    zodValidator(z.object({ sequenceId: ulidSchema, elementId: ulidSchema }))
+  )
+  .handler(async ({ context, data }) => {
+    const frameIds =
+      await context.scopedDb.sequenceElements.getFrameIdsForElement(
+        context.sequence.id,
+        data.elementId
+      );
+    return { frameIds, count: frameIds.length };
+  });
+
+/**
+ * Replace an element's image. Persists the new image on the element row,
+ * then triggers the `replace-element` workflow which re-runs vision on the
+ * new image and edits each affected frame to swap the element while keeping
+ * the rest of the frame intact.
+ */
+export const replaceSequenceElementFn = createServerFn({ method: 'POST' })
+  .middleware([sequenceAccessMiddleware])
+  .inputValidator(
+    zodValidator(
+      z.object({
+        sequenceId: ulidSchema,
+        elementId: ulidSchema,
+        publicUrl: z.string().url(),
+        path: z.string().min(1),
+        filename: z.string().min(1),
+      })
+    )
+  )
+  .handler(async ({ context, data }) => {
+    if (!data.path.startsWith(`elements/${context.teamId}/`)) {
+      throw new Error('Invalid storage path');
+    }
+
+    const element = await context.scopedDb.sequenceElements.getById(
+      data.elementId
+    );
+    if (!element || element.sequenceId !== context.sequence.id) {
+      throw new Error('Element not found');
+    }
+
+    const previousDescription = element.description;
+
+    // Update the element row with the new image. Reset vision so the UI
+    // surfaces "analyzing" while the workflow re-describes the new image.
+    const updated = await context.scopedDb.sequenceElements.update(
+      data.elementId,
+      {
+        imageUrl: data.publicUrl,
+        imagePath: data.path,
+        uploadedFilename: data.filename,
+        description: null,
+        consistencyTag: null,
+        visionStatus: 'analyzing',
+        visionError: null,
+        visionGeneratedAt: null,
+      }
+    );
+
+    const affectedFrameIds =
+      await context.scopedDb.sequenceElements.getFrameIdsForElement(
+        context.sequence.id,
+        data.elementId
+      );
+
+    await getGenerationChannel(context.sequence.id).emit(
+      'generation.replace-element:start',
+      { elementId: data.elementId, frameCount: affectedFrameIds.length }
+    );
+
+    const workflowInput: ReplaceElementWorkflowInput = {
+      userId: context.user.id,
+      teamId: context.teamId,
+      sequenceId: context.sequence.id,
+      elementId: data.elementId,
+      token: updated.token,
+      previousDescription,
+      newImageUrl: data.publicUrl,
+      newFilename: data.filename,
+      affectedFrameIds,
+    };
+
+    const workflowRunId = await triggerWorkflow(
+      '/replace-element',
+      workflowInput,
+      { label: buildWorkflowLabel(context.sequence.id) }
+    );
+
+    return {
+      element: updated,
+      affectedFrameIds,
+      workflowRunId,
+    };
   });

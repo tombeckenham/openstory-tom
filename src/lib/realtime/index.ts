@@ -191,6 +191,21 @@ export const realtimeSchema = {
       error: z.string(),
     }),
 
+    // Replace-element events: edit affected frames to swap an element
+    'replace-element:start': z.object({
+      elementId: z.string(),
+      frameCount: z.number(),
+    }),
+    'replace-element:complete': z.object({
+      elementId: z.string(),
+      successCount: z.number(),
+      failedCount: z.number(),
+    }),
+    'replace-element:failed': z.object({
+      elementId: z.string(),
+      error: z.string(),
+    }),
+
     // Location matching events
     'location:matched': z.object({
       matches: z.array(

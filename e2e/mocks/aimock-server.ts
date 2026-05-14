@@ -45,8 +45,11 @@ const FAL_FIXTURE_DIR = resolve(
 // aimock's recorder writes flat into a single directory; we point it here and
 // `sortStagingFixtures()` (run on shutdown) classifies each new file by its
 // provider-key prefix (`openai-…` vs `fal-…`) and moves it into the right
-// subfolder of `fixtures/recorded/`.
-const RECORD_STAGING_DIR = resolve(FIXTURE_DIR, '_unsorted');
+// sibling subfolder of `fixtures/recorded/` (`openrouter/<stage>/` or `fal/`).
+const RECORD_STAGING_DIR = resolve(
+  import.meta.dirname,
+  '../fixtures/recorded/_unsorted'
+);
 
 // Maps a fixture's `userMessage` prefix to the stage subfolder it belongs in.
 // First-match-wins; prefixes are disjoint (each comes from a distinct workflow
@@ -292,10 +295,11 @@ function classifyStage(filePath: string): string | null {
   );
 }
 
-// Walk `_unsorted/` and move each freshly-recorded fixture into the right
-// curated subfolder. aimock's recorder names files `<providerKey>-…json`
-// (recorder.js:196), so we route by prefix: `fal-…` into `fixtures/recorded/fal/`,
-// and `openai-…` (used for OpenRouter) into a stage subfolder of
+// Walk `fixtures/recorded/_unsorted/` (sibling of `openrouter/` and `fal/`)
+// and move each freshly-recorded fixture into the right curated subfolder.
+// aimock's recorder names files `<providerKey>-…json` (recorder.js:196),
+// so we route by prefix: `fal-…` into `fixtures/recorded/fal/`, and
+// `openai-…` (used for OpenRouter) into a stage subfolder of
 // `fixtures/recorded/openrouter/` keyed by the fixture's userMessage prefix.
 // Runs on shutdown of any E2E_RECORD=1 run.
 function sortStagingFixtures(): void {

@@ -7,7 +7,11 @@ import { createServerFn } from '@tanstack/react-start';
 import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 
-import { DEFAULT_VIDEO_MODEL, safeImageToVideoModel } from '@/lib/ai/models';
+import {
+  AUDIO_MODELS,
+  DEFAULT_VIDEO_MODEL,
+  safeImageToVideoModel,
+} from '@/lib/ai/models';
 import { estimateVideoCost } from '@/lib/billing/cost-estimation';
 import { multiplyMicros, usdToMicros } from '@/lib/billing/money';
 import { requireCredits } from '@/lib/billing/preflight';
@@ -115,6 +119,12 @@ const batchGenerateMotionInputSchema = z.object({
   sequenceId: ulidSchema,
   includeMusic: z.boolean().optional(),
   model: generateMotionSchema.shape.model,
+  musicModel: z
+    .enum(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Required for z.enum with dynamic keys
+      Object.keys(AUDIO_MODELS) as [keyof typeof AUDIO_MODELS]
+    )
+    .optional(),
   duration: generateMotionSchema.shape.duration,
   fps: generateMotionSchema.shape.fps,
   motionBucket: generateMotionSchema.shape.motionBucket,
@@ -174,6 +184,7 @@ export const batchGenerateMotionFn = createServerFn({ method: 'POST' })
         prompt: sequence.musicPrompt,
         tags: sequence.musicTags,
         duration: totalDuration || 30,
+        model: data.musicModel,
       };
     }
 

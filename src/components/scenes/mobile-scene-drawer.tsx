@@ -1,3 +1,5 @@
+import { MotionModelSelector } from '@/components/model/motion-model-selector';
+import { MusicModelSelector } from '@/components/model/music-model-selector';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -8,11 +10,18 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import {
+  DEFAULT_MUSIC_MODEL,
+  DEFAULT_VIDEO_MODEL,
+  type AudioModel,
+  type ImageToVideoModel,
+} from '@/lib/ai/models';
 import type { AspectRatio } from '@/lib/constants/aspect-ratios';
 import { cn } from '@/lib/utils';
 import type { Frame } from '@/types/database';
 import { ChevronUp, Loader2, Video } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import type { BatchGenerateMotionArgs } from './scene-list';
 import { SceneListItem } from './scene-list-item';
 import { SceneThumbnail } from './scene-thumbnail';
 
@@ -23,10 +32,16 @@ type MobileSceneDrawerProps = {
   onSelectFrame: (frameId: string) => void;
   regeneratingImages: Set<string>;
   regeneratingMotion: Set<string>;
-  onBatchGenerateMotion?: (includeMusic: boolean) => Promise<void>;
+  onBatchGenerateMotion?: (args: BatchGenerateMotionArgs) => Promise<void>;
   musicPromptsReady: boolean;
   /** Hide the batch motion button (e.g. while auto-generate motion is in flight). */
   hideBatchButton?: boolean;
+  /** Initial motion model for the batch selector (from `sequence.videoModel`). */
+  initialMotionModel?: ImageToVideoModel;
+  /** Initial music model for the batch selector (from `sequence.musicModel`). */
+  initialMusicModel?: AudioModel;
+  /** Current style category — used to filter style-restricted motion models. */
+  styleCategory?: string;
 };
 
 const isCompleted = (frame: Frame) => {
@@ -45,10 +60,33 @@ export const MobileSceneDrawer: React.FC<MobileSceneDrawerProps> = ({
   onBatchGenerateMotion,
   musicPromptsReady,
   hideBatchButton = false,
+  initialMotionModel,
+  initialMusicModel,
+  styleCategory,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [includeMusic, setIncludeMusic] = useState(false);
+  const [motionModel, setMotionModel] = useState<ImageToVideoModel>(
+    initialMotionModel ?? DEFAULT_VIDEO_MODEL
+  );
+  const [musicModel, setMusicModel] = useState<AudioModel>(
+    initialMusicModel ?? DEFAULT_MUSIC_MODEL
+  );
+
+  const prevInitialMotionRef = useRef(initialMotionModel);
+  if (
+    initialMotionModel &&
+    initialMotionModel !== prevInitialMotionRef.current
+  ) {
+    prevInitialMotionRef.current = initialMotionModel;
+    setMotionModel(initialMotionModel);
+  }
+  const prevInitialMusicRef = useRef(initialMusicModel);
+  if (initialMusicModel && initialMusicModel !== prevInitialMusicRef.current) {
+    prevInitialMusicRef.current = initialMusicModel;
+    setMusicModel(initialMusicModel);
+  }
 
   const totalFrames = frames?.length ?? 0;
 
@@ -89,7 +127,7 @@ export const MobileSceneDrawer: React.FC<MobileSceneDrawerProps> = ({
 
     setIsGenerating(true);
     try {
-      await onBatchGenerateMotion(includeMusic);
+      await onBatchGenerateMotion({ includeMusic, motionModel, musicModel });
     } finally {
       setIsGenerating(false);
     }
@@ -182,6 +220,30 @@ export const MobileSceneDrawer: React.FC<MobileSceneDrawerProps> = ({
 
           {showFooter && (
             <SheetFooter className="border-t pt-4 px-4 flex-col items-stretch gap-3">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-muted-foreground">
+                  Motion model
+                </span>
+                <MotionModelSelector
+                  selectedModel={motionModel}
+                  onModelChange={setMotionModel}
+                  disabled={isGenerating || isMotionInProgress}
+                  aspectRatio={aspectRatio}
+                  styleCategory={styleCategory}
+                />
+              </div>
+              {includeMusic && (
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-muted-foreground">
+                    Music model
+                  </span>
+                  <MusicModelSelector
+                    selectedModel={musicModel}
+                    onModelChange={setMusicModel}
+                    disabled={isGenerating || isMotionInProgress}
+                  />
+                </div>
+              )}
               <Button
                 variant="default"
                 onClick={() => void handleGenerateMotion()}

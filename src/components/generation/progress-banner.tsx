@@ -129,19 +129,18 @@ export const ProgressBanner: React.FC<ProgressBannerProps> = ({
             </CollapsibleTrigger>
           </div>
 
-          {/* Segmented progress bar */}
-          <div
-            className="flex gap-0.5"
-            role="progressbar"
-            aria-valuenow={progressValue}
-            aria-valuemin={0}
-            aria-valuemax={phases.length}
+          {/* Segmented progress bar: visual is N phase divs (decorative); the real <progress> below is sr-only and carries the semantics. */}
+          <progress
+            value={progressValue}
+            max={phases.length}
             aria-label={
               activePhase
                 ? `${ariaPrefix} progress: ${activePhase.name}`
                 : `${ariaPrefix} progress`
             }
-          >
+            className="sr-only"
+          />
+          <div className="flex gap-0.5" aria-hidden="true">
             {phases.map((phase) => (
               <div
                 key={phase.key}

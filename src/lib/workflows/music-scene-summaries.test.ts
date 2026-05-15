@@ -10,24 +10,34 @@ const baseMetadata: NonNullable<Scene['metadata']> = {
   timeOfDay: 'day',
 };
 
-const sceneWithMetadata = (
+const baseScene: Scene = {
+  sceneId: 's1',
+  sceneNumber: 1,
+  originalScript: { extract: '', dialogue: [] },
+  metadata: baseMetadata,
+};
+
+function sceneWithMetadata(
   overrides: Partial<Scene> = {},
   metadataOverrides: Partial<NonNullable<Scene['metadata']>> = {}
-): Scene =>
-  ({
-    sceneId: 's1',
-    sceneNumber: 1,
-    originalScript: { extract: '', lineNumber: 1, dialogue: '' },
+): Scene {
+  return {
+    ...baseScene,
     metadata: { ...baseMetadata, ...metadataOverrides },
     ...overrides,
-  }) as Scene;
+  };
+}
 
 describe('buildMusicSceneSummaries', () => {
   it('throws with sceneId in the message when a scene is missing metadata', () => {
     // The throw is the safety contract: silently defaulting to "Untitled Scene"
     // would hash-alias corrupt scenes with real ones, keeping the music
     // prompt's input_hash matching after upstream metadata went missing.
-    const broken = { sceneId: 'scene-broken' } as unknown as Scene;
+    const broken: Scene = {
+      sceneId: 'scene-broken',
+      sceneNumber: 1,
+      originalScript: { extract: '', dialogue: [] },
+    };
     expect(() => buildMusicSceneSummaries([broken])).toThrow(/scene-broken/);
   });
 
@@ -71,6 +81,7 @@ describe('buildMusicSceneSummaries', () => {
           components: {
             sceneDescription: '',
             subject: '',
+            environment: '',
             lighting: '',
             camera: '',
             composition: '',
@@ -80,7 +91,7 @@ describe('buildMusicSceneSummaries', () => {
           },
         },
       },
-    } as Partial<Scene>);
+    });
 
     const [summary] = buildMusicSceneSummaries([scene]);
     expect(summary.visualSummary).toBe('tense corporate');

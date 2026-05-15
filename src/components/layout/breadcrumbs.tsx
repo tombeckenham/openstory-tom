@@ -15,12 +15,22 @@ export type BreadcrumbCrumb = {
   to?: string;
 };
 
+// Subset of AnyRouteMatch that breadcrumb resolution actually needs. Defined
+// structurally so AnyRouteMatch is assignable to it (production passes the
+// full match) and tests can build minimal fixtures without an unsafe cast.
+export type BreadcrumbMatch = {
+  id: string;
+  pathname: string;
+  params: AnyRouteMatch['params'];
+  staticData: AnyRouteMatch['staticData'];
+};
+
 export type BreadcrumbValue =
   | string
   | BreadcrumbCrumb
   | BreadcrumbCrumb[]
   | ((
-      match: AnyRouteMatch
+      match: BreadcrumbMatch
     ) => string | BreadcrumbCrumb | BreadcrumbCrumb[] | null | undefined);
 
 // See https://tanstack.com/router/latest/docs/guide/static-route-data#enforcing-static-data
@@ -30,16 +40,16 @@ declare module '@tanstack/react-router' {
   }
 }
 
-// `AnyRouteMatch.params` is typed as `any`. TanStack guarantees the shape
+// `BreadcrumbMatch.params` is typed as `any`. TanStack guarantees the shape
 // matches the file-route path segments, so breadcrumb callers can narrow it
 // via this helper instead of casting inline (which trips
 // `no-unsafe-type-assertion`).
-export function routeParams<T>(match: AnyRouteMatch): T {
+export function routeParams<T>(match: BreadcrumbMatch): T {
   const params: T = match.params;
   return params;
 }
 
-export function resolveCrumbs(match: AnyRouteMatch): BreadcrumbCrumb[] {
+export function resolveCrumbs(match: BreadcrumbMatch): BreadcrumbCrumb[] {
   const raw = match.staticData.breadcrumb;
   if (!raw) return [];
 

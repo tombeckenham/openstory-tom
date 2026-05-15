@@ -377,7 +377,8 @@ describe('createSequenceVariantsMethods — video', () => {
     try {
       await methods.promoteVideoVariant(generateId());
     } catch (e) {
-      error = e as Error;
+      if (!(e instanceof Error)) throw e;
+      error = e;
     }
     expect(error?.message).toMatch(/not found/);
   });
@@ -477,7 +478,8 @@ describe('createSequenceVariantsMethods — music', () => {
     try {
       await methods.promoteMusicVariant(generateId());
     } catch (e) {
-      error = e as Error;
+      if (!(e instanceof Error)) throw e;
+      error = e;
     }
     expect(error?.message).toMatch(/not found/);
   });

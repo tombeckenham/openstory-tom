@@ -79,7 +79,6 @@ export const DivergentAlternateBanner: React.FC<
 
   return (
     <Alert
-      role="status"
       aria-live="polite"
       data-slot="divergent-alternate-banner"
       data-density="inline"

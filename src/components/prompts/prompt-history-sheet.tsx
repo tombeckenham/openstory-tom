@@ -273,9 +273,8 @@ export const PromptHistorySheet: React.FC<PromptHistorySheetProps> = (
                       )}
                     </button>
                     {expanded && (
-                      <div
+                      <section
                         id={panelId}
-                        role="region"
                         aria-labelledby={triggerId}
                         className="flex flex-col gap-2"
                       >
@@ -295,7 +294,7 @@ export const PromptHistorySheet: React.FC<PromptHistorySheetProps> = (
                             </Button>
                           </div>
                         )}
-                      </div>
+                      </section>
                     )}
                   </li>
                 );

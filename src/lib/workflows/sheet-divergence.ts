@@ -15,11 +15,38 @@
 
 import type { ScopedDb } from '@/lib/db/scoped';
 import type { LocationSheetVariantParentType } from '@/lib/db/schema';
+// `ScopedDb` is imported for type extraction only; the helpers themselves
+// take a narrower `SheetDivergenceScopedDb` shape (defined below).
 import {
   getGenerationChannel,
   getLocationChannel,
   getTalentChannel,
 } from '@/lib/realtime';
+
+// Subset of ScopedDb used by the helpers below. Defined structurally so the
+// full ScopedDb is assignable (production passes it directly) and tests can
+// build a minimal mock without `as any`. The return type is narrowed to
+// `{ id: string }` because that's all these helpers consume from the row.
+type CharInsertArgs = Parameters<
+  ScopedDb['characterSheetVariants']['insertDivergent']
+>[0];
+type LocInsertArgs = Parameters<
+  ScopedDb['locationSheetVariants']['insertDivergent']
+>[0];
+type TalInsertArgs = Parameters<
+  ScopedDb['talentSheetVariants']['insertDivergent']
+>[0];
+export type SheetDivergenceScopedDb = {
+  characterSheetVariants: {
+    insertDivergent: (values: CharInsertArgs) => Promise<{ id: string }>;
+  };
+  locationSheetVariants: {
+    insertDivergent: (values: LocInsertArgs) => Promise<{ id: string }>;
+  };
+  talentSheetVariants: {
+    insertDivergent: (values: TalInsertArgs) => Promise<{ id: string }>;
+  };
+};
 
 export type SheetDivergenceDecision =
   | { kind: 'convergent' }
@@ -46,7 +73,7 @@ export function decideSheetDivergence(
 }
 
 export type SaveDivergentCharacterSheetArgs = {
-  scopedDb: ScopedDb;
+  scopedDb: SheetDivergenceScopedDb;
   characterId: string;
   /** Required: character sheet workflows are sequence-scoped. */
   sequenceId: string;
@@ -127,7 +154,7 @@ const _locationSheetParentCoversEnum: _LocationSheetParentCoversEnum = true;
 void _locationSheetParentCoversEnum;
 
 export type SaveDivergentLocationSheetArgs = {
-  scopedDb: ScopedDb;
+  scopedDb: SheetDivergenceScopedDb;
   parent: LocationSheetParent;
   model: string;
   url: string;
@@ -194,7 +221,7 @@ export async function saveDivergentLocationSheet({
 }
 
 export type SaveDivergentTalentSheetArgs = {
-  scopedDb: ScopedDb;
+  scopedDb: SheetDivergenceScopedDb;
   talentSheetId: string;
   /**
    * Parent talent id — used for realtime channel routing. Required: the

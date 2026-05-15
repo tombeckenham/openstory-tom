@@ -317,35 +317,44 @@ async function mainLoop() {
   }
 
   if (mode === '--watch') {
-    console.log('Watching memory profile (Ctrl+C to stop)...');
-    let opened = false;
-    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- intentional infinite loop
-    while (true) {
-      try {
-        const samples = await fetchSamples();
-        const html = generateHTML(samples);
-        await Bun.write(OUTPUT_PATH, html);
-        const peakRSS = samples.length
-          ? toMB(Math.max(...samples.map((s) => s.rss))).toFixed(1)
-          : '0';
-        console.log(
-          `[${new Date().toLocaleTimeString()}] ${samples.length} samples, peak RSS: ${peakRSS} MB`
-        );
-        if (!opened) {
-          Bun.spawn(['open', OUTPUT_PATH]);
-          opened = true;
-        }
-      } catch (error) {
-        console.error(
-          'Fetch error:',
-          error instanceof Error ? error.message : error
-        );
-      }
-      await Bun.sleep(2000);
-    }
+    await watchLoop();
+    return;
   }
 
   // Default: fetch, generate, open
+  await runOnce();
+}
+
+async function watchLoop() {
+  console.log('Watching memory profile (Ctrl+C to stop)...');
+  let opened = false;
+  // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- intentional infinite loop
+  while (true) {
+    try {
+      const samples = await fetchSamples();
+      const html = generateHTML(samples);
+      await Bun.write(OUTPUT_PATH, html);
+      const peakRSS = samples.length
+        ? toMB(Math.max(...samples.map((s) => s.rss))).toFixed(1)
+        : '0';
+      console.log(
+        `[${new Date().toLocaleTimeString()}] ${samples.length} samples, peak RSS: ${peakRSS} MB`
+      );
+      if (!opened) {
+        Bun.spawn(['open', OUTPUT_PATH]);
+        opened = true;
+      }
+    } catch (error) {
+      console.error(
+        'Fetch error:',
+        error instanceof Error ? error.message : error
+      );
+    }
+    await Bun.sleep(2000);
+  }
+}
+
+async function runOnce() {
   const samples = await fetchSamples();
   if (samples.length === 0) {
     console.log('No memory samples collected yet.');

@@ -2,21 +2,53 @@ import type { Meta, StoryObj } from '@storybook/react';
 import type { Frame, FrameVariant } from '@/lib/db/schema';
 import { DivergenceCompareDialog } from './divergence-compare-dialog';
 
-const baseFrame = {
+const NOW = new Date('2026-04-29T00:00:00Z');
+
+const baseFrame: Frame = {
   id: 'frame-1',
   sequenceId: 'seq-1',
   orderIndex: 0,
   description: 'A wide shot.',
+  durationMs: 3000,
   thumbnailUrl: 'https://images.unsplash.com/photo-1502872364588-894d7d6ddfab',
+  previewThumbnailUrl: null,
+  thumbnailPath: null,
+  variantImageUrl: null,
+  variantImageStatus: 'pending',
+  variantWorkflowRunId: null,
+  variantImageGeneratedAt: null,
+  variantImageError: null,
   videoUrl: null,
-  audioUrl: null,
+  videoPath: null,
   thumbnailStatus: 'completed',
+  thumbnailWorkflowRunId: null,
+  thumbnailGeneratedAt: null,
+  thumbnailError: null,
+  imageModel: 'nano_banana_2',
+  imagePrompt: null,
   videoStatus: 'pending',
+  videoWorkflowRunId: null,
+  videoGeneratedAt: null,
+  videoError: null,
+  motionPrompt: null,
+  motionModel: null,
+  audioUrl: null,
+  audioPath: null,
+  audioStatus: 'pending',
+  audioWorkflowRunId: null,
+  audioGeneratedAt: null,
+  audioError: null,
+  audioModel: null,
   thumbnailInputHash: 'live-hash',
+  variantImageInputHash: null,
   videoInputHash: null,
   audioInputHash: null,
-  variantImageInputHash: null,
-} as unknown as Frame;
+  visualPromptInputHash: null,
+  motionPromptInputHash: null,
+  metadata: null,
+  createdAt: NOW,
+  updatedAt: NOW,
+};
 
 function makeVariant(
   overrides: Partial<FrameVariant> & {
@@ -81,7 +113,7 @@ export const VideoVariant: Story = {
     frame: {
       ...baseFrame,
       videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-    } as Frame,
+    },
     variant: makeVariant({
       variantType: 'video',
       url: 'https://www.w3schools.com/html/movie.mp4',
@@ -109,5 +141,5 @@ export const Promoting: Story = {
   args: {
     ...ThumbnailVariant.args,
     isPromoting: true,
-  } as Story['args'],
+  },
 };

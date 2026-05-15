@@ -58,7 +58,7 @@ jobs:
         run: bun install
 
       - name: Build app for E2E
-        run: bun --bun run build
+        run: bun run build:e2e
         env:
           # Activates the `e2e` key in package.json `imports.#db-client` so the
           # built server uses Bun's local sqlite (file:test.db) instead of Turso.

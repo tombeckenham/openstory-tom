@@ -179,7 +179,7 @@ function LocationDetailPage() {
           </h2>
 
           {(() => {
-            const defaultSheet = location.sheets?.find((s) => s.isDefault);
+            const defaultSheet = location.sheets.find((s) => s.isDefault);
             const sheetImageUrl =
               defaultSheet?.imageUrl ?? location.referenceImageUrl;
 

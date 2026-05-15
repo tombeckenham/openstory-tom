@@ -340,6 +340,12 @@ export function createApiKeysMethods(
         })
         .returning();
 
+      if (!row) {
+        throw new Error(
+          `saveKey: insert returned no row for team ${teamId}, provider ${params.provider}`
+        );
+      }
+
       return {
         id: row.id,
         provider: row.provider,

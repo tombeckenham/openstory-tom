@@ -620,13 +620,13 @@ async function main() {
       if (!line) continue;
       const cols = line.split(',');
       results.push({
-        type: cols[0],
-        modelKey: cols[1],
-        endpointId: cols[2],
-        variation: cols[3],
+        type: cols[0] ?? '',
+        modelKey: cols[1] ?? '',
+        endpointId: cols[2] ?? '',
+        variation: cols[3] ?? '',
         tier: cols[4] === 'high' ? 'high' : 'low',
-        estimatedCostUsd: parseFloat(cols[5]),
-        requestId: cols[6],
+        estimatedCostUsd: parseFloat(cols[5] ?? '0'),
+        requestId: cols[6] ?? '',
         status: cols[7] === 'completed' ? 'completed' : 'error',
         error: cols.slice(8).join(',').replace(/^"|"$/g, ''),
       });
@@ -665,10 +665,13 @@ async function main() {
     const endIdx = args.indexOf('--end');
     const startTime =
       startIdx >= 0
-        ? args[startIdx + 1]
+        ? (args[startIdx + 1] ??
+          new Date(csvMtime - 2 * 3600_000).toISOString())
         : new Date(csvMtime - 2 * 3600_000).toISOString();
     const endTime =
-      endIdx >= 0 ? args[endIdx + 1] : new Date(csvMtime).toISOString();
+      endIdx >= 0
+        ? (args[endIdx + 1] ?? new Date(csvMtime).toISOString())
+        : new Date(csvMtime).toISOString();
     console.error(`Usage window: ${startTime} → ${endTime}`);
 
     const successfulResults = results.filter((r) => r.status === 'completed');

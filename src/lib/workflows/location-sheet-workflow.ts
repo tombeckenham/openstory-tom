@@ -137,7 +137,11 @@ export const locationSheetWorkflow = createScopedWorkflow<
       });
     });
 
-    let referenceImageUrl = imageResult.imageUrls[0];
+    const initialReferenceImageUrl = imageResult.imageUrls[0];
+    if (!initialReferenceImageUrl) {
+      throw new Error('Location sheet generation did not return an image URL');
+    }
+    let referenceImageUrl: string = initialReferenceImageUrl;
     let referenceImagePath: string | undefined = undefined;
 
     if (input.locationDbId && input.teamId && input.sequenceId) {

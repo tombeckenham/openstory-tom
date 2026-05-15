@@ -113,6 +113,8 @@ export function useTalentSheetRealtime(talentId?: string) {
         return;
       }
 
+      // Defensive narrow — discriminated union currently has 2 arms, this guards adding a 3rd.
+      // oxlint-disable-next-line typescript/no-unnecessary-condition
       if (event.event !== 'talent.sheet:progress') return;
       const sheetData = event.data;
       if (sheetData.talentId !== talentId) return;

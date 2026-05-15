@@ -163,6 +163,7 @@ async function seed() {
       },
     })
     .returning();
+  if (!style) throw new Error('test setup: style insert returned nothing');
   await db
     .insert(sequences)
     .values([
@@ -172,12 +173,13 @@ async function seed() {
     .insert(frames)
     .values({ sequenceId, orderIndex: 0, thumbnailUrl: 'https://live/old.png' })
     .returning();
+  if (!frame) throw new Error('test setup: frame insert returned nothing');
   frameId = frame.id;
 }
 
 beforeAll(async () => {
   client = createClient({ url: ':memory:' });
-  db = drizzle({ client, relations, casing: 'snake_case' });
+  db = drizzle({ client, relations });
   await migrate(db, { migrationsFolder: './drizzle/migrations' });
 });
 
@@ -208,6 +210,8 @@ describe('frameVariants.promoteAtomically', () => {
         divergedAt: new Date('2026-04-29T00:00:00Z'),
       })
       .returning();
+    if (!variant)
+      throw new Error('test setup: variant insert returned nothing');
     return variant;
   }
 
@@ -264,6 +268,8 @@ describe('frameVariants.promoteAtomically', () => {
       .select()
       .from(frames)
       .where(eq(frames.id, frameId));
+    if (!frameAfter)
+      throw new Error('test setup: frame lookup returned nothing');
     expect(frameAfter.thumbnailUrl).toBe('https://live/old.png');
   });
 });

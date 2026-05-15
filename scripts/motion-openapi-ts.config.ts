@@ -270,8 +270,9 @@ function rewriteRefs(obj: unknown, mapping: Map<string, string>): void {
   for (const [key, value] of Object.entries(obj)) {
     if (key === '$ref' && typeof value === 'string') {
       const match = value.match(/^#\/components\/schemas\/(.+)$/);
-      if (match && mapping.has(match[1])) {
-        obj[key] = `#/components/schemas/${mapping.get(match[1])}`;
+      const refName = match?.[1];
+      if (refName && mapping.has(refName)) {
+        obj[key] = `#/components/schemas/${mapping.get(refName) ?? ''}`;
       }
     } else if (Array.isArray(value)) {
       for (const item of value) rewriteRefs(item, mapping);
@@ -331,14 +332,18 @@ function mergeOpenAPISpecs(
     const variants = [...hashMap.values()].sort(
       (a, b) => b.endpointIds.length - a.endpointIds.length
     );
-    variants[0].finalName = baseName;
+    const primary = variants[0];
+    if (!primary) throw new Error(`No variants for schema ${baseName}`);
+    primary.finalName = baseName;
     for (let i = 1; i < variants.length; i++) {
-      variants[i].finalName = generateUniqueSchemaName(baseName, i + 1);
+      const variant = variants[i];
+      if (!variant) throw new Error(`Variant ${i} missing for ${baseName}`);
+      variant.finalName = generateUniqueSchemaName(baseName, i + 1);
       console.log(
         'Generating unique schema name for',
         baseName,
         '->',
-        variants[i].finalName
+        variant.finalName
       );
     }
   }
@@ -364,6 +369,8 @@ function mergeOpenAPISpecs(
     for (const variant of hashMap.values()) {
       const clonedSchema = structuredClone(variant.schema);
       const firstEndpoint = variant.endpointIds[0];
+      if (!firstEndpoint)
+        throw new Error(`Variant ${variant.finalName} has no endpointIds`);
       const mapping = refMappings.get(firstEndpoint);
       if (mapping?.size) {
         rewriteRefs(clonedSchema, mapping);
@@ -393,6 +400,7 @@ function mergeOpenAPISpecs(
 
   // Take security/servers from first spec
   const first = specs[0];
+  if (!first) throw new Error('Cannot merge: specs array is empty');
   if (first.components?.securitySchemes) {
     if (!merged.components?.securitySchemes)
       throw new Error('Components security schemes not found');

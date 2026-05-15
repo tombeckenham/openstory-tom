@@ -55,11 +55,12 @@ function NewSequencePage() {
 
   const handleSuccess = useCallback(
     (sequenceIds: string[]) => {
-      if (sequenceIds.length > 0) {
+      const [firstId] = sequenceIds;
+      if (firstId) {
         // Navigate to storyboard page after successful generation
         void navigate({
           to: ScenesRoute.to,
-          params: { id: sequenceIds[0] },
+          params: { id: firstId },
         });
       }
     },

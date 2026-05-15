@@ -221,7 +221,11 @@ SUPER:  CORAL.  OUT NOW.
         .click();
       const talentDialog = page.getByRole('dialog');
       await expect(talentDialog).toBeVisible({ timeout: 10_000 });
-      await page.getByText(testTalents[0].name).click();
+      const firstTalent = testTalents[0];
+      if (!firstTalent) {
+        throw new Error('test setup: expected at least one test talent');
+      }
+      await page.getByText(firstTalent.name).click();
       await page.getByRole('button', { name: 'Cast 1 role' }).click();
       await expect(talentDialog).not.toBeVisible();
 

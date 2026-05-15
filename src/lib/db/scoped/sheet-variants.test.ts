@@ -92,6 +92,7 @@ async function seed() {
       },
     })
     .returning();
+  if (!style) throw new Error('test setup: style insert returned nothing');
   await db
     .insert(sequences)
     .values([
@@ -101,11 +102,14 @@ async function seed() {
     .insert(characters)
     .values({ sequenceId, characterId: 'char_001', name: 'Alice' })
     .returning();
+  if (!character)
+    throw new Error('test setup: character insert returned nothing');
   characterId = character.id;
   const [talentRow] = await db
     .insert(talent)
     .values({ teamId: team.id, name: 'Talent A' })
     .returning();
+  if (!talentRow) throw new Error('test setup: talent insert returned nothing');
   talentId = talentRow.id;
   const [sheet] = await db
     .insert(talentSheets)
@@ -115,12 +119,14 @@ async function seed() {
       imageUrl: 'https://example.com/sheet.png',
     })
     .returning();
+  if (!sheet)
+    throw new Error('test setup: talentSheets insert returned nothing');
   talentSheetId = sheet.id;
 }
 
 beforeAll(async () => {
   client = createClient({ url: ':memory:' });
-  db = drizzle({ client, relations, casing: 'snake_case' });
+  db = drizzle({ client, relations });
   await migrate(db, { migrationsFolder: './drizzle/migrations' });
 });
 
@@ -194,7 +200,7 @@ describe('character-sheet-variants insertDivergent', () => {
     const methods = createCharacterSheetVariantsMethods(db);
     const divergedAt = new Date('2026-04-29T00:00:00Z');
 
-    const existingRow = await db
+    const [existingRow] = await db
       .insert(characterSheetVariants)
       .values({
         characterId,
@@ -205,6 +211,8 @@ describe('character-sheet-variants insertDivergent', () => {
         divergedAt,
       })
       .returning();
+    if (!existingRow)
+      throw new Error('test setup: existingRow insert returned nothing');
 
     const result = await methods.insertDivergent({
       characterId,
@@ -215,7 +223,7 @@ describe('character-sheet-variants insertDivergent', () => {
       divergedAt,
     });
 
-    expect(result.id).toBe(existingRow[0].id);
+    expect(result.id).toBe(existingRow.id);
     expect(result.url).toBe('https://example.com/winner.png');
   });
 });
@@ -358,7 +366,7 @@ describe('character-sheet-variants discard / undiscard / promote', () => {
 
     const active = await methods.listDivergentActiveByCharacter(characterId);
     expect(active).toHaveLength(1);
-    expect(active[0].inputHash).toBe('hash-b');
+    expect(active[0]?.inputHash).toBe('hash-b');
   });
 
   it('promoteAtomically copies fields onto characters and discards the variant', async () => {
@@ -388,6 +396,8 @@ describe('character-sheet-variants discard / undiscard / promote', () => {
       .select()
       .from(characters)
       .where(eq(characters.id, characterId));
+    if (!updatedCharacter)
+      throw new Error('test setup: updatedCharacter select returned nothing');
     expect(updatedCharacter.sheetImageUrl).toBe(
       'https://example.com/promoted.png'
     );
@@ -450,6 +460,8 @@ describe('talent-sheet-variants discard / promote', () => {
       .select()
       .from(talentSheets)
       .where(eq(talentSheets.id, talentSheetId));
+    if (!updatedSheet)
+      throw new Error('test setup: updatedSheet select returned nothing');
     expect(updatedSheet.imageUrl).toBe('https://example.com/promoted.png');
     expect(updatedSheet.inputHash).toBe('hash-promoted');
 
@@ -509,6 +521,8 @@ describe('character-sheet-variants promoteAtomically negative cases', () => {
       .select()
       .from(characters)
       .where(eq(characters.id, characterId));
+    if (!character)
+      throw new Error('test setup: character select returned nothing');
     expect(character.sheetImageUrl).toBeNull();
     expect(character.sheetInputHash).toBeNull();
   });
@@ -524,6 +538,8 @@ describe('location-sheet-variants promoteAtomically negative cases', () => {
         name: 'L',
       })
       .returning();
+    if (!loc)
+      throw new Error('test setup: sequenceLocations insert returned nothing');
     return loc;
   }
   async function seedLibraryLocation() {
@@ -531,6 +547,8 @@ describe('location-sheet-variants promoteAtomically negative cases', () => {
       .insert(locationLibrary)
       .values({ teamId: team.id, name: 'L' })
       .returning();
+    if (!loc)
+      throw new Error('test setup: locationLibrary insert returned nothing');
     return loc;
   }
 
@@ -564,6 +582,8 @@ describe('location-sheet-variants promoteAtomically negative cases', () => {
       .select()
       .from(sequenceLocations)
       .where(eq(sequenceLocations.id, loc.id));
+    if (!updated)
+      throw new Error('test setup: sequenceLocations select returned nothing');
     expect(updated.referenceImageUrl).toBe('https://example.com/seq.png');
     expect(updated.referenceInputHash).toBe('h');
 
@@ -651,6 +671,8 @@ describe('location-sheet-variants promoteAtomically negative cases', () => {
       .select()
       .from(locationLibrary)
       .where(eq(locationLibrary.id, loc.id));
+    if (!refreshed)
+      throw new Error('test setup: locationLibrary select returned nothing');
     expect(refreshed.referenceImageUrl).toBeNull();
     expect(refreshed.referenceInputHash).toBeNull();
   });
@@ -796,6 +818,8 @@ describe('talent-sheet-variants promoteAtomically negative cases', () => {
       .select()
       .from(talentSheets)
       .where(eq(talentSheets.id, talentSheetId));
+    if (!sheet)
+      throw new Error('test setup: talentSheets select returned nothing');
     expect(sheet.imageUrl).toBe('https://example.com/sheet.png');
     expect(sheet.inputHash).toBeNull();
   });

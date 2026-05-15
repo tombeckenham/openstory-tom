@@ -219,10 +219,11 @@ function createTalentReadMethods(db: Database, teamId: string) {
           .select({ hash: talentSheets.inputHash })
           .from(talentSheets)
           .where(eq(talentSheets.id, sheetId));
-        if (result.length === 0) {
+        const first = result[0];
+        if (!first) {
           throw new Error(`TalentSheet ${sheetId} not found`);
         }
-        const stored = result[0].hash;
+        const stored = first.hash;
         if (stored === null) return false;
         return currentHash !== stored;
       },
@@ -259,6 +260,7 @@ export function createTalentMethods(
         .insert(talent)
         .values({ ...data, teamId, createdBy: userId })
         .returning();
+      if (!created) throw new Error('Failed to create talent');
       return created;
     },
 
@@ -324,6 +326,7 @@ export function createTalentMethods(
           .insert(talentSheets)
           .values({ ...data, isDefault: shouldBeDefault })
           .returning();
+        if (!sheet) throw new Error('Failed to create talent sheet');
         return sheet;
       },
 
@@ -371,11 +374,12 @@ export function createTalentMethods(
             .from(talentSheets)
             .where(eq(talentSheets.talentId, sheet.talentId));
 
-          if (remaining.length === 1) {
+          const onlyRemaining = remaining[0];
+          if (remaining.length === 1 && onlyRemaining) {
             await db
               .update(talentSheets)
               .set({ isDefault: true, updatedAt: new Date() })
-              .where(eq(talentSheets.id, remaining[0].id));
+              .where(eq(talentSheets.id, onlyRemaining.id));
           }
         }
 
@@ -388,6 +392,7 @@ export function createTalentMethods(
 
       create: async (data: NewTalentMedia): Promise<TalentMediaRecord> => {
         const [media] = await db.insert(talentMedia).values(data).returning();
+        if (!media) throw new Error('Failed to create talent media');
         return media;
       },
 

@@ -66,10 +66,14 @@ export function useSequenceStaleDetected(sequenceId: string | undefined) {
 
   const handleEvent = useCallback(
     (event: StaleDetectedEvent) => {
+      // Defensive narrow — discriminated union currently has 1 arm, this guards adding more.
+      // oxlint-disable-next-line typescript/no-unnecessary-condition
       if (event.event !== 'generation.stale:detected') return;
       if (!sequenceId) return;
       if (event.data.entityType !== 'sequence') return;
       const artifact = event.data.artifact;
+      // Defensive narrow — artifact enum currently has these 2 sequence-scoped values.
+      // oxlint-disable-next-line typescript/no-unnecessary-condition
       if (artifact !== 'merged-video' && artifact !== 'music') return;
       const scheduledFor = sequenceId;
 

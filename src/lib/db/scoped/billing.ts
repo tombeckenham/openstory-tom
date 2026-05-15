@@ -59,7 +59,6 @@ export function createBillingReadMethods(db: Database, teamId: string) {
       .where(eq(credits.teamId, teamId))
       .limit(1);
 
-    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: DB query may return undefined
     if (!row) {
       await db
         .insert(credits)
@@ -124,7 +123,8 @@ export function createBillingReadMethods(db: Database, teamId: string) {
         .where(whereClause),
     ]);
 
-    return { transactions: rows, total: countResult[0].count };
+    const total = countResult[0]?.count ?? 0;
+    return { transactions: rows, total };
   }
 
   async function getBillingSettings(): Promise<TeamBillingSetting> {
@@ -134,7 +134,6 @@ export function createBillingReadMethods(db: Database, teamId: string) {
       .where(eq(teamBillingSettings.teamId, teamId))
       .limit(1);
 
-    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: DB query may return undefined
     if (row) return row;
 
     const [inserted] = await db
@@ -204,6 +203,10 @@ export function createBillingMethods(
       .where(eq(credits.teamId, teamId))
       .returning({ balance: credits.balance });
 
+    if (!updated) {
+      throw new Error(`addCredits: update returned no row for team ${teamId}`);
+    }
+
     const txType = opts.type ?? ('credit_purchase' as TransactionType);
 
     const rows = await db
@@ -234,7 +237,13 @@ export function createBillingMethods(
       return null;
     }
 
-    const transactionId = rows[0].id;
+    const insertedRow = rows[0];
+    if (!insertedRow) {
+      throw new Error(
+        `addCredits: transaction insert returned no row for team ${teamId}`
+      );
+    }
+    const transactionId = insertedRow.id;
 
     await db.insert(creditBatches).values({
       teamId,
@@ -297,6 +306,12 @@ export function createBillingMethods(
       .where(eq(credits.teamId, teamId))
       .returning({ balance: credits.balance });
 
+    if (!updated) {
+      throw new Error(
+        `deductCredits: update returned no row for team ${teamId}`
+      );
+    }
+
     const rawUsd = microsToUsd(rawCostMicros);
     const chargedUsd = microsToUsd(chargedAmount);
 
@@ -318,6 +333,12 @@ export function createBillingMethods(
         },
       })
       .returning({ id: transactions.id });
+
+    if (!tx) {
+      throw new Error(
+        `deductCredits: transaction insert returned no row for team ${teamId}`
+      );
+    }
 
     void maybeAutoTopUp(micros(updated.balance)).catch((err) => {
       console.error('[AutoTopUp] Failed:', err);
@@ -408,7 +429,6 @@ export function createBillingMethods(
       .orderBy(desc(transactions.createdAt))
       .limit(1);
 
-    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: DB query may return undefined
     if (recentAutoTopUp) {
       const elapsed = Date.now() - recentAutoTopUp.createdAt.getTime();
       if (elapsed < AUTO_TOPUP_COOLDOWN_MS) {
@@ -485,7 +505,6 @@ export function createBillingMethods(
       .where(eq(credits.teamId, teamId))
       .limit(1);
 
-    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- DB result may be undefined at runtime
     const runningBalance = micros(balanceRow?.balance ?? 0);
 
     const [batchRow] = await db
@@ -495,7 +514,6 @@ export function createBillingMethods(
       .from(creditBatches)
       .where(eq(creditBatches.teamId, teamId));
 
-    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- DB result may be undefined at runtime
     const batchTotal = micros(batchRow?.total ?? 0);
 
     return {
@@ -532,7 +550,6 @@ export function createBillingMethods(
       .where(eq(giftTokens.code, normalizedCode))
       .limit(1);
 
-    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: DB query may return undefined
     if (!token) {
       throw new ValidationError('Invalid gift code');
     }
@@ -542,10 +559,12 @@ export function createBillingMethods(
     }
 
     // Count existing redemptions
-    const [{ value: redemptionCount }] = await db
+    const [redemptionRow] = await db
       .select({ value: count() })
       .from(giftTokenRedemptions)
       .where(eq(giftTokenRedemptions.giftTokenId, token.id));
+
+    const redemptionCount = redemptionRow?.value ?? 0;
 
     if (redemptionCount >= token.maxRedemptions) {
       throw new ValidationError('This gift code has been fully redeemed');
@@ -563,7 +582,6 @@ export function createBillingMethods(
       .onConflictDoNothing()
       .returning();
 
-    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: DB query may return undefined
     if (!inserted) {
       throw new ValidationError(
         'Your team has already redeemed this gift code'

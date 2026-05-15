@@ -425,6 +425,7 @@ function extractUserMessage(
   if (!body?.messages) return null;
   for (let i = body.messages.length - 1; i >= 0; i--) {
     const msg = body.messages[i];
+    if (!msg) continue;
     if (msg.role !== 'user') continue;
     if (typeof msg.content === 'string') return msg.content;
     if (Array.isArray(msg.content)) {

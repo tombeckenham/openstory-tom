@@ -43,7 +43,7 @@ function rehypeExtractHeadings(headings: MarkdownHeading[]) {
       const match = /^h([1-6])$/.exec(node.tagName);
       if (!match) continue;
       const level = Number(match[1]);
-      const id = String(node.properties?.id ?? '');
+      const id = String(node.properties.id ?? '');
       const text = extractText(node);
       headings.push({ id, text, level });
     }
@@ -60,6 +60,7 @@ function rehypeMermaidPlaceholder() {
     for (let i = 0; i < tree.children.length; i++) {
       const node = tree.children[i];
       if (
+        !node ||
         node.type !== 'element' ||
         node.tagName !== 'pre' ||
         node.children.length !== 1
@@ -67,7 +68,8 @@ function rehypeMermaidPlaceholder() {
         continue;
       }
       const child = node.children[0];
-      if (child.type !== 'element' || child.tagName !== 'code') continue;
+      if (!child || child.type !== 'element' || child.tagName !== 'code')
+        continue;
 
       const className = child.properties.className;
       if (!Array.isArray(className)) continue;
@@ -102,12 +104,13 @@ function rehypeShiki() {
     for (let i = 0; i < tree.children.length; i++) {
       const node = tree.children[i];
       if (
+        node &&
         node.type === 'element' &&
         node.tagName === 'pre' &&
         node.children.length === 1
       ) {
         const child = node.children[0];
-        if (child.type === 'element' && child.tagName === 'code') {
+        if (child && child.type === 'element' && child.tagName === 'code') {
           const className = child.properties.className;
           let lang = 'text';
           if (Array.isArray(className)) {
@@ -140,12 +143,14 @@ function rehypeShiki() {
 
     // Replace nodes with raw HTML (rehype-stringify will output it)
     for (let i = 0; i < codeBlocks.length; i++) {
-      const { index } = codeBlocks[i];
+      const block = codeBlocks[i];
+      const value = results[i];
+      if (!block || value === undefined) continue;
       const rawNode: RootContent = {
         type: 'raw',
-        value: results[i],
+        value,
       } satisfies { type: 'raw'; value: string };
-      tree.children[index] = rawNode;
+      tree.children[block.index] = rawNode;
     }
   };
 }

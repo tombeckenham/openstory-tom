@@ -122,6 +122,7 @@ export const EvalMatrix: React.FC<EvalMatrixProps> = ({
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const sequence = sequences[virtualRow.index];
+            if (!sequence) return null;
             return (
               <div
                 key={sequence.id}

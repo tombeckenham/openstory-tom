@@ -34,10 +34,14 @@ async function main() {
   // Upload text prompts
   for (const name of textNames) {
     try {
+      const prompt = WORKFLOW_TEXT_PROMPTS[name];
+      if (prompt === undefined) {
+        throw new Error(`expected text prompt for ${name}`);
+      }
       await langfuse.prompt.create({
         name,
         type: 'text',
-        prompt: WORKFLOW_TEXT_PROMPTS[name],
+        prompt,
         labels: ['production'],
       });
       console.log(`  [text] ${name}`);
@@ -53,10 +57,14 @@ async function main() {
   // Upload chat prompts
   for (const name of chatNames) {
     try {
+      const prompt = WORKFLOW_CHAT_PROMPTS[name];
+      if (prompt === undefined) {
+        throw new Error(`expected chat prompt for ${name}`);
+      }
       await langfuse.prompt.create({
         name,
         type: 'chat',
-        prompt: WORKFLOW_CHAT_PROMPTS[name],
+        prompt,
         labels: ['production'],
       });
       console.log(`  [chat] ${name}`);

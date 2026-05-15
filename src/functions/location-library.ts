@@ -39,12 +39,13 @@ async function processReferenceImages(
 
   for (const tempUrl of tempUrls) {
     const tempPathMatch = tempUrl.match(/\/locations\/(.+)$/);
-    if (!tempPathMatch) continue;
+    const tempPath = tempPathMatch?.[1];
+    if (!tempPath) continue;
 
     const ext = getExtensionFromUrl(tempUrl);
     const permanentPath = `${teamId}/library/${generateId()}.${ext}`;
 
-    await moveFile(STORAGE_BUCKETS.LOCATIONS, tempPathMatch[1], permanentPath);
+    await moveFile(STORAGE_BUCKETS.LOCATIONS, tempPath, permanentPath);
     const url = getPublicUrl(STORAGE_BUCKETS.LOCATIONS, permanentPath);
     results.push({ url, path: permanentPath });
   }

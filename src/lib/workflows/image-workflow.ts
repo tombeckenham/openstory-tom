@@ -212,7 +212,11 @@ export const generateImageWorkflow = createScopedWorkflow<
       });
     }
 
-    let imageUrl: string = imageResult.imageUrls[0];
+    const generatedImageUrl = imageResult.imageUrls[0];
+    if (!generatedImageUrl) {
+      throw new Error('Image generation did not return any image URLs');
+    }
+    let imageUrl: string = generatedImageUrl;
 
     if (imageUrl && frameId && sequenceId && teamId && !input.skipStorage) {
       // Step 1: durable R2 upload. Isolated so a transient failure in the

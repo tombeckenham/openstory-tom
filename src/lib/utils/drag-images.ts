@@ -149,7 +149,9 @@ export async function extractImagesFromSnapshot(
     if (result) {
       files.push(result);
     } else {
-      failedUrls.push(urlList[index]);
+      const url = urlList[index];
+      if (!url) throw new Error(`expected url at index ${index}`);
+      failedUrls.push(url);
     }
   });
   return { files, failedUrls };

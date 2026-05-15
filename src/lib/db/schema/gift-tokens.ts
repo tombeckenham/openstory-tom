@@ -1,7 +1,7 @@
 import { type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 import {
   integer,
-  sqliteTable,
+  snakeCase,
   text,
   index,
   uniqueIndex,
@@ -10,7 +10,7 @@ import { generateId } from '../id';
 import { user } from './auth';
 import { teams } from './teams';
 
-export const giftTokens = sqliteTable(
+export const giftTokens = snakeCase.table(
   'gift_tokens',
   {
     id: text()
@@ -18,14 +18,14 @@ export const giftTokens = sqliteTable(
       .primaryKey()
       .notNull(),
     code: text().unique().notNull(),
-    amountMicros: integer('amount_micros').notNull(),
-    maxRedemptions: integer('max_redemptions').default(1).notNull(),
-    createdByUserId: text('created_by_user_id')
+    amountMicros: integer().notNull(),
+    maxRedemptions: integer().default(1).notNull(),
+    createdByUserId: text()
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    expiresAt: integer('expires_at', { mode: 'timestamp' }),
+    expiresAt: integer({ mode: 'timestamp' }),
     note: text(),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
   },
@@ -35,23 +35,23 @@ export const giftTokens = sqliteTable(
   ]
 );
 
-export const giftTokenRedemptions = sqliteTable(
+export const giftTokenRedemptions = snakeCase.table(
   'gift_token_redemptions',
   {
     id: text()
       .$defaultFn(() => generateId())
       .primaryKey()
       .notNull(),
-    giftTokenId: text('gift_token_id')
+    giftTokenId: text()
       .notNull()
       .references(() => giftTokens.id, { onDelete: 'cascade' }),
-    teamId: text('team_id')
+    teamId: text()
       .notNull()
       .references(() => teams.id, { onDelete: 'cascade' }),
-    userId: text('user_id').references(() => user.id, {
+    userId: text().references(() => user.id, {
       onDelete: 'set null',
     }),
-    redeemedAt: integer('redeemed_at', { mode: 'timestamp' })
+    redeemedAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
   },

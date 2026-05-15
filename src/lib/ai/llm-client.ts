@@ -13,11 +13,19 @@ import type { ScopedDb } from '../db/scoped';
 import { createAdapter } from './create-adapter';
 import { getContextWindow } from './models.config';
 
-type StreamChunk = {
-  delta: string;
-  accumulated: string;
-  done: boolean;
-};
+export type StreamChunk<T = never> =
+  | { done: false; delta: string; accumulated: string }
+  | {
+      done: true;
+      delta: '';
+      accumulated: string;
+      /**
+       * Validated structured output. Default `T = never` makes this `undefined`
+       * when no `responseSchema` was provided; with a schema, narrows to `T | undefined`
+       * (undefined when the stream ended without a `structured-output.complete` event).
+       */
+      parsed: T | undefined;
+    };
 
 export type ProgressCallback = (progress: {
   type: 'chunk' | 'complete';
@@ -32,7 +40,7 @@ type ProviderPreference = {
   allow_fallbacks?: boolean;
 };
 
-export type LLMRequestParams = {
+export type LLMRequestParams<T = unknown> = {
   model: TextModel;
   messages: ChatMessage[];
   temperature?: number;
@@ -54,7 +62,7 @@ export type LLMRequestParams = {
   userId?: string;
   /** Session id for Langfuse trace grouping (typically sequenceId) */
   sessionId?: string;
-  responseSchema?: z.ZodTypeAny;
+  responseSchema?: z.ZodType<T>;
   apiKey?: string;
   /** OpenRouter plugins (e.g. web search) to enable for this request */
   plugins?: Array<{ id: 'web'; max_results?: number }>;
@@ -82,33 +90,6 @@ const STRUCTURED_OUTPUT_MODELS = new Set([
 
 export function modelSupportsStructuredOutputs(model: string): boolean {
   return STRUCTURED_OUTPUT_MODELS.has(model);
-}
-
-/**
- * Recursively strip `~standard` metadata that Zod v4's toJSONSchema() injects.
- * OpenRouter rejects it: "property '~standard' is not supported".
- */
-function stripZodMetadata(obj: unknown): unknown {
-  if (Array.isArray(obj)) return obj.map(stripZodMetadata);
-  if (obj && typeof obj === 'object') {
-    return Object.fromEntries(
-      Object.entries(obj)
-        .filter(([key]) => key !== '~standard')
-        .map(([key, value]) => [key, stripZodMetadata(value)])
-    );
-  }
-  return obj;
-}
-
-function buildResponseFormat(schema: z.ZodTypeAny, name: string) {
-  return {
-    type: 'json_schema' as const,
-    jsonSchema: {
-      name,
-      strict: true,
-      schema: stripZodMetadata(z.toJSONSchema(schema)),
-    },
-  };
 }
 
 const DEFAULT_PROVIDER: ProviderPreference = {
@@ -163,12 +144,6 @@ function buildModelOptions(params: LLMRequestParams) {
     provider: params.provider ?? DEFAULT_PROVIDER,
     frequency_penalty: params.frequency_penalty,
     presence_penalty: params.presence_penalty,
-    ...(params.responseSchema && {
-      responseFormat: buildResponseFormat(
-        params.responseSchema,
-        params.observationName ?? 'response'
-      ),
-    }),
     ...(params.plugins && { plugins: params.plugins }),
   };
 }
@@ -207,46 +182,120 @@ function baseChatOptions(params: LLMRequestParams) {
   };
 }
 
-export async function callLLM(params: LLMRequestParams): Promise<string> {
-  if (params.responseSchema) validateStructuredOutputSupport(params.model);
+/**
+ * @tanstack/ai's chat orchestrator validates `outputSchema` upstream and surfaces
+ * the parsed object through the terminal `structured-output.complete` event (stream)
+ * or as the resolved value (non-stream) — but the return is typed `unknown` because
+ * Zod's `~standard` doesn't include the JSON-Schema converter `InferSchemaType` keys
+ * off. We run `responseSchema.parse` here to recover the `T` binding without a cast
+ * (the orchestrator already validated, so this is a near-free no-op).
+ */
+export async function callLLM<T>(
+  params: LLMRequestParams<T> & { responseSchema: z.ZodType<T> }
+): Promise<T>;
+export async function callLLM(
+  params: LLMRequestParams & { responseSchema?: undefined }
+): Promise<string>;
+export async function callLLM<T>(
+  params: LLMRequestParams<T>
+): Promise<T | string> {
+  if (params.responseSchema) {
+    validateStructuredOutputSupport(params.model);
+    const result = await chat({
+      ...baseChatOptions(params),
+      stream: false,
+      metadata: buildChatMetadata(params),
+      outputSchema: params.responseSchema,
+    });
+    return params.responseSchema.parse(result);
+  }
 
   return chat({
     ...baseChatOptions(params),
     stream: false,
     metadata: buildChatMetadata(params),
+    outputSchema: undefined,
   });
 }
 
-export async function* callLLMStream(
-  params: LLMRequestParams
-): AsyncGenerator<StreamChunk> {
-  let accumulated = '';
+function throwIfRunError(event: unknown): void {
+  if (
+    !event ||
+    typeof event !== 'object' ||
+    !('type' in event) ||
+    event.type !== 'RUN_ERROR'
+  ) {
+    return;
+  }
+  const message =
+    'message' in event && typeof event.message === 'string'
+      ? event.message
+      : JSON.stringify('message' in event ? event.message : undefined);
+  const suffix =
+    'code' in event && typeof event.code === 'string' ? ` [${event.code}]` : '';
+  throw new Error(`LLM stream error${suffix}: ${message}`);
+}
 
-  // NOTE: outputSchema cannot be used here — @tanstack/ai forces stream:false when
-  // outputSchema is set. And modelOptions.response_format is not forwarded by the
-  // OpenRouter adapter. So streaming relies on the system prompt for JSON structure,
-  // with stripCodeFences + schema validation as the safety net.
-  const stream = chat({
+export function callLLMStream<T>(
+  params: LLMRequestParams<T> & { responseSchema: z.ZodType<T> }
+): AsyncGenerator<StreamChunk<T>>;
+export function callLLMStream(
+  params: LLMRequestParams & { responseSchema?: undefined }
+): AsyncGenerator<StreamChunk>;
+export async function* callLLMStream<T>(
+  params: LLMRequestParams<T>
+): AsyncGenerator<StreamChunk<T>> {
+  let accumulated = '';
+  let parsed: T | undefined;
+
+  const baseOptions = {
     ...baseChatOptions(params),
     metadata: buildChatMetadata(params),
     modelOptions: {
       ...buildModelOptions(params),
       streamOptions: { includeUsage: true },
     },
-    stream: true,
-  });
+    stream: true as const,
+  };
 
-  for await (const event of stream) {
-    if (event.type === 'TEXT_MESSAGE_CONTENT') {
-      accumulated += event.delta;
-      yield { delta: event.delta, accumulated, done: false };
+  const responseSchema = params.responseSchema;
+  if (responseSchema) {
+    validateStructuredOutputSupport(params.model);
+    for await (const event of chat({
+      ...baseOptions,
+      outputSchema: responseSchema,
+    })) {
+      if (
+        event.type === 'TEXT_MESSAGE_CONTENT' &&
+        typeof event.delta === 'string'
+      ) {
+        accumulated += event.delta;
+        yield { delta: event.delta, accumulated, done: false };
+        continue;
+      }
+      if (
+        event.type === 'CUSTOM' &&
+        event.name === 'structured-output.complete'
+      ) {
+        // Orchestrator already validated against outputSchema before emitting,
+        // but the event payload is typed `unknown`. Re-parse to recover `T`.
+        parsed = responseSchema.parse(event.value.object);
+        continue;
+      }
+      throwIfRunError(event);
     }
-    if (event.type === 'RUN_ERROR') {
-      throw new Error(`LLM stream error: ${event.message}`);
+  } else {
+    for await (const event of chat(baseOptions)) {
+      if (event.type === 'TEXT_MESSAGE_CONTENT') {
+        accumulated += event.delta;
+        yield { delta: event.delta, accumulated, done: false };
+        continue;
+      }
+      throwIfRunError(event);
     }
   }
 
-  yield { delta: '', accumulated, done: true };
+  yield { delta: '', accumulated, done: true, parsed };
 }
 
 export type DurableLLMCallConfig<TSchema extends z.ZodType> = {

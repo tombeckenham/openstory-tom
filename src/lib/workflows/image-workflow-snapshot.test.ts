@@ -489,19 +489,26 @@ describe('persistImageResult — orchestration', () => {
       'frameVariants.insertDivergent',
     ]);
 
-    const frameUpdate = framesUpdates[0].data;
+    const [frameUpdateCall] = framesUpdates;
+    if (!frameUpdateCall)
+      throw new Error('test setup: expected frames.update call');
+    const frameUpdate = frameUpdateCall.data;
     expect(frameUpdate.thumbnailUrl).toBeNull();
     expect(frameUpdate.thumbnailPath).toBeNull();
     expect(frameUpdate.thumbnailStatus).toBe('pending');
     expect(frameUpdate.thumbnailInputHash).toBeNull();
 
-    const variantRevert = variantsUpdates[0].data;
+    const [variantRevertCall] = variantsUpdates;
+    if (!variantRevertCall)
+      throw new Error('test setup: expected frameVariants.update call');
+    const variantRevert = variantRevertCall.data;
     expect(variantRevert.url).toBeNull();
     expect(variantRevert.previewUrl).toBeNull();
     expect(variantRevert.status).toBe('pending');
     expect(variantRevert.inputHash).toBeNull();
 
-    const divergentRow = variantsInserts[0];
+    const [divergentRow] = variantsInserts;
+    if (!divergentRow) throw new Error('test setup: expected divergent row');
     expect(divergentRow.frameId).toBe('f1');
     expect(divergentRow.sequenceId).toBe('seq1');
     expect(divergentRow.variantType).toBe('image');
@@ -551,12 +558,18 @@ describe('persistImageResult — orchestration', () => {
       'frameVariants.updateByFrameAndModel',
     ]);
 
-    const frameUpdate = framesUpdates[0].data;
+    const [frameUpdateCall] = framesUpdates;
+    if (!frameUpdateCall)
+      throw new Error('test setup: expected frames.update call');
+    const frameUpdate = frameUpdateCall.data;
     expect(frameUpdate.thumbnailUrl).toBe(upload.url);
     expect(frameUpdate.thumbnailStatus).toBe('completed');
     expect(frameUpdate.thumbnailInputHash).toBe('snapshot-abc');
 
-    const variantWrite = variantsUpdates[0].data;
+    const [variantWriteCall] = variantsUpdates;
+    if (!variantWriteCall)
+      throw new Error('test setup: expected frameVariants.update call');
+    const variantWrite = variantWriteCall.data;
     expect(variantWrite.url).toBe(upload.url);
     expect(variantWrite.status).toBe('completed');
     expect(variantWrite.inputHash).toBe('snapshot-abc');
@@ -598,8 +611,14 @@ describe('persistImageResult — orchestration', () => {
     });
 
     expect(outcome.status).toBe('convergent');
-    expect(framesUpdates[0].data.thumbnailInputHash).toBeNull();
-    expect(variantsUpdates[0].data.inputHash).toBeNull();
+    const [frameUpdateCall] = framesUpdates;
+    if (!frameUpdateCall)
+      throw new Error('test setup: expected frames.update call');
+    expect(frameUpdateCall.data.thumbnailInputHash).toBeNull();
+    const [variantWriteCall] = variantsUpdates;
+    if (!variantWriteCall)
+      throw new Error('test setup: expected frameVariants.update call');
+    expect(variantWriteCall.data.inputHash).toBeNull();
     expect(variantsInserts).toEqual([]);
   });
 

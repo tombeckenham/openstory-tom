@@ -174,8 +174,14 @@ function AdminMenuItem() {
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
+  const first = parts[0];
+  const last = parts[parts.length - 1];
+  if (!first || !last) return '';
   if (parts.length === 1) {
-    return parts[0].substring(0, 2).toUpperCase();
+    return first.substring(0, 2).toUpperCase();
   }
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  const firstChar = first[0];
+  const lastChar = last[0];
+  if (!firstChar || !lastChar) return '';
+  return (firstChar + lastChar).toUpperCase();
 }

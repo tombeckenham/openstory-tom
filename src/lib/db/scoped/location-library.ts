@@ -87,10 +87,11 @@ export function createLocationsReadMethods(db: Database, teamId: string) {
         .select({ hash: locationLibrary.referenceInputHash })
         .from(locationLibrary)
         .where(eq(locationLibrary.id, locationId));
-      if (result.length === 0) {
+      const row = result[0];
+      if (!row) {
         throw new Error(`LibraryLocation ${locationId} not found`);
       }
-      const stored = result[0].hash;
+      const stored = row.hash;
       if (stored === null) return false;
       return currentHash !== stored;
     },
@@ -112,6 +113,9 @@ export function createLocationsMethods(
         .insert(locationLibrary)
         .values({ ...data, teamId, createdBy: userId })
         .returning();
+      if (!location) {
+        throw new Error(`Failed to create LibraryLocation for team ${teamId}`);
+      }
       return location;
     },
 
@@ -160,7 +164,6 @@ export function createLocationsMethods(
         .where(eq(locationLibrary.id, id))
         .returning();
 
-      // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: DB query may return undefined
       if (!location) {
         throw new Error(`LibraryLocation ${id} not found`);
       }
@@ -179,7 +182,6 @@ export function createLocationsMethods(
         .where(eq(locationLibrary.id, id))
         .returning();
 
-      // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: DB query may return undefined
       if (!location) {
         throw new Error(`LibraryLocation ${id} not found`);
       }
@@ -215,10 +217,11 @@ export function createLocationSheetsReadMethods(db: Database) {
         .select({ hash: locationSheets.inputHash })
         .from(locationSheets)
         .where(eq(locationSheets.id, sheetId));
-      if (result.length === 0) {
+      const row = result[0];
+      if (!row) {
         throw new Error(`LocationSheet ${sheetId} not found`);
       }
-      const stored = result[0].hash;
+      const stored = row.hash;
       if (stored === null) return false;
       return currentHash !== stored;
     },

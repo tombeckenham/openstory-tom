@@ -34,11 +34,12 @@ function getImageModelDisplayName(model: string): string {
 }
 
 function formatImageModels(models: string[]): string {
-  if (models.length === 0) return '';
-  if (models.length === 1) return getImageModelDisplayName(models[0]);
-  if (models.length === 2)
-    return `${getImageModelDisplayName(models[0])}, ${getImageModelDisplayName(models[1])}`;
-  return `${getImageModelDisplayName(models[0])} + ${models.length - 1} others`;
+  const [first, second] = models;
+  if (!first) return '';
+  if (models.length === 1) return getImageModelDisplayName(first);
+  if (models.length === 2 && second)
+    return `${getImageModelDisplayName(first)}, ${getImageModelDisplayName(second)}`;
+  return `${getImageModelDisplayName(first)} + ${models.length - 1} others`;
 }
 
 function resolveModelList(

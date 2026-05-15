@@ -414,7 +414,7 @@ const CSV_COLUMNS = [
 ] as const;
 
 function csvEscape(value: string | number | null): string {
-  if (value === null || value === undefined) return '';
+  if (value === null) return '';
   const str = String(value);
   if (/[",\n\r]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`;

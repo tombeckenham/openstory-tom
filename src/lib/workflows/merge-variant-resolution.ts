@@ -14,11 +14,14 @@ import { WorkflowValidationError } from '@/lib/workflow/errors';
 
 export type MergeVariantResolutionScopedDb = {
   sequence: (sequenceId: string) => {
-    getMusicStatus: () => Promise<{
-      musicStatus: 'pending' | 'generating' | 'completed' | 'failed' | null;
-      musicUrl: string | null;
-      musicModel: string | null;
-    } | null>;
+    getMusicStatus: () => Promise<
+      | {
+          musicStatus: 'pending' | 'generating' | 'completed' | 'failed' | null;
+          musicUrl: string | null;
+          musicModel: string | null;
+        }
+      | undefined
+    >;
   };
   sequenceVariants: {
     getMusicPrimary: (

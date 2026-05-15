@@ -51,6 +51,5 @@ function buildDb(client: ReturnType<typeof createClient>) {
     client,
     relations,
     logger: getEnv().NODE_ENV === 'development',
-    casing: 'snake_case',
   });
 }

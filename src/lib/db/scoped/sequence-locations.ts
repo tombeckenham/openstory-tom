@@ -167,6 +167,11 @@ export function createSequenceLocationsMethods(db: Database) {
           },
         })
         .returning();
+      if (!location) {
+        throw new Error(
+          `Failed to create SequenceLocation for sequence ${data.sequenceId} (locationId ${data.locationId})`
+        );
+      }
       return location;
     },
 
@@ -248,10 +253,11 @@ export function createSequenceLocationsMethods(db: Database) {
         .select({ hash: sequenceLocations.referenceInputHash })
         .from(sequenceLocations)
         .where(eq(sequenceLocations.id, locationId));
-      if (result.length === 0) {
+      const row = result[0];
+      if (!row) {
         throw new Error(`SequenceLocation ${locationId} not found`);
       }
-      const stored = result[0].hash;
+      const stored = row.hash;
       if (stored === null) return false;
       return currentHash !== stored;
     },

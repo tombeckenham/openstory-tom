@@ -11,7 +11,7 @@ import { sql, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 import {
   index,
   integer,
-  sqliteTable,
+  snakeCase,
   text,
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
@@ -27,48 +27,48 @@ export const SEQUENCE_MUSIC_VARIANT_STATUSES = [
 export type SequenceMusicVariantStatus =
   (typeof SEQUENCE_MUSIC_VARIANT_STATUSES)[number];
 
-export const sequenceMusicVariants = sqliteTable(
+export const sequenceMusicVariants = snakeCase.table(
   'sequence_music_variants',
   {
     id: text()
       .$defaultFn(() => generateId())
       .primaryKey()
       .notNull(),
-    sequenceId: text('sequence_id')
+    sequenceId: text()
       .notNull()
       .references(() => sequences.id, { onDelete: 'cascade' }),
 
     // Output
-    url: text('url'),
-    storagePath: text('storage_path'),
+    url: text(),
+    storagePath: text(),
 
     // Inputs that produced this variant (kept on the row for promotion)
-    prompt: text('prompt'),
-    tags: text('tags'),
-    durationSeconds: integer('duration_seconds'),
-    model: text('model', { length: 100 }).notNull(),
+    prompt: text(),
+    tags: text(),
+    durationSeconds: integer(),
+    model: text({ length: 100 }).notNull(),
 
     // Generation tracking
-    status: text('status')
+    status: text()
       .$type<SequenceMusicVariantStatus>()
       .default('pending')
       .notNull(),
-    workflowRunId: text('workflow_run_id'),
-    generatedAt: integer('generated_at', { mode: 'timestamp' }),
-    error: text('error'),
+    workflowRunId: text(),
+    generatedAt: integer({ mode: 'timestamp' }),
+    error: text(),
 
     // Staleness detection
-    inputHash: text('input_hash'),
-    divergedAt: integer('diverged_at', { mode: 'timestamp' }),
+    inputHash: text(),
+    divergedAt: integer({ mode: 'timestamp' }),
     // Soft-delete marker for divergent alternates the user has dismissed.
     // Mirrors `frame_variants.discarded_at` so the toast Undo flow can clear
     // the row without losing the artifact.
-    discardedAt: integer('discarded_at', { mode: 'timestamp' }),
+    discardedAt: integer({ mode: 'timestamp' }),
 
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: integer('updated_at', { mode: 'timestamp' })
+    updatedAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
   },

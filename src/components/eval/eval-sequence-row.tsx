@@ -113,7 +113,7 @@ export const EvalSequenceRow: React.FC<EvalSequenceRowProps> = ({
           openDialog?.sequenceIndex === sequenceIndex &&
           openDialog.sceneIndex === sceneIndex;
         const dialogInitialTab = isDialogOpen
-          ? openDialog?.initialTab
+          ? openDialog.initialTab
           : undefined;
 
         return (

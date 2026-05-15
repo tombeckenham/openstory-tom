@@ -53,6 +53,10 @@ async function main() {
       }
 
       const responseUrl = args[1];
+      if (!responseUrl) {
+        console.error('Error: No response URL provided');
+        process.exit(1);
+      }
       console.log(`Fetching result from: ${responseUrl}`);
       const result = await getMotionResult(responseUrl);
       console.log('Result:', JSON.stringify(result, null, 2));
@@ -63,12 +67,20 @@ async function main() {
       }
 
       const cancelUrl = args[1];
+      if (!cancelUrl) {
+        console.error('Error: No cancel URL provided');
+        process.exit(1);
+      }
       console.log(`Canceling request: ${cancelUrl}`);
       await cancelMotionGeneration(cancelUrl);
       console.log('Request canceled successfully');
     } else {
       // Default: check status
       const statusUrl = args[0];
+      if (!statusUrl) {
+        console.error('Error: No status URL provided');
+        process.exit(1);
+      }
       console.log(`Checking status: ${statusUrl}`);
       const status = await checkMotionStatus(statusUrl);
       console.log('Status:', JSON.stringify(status, null, 2));

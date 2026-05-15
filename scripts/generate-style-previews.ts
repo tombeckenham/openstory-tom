@@ -392,7 +392,9 @@ async function processWithConcurrencyLimit(
   while (currentIndex < taskQueue.length || running.length > 0) {
     // Start new tasks to fill up to MAX_CONCURRENT
     while (running.length < MAX_CONCURRENT && currentIndex < taskQueue.length) {
-      const { task, retryCount } = taskQueue[currentIndex++];
+      const queueItem = taskQueue[currentIndex++];
+      if (!queueItem) throw new Error('expected queue item at current index');
+      const { task, retryCount } = queueItem;
       const promise = processTask(task, progressTracker, retryCount);
       running.push({ promise, task, retryCount });
     }
@@ -408,6 +410,8 @@ async function processWithConcurrencyLimit(
 
       const completed = await Promise.race(racePromises);
       const completedTask = running[completed.index];
+      if (!completedTask)
+        throw new Error('expected running task at completed index');
 
       // Remove completed task from running
       running.splice(completed.index, 1);

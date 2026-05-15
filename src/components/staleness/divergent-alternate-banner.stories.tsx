@@ -113,6 +113,8 @@ export const BothStatesCoexisting: Story = {
         <p className="text-sm text-muted-foreground">
           Both stale and divergent: only the divergent banner renders.
         </p>
+        {/* Story mirrors production precedence: divergent wins when both apply. */}
+        {/* oxlint-disable typescript/no-unnecessary-condition */}
         {hasDivergentAlternate ? (
           <DivergentAlternateBanner
             variantId="variant_01HZK7P3X8Q2J4"
@@ -129,6 +131,7 @@ export const BothStatesCoexisting: Story = {
             onRegenerate={() => {}}
           />
         ) : null}
+        {/* oxlint-enable typescript/no-unnecessary-condition */}
       </div>
     );
   },

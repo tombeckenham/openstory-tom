@@ -136,7 +136,11 @@ export const characterSheetWorkflow = createScopedWorkflow<
       });
     });
 
-    let sheetImageUrl = imageResult.imageUrls[0];
+    const initialSheetImageUrl = imageResult.imageUrls[0];
+    if (!initialSheetImageUrl) {
+      throw new Error('Character sheet generation did not return an image URL');
+    }
+    let sheetImageUrl: string = initialSheetImageUrl;
     let sheetImagePath: string | undefined = undefined;
 
     if (input.characterDbId && input.teamId && input.sequenceId) {

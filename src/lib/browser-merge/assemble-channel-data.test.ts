@@ -49,18 +49,24 @@ describe('assembleChannelData', () => {
     const { channelData, totalFrames } = assembleChannelData([], 2);
     expect(totalFrames).toBe(0);
     expect(channelData).toHaveLength(2);
-    expect(channelData[0].length).toBe(0);
-    expect(channelData[1].length).toBe(0);
+    const ch0 = channelData[0];
+    const ch1 = channelData[1];
+    if (!ch0 || !ch1) throw new Error('expected stereo channelData');
+    expect(ch0.length).toBe(0);
+    expect(ch1.length).toBe(0);
   });
 
   test('single frame fills exactly numberOfFrames per channel', () => {
     const frame = makeFrame(1024, [0.5, -0.5]);
     const { channelData, totalFrames } = assembleChannelData([frame], 2);
     expect(totalFrames).toBe(1024);
-    expect(channelData[0].length).toBe(1024);
-    expect(channelData[1].length).toBe(1024);
-    expect(channelData[0][0]).toBe(0.5);
-    expect(channelData[1][1023]).toBe(-0.5);
+    const ch0 = channelData[0];
+    const ch1 = channelData[1];
+    if (!ch0 || !ch1) throw new Error('expected stereo channelData');
+    expect(ch0.length).toBe(1024);
+    expect(ch1.length).toBe(1024);
+    expect(ch0[0]).toBe(0.5);
+    expect(ch1[1023]).toBe(-0.5);
   });
 
   test('totalFrames is the actual sum across decoded frames', () => {
@@ -74,8 +80,11 @@ describe('assembleChannelData', () => {
     const expectedTotal = 1024 + 1024 + 1024 + 2048;
     const { channelData, totalFrames } = assembleChannelData(frames, 2);
     expect(totalFrames).toBe(expectedTotal);
-    expect(channelData[0].length).toBe(expectedTotal);
-    expect(channelData[1].length).toBe(expectedTotal);
+    const ch0 = channelData[0];
+    const ch1 = channelData[1];
+    if (!ch0 || !ch1) throw new Error('expected stereo channelData');
+    expect(ch0.length).toBe(expectedTotal);
+    expect(ch1.length).toBe(expectedTotal);
   });
 
   test('AAC priming/padding scenario: decoded frames exceed muxed duration', () => {
@@ -101,8 +110,10 @@ describe('assembleChannelData', () => {
     // not the muxed duration. Reverting to duration-based sizing will fail
     // both assertions below.
     expect(totalFrames).toBe(totalDecoded);
-    expect(channelData[0].length).toBe(totalDecoded);
-    expect(channelData[0].length).toBeGreaterThan(muxedDurationFrames);
+    const ch0 = channelData[0];
+    if (!ch0) throw new Error('expected channelData[0]');
+    expect(ch0.length).toBe(totalDecoded);
+    expect(ch0.length).toBeGreaterThan(muxedDurationFrames);
   });
 
   test('mono source into stereo target leaves channel 1 at default zero', () => {
@@ -115,9 +126,12 @@ describe('assembleChannelData', () => {
       close: () => {},
     };
     const { channelData } = assembleChannelData([monoFrame], 2);
-    expect(channelData[0][50]).toBe(1);
+    const ch0 = channelData[0];
+    const ch1 = channelData[1];
+    if (!ch0 || !ch1) throw new Error('expected stereo channelData');
+    expect(ch0[50]).toBe(1);
     // Channel 1 is never written by the source — stays at 0.
-    expect(channelData[1][50]).toBe(0);
+    expect(ch1[50]).toBe(0);
   });
 
   test('every frame is closed after assembly', () => {

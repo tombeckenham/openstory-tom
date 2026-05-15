@@ -10,7 +10,7 @@ import {
 import type { Frame, SequenceLocation } from '@/lib/db/schema';
 
 // Mock location data - using full SequenceLocation type
-const mockLocations: SequenceLocation[] = [
+const mockLocations: [SequenceLocation, SequenceLocation, SequenceLocation] = [
   {
     id: 'loc-1',
     sequenceId: 'seq-1',
@@ -160,21 +160,27 @@ describe('sequence-locations helpers', () => {
       const frame = createMockFrame('office_modern_glass', 'INT. OFFICE');
       const matched = matchLocationsToFrame(frame, mockLocations);
       expect(matched).toHaveLength(1);
-      expect(matched[0].id).toBe('loc-1');
+      const [first] = matched;
+      if (!first) throw new Error('expected matched location');
+      expect(first.id).toBe('loc-1');
     });
 
     it('should match by location metadata', () => {
       const frame = createMockFrame('', 'INT. OFFICE - DAY');
       const matched = matchLocationsToFrame(frame, mockLocations);
       expect(matched).toHaveLength(1);
-      expect(matched[0].id).toBe('loc-1');
+      const [first] = matched;
+      if (!first) throw new Error('expected matched location');
+      expect(first.id).toBe('loc-1');
     });
 
     it('should match by street location', () => {
       const frame = createMockFrame('city_street_night', '');
       const matched = matchLocationsToFrame(frame, mockLocations);
       expect(matched).toHaveLength(1);
-      expect(matched[0].id).toBe('loc-2');
+      const [first] = matched;
+      if (!first) throw new Error('expected matched location');
+      expect(first.id).toBe('loc-2');
     });
 
     it('should return empty array when no matches', () => {
@@ -193,7 +199,9 @@ describe('sequence-locations helpers', () => {
       const frame = createMockFrame('', 'street');
       const matched = matchLocationsToFrame(frame, mockLocations);
       expect(matched).toHaveLength(1);
-      expect(matched[0].id).toBe('loc-2');
+      const [first] = matched;
+      if (!first) throw new Error('expected matched location');
+      expect(first.id).toBe('loc-2');
     });
   });
 });

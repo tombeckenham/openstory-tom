@@ -39,7 +39,7 @@ export const libraryLocationSheetWorkflow = createScopedWorkflow<
 
     // Emit generating status
     await context.run('emit-generating', async () => {
-      await getLocationChannel(input.locationDbId)?.emit(
+      await getLocationChannel(input.locationDbId).emit(
         'location.sheet:progress',
         {
           locationId: input.locationDbId,
@@ -258,7 +258,7 @@ export const libraryLocationSheetWorkflow = createScopedWorkflow<
         `Library location sheet workflow completed for ${input.locationName}`
       );
 
-      await getLocationChannel(input.locationDbId)?.emit(
+      await getLocationChannel(input.locationDbId).emit(
         'location.sheet:progress',
         {
           locationId: input.locationDbId,
@@ -288,7 +288,7 @@ export const libraryLocationSheetWorkflow = createScopedWorkflow<
         `Sheet generation failed for location ${input.locationName}: ${error}`
       );
 
-      await getLocationChannel(input.locationDbId)?.emit(
+      await getLocationChannel(input.locationDbId).emit(
         'location.sheet:progress',
         {
           locationId: input.locationDbId,

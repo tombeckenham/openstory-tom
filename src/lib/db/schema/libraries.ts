@@ -4,7 +4,7 @@
  */
 
 import { type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, snakeCase, text } from 'drizzle-orm/sqlite-core';
 import z from 'zod';
 import { generateId } from '../id';
 import { user } from './auth';
@@ -26,14 +26,14 @@ export type StyleConfig = z.infer<typeof StyleConfigSchema>;
  * Styles library
  * Style Stacks - JSON configurations for consistent AI-generated content
  */
-export const styles = sqliteTable(
+export const styles = snakeCase.table(
   'styles',
   {
     id: text()
       .$defaultFn(() => generateId())
       .primaryKey()
       .notNull(),
-    teamId: text('team_id')
+    teamId: text()
       .notNull()
       .references(() => teams.id, { onDelete: 'cascade' }),
     name: text({ length: 255 }).notNull(),
@@ -44,19 +44,19 @@ export const styles = sqliteTable(
     tags: text({ mode: 'json' })
       .$type<string[]>()
       .$defaultFn(() => []),
-    isPublic: integer('is_public', { mode: 'boolean' }).default(false),
-    isTemplate: integer('is_template', { mode: 'boolean' }).default(false),
+    isPublic: integer({ mode: 'boolean' }).default(false),
+    isTemplate: integer({ mode: 'boolean' }).default(false),
     version: integer().default(1),
-    previewUrl: text('preview_url'),
-    sortOrder: integer('sort_order').default(100),
-    usageCount: integer('usage_count').default(0),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    previewUrl: text(),
+    sortOrder: integer().default(100),
+    usageCount: integer().default(0),
+    createdAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: integer('updated_at', { mode: 'timestamp' })
+    updatedAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
-    createdBy: text('created_by').references(() => user.id, {
+    createdBy: text().references(() => user.id, {
       onDelete: 'set null',
     }),
   },
@@ -67,28 +67,26 @@ export const styles = sqliteTable(
  * VFX library
  * Visual effects presets and configurations
  */
-export const vfx = sqliteTable(
+export const vfx = snakeCase.table(
   'vfx',
   {
     id: text()
       .$defaultFn(() => generateId())
       .primaryKey()
       .notNull(),
-    teamId: text('team_id')
+    teamId: text()
       .notNull()
       .references(() => teams.id, { onDelete: 'cascade' }),
     name: text({ length: 255 }).notNull(),
-    presetConfig: text('preset_config', { mode: 'json' })
-      .default('{}')
-      .notNull(),
-    previewUrl: text('preview_url'),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    presetConfig: text({ mode: 'json' }).default('{}').notNull(),
+    previewUrl: text(),
+    createdAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: integer('updated_at', { mode: 'timestamp' })
+    updatedAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
-    createdBy: text('created_by').references(() => user.id, {
+    createdBy: text().references(() => user.id, {
       onDelete: 'set null',
     }),
   },
@@ -102,27 +100,27 @@ export const vfx = sqliteTable(
  * Audio library
  * Sound effects and music tracks
  */
-export const audio = sqliteTable(
+export const audio = snakeCase.table(
   'audio',
   {
     id: text()
       .$defaultFn(() => generateId())
       .primaryKey()
       .notNull(),
-    teamId: text('team_id')
+    teamId: text()
       .notNull()
       .references(() => teams.id, { onDelete: 'cascade' }),
     name: text({ length: 255 }).notNull(),
-    fileUrl: text('file_url').notNull(),
-    durationMs: integer('duration_ms'),
+    fileUrl: text().notNull(),
+    durationMs: integer(),
     metadata: text({ mode: 'json' }).default('{}'),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: integer('updated_at', { mode: 'timestamp' })
+    updatedAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
-    createdBy: text('created_by').references(() => user.id, {
+    createdBy: text().references(() => user.id, {
       onDelete: 'set null',
     }),
   },

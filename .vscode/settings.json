@@ -8,7 +8,9 @@
     },
     "zsh": {
       "path": "/bin/zsh",
-      "args": ["-l"],
+      "args": [
+        "-l"
+      ],
       "icon": "terminal"
     }
   },
@@ -19,7 +21,9 @@
     },
     "zsh": {
       "path": "/bin/zsh",
-      "args": ["-l"],
+      "args": [
+        "-l"
+      ],
       "icon": "terminal"
     }
   },
@@ -54,7 +58,11 @@
   },
   "task.problemMatchers.neverPrompt": false,
   "oxc.typeAware": true,
-  "git.repositoryScanIgnoredFolders": ["node_modules", ".conductor", ".trees"],
+  "git.repositoryScanIgnoredFolders": [
+    "node_modules",
+    ".conductor",
+    ".trees"
+  ],
   "typescript.experimental.useTsgo": true,
   "editor.defaultFormatter": "oxc.oxc-vscode",
   "oxc.fixKind": "dangerous_fix_or_suggestion",
@@ -63,5 +71,7 @@
   "typescript.updateImportsOnFileMove.enabled": "always",
   "workbench.editor.closeOnFileDelete": false,
   "bun.test.filePattern": "src/**/*.{test,spec}.{ts,tsx,js,jsx}",
-  "bun.diagnosticsSocket.enabled": true
+  "bun.diagnosticsSocket.enabled": true,
+  "typescript.native-preview.goMemLimit": "4GiB",
+  "typescript.native-preview.tsdk": "./node_modules/@typescript/native-preview"
 }

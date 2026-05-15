@@ -9,7 +9,7 @@ import {
   DEFAULT_ASPECT_RATIO,
 } from '@/lib/constants/aspect-ratios';
 import { type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, snakeCase, text } from 'drizzle-orm/sqlite-core';
 import { generateId } from '../id';
 import { user } from './auth';
 // NOTE: frames imported in index.ts to avoid circular dependency
@@ -47,94 +47,84 @@ export type MusicStatus = (typeof MUSIC_STATUSES)[number];
  * Sequences table
  * Main video sequence/project entity
  */
-export const sequences = sqliteTable(
+export const sequences = snakeCase.table(
   'sequences',
   {
     id: text()
       .$defaultFn(() => generateId())
       .primaryKey()
       .notNull(),
-    teamId: text('team_id')
+    teamId: text()
       .notNull()
       .references(() => teams.id, { onDelete: 'cascade' }),
     title: text({ length: 500 }).notNull(),
     script: text(),
     status: text().$type<SequenceStatus>().default('draft').notNull(),
-    statusError: text('status_error'),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    statusError: text(),
+    createdAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: integer('updated_at', { mode: 'timestamp' })
+    updatedAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
-    createdBy: text('created_by').references(() => user.id, {
+    createdBy: text().references(() => user.id, {
       onDelete: 'set null',
     }),
-    updatedBy: text('updated_by').references(() => user.id, {
+    updatedBy: text().references(() => user.id, {
       onDelete: 'set null',
     }),
-    styleId: text('style_id')
+    styleId: text()
       .notNull()
       .references(() => styles.id, { onDelete: 'set null' }),
-    aspectRatio: text('aspect_ratio', { length: 10 })
+    aspectRatio: text({ length: 10 })
       .$type<AspectRatio>()
       .default(DEFAULT_ASPECT_RATIO)
       .notNull(),
-    analysisModel: text('analysis_model', { length: 100 })
+    analysisModel: text({ length: 100 })
       .default('anthropic/claude-haiku-4.5')
       .notNull(),
-    analysisDurationMs: integer('analysis_duration_ms').default(0).notNull(),
-    imageModel: text('image_model', { length: 100 })
-      .default(DEFAULT_IMAGE_MODEL)
-      .notNull(),
-    videoModel: text('video_model', { length: 100 })
-      .default(DEFAULT_VIDEO_MODEL)
-      .notNull(),
-    workflow: text('workflow', { length: 100 }),
+    analysisDurationMs: integer().default(0).notNull(),
+    imageModel: text({ length: 100 }).default(DEFAULT_IMAGE_MODEL).notNull(),
+    videoModel: text({ length: 100 }).default(DEFAULT_VIDEO_MODEL).notNull(),
+    workflow: text({ length: 100 }),
 
     // Merged video fields (final stitched video from all frames)
-    mergedVideoUrl: text('merged_video_url'),
-    mergedVideoPath: text('merged_video_path'),
-    mergedVideoStatus: text('merged_video_status')
-      .$type<MergedVideoStatus>()
-      .default('pending'),
-    mergedVideoGeneratedAt: integer('merged_video_generated_at', {
+    mergedVideoUrl: text(),
+    mergedVideoPath: text(),
+    mergedVideoStatus: text().$type<MergedVideoStatus>().default('pending'),
+    mergedVideoGeneratedAt: integer({
       mode: 'timestamp',
     }),
-    mergedVideoError: text('merged_video_error'),
+    mergedVideoError: text(),
 
     // Music track fields (sequence-level background music)
-    musicUrl: text('music_url'),
-    musicPath: text('music_path'),
-    musicStatus: text('music_status').$type<MusicStatus>().default('pending'),
-    musicGeneratedAt: integer('music_generated_at', {
+    musicUrl: text(),
+    musicPath: text(),
+    musicStatus: text().$type<MusicStatus>().default('pending'),
+    musicGeneratedAt: integer({
       mode: 'timestamp',
     }),
-    musicError: text('music_error'),
-    musicModel: text('music_model', { length: 100 }),
-    musicPrompt: text('music_prompt'),
-    musicTags: text('music_tags'),
+    musicError: text(),
+    musicModel: text({ length: 100 }),
+    musicPrompt: text(),
+    musicTags: text(),
     // SHA-256 of the upstream context that produced the cached AI music
     // prompt (musicDesign + analysis model). Null when no AI prompt has been
     // generated yet, or when the most recent variant was a user-edit.
-    musicPromptInputHash: text('music_prompt_input_hash'),
+    musicPromptInputHash: text(),
 
     // Poster image (sequence-level preview from script, ephemeral CDN URL)
-    posterUrl: text('poster_url'),
+    posterUrl: text(),
 
     // Auto-generation flags (set at sequence creation, read by UI for phase display)
-    autoGenerateMotion: integer('auto_generate_motion', { mode: 'boolean' })
-      .default(false)
-      .notNull(),
-    autoGenerateMusic: integer('auto_generate_music', { mode: 'boolean' })
-      .default(false)
-      .notNull(),
+    autoGenerateMotion: integer({ mode: 'boolean' }).default(false).notNull(),
+    autoGenerateMusic: integer({ mode: 'boolean' }).default(false).notNull(),
 
     // Suggested talent/location IDs used during generation (for pre-populating the UI)
-    suggestedTalentIds: text('suggested_talent_ids', {
+    suggestedTalentIds: text({
       mode: 'json',
     }).$type<string[]>(),
-    suggestedLocationIds: text('suggested_location_ids', {
+    suggestedLocationIds: text({
       mode: 'json',
     }).$type<string[]>(),
   },

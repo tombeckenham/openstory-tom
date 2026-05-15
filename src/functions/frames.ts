@@ -182,18 +182,18 @@ export const promoteVariantFn = createServerFn({ method: 'POST' })
           ? {
               frameId: frame.id,
               status: 'completed',
-              audioUrl: url ?? undefined,
+              audioUrl: url,
             }
           : progressEvent === 'video:progress'
             ? {
                 frameId: frame.id,
                 status: 'completed',
-                videoUrl: url ?? undefined,
+                videoUrl: url,
               }
             : {
                 frameId: frame.id,
                 status: 'completed',
-                thumbnailUrl: url ?? undefined,
+                thumbnailUrl: url,
                 model: variant.model,
               }
       );

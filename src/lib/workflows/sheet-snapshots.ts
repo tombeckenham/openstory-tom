@@ -96,12 +96,12 @@ function characterBibleFields(
   return {
     name: metadata.name,
     age: metadata.age,
-    gender: metadata.gender ?? null,
-    ethnicity: metadata.ethnicity ?? null,
-    physicalDescription: metadata.physicalDescription ?? null,
-    standardClothing: metadata.standardClothing ?? null,
-    distinguishingFeatures: metadata.distinguishingFeatures ?? null,
-    consistencyTag: metadata.consistencyTag ?? null,
+    gender: metadata.gender,
+    ethnicity: metadata.ethnicity,
+    physicalDescription: metadata.physicalDescription,
+    standardClothing: metadata.standardClothing,
+    distinguishingFeatures: metadata.distinguishingFeatures,
+    consistencyTag: metadata.consistencyTag,
   };
 }
 
@@ -144,7 +144,7 @@ function locationBibleFields(
 ): LocationBibleHashFields {
   return {
     name: metadata.name,
-    description: metadata.description ?? null,
+    description: metadata.description,
   };
 }
 

@@ -5,7 +5,7 @@
 
 import type { CharacterBibleEntry } from '@/lib/ai/scene-analysis.schema';
 import { type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, snakeCase, text } from 'drizzle-orm/sqlite-core';
 import { generateId } from '../id';
 import { user } from './auth';
 import { teams } from './teams';
@@ -28,34 +28,32 @@ export type TalentMediaType = (typeof TALENT_MEDIA_TYPES)[number];
 // Talent Table (Core Identity)
 // ============================================================================
 
-export const talent = sqliteTable(
+export const talent = snakeCase.table(
   'talent',
   {
     id: text()
       .$defaultFn(() => generateId())
       .primaryKey()
       .notNull(),
-    teamId: text('team_id')
+    teamId: text()
       .notNull()
       .references(() => teams.id, { onDelete: 'cascade' }),
     name: text({ length: 255 }).notNull(),
     description: text(),
-    imageUrl: text('image_url'), // Talent avatar/headshot
-    imagePath: text('image_path'), // R2 storage path for avatar
-    isFavorite: integer('is_favorite', { mode: 'boolean' }).default(false),
-    isHuman: integer('is_human', { mode: 'boolean' }).default(false),
-    isInTeamLibrary: integer('is_in_team_library', { mode: 'boolean' }).default(
-      false
-    ),
-    isPublic: integer('is_public', { mode: 'boolean' }).default(false),
-    isTemplate: integer('is_template', { mode: 'boolean' }).default(false),
-    createdBy: text('created_by').references(() => user.id, {
+    imageUrl: text(), // Talent avatar/headshot
+    imagePath: text(), // R2 storage path for avatar
+    isFavorite: integer({ mode: 'boolean' }).default(false),
+    isHuman: integer({ mode: 'boolean' }).default(false),
+    isInTeamLibrary: integer({ mode: 'boolean' }).default(false),
+    isPublic: integer({ mode: 'boolean' }).default(false),
+    isTemplate: integer({ mode: 'boolean' }).default(false),
+    createdBy: text().references(() => user.id, {
       onDelete: 'set null',
     }),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: integer('updated_at', { mode: 'timestamp' })
+    updatedAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
   },
@@ -71,26 +69,26 @@ export const talent = sqliteTable(
 // Talent Sheets Table (Different Looks/Appearances)
 // ============================================================================
 
-export const talentSheets = sqliteTable(
+export const talentSheets = snakeCase.table(
   'talent_sheets',
   {
     id: text()
       .$defaultFn(() => generateId())
       .primaryKey()
       .notNull(),
-    talentId: text('talent_id')
+    talentId: text()
       .notNull()
       .references(() => talent.id, { onDelete: 'cascade' }),
     name: text({ length: 255 }).notNull(), // e.g., "casual outfit", "formal wear"
-    imageUrl: text('image_url'),
-    imagePath: text('image_path'), // R2 storage path
+    imageUrl: text(),
+    imagePath: text(), // R2 storage path
     metadata: text({ mode: 'json' }).$type<CharacterBibleEntry>(), // Full character details
-    isDefault: integer('is_default', { mode: 'boolean' }).default(false),
+    isDefault: integer({ mode: 'boolean' }).default(false),
     source: text()
       .$type<TalentSheetSource>()
       .default('manual_upload')
       .notNull(),
-    inputHash: text('input_hash'),
+    inputHash: text(),
     /**
      * Marks a sheet that landed via the snapshot-divergent path: the
      * library-talent-sheet workflow runs against a stale identity, can't
@@ -101,11 +99,11 @@ export const talentSheets = sqliteTable(
      * filters out divergent rows so a stale-marked sheet cannot leak into
      * the talent's primary identity for first-time-generation cases.
      */
-    divergedAt: integer('diverged_at', { mode: 'timestamp' }),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    divergedAt: integer({ mode: 'timestamp' }),
+    createdAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: integer('updated_at', { mode: 'timestamp' })
+    updatedAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
   },
@@ -119,14 +117,14 @@ export const talentSheets = sqliteTable(
 // Talent Media Table (User Uploaded References)
 // ============================================================================
 
-export const talentMedia = sqliteTable(
+export const talentMedia = snakeCase.table(
   'talent_media',
   {
     id: text()
       .$defaultFn(() => generateId())
       .primaryKey()
       .notNull(),
-    talentId: text('talent_id')
+    talentId: text()
       .notNull()
       .references(() => talent.id, { onDelete: 'cascade' }),
     type: text().$type<TalentMediaType>().notNull(),
@@ -135,10 +133,10 @@ export const talentMedia = sqliteTable(
     metadata: text({ mode: 'json' })
       .$type<Record<string, object>>()
       .default({}),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: integer('updated_at', { mode: 'timestamp' })
+    updatedAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
   },

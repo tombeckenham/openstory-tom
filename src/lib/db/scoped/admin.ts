@@ -95,6 +95,9 @@ export function createAdminMethods(db: Database) {
         expiresAt: opts.expiresAt ?? null,
       })
       .returning();
+    if (!token) {
+      throw new Error('createGiftToken: insert returned nothing');
+    }
 
     return token;
   }

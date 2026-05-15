@@ -43,6 +43,15 @@ const meta: Meta<typeof StyleSelectionDialog> = {
 export default meta;
 type Story = StoryObj<typeof StyleSelectionDialog>;
 
+const mockStyle0 = MOCK_SYSTEM_STYLES[0];
+const mockStyle1 = MOCK_SYSTEM_STYLES[1];
+const mockStyle2 = MOCK_SYSTEM_STYLES[2];
+if (!mockStyle0 || !mockStyle1 || !mockStyle2) {
+  throw new Error(
+    'story setup: expected MOCK_SYSTEM_STYLES to have at least 3 entries'
+  );
+}
+
 // Interactive wrapper for stories
 function InteractiveStyleDialog(
   props: Partial<React.ComponentProps<typeof StyleSelectionDialog>> & {
@@ -91,9 +100,7 @@ export const Default: Story = {
 };
 
 export const WithPreselection: Story = {
-  render: () => (
-    <InteractiveStyleDialog initialSelectedId={MOCK_SYSTEM_STYLES[2].id} />
-  ),
+  render: () => <InteractiveStyleDialog initialSelectedId={mockStyle2.id} />,
   parameters: {
     docs: {
       description: {
@@ -322,7 +329,7 @@ export const WithSelectorButton: Story = {
   render: () => {
     const SelectorButtonDemo = () => {
       const [selectedStyleId, setSelectedStyleId] = useState<string | null>(
-        MOCK_SYSTEM_STYLES[0].id
+        mockStyle0.id
       );
 
       const { data: styles = [] } = useStyles();
@@ -384,7 +391,7 @@ export const SelectorButtonSizes: Story = {
   render: () => {
     const SizeDemo = () => {
       const [selectedStyleId, setSelectedStyleId] = useState<string | null>(
-        MOCK_SYSTEM_STYLES[1].id
+        mockStyle1.id
       );
 
       const { data: styles = [] } = useStyles();
@@ -508,7 +515,7 @@ export const CustomTrigger: Story = {
   render: () => {
     const CustomTriggerDemo = () => {
       const [selectedStyleId, setSelectedStyleId] = useState<string | null>(
-        MOCK_SYSTEM_STYLES[2].id
+        mockStyle2.id
       );
 
       const { data: styles = [] } = useStyles();

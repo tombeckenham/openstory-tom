@@ -87,7 +87,7 @@ function applyBiquad(input: Float32Array, f: Biquad): Float32Array {
   let y1 = 0;
   let y2 = 0;
   for (let i = 0; i < input.length; i++) {
-    const x0 = input[i];
+    const x0 = input[i] ?? 0;
     const y0 = f.b0 * x0 + f.b1 * x1 + f.b2 * x2 - f.a1 * y1 - f.a2 * y2;
     out[i] = y0;
     x2 = x1;
@@ -116,7 +116,8 @@ export function integratedLoudnessLUFS(
   channels: Float32Array[],
   sampleRate: number
 ): number {
-  if (channels.length === 0 || channels[0].length === 0) {
+  const firstChannel = channels[0];
+  if (channels.length === 0 || !firstChannel || firstChannel.length === 0) {
     return Number.NEGATIVE_INFINITY;
   }
 
@@ -129,7 +130,9 @@ export function integratedLoudnessLUFS(
 
   const blockSize = Math.round(BLOCK_DURATION_SECONDS * sampleRate);
   const hopSize = Math.round(HOP_DURATION_SECONDS * sampleRate);
-  const totalSamples = filteredChannels[0].length;
+  const firstFiltered = filteredChannels[0];
+  if (!firstFiltered) return Number.NEGATIVE_INFINITY;
+  const totalSamples = firstFiltered.length;
 
   if (totalSamples < blockSize) {
     return Number.NEGATIVE_INFINITY;
@@ -141,9 +144,10 @@ export function integratedLoudnessLUFS(
     let weightedSum = 0;
     for (let ch = 0; ch < filteredChannels.length; ch++) {
       const channel = filteredChannels[ch];
+      if (!channel) throw new Error(`expected filtered channel ${ch}`);
       let sumSquares = 0;
       for (let i = 0; i < blockSize; i++) {
-        const v = channel[start + i];
+        const v = channel[start + i] ?? 0;
         sumSquares += v * v;
       }
       const meanSquare = sumSquares / blockSize;
@@ -194,7 +198,7 @@ export function applyGain(channels: Float32Array[], gain: number): void {
   if (gain === 1) return;
   for (const channel of channels) {
     for (let i = 0; i < channel.length; i++) {
-      channel[i] *= gain;
+      channel[i] = (channel[i] ?? 0) * gain;
     }
   }
 }

@@ -75,8 +75,9 @@ export async function insertDivergentRaceTolerant<T>({
   errorMessage: string;
 }): Promise<T> {
   const preExisting = await findExisting();
-  if (preExisting.length > 0) {
-    return preExisting[0];
+  const preExistingRow = preExisting[0];
+  if (preExistingRow) {
+    return preExistingRow;
   }
 
   let inserted: T[];
@@ -87,14 +88,14 @@ export async function insertDivergentRaceTolerant<T>({
       throw err;
     }
     const raced = await findExisting();
-    if (raced.length > 0) {
-      return raced[0];
+    const racedRow = raced[0];
+    if (racedRow) {
+      return racedRow;
     }
     throw err;
   }
 
   const row = inserted[0];
-  // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
   if (!row) {
     throw new Error(errorMessage);
   }

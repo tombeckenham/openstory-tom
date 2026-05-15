@@ -3,7 +3,7 @@ import {
   check,
   index,
   integer,
-  sqliteTable,
+  snakeCase,
   text,
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
@@ -20,41 +20,41 @@ const TRANSACTION_TYPES = [
 ] as const;
 export type TransactionType = (typeof TRANSACTION_TYPES)[number];
 
-export const credits = sqliteTable(
+export const credits = snakeCase.table(
   'credits',
   {
-    teamId: text('team_id')
+    teamId: text()
       .primaryKey()
       .notNull()
       .references(() => teams.id, { onDelete: 'cascade' }),
     balance: integer().default(0).notNull(),
-    updatedAt: integer('updated_at', { mode: 'timestamp' })
+    updatedAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
   },
   (table) => [check('positive_balance', sql`${table.balance} >= 0`)]
 );
 
-export const transactions = sqliteTable(
+export const transactions = snakeCase.table(
   'transactions',
   {
     id: text()
       .$defaultFn(() => generateId())
       .primaryKey()
       .notNull(),
-    teamId: text('team_id')
+    teamId: text()
       .notNull()
       .references(() => teams.id, { onDelete: 'cascade' }),
-    userId: text('user_id').references(() => user.id, {
+    userId: text().references(() => user.id, {
       onDelete: 'set null',
     }),
     type: text().$type<TransactionType>().notNull(),
     amount: integer().notNull(),
-    balanceAfter: integer('balance_after').notNull(),
+    balanceAfter: integer().notNull(),
     metadata: text({ mode: 'json' }).$defaultFn(() => ({})),
-    stripeSessionId: text('stripe_session_id'),
+    stripeSessionId: text(),
     description: text(),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
   },
@@ -67,22 +67,16 @@ export const transactions = sqliteTable(
   ]
 );
 
-export const teamBillingSettings = sqliteTable('team_billing_settings', {
-  teamId: text('team_id')
+export const teamBillingSettings = snakeCase.table('team_billing_settings', {
+  teamId: text()
     .primaryKey()
     .notNull()
     .references(() => teams.id, { onDelete: 'cascade' }),
-  stripeCustomerId: text('stripe_customer_id'),
-  autoTopUpEnabled: integer('auto_top_up_enabled', { mode: 'boolean' })
-    .default(false)
-    .notNull(),
-  autoTopUpThresholdMicros: integer('auto_top_up_threshold_micros').default(
-    5_000_000
-  ),
-  autoTopUpAmountMicros: integer('auto_top_up_amount_micros').default(
-    100_000_000
-  ),
-  updatedAt: integer('updated_at', { mode: 'timestamp' })
+  stripeCustomerId: text(),
+  autoTopUpEnabled: integer({ mode: 'boolean' }).default(false).notNull(),
+  autoTopUpThresholdMicros: integer().default(5_000_000),
+  autoTopUpAmountMicros: integer().default(100_000_000),
+  updatedAt: integer({ mode: 'timestamp' })
     .$defaultFn(() => new Date())
     .notNull(),
 });
@@ -97,24 +91,24 @@ const CREDIT_BATCH_SOURCES = [
 ] as const;
 export type CreditBatchSource = (typeof CREDIT_BATCH_SOURCES)[number];
 
-export const creditBatches = sqliteTable(
+export const creditBatches = snakeCase.table(
   'credit_batches',
   {
     id: text()
       .$defaultFn(() => generateId())
       .primaryKey()
       .notNull(),
-    teamId: text('team_id')
+    teamId: text()
       .notNull()
       .references(() => teams.id, { onDelete: 'cascade' }),
-    originalAmount: integer('original_amount').notNull(),
-    remainingAmount: integer('remaining_amount').notNull(),
+    originalAmount: integer().notNull(),
+    remainingAmount: integer().notNull(),
     source: text().$type<CreditBatchSource>().notNull(),
-    transactionId: text('transaction_id').references(() => transactions.id, {
+    transactionId: text().references(() => transactions.id, {
       onDelete: 'set null',
     }),
-    expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    expiresAt: integer({ mode: 'timestamp' }).notNull(),
+    createdAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
   },

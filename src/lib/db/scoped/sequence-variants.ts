@@ -344,7 +344,8 @@ export function createSequenceVariantsMethods(db: Database) {
         updateSequence,
         discardVariant,
       ]);
-      if (sequenceRows.length === 0) {
+      const promotedSequence = sequenceRows[0];
+      if (!promotedSequence) {
         throw new Error(
           `Sequence ${variant.sequenceId} disappeared during promote`
         );
@@ -354,7 +355,7 @@ export function createSequenceVariantsMethods(db: Database) {
           `SequenceVideoVariant ${variantId} disappeared during promote`
         );
       }
-      return { sequence: sequenceRows[0], discardedAt: now };
+      return { sequence: promotedSequence, discardedAt: now };
     },
 
     // ── Music variants ────────────────────────────────────────────────────
@@ -563,7 +564,8 @@ export function createSequenceVariantsMethods(db: Database) {
         updateSequence,
         discardVariant,
       ]);
-      if (sequenceRows.length === 0) {
+      const promotedSequence = sequenceRows[0];
+      if (!promotedSequence) {
         throw new Error(
           `Sequence ${variant.sequenceId} disappeared during promote`
         );
@@ -573,7 +575,7 @@ export function createSequenceVariantsMethods(db: Database) {
           `SequenceMusicVariant ${variantId} disappeared during promote`
         );
       }
-      return { sequence: sequenceRows[0], discardedAt: now };
+      return { sequence: promotedSequence, discardedAt: now };
     },
   };
 }

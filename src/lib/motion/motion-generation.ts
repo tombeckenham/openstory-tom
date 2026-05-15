@@ -59,9 +59,10 @@ export function snapDuration(
   const jsonSchema = MOTION_JSON_SCHEMAS[endpointId];
   const validValues = getDurationValues(jsonSchema);
 
-  if (validValues.length === 0) return requested ?? 5;
+  const firstValue = validValues[0];
+  if (firstValue === undefined) return requested ?? 5;
 
-  const target = requested ?? numericOf(validValues[0]);
+  const target = requested ?? numericOf(firstValue);
   return numericOf(snapTo(target, validValues));
 }
 

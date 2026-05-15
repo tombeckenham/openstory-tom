@@ -133,9 +133,13 @@ describe('analyzeFailures', () => {
     expect(result.hasFailed).toBe(true);
     expect(result.requiresFullRetry).toBe(false);
     expect(result.groups).toHaveLength(1);
-    expect(result.groups[0].category).toBe('image');
-    expect(result.groups[0].frames).toHaveLength(1);
-    expect(result.groups[0].frames[0].error).toBe('Model timeout');
+    const [imageGroup] = result.groups;
+    if (!imageGroup) throw new Error('test setup: image group missing');
+    expect(imageGroup.category).toBe('image');
+    expect(imageGroup.frames).toHaveLength(1);
+    const [imageFrame] = imageGroup.frames;
+    if (!imageFrame) throw new Error('test setup: image frame missing');
+    expect(imageFrame.error).toBe('Model timeout');
     expect(result.headline).toContain('1 image failed');
   });
 

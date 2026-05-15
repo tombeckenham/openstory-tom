@@ -86,9 +86,7 @@ export function SiteHeader() {
                   rel="noopener noreferrer"
                   className={`inline-flex items-center gap-1.5 ${cls}`}
                 >
-                  {'icon' in link && link.icon && (
-                    <GitHubIcon className="size-4" />
-                  )}
+                  {'icon' in link && <GitHubIcon className="size-4" />}
                   {link.label}
                 </a>
               );
@@ -146,9 +144,7 @@ export function SiteHeader() {
                     className={`inline-flex items-center gap-1.5 ${mobileCls}`}
                     onClick={() => setSheetOpen(false)}
                   >
-                    {'icon' in link && link.icon && (
-                      <GitHubIcon className="size-4" />
-                    )}
+                    {'icon' in link && <GitHubIcon className="size-4" />}
                     {link.label}
                   </a>
                 );

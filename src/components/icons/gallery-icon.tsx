@@ -34,7 +34,6 @@ export const GalleryIcon: React.FC<GalleryIconProps> = ({
       viewBox="0 0 24 24"
       stroke="currentColor"
       aria-hidden="true"
-      role="img"
       {...props}
     >
       <path

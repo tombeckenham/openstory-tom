@@ -229,13 +229,9 @@ export const ScriptView: FC<{
 
   // Auto-select first style if none selected
   useEffect(() => {
-    if (
-      !isLoadingStyles &&
-      styles.length > 0 &&
-      !styleId &&
-      !sequence?.styleId
-    ) {
-      setStyleId(styles[0].id);
+    const firstStyle = styles[0];
+    if (!isLoadingStyles && firstStyle && !styleId && !sequence?.styleId) {
+      setStyleId(firstStyle.id);
     }
   }, [styles, isLoadingStyles, styleId, sequence?.styleId]);
 
@@ -613,6 +609,8 @@ export const ScriptView: FC<{
               }
               disabled={loading}
             />
+            {/* `isEditing = !!sequence?.id`; the `?.` mirrors that derivation for narrowing on `sequence.id` below. */}
+            {/* oxlint-disable-next-line typescript/no-unnecessary-condition */}
             {isEditing && sequence?.id ? (
               <ElementSelector
                 ref={elementSelectorRef}

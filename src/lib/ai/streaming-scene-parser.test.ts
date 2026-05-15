@@ -65,10 +65,12 @@ describe('createStreamingSceneParser', () => {
     // Title + 1 scene
     expect(events).toHaveLength(2);
     expect(events[0]).toEqual({ type: 'title', title: 'Test Movie' });
-    expect(events[1]).toMatchObject({ type: 'scene', index: 0 });
-    expect(events[1].type === 'scene' && events[1].scene.sceneId).toBe(
-      'scene-1'
-    );
+    const sceneEvent = events[1];
+    if (!sceneEvent || sceneEvent.type !== 'scene') {
+      throw new Error('test setup: expected a scene event at index 1');
+    }
+    expect(sceneEvent).toMatchObject({ type: 'scene', index: 0 });
+    expect(sceneEvent.scene.sceneId).toBe('scene-1');
   });
 
   test('emits new scenes incrementally', () => {
@@ -133,7 +135,11 @@ describe('createStreamingSceneParser', () => {
     const events = parser.feed(partial);
     const sceneEvents = events.filter((e) => e.type === 'scene');
     expect(sceneEvents).toHaveLength(1);
-    expect(sceneEvents[0].scene.sceneId).toBe('scene-1');
+    const firstSceneEvent = sceneEvents[0];
+    if (!firstSceneEvent) {
+      throw new Error('test setup: expected at least one scene event');
+    }
+    expect(firstSceneEvent.scene.sceneId).toBe('scene-1');
   });
 
   test('reset clears state', () => {
@@ -198,8 +204,12 @@ describe('createStreamingSceneParser', () => {
     const events2 = parser.feed(partial2);
     const updateEvents = events2.filter((e) => e.type === 'scene:updated');
     expect(updateEvents).toHaveLength(1);
-    expect(updateEvents[0].scene.metadata.title).toBe('City Skyline at Dawn');
-    expect(updateEvents[0].index).toBe(0);
+    const firstUpdate = updateEvents[0];
+    if (!firstUpdate) {
+      throw new Error('test setup: expected at least one scene:updated event');
+    }
+    expect(firstUpdate.scene.metadata.title).toBe('City Skyline at Dawn');
+    expect(firstUpdate.index).toBe(0);
   });
 
   test('does not emit scene:updated when title is unchanged', () => {

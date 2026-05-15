@@ -54,8 +54,10 @@ export const MermaidDiagram: React.FC<MermaidDiagramProps> = ({ source }) => {
       try {
         const mermaid = await ensureInitialized(theme);
         const { svg: rendered } = await mermaid.render(diagramId, source);
+        // oxlint-disable-next-line typescript/no-unnecessary-condition -- mutated by cleanup
         if (!cancelled) setSvg(rendered);
       } catch (err) {
+        // oxlint-disable-next-line typescript/no-unnecessary-condition -- mutated by cleanup
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to render');
         }

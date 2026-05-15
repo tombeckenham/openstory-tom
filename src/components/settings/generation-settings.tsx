@@ -12,10 +12,11 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
-import type {
-  AudioModel,
-  ImageToVideoModel,
-  TextToImageModel,
+import {
+  DEFAULT_IMAGE_MODEL,
+  type AudioModel,
+  type ImageToVideoModel,
+  type TextToImageModel,
 } from '@/lib/ai/models';
 import type { AnalysisModelId } from '@/lib/ai/models.config';
 import type { AspectRatio } from '@/lib/constants/aspect-ratios';
@@ -144,7 +145,7 @@ export const GenerationSettings: FC<GenerationSettingsProps> = ({
             </h3>
             {singleSelectImage ? (
               <ImageModelSelector
-                selectedModel={imageModels[0]}
+                selectedModel={imageModels[0] ?? DEFAULT_IMAGE_MODEL}
                 onModelChange={(model) => onImageModelsChange([model])}
                 disabled={disabled}
               />

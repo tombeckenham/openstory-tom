@@ -357,8 +357,7 @@ export const ElementSelector: React.FC<ElementSelectorProps> = (props) => {
 
   const handlePaste = useCallback(
     (event: React.ClipboardEvent<HTMLDivElement>) => {
-      const items = event.clipboardData?.items;
-      if (!items) return;
+      const items = event.clipboardData.items;
       const files: File[] = [];
       for (const item of items) {
         if (item.kind === 'file') {

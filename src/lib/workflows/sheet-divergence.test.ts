@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test';
+import type { SheetDivergenceScopedDb } from './sheet-divergence';
 
 const generationEmit = mock(async () => undefined);
 const locationEmit = mock(async () => undefined);
@@ -23,24 +24,30 @@ mock.module('@/lib/realtime', () => ({
   getTalentChannel,
 }));
 
-const characterInsertDivergent = mock(
-  async (values: Record<string, unknown>) => ({
-    id: 'character-variant-id',
-    ...values,
-  })
-);
-const locationInsertDivergent = mock(
-  async (values: Record<string, unknown>) => ({
-    id: 'location-variant-id',
-    ...values,
-  })
-);
-const talentInsertDivergent = mock(async (values: Record<string, unknown>) => ({
+type CharInsertArgs = Parameters<
+  SheetDivergenceScopedDb['characterSheetVariants']['insertDivergent']
+>[0];
+type LocInsertArgs = Parameters<
+  SheetDivergenceScopedDb['locationSheetVariants']['insertDivergent']
+>[0];
+type TalInsertArgs = Parameters<
+  SheetDivergenceScopedDb['talentSheetVariants']['insertDivergent']
+>[0];
+
+const characterInsertDivergent = mock(async (values: CharInsertArgs) => ({
+  id: 'character-variant-id',
+  ...values,
+}));
+const locationInsertDivergent = mock(async (values: LocInsertArgs) => ({
+  id: 'location-variant-id',
+  ...values,
+}));
+const talentInsertDivergent = mock(async (values: TalInsertArgs) => ({
   id: 'talent-variant-id',
   ...values,
 }));
 
-const scopedDbMock = {
+const scopedDb: SheetDivergenceScopedDb = {
   characterSheetVariants: { insertDivergent: characterInsertDivergent },
   locationSheetVariants: { insertDivergent: locationInsertDivergent },
   talentSheetVariants: { insertDivergent: talentInsertDivergent },
@@ -89,8 +96,6 @@ describe('decideSheetDivergence', () => {
 describe('saveDivergentCharacterSheet', () => {
   it('writes a divergent row and emits on the sequence channel', async () => {
     const { saveDivergentCharacterSheet } = await import('./sheet-divergence');
-    // biome-ignore lint/suspicious/noExplicitAny: mocked scopedDb
-    const scopedDb = scopedDbMock as any;
 
     const variantId = await saveDivergentCharacterSheet({
       scopedDb,
@@ -105,7 +110,9 @@ describe('saveDivergentCharacterSheet', () => {
 
     expect(variantId).toBe('character-variant-id');
     expect(characterInsertDivergent).toHaveBeenCalledTimes(1);
-    const insertArgs = characterInsertDivergent.mock.calls[0][0];
+    const [firstCharCall] = characterInsertDivergent.mock.calls;
+    if (!firstCharCall) throw new Error('test setup: insert call missing');
+    const [insertArgs] = firstCharCall;
     expect(insertArgs).toMatchObject({
       characterId: 'char-1',
       model: 'flux-pro',
@@ -129,8 +136,6 @@ describe('saveDivergentCharacterSheet', () => {
 describe('saveDivergentLocationSheet', () => {
   it('routes sequence_location through the sequence channel as entityType "location"', async () => {
     const { saveDivergentLocationSheet } = await import('./sheet-divergence');
-    // biome-ignore lint/suspicious/noExplicitAny: mocked scopedDb
-    const scopedDb = scopedDbMock as any;
 
     const variantId = await saveDivergentLocationSheet({
       scopedDb,
@@ -142,7 +147,9 @@ describe('saveDivergentLocationSheet', () => {
 
     expect(variantId).toBe('location-variant-id');
     expect(locationInsertDivergent).toHaveBeenCalledTimes(1);
-    expect(locationInsertDivergent.mock.calls[0][0]).toMatchObject({
+    const [firstLocCall] = locationInsertDivergent.mock.calls;
+    if (!firstLocCall) throw new Error('test setup: insert call missing');
+    expect(firstLocCall[0]).toMatchObject({
       parentType: 'sequence_location',
       parentId: 'loc-1',
       inputHash: 'hash-loc',
@@ -162,8 +169,6 @@ describe('saveDivergentLocationSheet', () => {
 
   it('routes library_location through the per-location channel as entityType "library-location"', async () => {
     const { saveDivergentLocationSheet } = await import('./sheet-divergence');
-    // biome-ignore lint/suspicious/noExplicitAny: mocked scopedDb
-    const scopedDb = scopedDbMock as any;
 
     await saveDivergentLocationSheet({
       scopedDb,
@@ -173,7 +178,9 @@ describe('saveDivergentLocationSheet', () => {
       snapshotInputHash: 'hash-loc',
     });
 
-    expect(locationInsertDivergent.mock.calls[0][0]).toMatchObject({
+    const [firstLibLocCall] = locationInsertDivergent.mock.calls;
+    if (!firstLibLocCall) throw new Error('test setup: insert call missing');
+    expect(firstLibLocCall[0]).toMatchObject({
       parentType: 'library_location',
       parentId: 'lib-loc-1',
     });
@@ -194,8 +201,6 @@ describe('saveDivergentLocationSheet', () => {
 describe('saveDivergentTalentSheet', () => {
   it('emits on the talent channel using talentId, with talentSheetId as entityId', async () => {
     const { saveDivergentTalentSheet } = await import('./sheet-divergence');
-    // biome-ignore lint/suspicious/noExplicitAny: mocked scopedDb
-    const scopedDb = scopedDbMock as any;
 
     const variantId = await saveDivergentTalentSheet({
       scopedDb,
@@ -207,7 +212,9 @@ describe('saveDivergentTalentSheet', () => {
     });
 
     expect(variantId).toBe('talent-variant-id');
-    expect(talentInsertDivergent.mock.calls[0][0]).toMatchObject({
+    const [firstTalentCall] = talentInsertDivergent.mock.calls;
+    if (!firstTalentCall) throw new Error('test setup: insert call missing');
+    expect(firstTalentCall[0]).toMatchObject({
       talentSheetId: 'sheet-1',
       inputHash: 'hash-tal',
     });

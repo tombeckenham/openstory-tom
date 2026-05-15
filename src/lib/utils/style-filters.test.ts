@@ -17,7 +17,9 @@ describe('filterStyles', () => {
     test('filters by specific category', () => {
       const result = filterStyles(mockStyles, 'cinematic', '');
       expect(result.length).toBe(1);
-      expect(result[0].name).toBe('Award Season');
+      const [first] = result;
+      if (!first) throw new Error('test setup: expected one result');
+      expect(first.name).toBe('Award Season');
     });
 
     test('filters by "new" category (last 7 days)', () => {
@@ -53,19 +55,25 @@ describe('filterStyles', () => {
     test('filters by description match', () => {
       const result = filterStyles(mockStyles, 'all', 'bright');
       expect(result.length).toBe(1);
-      expect(result[0].name).toBe('Rom-Com');
+      const [first] = result;
+      if (!first) throw new Error('test setup: expected one result');
+      expect(first.name).toBe('Rom-Com');
     });
 
     test('filters by category match in search', () => {
       const result = filterStyles(mockStyles, 'all', 'documentary');
       expect(result.length).toBe(1);
-      expect(result[0].name).toBe('Documentary');
+      const [first] = result;
+      if (!first) throw new Error('test setup: expected one result');
+      expect(first.name).toBe('Documentary');
     });
 
     test('filters by tag match', () => {
       const result = filterStyles(mockStyles, 'all', 'emotional');
       expect(result.length).toBe(1);
-      expect(result[0].name).toBe('Award Season');
+      const [first] = result;
+      if (!first) throw new Error('test setup: expected one result');
+      expect(first.name).toBe('Award Season');
     });
 
     test('returns multiple matches for common search term', () => {
@@ -91,7 +99,9 @@ describe('filterStyles', () => {
     test('applies both category and search filters', () => {
       const result = filterStyles(mockStyles, 'ecommerce', 'product');
       expect(result.length).toBe(1);
-      expect(result[0].name).toBe('Product Ad');
+      const [first] = result;
+      if (!first) throw new Error('test setup: expected one result');
+      expect(first.name).toBe('Product Ad');
     });
 
     test('returns empty when category matches but search does not', () => {
@@ -113,6 +123,11 @@ describe('filterStyles', () => {
   });
 
   describe('edge cases', () => {
+    const [baseStyle] = mockStyles;
+    if (!baseStyle) {
+      throw new Error('test setup: MOCK_SYSTEM_STYLES is empty');
+    }
+
     test('handles empty styles array', () => {
       const result = filterStyles([], 'all', '');
       expect(result.length).toBe(0);
@@ -121,7 +136,7 @@ describe('filterStyles', () => {
     test('handles null/undefined description', () => {
       const stylesWithNullDesc: Style[] = [
         {
-          ...mockStyles[0],
+          ...baseStyle,
           description: null,
         },
       ];
@@ -132,7 +147,7 @@ describe('filterStyles', () => {
     test('handles null/undefined category', () => {
       const stylesWithNullCategory: Style[] = [
         {
-          ...mockStyles[0],
+          ...baseStyle,
           category: null,
         },
       ];
@@ -143,7 +158,7 @@ describe('filterStyles', () => {
     test('handles empty tags array', () => {
       const stylesWithEmptyTags: Style[] = [
         {
-          ...mockStyles[0],
+          ...baseStyle,
           name: 'Test Style',
           description: 'A test style',
           category: 'test',
@@ -157,7 +172,7 @@ describe('filterStyles', () => {
     test('handles null tags array', () => {
       const stylesWithNullTags: Style[] = [
         {
-          ...mockStyles[0],
+          ...baseStyle,
           name: 'Test Style',
           description: 'A test style',
           category: 'test',

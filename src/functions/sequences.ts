@@ -96,7 +96,12 @@ export const createSequenceFn = createServerFn({ method: 'POST' })
       validatedModels,
       imageModelLegacy ? safeTextToImageModel(imageModelLegacy) : undefined
     );
-    const primaryImageModel = imageModels[0];
+    const [primaryImageModel] = imageModels;
+    if (!primaryImageModel) {
+      throw new Error(
+        'Expected resolveImageModels to return at least one model'
+      );
+    }
 
     if (!styleId || !aspectRatio) {
       throw new Error('Style ID and aspect ratio are required');

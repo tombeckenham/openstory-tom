@@ -27,10 +27,9 @@ export const buildCharacterDescription = (
   const parts: string[] = [];
 
   if (character.physicalDescription) {
-    const physicalSummary = character.physicalDescription
-      .split(/[.,]/)[0]
-      .trim();
-    if (physicalSummary.length < 80) {
+    const physicalSummary =
+      character.physicalDescription.split(/[.,]/)[0]?.trim() ?? '';
+    if (physicalSummary.length > 0 && physicalSummary.length < 80) {
       parts.push(physicalSummary);
     }
   }

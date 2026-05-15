@@ -9,7 +9,7 @@ import { sql, type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 import {
   index,
   integer,
-  sqliteTable,
+  snakeCase,
   text,
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
@@ -25,39 +25,39 @@ const CHARACTER_SHEET_VARIANT_STATUSES = [
 export type CharacterSheetVariantStatus =
   (typeof CHARACTER_SHEET_VARIANT_STATUSES)[number];
 
-export const characterSheetVariants = sqliteTable(
+export const characterSheetVariants = snakeCase.table(
   'character_sheet_variants',
   {
     id: text()
       .$defaultFn(() => generateId())
       .primaryKey()
       .notNull(),
-    characterId: text('character_id')
+    characterId: text()
       .notNull()
       .references(() => characters.id, { onDelete: 'cascade' }),
 
-    model: text('model', { length: 100 }).notNull(),
+    model: text({ length: 100 }).notNull(),
 
-    url: text('url'),
-    storagePath: text('storage_path'),
+    url: text(),
+    storagePath: text(),
 
-    status: text('status')
+    status: text()
       .$type<CharacterSheetVariantStatus>()
       .default('pending')
       .notNull(),
-    workflowRunId: text('workflow_run_id'),
-    generatedAt: integer('generated_at', { mode: 'timestamp' }),
-    error: text('error'),
+    workflowRunId: text(),
+    generatedAt: integer({ mode: 'timestamp' }),
+    error: text(),
 
-    inputHash: text('input_hash'),
-    divergedAt: integer('diverged_at', { mode: 'timestamp' }),
+    inputHash: text(),
+    divergedAt: integer({ mode: 'timestamp' }),
     // Soft-delete marker; preserves the artifact for the toast Undo.
-    discardedAt: integer('discarded_at', { mode: 'timestamp' }),
+    discardedAt: integer({ mode: 'timestamp' }),
 
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: integer('updated_at', { mode: 'timestamp' })
+    updatedAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
   },

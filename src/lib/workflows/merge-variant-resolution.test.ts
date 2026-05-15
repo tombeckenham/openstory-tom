@@ -40,7 +40,7 @@ function buildScopedDb(opts: {
 }): MergeVariantResolutionScopedDb {
   return {
     sequence: () => ({
-      getMusicStatus: async () => opts.musicStatus ?? null,
+      getMusicStatus: async () => opts.musicStatus,
     }),
     sequenceVariants: {
       getMusicPrimary: async () => opts.musicPrimary ?? null,
@@ -109,9 +109,9 @@ describe('resolveMusicVariantForMux', () => {
     expect(result).toBeNull();
   });
 
-  it('returns null when getMusicStatus returns null (no music ever requested)', async () => {
+  it('returns null when getMusicStatus returns undefined (no music ever requested)', async () => {
     const result = await resolveMusicVariantForMux(
-      buildScopedDb({ musicStatus: null }),
+      buildScopedDb({ musicStatus: undefined }),
       SEQ_ID
     );
     expect(result).toBeNull();

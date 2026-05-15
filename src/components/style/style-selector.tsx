@@ -65,8 +65,9 @@ export function StyleSelector({
     calculateColumns(container.clientWidth);
 
     const observer = new ResizeObserver((entries) => {
-      const width = entries[0].contentRect.width;
-      calculateColumns(width);
+      const entry = entries[0];
+      if (!entry) return;
+      calculateColumns(entry.contentRect.width);
     });
 
     observer.observe(container);
@@ -85,6 +86,7 @@ export function StyleSelector({
 
     // Move selected style to the front
     const selectedStyle = styles[selectedIndex];
+    if (!selectedStyle) return styles;
     return [selectedStyle, ...styles.filter((s) => s.id !== selectedStyleId)];
   }, [styles, selectedStyleId, visibleCount]);
 

@@ -46,6 +46,7 @@ export async function concatVideoTracks(args: {
     if (signal?.aborted) throw new Error('Browser merge aborted');
 
     const blob = sceneBlobs[sceneIndex];
+    if (!blob) throw new Error(`expected scene blob at index ${sceneIndex}`);
     const input = new Input({
       formats: ALL_FORMATS,
       source: new BlobSource(blob),
@@ -151,7 +152,7 @@ function decoderConfigDescription(config: VideoDecoderConfig): string {
   if (!view || view.length === 0) return '';
   let hex = '';
   for (let i = 0; i < view.length; i++) {
-    hex += view[i].toString(16).padStart(2, '0');
+    hex += (view[i] ?? 0).toString(16).padStart(2, '0');
   }
   return hex;
 }

@@ -128,6 +128,12 @@ function createAuth() {
               .values({ name: teamName, slug: teamSlug })
               .returning();
 
+            if (!team) {
+              throw new Error(
+                `Failed to create default team for user ${user.id}`
+              );
+            }
+
             await db.insert(teamMembers).values({
               teamId: team.id,
               userId: user.id,

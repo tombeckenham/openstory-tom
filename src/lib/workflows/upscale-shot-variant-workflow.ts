@@ -140,6 +140,9 @@ export const upscaleShotVariantWorkflow = createScopedWorkflow<
     });
 
     const storageResult = await context.run('upload-to-storage', async () => {
+      if (!upscaleResult.imageUrl) {
+        throw new Error('Upscale did not return an image URL');
+      }
       const result = await uploadImageToStorage({
         imageUrl: upscaleResult.imageUrl,
         teamId: teamId,

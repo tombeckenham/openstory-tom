@@ -20,11 +20,15 @@ She locks the doors and starts the engine.`;
 
     const scenes = fastSceneSplit(script);
     expect(scenes.length).toBe(3);
-    expect(scenes[0].metadata?.title).toBe('OFFICE');
-    expect(scenes[1].metadata?.title).toBe('PARKING LOT');
-    expect(scenes[2].metadata?.title).toBe('CAR');
-    expect(scenes[0].sceneNumber).toBe(1);
-    expect(scenes[1].sceneNumber).toBe(2);
+    const [first, second, third] = scenes;
+    if (!first || !second || !third) {
+      throw new Error('test setup: expected three scenes');
+    }
+    expect(first.metadata?.title).toBe('OFFICE');
+    expect(second.metadata?.title).toBe('PARKING LOT');
+    expect(third.metadata?.title).toBe('CAR');
+    expect(first.sceneNumber).toBe(1);
+    expect(second.sceneNumber).toBe(2);
   });
 
   test('splits on transitions (CUT TO, FADE IN)', () => {
@@ -68,6 +72,7 @@ Mom makes breakfast.`;
     expect(scenes.length).toBe(1);
 
     const scene = scenes[0];
+    if (!scene) throw new Error('test setup: expected at least one scene');
     expect(scene.sceneId).toBeTruthy();
     expect(scene.sceneNumber).toBe(1);
     expect(scene.originalScript.extract).toContain('Mom makes breakfast');

@@ -20,7 +20,7 @@ export function getRedirectFromParams(
     redirectTo = searchParams.get('redirectTo');
   } else if (typeof searchParams === 'object' && searchParams.redirectTo) {
     const value = searchParams.redirectTo;
-    redirectTo = Array.isArray(value) ? value[0] : value;
+    redirectTo = Array.isArray(value) ? (value[0] ?? null) : value;
   }
 
   // Validate redirect URL to prevent open redirects

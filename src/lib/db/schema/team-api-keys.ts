@@ -9,7 +9,7 @@
 import { type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 import {
   integer,
-  sqliteTable,
+  snakeCase,
   text,
   index,
   uniqueIndex,
@@ -28,49 +28,47 @@ export type ApiKeySource = (typeof API_KEY_SOURCES)[number];
  * Team API Keys table
  * Stores encrypted API keys per team per provider
  */
-export const teamApiKeys = sqliteTable(
+export const teamApiKeys = snakeCase.table(
   'team_api_keys',
   {
     id: text()
       .$defaultFn(() => generateId())
       .primaryKey()
       .notNull(),
-    teamId: text('team_id')
+    teamId: text()
       .notNull()
       .references(() => teams.id, { onDelete: 'cascade' }),
     provider: text().$type<ApiKeyProvider>().notNull(),
 
     // Encrypted key data (AES-256-GCM)
-    encryptedKey: text('encrypted_key').notNull(),
-    keyIv: text('key_iv').notNull(),
-    keyTag: text('key_tag').notNull(),
+    encryptedKey: text().notNull(),
+    keyIv: text().notNull(),
+    keyTag: text().notNull(),
 
     // Display hint (last 4 chars, safe to show in UI)
-    keyHint: text('key_hint').notNull(),
+    keyHint: text().notNull(),
 
     // How the key was provided
     source: text().$type<ApiKeySource>().default('manual').notNull(),
 
     // Status
-    isActive: integer('is_active', { mode: 'boolean' }).default(true).notNull(),
+    isActive: integer({ mode: 'boolean' }).default(true).notNull(),
 
     // Validity — set false + invalidReason when a workflow or re-validation
     // check finds the key rejected by the provider (e.g. 401/403). When
     // invalid, resolveKey() skips the team key and falls back to platform.
-    isInvalid: integer('is_invalid', { mode: 'boolean' })
-      .default(false)
-      .notNull(),
-    invalidReason: text('invalid_reason'),
-    lastValidatedAt: integer('last_validated_at', { mode: 'timestamp' }),
+    isInvalid: integer({ mode: 'boolean' }).default(false).notNull(),
+    invalidReason: text(),
+    lastValidatedAt: integer({ mode: 'timestamp' }),
 
     // Audit
-    addedBy: text('added_by')
+    addedBy: text()
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: integer('updated_at', { mode: 'timestamp' })
+    updatedAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
   },

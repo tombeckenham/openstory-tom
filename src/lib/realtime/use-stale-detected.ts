@@ -53,6 +53,8 @@ export function useStaleDetected(sequenceId: string | undefined) {
   // sequence's toast.
   const handleEvent = useCallback(
     (event: StaleDetectedEvent) => {
+      // Defensive: subscription is bound to this event but kept narrow for safety if more event types are added.
+      // oxlint-disable-next-line typescript/no-unnecessary-condition
       if (event.event !== 'generation.stale:detected') return;
       if (!sequenceId) return;
       const scheduledFor = sequenceId;

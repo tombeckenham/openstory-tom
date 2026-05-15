@@ -28,6 +28,11 @@ const meta: Meta<typeof StyleSelectorButton> = {
 export default meta;
 type Story = StoryObj<typeof StyleSelectorButton>;
 
+const firstMockStyle = MOCK_SYSTEM_STYLES[0];
+if (!firstMockStyle) {
+  throw new Error('story setup: expected MOCK_SYSTEM_STYLES to be non-empty');
+}
+
 export const NoSelection: Story = {
   args: {
     selectedStyle: null,
@@ -129,7 +134,7 @@ export const WithDialogIntegration: Story = {
   render: function RenderWithDialogIntegration() {
     const InteractiveDemo = () => {
       const [selectedStyleId, setSelectedStyleId] = useState<string | null>(
-        MOCK_SYSTEM_STYLES[0].id
+        firstMockStyle.id
       );
 
       const { data: styles = [] } = useStyles();
@@ -215,7 +220,7 @@ export const DifferentSizes: Story = {
 export const LongStyleName: Story = {
   args: {
     selectedStyle: {
-      ...MOCK_SYSTEM_STYLES[0],
+      ...firstMockStyle,
       name: 'Ultra High Quality Cinematic Photography',
       category: 'Professional Cinematic',
     },
@@ -233,7 +238,7 @@ export const LongStyleName: Story = {
 export const WithoutThumbnail: Story = {
   args: {
     selectedStyle: {
-      ...MOCK_SYSTEM_STYLES[0],
+      ...firstMockStyle,
       previewUrl: null,
     },
     size: 'default',
@@ -250,7 +255,7 @@ export const WithoutThumbnail: Story = {
 export const WithoutCategory: Story = {
   args: {
     selectedStyle: {
-      ...MOCK_SYSTEM_STYLES[0],
+      ...firstMockStyle,
       category: null,
     },
     size: 'default',

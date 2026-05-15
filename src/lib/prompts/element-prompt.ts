@@ -15,7 +15,7 @@ import type { ReferenceImageDescription } from './reference-image-prompt';
 export function buildElementDescription(
   element: SequenceElementMinimal
 ): string {
-  const summary = (element.description ?? '').split(/[.,]/)[0].trim();
+  const summary = (element.description ?? '').split(/[.,]/)[0]?.trim() ?? '';
   const suffix = summary && summary.length < 120 ? ` - ${summary}` : '';
   return `${element.token}${suffix}`;
 }

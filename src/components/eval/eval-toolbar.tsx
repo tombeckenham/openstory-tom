@@ -168,17 +168,21 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
   };
 
   const toggleSortDirection = (index: number) => {
+    const current = sortCriteria[index];
+    if (!current) return;
     const updated = [...sortCriteria];
     updated[index] = {
-      ...updated[index],
-      direction: updated[index].direction === 'asc' ? 'desc' : 'asc',
+      ...current,
+      direction: current.direction === 'asc' ? 'desc' : 'asc',
     };
     onSortChange(updated);
   };
 
   const updateSortField = (index: number, field: SortCriteria['field']) => {
+    const current = sortCriteria[index];
+    if (!current) return;
     const updated = [...sortCriteria];
-    updated[index] = { ...updated[index], field };
+    updated[index] = { ...current, field };
     onSortChange(updated);
   };
 

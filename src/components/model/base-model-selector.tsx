@@ -85,8 +85,9 @@ export const BaseModelSelector: React.FC<BaseModelSelectorProps> = ({
     (enabled: boolean) => {
       setMultipleEnabled(enabled);
       // When turning off multiple, snap to just the first selected model
-      if (!enabled && selectedIds.length > 1) {
-        onSelectionChange([selectedIds[0]]);
+      const firstId = selectedIds[0];
+      if (!enabled && selectedIds.length > 1 && firstId) {
+        onSelectionChange([firstId]);
       }
     },
     [selectedIds, onSelectionChange]
@@ -153,7 +154,7 @@ export const BaseModelSelector: React.FC<BaseModelSelectorProps> = ({
         <DropdownMenuSeparator />
         {groupOrder.map((groupKey, groupIndex) => {
           const groupModels = groupedModels[groupKey];
-          if (groupModels.length === 0) return null;
+          if (!groupModels || groupModels.length === 0) return null;
 
           return (
             <DropdownMenuGroup key={groupKey}>

@@ -196,7 +196,10 @@ function getBunVersion(): string | null {
 }
 
 function versionGte(version: string, minVersion: string): boolean {
-  const parse = (v: string) => v.split('.').map(Number);
+  const parse = (v: string): [number, number, number] => {
+    const parts = v.split('.').map(Number);
+    return [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
+  };
   const [aMajor, aMinor, aPatch] = parse(version);
   const [bMajor, bMinor, bPatch] = parse(minVersion);
   if (aMajor !== bMajor) return aMajor > bMajor;
@@ -574,8 +577,9 @@ async function prPreviewSetup() {
           );
           const data: { success?: boolean; result?: { id: string }[] } =
             await res.json();
-          if (data.success && data.result && data.result.length > 0) {
-            zoneId = data.result[0].id;
+          const firstZone = data.success ? data.result?.[0] : undefined;
+          if (firstZone) {
+            zoneId = firstZone.id;
             zoneSpinner.stop(
               `Found zone ID for ${baseDomain}: ${zoneId.slice(0, 8)}…`
             );
@@ -938,6 +942,10 @@ async function deploySetup(
   }
 
   const config = cliConfig[platform];
+  if (!config) {
+    p.log.error(`No CLI config for platform: ${platform}`);
+    return;
+  }
   const label = platformLabels[platform] ?? platform;
 
   p.log.step(chalk.bold(`Deploy Setup — ${label}`));
@@ -956,6 +964,9 @@ async function deploySetup(
       installSpinner.start(`Installing ${config.cmd}`);
       try {
         const [cmd, ...args] = config.install.split(' ');
+        if (!cmd) {
+          throw new Error(`Invalid install command: ${config.install}`);
+        }
         execFileSync(cmd, args, { stdio: 'pipe' });
         installSpinner.stop(`${config.cmd} installed`);
       } catch (error) {
@@ -1577,8 +1588,9 @@ async function main() {
             );
             const data: { success?: boolean; result?: { id: string }[] } =
               await res.json();
-            if (data.success && data.result && data.result.length > 0) {
-              const zoneId = data.result[0].id;
+            const firstZone = data.success ? data.result?.[0] : undefined;
+            if (firstZone) {
+              const zoneId = firstZone.id;
               vars.set('CLOUDFLARE_ZONE_ID', zoneId);
               saveProgress();
               zoneSpinner.stop(
@@ -2668,7 +2680,7 @@ async function main() {
   // -------------------------------------------------------------------------
   // Summary
   // -------------------------------------------------------------------------
-  const features = [
+  const features: Array<[string, string]> = [
     [
       'Hosting',
       isProd

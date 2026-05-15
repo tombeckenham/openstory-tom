@@ -123,17 +123,17 @@ export function narrowFramePromptContext(
 
   const characterBible = matchCharactersToScene(
     ctx.characterBible,
-    continuity.characterTags ?? []
+    continuity.characterTags
   );
   const locationBible = matchLocationsToScene(
     ctx.locationBible,
-    continuity.environmentTag ?? '',
+    continuity.environmentTag,
     scene.metadata?.location ?? ''
   );
   const elementBible = matchElementsToScene(
     ctx.elementBible,
     continuity.elementTags ?? [],
-    scene.originalScript?.extract
+    scene.originalScript.extract
   );
 
   return { ...ctx, characterBible, locationBible, elementBible };

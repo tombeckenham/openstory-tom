@@ -283,7 +283,7 @@ export const analyzeScriptWorkflow = createScopedWorkflow<
         const elementsMatched = matchElementsToScene(
           elementsMinimal,
           scene.continuity?.elementTags ?? [],
-          scene.originalScript.extract ?? ''
+          scene.originalScript.extract
         );
         return {
           sceneId: scene.sceneId,
@@ -297,7 +297,7 @@ export const analyzeScriptWorkflow = createScopedWorkflow<
             .filter((h): h is string => typeof h === 'string')
             .sort(),
           elementReferenceHashes: elementsMatched
-            .map((e) => e.imageUrl ?? '')
+            .map((e) => e.imageUrl)
             .filter((u) => u.length > 0)
             .sort(),
         };
@@ -392,13 +392,20 @@ export const analyzeScriptWorkflow = createScopedWorkflow<
           );
         }
 
+        const imageUrl = imageUrls[index];
+        if (!imageUrl) {
+          throw new WorkflowValidationError(
+            `Scene ${scene.sceneId} has no generated image URL at index ${index}`
+          );
+        }
+
         const matchedFrame = frameMapping.find(
           (f) => f.sceneId === scene.sceneId
         );
 
         return {
           frameId: matchedFrame?.frameId ?? '',
-          imageUrl: imageUrls[index],
+          imageUrl,
           prompt: assembleMotionPrompt({
             motionPrompt: motionPromptData,
             model: videoModel,

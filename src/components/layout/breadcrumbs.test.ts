@@ -1,19 +1,21 @@
-import type { AnyRouteMatch } from '@tanstack/react-router';
 import { describe, expect, test } from 'bun:test';
-import { resolveCrumbs, type BreadcrumbValue } from './breadcrumbs';
+import {
+  resolveCrumbs,
+  type BreadcrumbMatch,
+  type BreadcrumbValue,
+} from './breadcrumbs';
 
 function makeMatch(
   breadcrumb: BreadcrumbValue | undefined,
-  overrides: Partial<AnyRouteMatch> = {}
-): AnyRouteMatch {
-  const match: Partial<AnyRouteMatch> = {
+  overrides: Partial<BreadcrumbMatch> = {}
+): BreadcrumbMatch {
+  return {
     id: 'match-1',
     pathname: '/sequences',
     params: {},
     staticData: breadcrumb === undefined ? {} : { breadcrumb },
     ...overrides,
   };
-  return match as AnyRouteMatch;
 }
 
 describe('resolveCrumbs', () => {

@@ -85,6 +85,7 @@ async function seed() {
       },
     })
     .returning();
+  if (!style) throw new Error('test setup: style insert returned nothing');
   await db
     .insert(sequences)
     .values([
@@ -94,7 +95,7 @@ async function seed() {
 
 beforeAll(async () => {
   client = createClient({ url: ':memory:' });
-  db = drizzle({ client, relations, casing: 'snake_case' });
+  db = drizzle({ client, relations });
   await migrate(db, { migrationsFolder: './drizzle/migrations' });
 });
 
@@ -112,6 +113,7 @@ describe('frames input-hash columns', () => {
       .insert(frames)
       .values({ sequenceId, orderIndex: 0 })
       .returning();
+    if (!frame) throw new Error('test setup: frame insert returned nothing');
     expect(frame.thumbnailInputHash).toBeNull();
     expect(frame.variantImageInputHash).toBeNull();
     expect(frame.videoInputHash).toBeNull();
@@ -130,6 +132,7 @@ describe('frames input-hash columns', () => {
       .select()
       .from(frames)
       .where(eq(frames.id, frame.id));
+    if (!refreshed) throw new Error('test setup: refresh failed');
     expect(refreshed.thumbnailInputHash).toBe('t');
     expect(refreshed.variantImageInputHash).toBe('v');
     expect(refreshed.videoInputHash).toBe('m');
@@ -143,6 +146,7 @@ describe('frame_variants input-hash + diverged_at columns', () => {
       .insert(frames)
       .values({ sequenceId, orderIndex: 0 })
       .returning();
+    if (!frame) throw new Error('test setup: frame insert returned nothing');
     const [variant] = await db
       .insert(frameVariants)
       .values({
@@ -152,6 +156,8 @@ describe('frame_variants input-hash + diverged_at columns', () => {
         model: 'm1',
       })
       .returning();
+    if (!variant)
+      throw new Error('test setup: variant insert returned nothing');
     expect(variant.inputHash).toBeNull();
     expect(variant.divergedAt).toBeNull();
 
@@ -164,6 +170,7 @@ describe('frame_variants input-hash + diverged_at columns', () => {
       .select()
       .from(frameVariants)
       .where(eq(frameVariants.id, variant.id));
+    if (!refreshed) throw new Error('test setup: refresh failed');
     expect(refreshed.inputHash).toBe('h');
     expect(refreshed.divergedAt?.getTime()).toBe(divergedAt.getTime());
   });
@@ -175,6 +182,7 @@ describe('characters.sheet_input_hash', () => {
       .insert(characters)
       .values({ sequenceId, characterId: 'c1', name: 'C', age: '30s' })
       .returning();
+    if (!c) throw new Error('test setup: character insert returned nothing');
     expect(c.sheetInputHash).toBeNull();
 
     await db
@@ -185,6 +193,7 @@ describe('characters.sheet_input_hash', () => {
       .select()
       .from(characters)
       .where(eq(characters.id, c.id));
+    if (!refreshed) throw new Error('test setup: refresh failed');
     expect(refreshed.sheetInputHash).toBe('h');
   });
 });
@@ -195,6 +204,7 @@ describe('locationLibrary.reference_input_hash', () => {
       .insert(locationLibrary)
       .values({ teamId: team.id, name: 'L' })
       .returning();
+    if (!loc) throw new Error('test setup: location insert returned nothing');
     expect(loc.referenceInputHash).toBeNull();
 
     await db
@@ -205,6 +215,7 @@ describe('locationLibrary.reference_input_hash', () => {
       .select()
       .from(locationLibrary)
       .where(eq(locationLibrary.id, loc.id));
+    if (!refreshed) throw new Error('test setup: refresh failed');
     expect(refreshed.referenceInputHash).toBe('h');
   });
 });
@@ -215,10 +226,12 @@ describe('locationSheets.input_hash', () => {
       .insert(locationLibrary)
       .values({ teamId: team.id, name: 'L' })
       .returning();
+    if (!loc) throw new Error('test setup: location insert returned nothing');
     const [sheet] = await db
       .insert(locationSheets)
       .values({ locationId: loc.id, name: 'night' })
       .returning();
+    if (!sheet) throw new Error('test setup: sheet insert returned nothing');
     expect(sheet.inputHash).toBeNull();
 
     await db
@@ -229,6 +242,7 @@ describe('locationSheets.input_hash', () => {
       .select()
       .from(locationSheets)
       .where(eq(locationSheets.id, sheet.id));
+    if (!refreshed) throw new Error('test setup: refresh failed');
     expect(refreshed.inputHash).toBe('h');
   });
 });
@@ -239,10 +253,12 @@ describe('talent_sheets.input_hash', () => {
       .insert(talent)
       .values({ teamId: team.id, name: 'T' })
       .returning();
+    if (!t) throw new Error('test setup: talent insert returned nothing');
     const [sheet] = await db
       .insert(talentSheets)
       .values({ talentId: t.id, name: 'casual' })
       .returning();
+    if (!sheet) throw new Error('test setup: sheet insert returned nothing');
     expect(sheet.inputHash).toBeNull();
 
     await db
@@ -253,6 +269,7 @@ describe('talent_sheets.input_hash', () => {
       .select()
       .from(talentSheets)
       .where(eq(talentSheets.id, sheet.id));
+    if (!refreshed) throw new Error('test setup: refresh failed');
     expect(refreshed.inputHash).toBe('h');
   });
 });
@@ -286,6 +303,7 @@ describe('frames.isStale', () => {
         .insert(frames)
         .values({ sequenceId, orderIndex: 0 })
         .returning();
+      if (!frame) throw new Error('test setup: frame insert returned nothing');
       const m = createFramesMethods(db);
       expect(await m.isStale(frame.id, artifact, 'anything')).toBe(false);
     }
@@ -298,6 +316,7 @@ describe('frames.isStale', () => {
         .insert(frames)
         .values({ sequenceId, orderIndex: 0, [column]: 'h-match' })
         .returning();
+      if (!frame) throw new Error('test setup: frame insert returned nothing');
       const m = createFramesMethods(db);
       expect(await m.isStale(frame.id, artifact, 'h-match')).toBe(false);
     }
@@ -310,6 +329,7 @@ describe('frames.isStale', () => {
         .insert(frames)
         .values({ sequenceId, orderIndex: 0, [column]: 'h-old' })
         .returning();
+      if (!frame) throw new Error('test setup: frame insert returned nothing');
       const m = createFramesMethods(db);
       expect(await m.isStale(frame.id, artifact, 'h-new')).toBe(true);
     }
@@ -327,6 +347,7 @@ describe('frames.isStale', () => {
         audioInputHash: 'a-hash',
       })
       .returning();
+    if (!frame) throw new Error('test setup: frame insert returned nothing');
     const m = createFramesMethods(db);
     // Each artifact key compares against ONLY its own column.
     expect(await m.isStale(frame.id, 'thumbnail', 't-hash')).toBe(false);
@@ -351,6 +372,7 @@ describe('sequenceLocations.reference_input_hash', () => {
         referenceInputHash,
       })
       .returning();
+    if (!loc) throw new Error('test setup: location insert returned nothing');
     return loc;
   }
 
@@ -366,6 +388,7 @@ describe('sequenceLocations.reference_input_hash', () => {
       .select()
       .from(sequenceLocations)
       .where(eq(sequenceLocations.id, loc.id));
+    if (!refreshed) throw new Error('test setup: refresh failed');
     expect(refreshed.referenceInputHash).toBe('h');
   });
 
@@ -376,6 +399,7 @@ describe('sequenceLocations.reference_input_hash', () => {
       .select({ stored: sequenceLocations.referenceInputHash })
       .from(sequenceLocations)
       .where(eq(sequenceLocations.id, noHash.id));
+    if (!r0) throw new Error('test setup: r0 select returned nothing');
     expect(r0.stored).toBeNull();
 
     // Stored match → not stale.
@@ -384,6 +408,7 @@ describe('sequenceLocations.reference_input_hash', () => {
       .select({ stored: sequenceLocations.referenceInputHash })
       .from(sequenceLocations)
       .where(eq(sequenceLocations.id, match.id));
+    if (!r1) throw new Error('test setup: r1 select returned nothing');
     expect(r1.stored).toBe('h-match');
 
     // Stored differs → stale.
@@ -392,6 +417,7 @@ describe('sequenceLocations.reference_input_hash', () => {
       .select({ stored: sequenceLocations.referenceInputHash })
       .from(sequenceLocations)
       .where(eq(sequenceLocations.id, differ.id));
+    if (!r2) throw new Error('test setup: r2 select returned nothing');
     expect(r2.stored).toBe('h-old');
     expect(r2.stored !== 'h-new').toBe(true);
   });
@@ -403,6 +429,7 @@ describe('frameVariants.isStale', () => {
       .insert(frames)
       .values({ sequenceId, orderIndex: 0 })
       .returning();
+    if (!frame) throw new Error('test setup: frame insert returned nothing');
     const [variant] = await db
       .insert(frameVariants)
       .values({
@@ -413,6 +440,8 @@ describe('frameVariants.isStale', () => {
         inputHash,
       })
       .returning();
+    if (!variant)
+      throw new Error('test setup: variant insert returned nothing');
     return variant;
   }
 

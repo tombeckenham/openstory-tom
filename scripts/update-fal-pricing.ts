@@ -378,7 +378,7 @@ if (fetchLlmsTxt) {
       continue;
     }
 
-    const pricingText = pricingMatch[1].trim();
+    const pricingText = (pricingMatch[1] ?? '').trim();
     console.log(`  \u2713 ${endpointId}:`);
     console.log(`    ${pricingText.split('\n').join('\n    ')}\n`);
 
@@ -463,7 +463,11 @@ diffMap(
   'image',
   Object.keys(imagePricing),
   Object.keys(oldImagePricing),
-  (id) => getMicrosBasePrice(imagePricing[id]),
+  (id) => {
+    const entry = imagePricing[id];
+    if (!entry) throw new Error(`unknown image pricing id: ${id}`);
+    return getMicrosBasePrice(entry);
+  },
   // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- Record lookup returns undefined for missing keys
   (id) => (oldImagePricing[id] ? getBasePrice(oldImagePricing[id]) : undefined)
 );
@@ -471,7 +475,11 @@ diffMap(
   'video',
   Object.keys(videoPricing),
   Object.keys(oldVideoPricing),
-  (id) => getMicrosBasePrice(videoPricing[id]),
+  (id) => {
+    const entry = videoPricing[id];
+    if (!entry) throw new Error(`unknown video pricing id: ${id}`);
+    return getMicrosBasePrice(entry);
+  },
   // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- Record lookup returns undefined for missing keys
   (id) => (oldVideoPricing[id] ? getBasePrice(oldVideoPricing[id]) : undefined)
 );
@@ -479,7 +487,11 @@ diffMap(
   'audio',
   Object.keys(audioPricing),
   Object.keys(oldAudioPricing),
-  (id) => getMicrosBasePrice(audioPricing[id]),
+  (id) => {
+    const entry = audioPricing[id];
+    if (!entry) throw new Error(`unknown audio pricing id: ${id}`);
+    return getMicrosBasePrice(entry);
+  },
   // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- Record lookup returns undefined for missing keys
   (id) => (oldAudioPricing[id] ? getBasePrice(oldAudioPricing[id]) : undefined)
 );

@@ -22,7 +22,7 @@ import {
 const NOW = new Date('2026-04-29T00:00:00Z');
 
 function makeCharacter(overrides: Partial<Character> = {}): Character {
-  return {
+  const character: Character = {
     id: 'c1',
     sequenceId: 'seq1',
     characterId: 'jack',
@@ -46,12 +46,12 @@ function makeCharacter(overrides: Partial<Character> = {}): Character {
     firstMentionSceneId: null,
     createdAt: NOW,
     updatedAt: NOW,
-    ...overrides,
-  } as Character;
+  };
+  return { ...character, ...overrides };
 }
 
 function makeFrame(overrides: Partial<Frame> = {}): Frame {
-  return {
+  const frame: Frame = {
     id: 'f1',
     sequenceId: 'seq1',
     orderIndex: 0,
@@ -95,12 +95,19 @@ function makeFrame(overrides: Partial<Frame> = {}): Frame {
     metadata: {
       sceneId: 's1',
       sceneNumber: 1,
-      continuity: { characterTags: ['jack-the-pi'], environmentTag: '' },
-    } as Frame['metadata'],
+      originalScript: { extract: '', dialogue: [] },
+      continuity: {
+        characterTags: ['jack-the-pi'],
+        environmentTag: '',
+        colorPalette: '',
+        lightingSetup: '',
+        styleTag: '',
+      },
+    },
     createdAt: NOW,
     updatedAt: NOW,
-    ...overrides,
-  } as Frame;
+  };
+  return { ...frame, ...overrides };
 }
 
 const NO_LOCATIONS: SequenceLocation[] = [];

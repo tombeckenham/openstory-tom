@@ -587,8 +587,8 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
           <GenerationProgressBanner
             generationState={generationState}
             isProcessing={isProcessing}
-            startedAt={sequence?.updatedAt}
-            script={sequence?.script ?? undefined}
+            startedAt={sequence.updatedAt}
+            script={sequence.script ?? undefined}
           />
         </div>
       )}

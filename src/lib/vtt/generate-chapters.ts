@@ -42,6 +42,7 @@ export function generateChaptersVTT(frames: Frame[]): string {
 
   for (let i = 0; i < frames.length; i++) {
     const frame = frames[i];
+    if (!frame) throw new Error(`expected frame at index ${i}`);
     const duration = (frame.durationMs || 3000) / 1000; // Convert to seconds
     const startTime = cumulativeTime;
     const endTime = cumulativeTime + duration;

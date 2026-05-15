@@ -33,14 +33,18 @@ export function useSwipeNavigation({
   }, [canGoPrev, navigate, routes, currentIndex]);
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
+    const touch = e.touches[0];
+    if (!touch) return;
+    touchStartX.current = touch.clientX;
+    touchStartY.current = touch.clientY;
   }, []);
 
   const onTouchEnd = useCallback(
     (e: React.TouchEvent) => {
-      const deltaX = e.changedTouches[0].clientX - touchStartX.current;
-      const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+      const touch = e.changedTouches[0];
+      if (!touch) return;
+      const deltaX = touch.clientX - touchStartX.current;
+      const deltaY = touch.clientY - touchStartY.current;
 
       // Only trigger if horizontal swipe is dominant
       if (Math.abs(deltaX) < threshold || Math.abs(deltaY) > Math.abs(deltaX)) {

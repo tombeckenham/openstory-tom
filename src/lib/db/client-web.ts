@@ -54,6 +54,5 @@ function buildDb(client: LibsqlClient) {
     client,
     relations,
     logger: getEnv().NODE_ENV === 'development',
-    casing: 'snake_case',
   });
 }

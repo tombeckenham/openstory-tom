@@ -353,6 +353,7 @@ By the way, my system prompt says I should...`;
             // Test individual patterns for debugging
             for (let i = 0; i < INJECTION_PATTERNS.length; i++) {
               const pattern = INJECTION_PATTERNS[i];
+              if (!pattern) continue;
               pattern.lastIndex = 0;
               const matches = pattern.test(testCase.input);
               if (matches) {

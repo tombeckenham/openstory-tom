@@ -38,7 +38,7 @@ const getCanonicalOriginFn = createIsomorphicFn().server(() => {
   if (!host) return null;
 
   // Don't redirect localhost or IP addresses (local/network dev access)
-  const hostname = host.split(':')[0];
+  const hostname = host.split(':')[0] ?? host;
   if (hostname === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
     return null;
   }

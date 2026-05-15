@@ -62,6 +62,8 @@ export const NonStale: Story = {
           When inputs match, parent skips the indicator entirely.
         </p>
         <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+          {/* Story branch mirrors production gating — kept even though `isStale` is a fixed literal here. */}
+          {/* oxlint-disable-next-line typescript/no-unnecessary-condition */}
           {isStale ? (
             <StalenessIndicator
               artifact="thumbnail"

@@ -67,7 +67,9 @@ export async function mixAndEncodeAudio(args: {
   const sceneBuffers: Array<AudioBuffer | null> = [];
   for (let i = 0; i < sceneBlobs.length; i++) {
     if (signal?.aborted) throw new Error('Browser merge aborted');
-    const buffer = await decodeSceneAudio(sceneBlobs[i], i);
+    const blob = sceneBlobs[i];
+    if (!blob) throw new Error(`expected scene blob at index ${i}`);
+    const buffer = await decodeSceneAudio(blob, i);
     sceneBuffers.push(buffer);
     onProgress?.({
       phase: 'decode-scenes',
@@ -136,11 +138,13 @@ async function decodeSceneAudio(
 
   const sink = new EncodedPacketSink(audioTrack);
   for await (const packet of sink.packets()) {
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- mutated by WebCodecs error callback
     if (decoderError) throw decoderError;
     decoder.decode(packet.toEncodedAudioChunk());
   }
   await decoder.flush();
   decoder.close();
+  // oxlint-disable-next-line typescript/no-unnecessary-condition -- mutated by WebCodecs error callback
   if (decoderError) throw decoderError;
 
   const { channelData, totalFrames } = assembleChannelData(
@@ -159,7 +163,9 @@ async function decodeSceneAudio(
     sampleRate,
   });
   for (let c = 0; c < numberOfChannels; c++) {
-    buffer.copyToChannel(toArrayBufferBacked(channelData[c]), c);
+    const channel = channelData[c];
+    if (!channel) throw new Error(`expected channel data ${c}`);
+    buffer.copyToChannel(toArrayBufferBacked(channel), c);
   }
   return buffer;
 }
@@ -204,9 +210,11 @@ export function assembleChannelData(
       c < Math.min(numberOfChannels, data.numberOfChannels);
       c++
     ) {
+      const dest = channelData[c];
+      if (!dest) throw new Error(`expected channel data ${c}`);
       const tmp = new Float32Array(frames);
       data.copyTo(tmp, { planeIndex: c, format: 'f32-planar' });
-      channelData[c].set(tmp, writeOffsetSamples);
+      dest.set(tmp, writeOffsetSamples);
     }
     writeOffsetSamples += frames;
     data.close();
@@ -239,7 +247,9 @@ async function decodeAndNormalizeMusic(blob: Blob): Promise<AudioBuffer> {
       sampleRate: decoded.sampleRate,
     });
     for (let c = 0; c < channels.length; c++) {
-      normalized.copyToChannel(toArrayBufferBacked(channels[c]), c);
+      const channel = channels[c];
+      if (!channel) throw new Error(`expected channel ${c}`);
+      normalized.copyToChannel(toArrayBufferBacked(channel), c);
     }
     return normalized;
   } finally {
@@ -352,15 +362,18 @@ async function encodeAacAndPushPackets(args: {
 
   for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
     if (signal?.aborted) throw new Error('Browser merge aborted');
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- mutated by WebCodecs error callback
     if (encoderError) throw encoderError;
     const start = chunkIndex * chunkFrames;
     const end = Math.min(start + chunkFrames, totalFrames);
     const frames = end - start;
 
     const interleaved = new Float32Array(frames * numberOfChannels);
-    for (let f = 0; f < frames; f++) {
-      for (let c = 0; c < numberOfChannels; c++) {
-        interleaved[f * numberOfChannels + c] = channelData[c][start + f];
+    for (let c = 0; c < numberOfChannels; c++) {
+      const channel = channelData[c];
+      if (!channel) throw new Error(`expected channel ${c}`);
+      for (let f = 0; f < frames; f++) {
+        interleaved[f * numberOfChannels + c] = channel[start + f] ?? 0;
       }
     }
 
@@ -383,6 +396,7 @@ async function encodeAacAndPushPackets(args: {
 
   await encoder.flush();
   encoder.close();
+  // oxlint-disable-next-line typescript/no-unnecessary-condition -- mutated by WebCodecs error callback
   if (encoderError) throw encoderError;
   await Promise.all(pendingAdds);
   onProgress?.(totalChunks, totalChunks);

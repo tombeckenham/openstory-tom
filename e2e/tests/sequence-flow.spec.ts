@@ -116,11 +116,16 @@ Here's your caffeine fix. How's it going?
       ).toBeVisible();
 
       // Verify our test talents appear in the dialog (use variable names)
-      await expect(page.getByText(testTalents[0].name)).toBeVisible();
-      await expect(page.getByText(testTalents[1].name)).toBeVisible();
+      const firstTalent = testTalents[0];
+      const secondTalent = testTalents[1];
+      if (!firstTalent || !secondTalent) {
+        throw new Error('test setup: expected two test talents');
+      }
+      await expect(page.getByText(firstTalent.name)).toBeVisible();
+      await expect(page.getByText(secondTalent.name)).toBeVisible();
 
       // Select first talent by clicking on it
-      await page.getByText(testTalents[0].name).click();
+      await page.getByText(firstTalent.name).click();
 
       // Submit dialog (button text reflects selection count)
       await talentDialog
@@ -241,6 +246,11 @@ testWithUser.describe('Character Recast', () => {
       `E2E New Actor ${suffix}`,
     ]);
 
+    const firstTalent = testTalents[0];
+    if (!firstTalent) {
+      throw new Error('test setup: expected at least one test talent');
+    }
+
     // Create pre-seeded sequence with character (unique name)
     testSequence = await createTestSequence(
       testUser.teamId,
@@ -253,7 +263,7 @@ testWithUser.describe('Character Recast', () => {
       testSequence.id,
       'char_001',
       'John',
-      testTalents[0].id,
+      firstTalent.id,
       {
         // Use real placeholder image
         sheetImageUrl:
@@ -275,9 +285,15 @@ testWithUser.describe('Character Recast', () => {
   testWithUser(
     'can recast character with different talent',
     async ({ page }) => {
+      const firstTalent = testTalents[0];
+      const secondTalent = testTalents[1];
+      if (!firstTalent || !secondTalent) {
+        throw new Error('test setup: expected two test talents');
+      }
+
       // Verify initial state - character is linked to first talent
       const characterBefore = await getTestCharacter(testCharacter.id);
-      expect(characterBefore?.talentId).toBe(testTalents[0].id);
+      expect(characterBefore?.talentId).toBe(firstTalent.id);
 
       // Navigate to the character detail page
       await page.goto(`/sequences/${testSequence.id}/cast/${testCharacter.id}`);
@@ -299,11 +315,11 @@ testWithUser.describe('Character Recast', () => {
       await expect(talentDialog.getByText('Select Talent')).toBeVisible();
 
       // Select the second talent (use variable name)
-      await page.getByText(testTalents[1].name).click();
+      await page.getByText(secondTalent.name).click();
 
       // Recast confirmation dialog should appear (use regex with variable)
       await expect(
-        page.getByText(new RegExp(`Recast ${testTalents[1].name} as John`, 'i'))
+        page.getByText(new RegExp(`Recast ${secondTalent.name} as John`, 'i'))
       ).toBeVisible();
 
       // Confirm the recast
@@ -312,7 +328,7 @@ testWithUser.describe('Character Recast', () => {
       // The confirmation dialog should close (loading state may briefly appear)
       // With mocks, the mutation should complete quickly
       await expect(
-        page.getByText(new RegExp(`Recast ${testTalents[1].name} as John`, 'i'))
+        page.getByText(new RegExp(`Recast ${secondTalent.name} as John`, 'i'))
       ).not.toBeVisible({ timeout: 10000 });
 
       // Verify the database was updated - character now linked to second talent
@@ -324,7 +340,7 @@ testWithUser.describe('Character Recast', () => {
           },
           { timeout: 20_000 }
         )
-        .toBe(testTalents[1].id);
+        .toBe(secondTalent.id);
     }
   );
 });

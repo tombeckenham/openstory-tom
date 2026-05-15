@@ -115,7 +115,7 @@ export const visualPromptSceneWorkflow = createScopedWorkflow<
           frameId,
           promptType: 'visual',
           text: result.visual.fullPrompt,
-          components: result.visual.components ?? null,
+          components: result.visual.components,
           source,
           inputHash,
           analysisModel: analysisModelId,

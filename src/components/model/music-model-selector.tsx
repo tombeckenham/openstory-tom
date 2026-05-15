@@ -24,7 +24,9 @@ export const MusicModelSelector: React.FC<MusicModelSelectorProps> = ({
       Object.entries(AUDIO_MODELS)
         .filter(([key, m]) => {
           if (!isValidAudioModel(key)) return false;
-          // Only show music models, not SFX
+          // Only show music models, not SFX. All current entries are 'music',
+          // but keep the check so adding an SFX model can't accidentally appear here.
+          // oxlint-disable-next-line typescript/no-unnecessary-condition
           return m.type === 'music';
         })
         .sort(([, a], [, b]) => a.qualityRank - b.qualityRank)

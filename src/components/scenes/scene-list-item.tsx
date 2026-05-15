@@ -90,7 +90,7 @@ const SceneListItemComponent: React.FC<SceneListItemProps> = ({
         >
           <DivergentAlternateBanner
             density="corner-dot"
-            variantId={divergentVariantId ?? ''}
+            variantId={divergentVariantId}
             artifact="thumbnail"
             entityType="frame"
             onCompare={() => onCompareDivergent?.()}

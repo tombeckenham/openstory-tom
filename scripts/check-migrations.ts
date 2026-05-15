@@ -96,7 +96,10 @@ function buildCascadeMap(): Map<string, number> {
       /export\s+const\s+(\w+)\s*=\s*sqliteTable\s*\(\s*['"]([^'"]+)['"]/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(content)) !== null) {
-      varToTable.set(m[1], m[2]);
+      const varName = m[1];
+      const tableName = m[2];
+      if (!varName || !tableName) continue;
+      varToTable.set(varName, tableName);
     }
   }
 
@@ -106,7 +109,9 @@ function buildCascadeMap(): Map<string, number> {
       /references\s*\(\s*\(\s*\)\s*=>\s*(\w+)\.\w+\s*,\s*\{[^}]*onDelete\s*:\s*['"]cascade['"]/gs;
     let m: RegExpExecArray | null;
     while ((m = re.exec(content)) !== null) {
-      const parentTable = varToTable.get(m[1]);
+      const varName = m[1];
+      if (!varName) continue;
+      const parentTable = varToTable.get(varName);
       if (!parentTable) continue;
       cascadesByParent.set(
         parentTable,
@@ -129,11 +134,14 @@ function findDestructiveOperations(
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (line === undefined) continue;
     for (const { pattern, name } of DESTRUCTIVE_PATTERNS) {
       pattern.lastIndex = 0;
       let match: RegExpExecArray | null;
       while ((match = pattern.exec(line)) !== null) {
-        const table = match[1].replace(/[`"[\]]/g, '');
+        const rawTable = match[1];
+        if (!rawTable) continue;
+        const table = rawTable.replace(/[`"[\]]/g, '');
         // __new_X are intra-migration scratch tables, not real concerns.
         if (table.startsWith('__new_')) continue;
         operations.push({
@@ -185,12 +193,9 @@ function main(): void {
   const allOps: Array<DestructiveOperation & { migrationDir: string }> = [];
   for (const filePath of targets) {
     if (!existsSync(filePath)) continue;
-    const dir = filePath.includes('/drizzle/migrations/')
-      ? filePath
-          .split('/drizzle/migrations/')[1]
-          .split('/')[0]
-          .replace(/\.sql$/, '')
-      : 'unknown';
+    const afterMigrations = filePath.split('/drizzle/migrations/')[1];
+    const firstSegment = afterMigrations?.split('/')[0];
+    const dir = firstSegment ? firstSegment.replace(/\.sql$/, '') : 'unknown';
     for (const op of findDestructiveOperations(filePath, cascadesByParent)) {
       allOps.push({ ...op, migrationDir: dir });
     }

@@ -34,6 +34,5 @@ export const getDb = (): Database => {
 function buildDb(d1: D1Database) {
   return drizzle(d1, {
     relations,
-    casing: 'snake_case',
   });
 }

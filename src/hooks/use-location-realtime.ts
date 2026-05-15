@@ -89,6 +89,8 @@ export function useLocationSheetRealtime(locationId?: string) {
         return;
       }
 
+      // Defensive narrow — discriminated union currently has 2 arms, this guards adding a 3rd.
+      // oxlint-disable-next-line typescript/no-unnecessary-condition
       if (event.event !== 'location.sheet:progress') return;
       const sheetData = event.data;
       if (sheetData.locationId !== locationId) return;

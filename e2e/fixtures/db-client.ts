@@ -18,12 +18,10 @@ const initPromise = (async () => {
 /**
  * Drizzle database instance for e2e tests
  * Uses test.db (same as e2e dev server)
- * Configured with same relations/casing as production
  */
 export const testDb = drizzle({
   client,
   relations,
-  casing: 'snake_case',
 });
 
 /**

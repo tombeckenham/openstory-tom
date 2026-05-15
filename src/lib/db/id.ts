@@ -66,7 +66,11 @@ export function getTimestampFromId(id: string): number {
   let value = 0;
 
   for (let i = 0; i < timeComponent.length; i++) {
-    value = value * 32 + chars.indexOf(timeComponent[i]);
+    const char = timeComponent[i];
+    if (char === undefined) {
+      throw new Error(`Invalid ULID: character at index ${i} is undefined`);
+    }
+    value = value * 32 + chars.indexOf(char);
   }
 
   return value;

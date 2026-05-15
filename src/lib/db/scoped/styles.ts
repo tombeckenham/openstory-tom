@@ -48,10 +48,14 @@ export function createStylesMethods(
     create: async (
       data: Omit<NewStyle, 'teamId' | 'createdBy'>
     ): Promise<Style> => {
-      const [style] = await db
+      const result = await db
         .insert(styles)
         .values({ ...data, teamId, createdBy: userId })
         .returning();
+      const style = result[0];
+      if (!style) {
+        throw new Error(`Failed to create Style for team ${teamId}`);
+      }
       return style;
     },
 

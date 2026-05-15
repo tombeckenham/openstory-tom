@@ -32,43 +32,49 @@ const mockLocationEntry: LocationBibleEntry = {
   },
 };
 
+const officeLocation: SequenceLocationMinimal = {
+  id: 'loc-1',
+  locationId: 'loc_001',
+  name: 'INT. OFFICE - DAY',
+  referenceImageUrl: 'https://example.com/office.png',
+  referenceStatus: 'completed',
+  description: 'A modern corporate office with glass walls',
+  consistencyTag: 'office_modern_glass',
+  referenceInputHash: null,
+};
+
+const streetLocation: SequenceLocationMinimal = {
+  id: 'loc-2',
+  locationId: 'loc_002',
+  name: 'EXT. STREET - NIGHT',
+  referenceImageUrl: 'https://example.com/street.png',
+  referenceStatus: 'completed',
+  description: 'A busy city street at night',
+  consistencyTag: 'city_street_night',
+  referenceInputHash: null,
+};
+
+const apartmentLocation: SequenceLocationMinimal = {
+  id: 'loc-3',
+  locationId: 'loc_003',
+  name: 'INT. APARTMENT - EVENING',
+  referenceImageUrl: null,
+  referenceStatus: 'pending',
+  description: 'A cozy apartment',
+  consistencyTag: 'apartment_cozy',
+  referenceInputHash: null,
+};
+
 const mockLocations: SequenceLocationMinimal[] = [
-  {
-    id: 'loc-1',
-    locationId: 'loc_001',
-    name: 'INT. OFFICE - DAY',
-    referenceImageUrl: 'https://example.com/office.png',
-    referenceStatus: 'completed',
-    description: 'A modern corporate office with glass walls',
-    consistencyTag: 'office_modern_glass',
-    referenceInputHash: null,
-  },
-  {
-    id: 'loc-2',
-    locationId: 'loc_002',
-    name: 'EXT. STREET - NIGHT',
-    referenceImageUrl: 'https://example.com/street.png',
-    referenceStatus: 'completed',
-    description: 'A busy city street at night',
-    consistencyTag: 'city_street_night',
-    referenceInputHash: null,
-  },
-  {
-    id: 'loc-3',
-    locationId: 'loc_003',
-    name: 'INT. APARTMENT - EVENING',
-    referenceImageUrl: null,
-    referenceStatus: 'pending',
-    description: 'A cozy apartment',
-    consistencyTag: 'apartment_cozy',
-    referenceInputHash: null,
-  },
+  officeLocation,
+  streetLocation,
+  apartmentLocation,
 ];
 
 describe('location-prompt', () => {
   describe('buildLocationDescription', () => {
     it('should build description from location name and description', () => {
-      const desc = buildLocationDescription(mockLocations[0]);
+      const desc = buildLocationDescription(officeLocation);
       expect(desc).toBe(
         'INT. OFFICE - DAY - A modern corporate office with glass walls'
       );
@@ -76,7 +82,7 @@ describe('location-prompt', () => {
 
     it('should return just name if no description', () => {
       const location: SequenceLocationMinimal = {
-        ...mockLocations[0],
+        ...officeLocation,
         description: null,
       };
       const desc = buildLocationDescription(location);
@@ -88,18 +94,22 @@ describe('location-prompt', () => {
     it('should only include locations with reference images', () => {
       const refs = buildLocationReferenceImages(mockLocations);
       expect(refs).toHaveLength(2);
-      expect(refs[0].referenceImageUrl).toBe('https://example.com/office.png');
-      expect(refs[1].referenceImageUrl).toBe('https://example.com/street.png');
+      const [first, second] = refs;
+      if (!first || !second) throw new Error('test setup: refs missing');
+      expect(first.referenceImageUrl).toBe('https://example.com/office.png');
+      expect(second.referenceImageUrl).toBe('https://example.com/street.png');
     });
 
     it('should return empty array for locations without images', () => {
-      const refs = buildLocationReferenceImages([mockLocations[2]]);
+      const refs = buildLocationReferenceImages([apartmentLocation]);
       expect(refs).toHaveLength(0);
     });
 
     it('should include description in reference', () => {
-      const refs = buildLocationReferenceImages([mockLocations[0]]);
-      expect(refs[0].description).toContain('INT. OFFICE');
+      const refs = buildLocationReferenceImages([officeLocation]);
+      const [first] = refs;
+      if (!first) throw new Error('test setup: ref missing');
+      expect(first.description).toContain('INT. OFFICE');
     });
   });
 
@@ -119,7 +129,7 @@ describe('location-prompt', () => {
     it('should return original prompt if no locations have images', () => {
       const basePrompt = 'A wide shot of an apartment';
       const result = buildPromptWithLocationReferences(basePrompt, [
-        mockLocations[2],
+        apartmentLocation,
       ]);
 
       expect(result.prompt).toBe(basePrompt);

@@ -18,7 +18,7 @@ import { type InferInsertModel, type InferSelectModel, sql } from 'drizzle-orm';
 import {
   index,
   integer,
-  sqliteTable,
+  snakeCase,
   text,
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
@@ -49,43 +49,43 @@ export const PROMPT_VARIANT_SOURCES = [
 ] as const;
 export type PromptVariantSource = (typeof PROMPT_VARIANT_SOURCES)[number];
 
-export const framePromptVariants = sqliteTable(
+export const framePromptVariants = snakeCase.table(
   'frame_prompt_variants',
   {
     id: text()
       .$defaultFn(() => generateId())
       .primaryKey()
       .notNull(),
-    frameId: text('frame_id')
+    frameId: text()
       .notNull()
       .references(() => frames.id, { onDelete: 'cascade' }),
-    promptType: text('prompt_type').$type<FramePromptType>().notNull(),
+    promptType: text().$type<FramePromptType>().notNull(),
 
     // Full prompt text (mirrors the cached column on `frames`).
-    text: text('text').notNull(),
+    text: text().notNull(),
     // Structured prompt components (when available — visual prompts split into
     // composition / lighting / etc.; user-edits may not have components).
-    components: text('components', {
+    components: text({
       mode: 'json',
     }).$type<FramePromptVariantComponents>(),
     // Motion-only: timing / speed / camera parameters. Visual rows store null.
-    parameters: text('parameters', {
+    parameters: text({
       mode: 'json',
     }).$type<MotionPromptParameters>(),
 
-    source: text('source').$type<PromptVariantSource>().notNull(),
+    source: text().$type<PromptVariantSource>().notNull(),
 
     // SHA-256 of the upstream context that produced an AI prompt; null for
     // user-edits since they have no upstream input surface.
-    inputHash: text('input_hash'),
+    inputHash: text(),
 
     // Analysis model that produced the prompt (null for user-edits).
-    analysisModel: text('analysis_model', { length: 100 }),
+    analysisModel: text({ length: 100 }),
 
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
-    createdBy: text('created_by').references(() => user.id, {
+    createdBy: text().references(() => user.id, {
       onDelete: 'set null',
     }),
   },

@@ -4,7 +4,7 @@
  *
  * Uses the /raw endpoint exclusively so results come back as positional
  * arrays — required by drizzle-orm/sqlite-proxy's mapResultRow when
- * casing: 'snake_case' is enabled.
+ * tables are declared via snakeCase.table().
  */
 
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
@@ -64,5 +64,5 @@ export function createD1HttpClient(opts: {
     return { rows: rawResult.rows };
   };
 
-  return drizzle(remoteCallback, { relations, casing: 'snake_case' });
+  return drizzle(remoteCallback, { relations });
 }

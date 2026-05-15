@@ -27,7 +27,6 @@ export function createCharactersMethods(db: Database) {
       .where(eq(characters.id, id))
       .returning();
 
-    // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: DB query may return undefined
     if (!character) {
       throw new Error(`SequenceCharacter ${id} not found`);
     }
@@ -133,6 +132,11 @@ export function createCharactersMethods(db: Database) {
           },
         })
         .returning();
+      if (!character) {
+        throw new Error(
+          `Failed to create Character for sequence ${data.sequenceId} (characterId ${data.characterId})`
+        );
+      }
       return character;
     },
 
@@ -219,7 +223,6 @@ export function createCharactersMethods(db: Database) {
         .where(eq(characters.id, characterId))
         .returning();
 
-      // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: DB query may return undefined
       if (!character) {
         throw new Error(`Character ${characterId} not found`);
       }
@@ -235,10 +238,11 @@ export function createCharactersMethods(db: Database) {
         .select({ hash: characters.sheetInputHash })
         .from(characters)
         .where(eq(characters.id, characterId));
-      if (result.length === 0) {
+      const row = result[0];
+      if (!row) {
         throw new Error(`Character ${characterId} not found`);
       }
-      const stored = result[0].hash;
+      const stored = row.hash;
       if (stored === null) return false;
       return currentHash !== stored;
     },
@@ -253,7 +257,6 @@ export function createCharactersMethods(db: Database) {
         .from(characters)
         .where(eq(characters.id, characterId));
       const character = charResult[0] ?? null;
-      // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: DB query may return undefined
       if (!character || character.sequenceId !== sequenceId) {
         return [];
       }
@@ -281,7 +284,6 @@ export function createCharactersMethods(db: Database) {
         .from(characters)
         .where(eq(characters.id, characterId));
       const character = charResult[0] ?? null;
-      // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: DB query may return undefined
       if (!character || character.sequenceId !== sequenceId) {
         return [];
       }

@@ -94,6 +94,9 @@ export async function getSystemLocationByName(
     );
   }
   const found = rows[0];
+  if (!found) {
+    throw new Error('test setup: expected location row');
+  }
   return {
     id: found.id,
     name: found.name,

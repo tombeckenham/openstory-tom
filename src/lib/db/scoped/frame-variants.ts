@@ -112,6 +112,11 @@ export function createFrameVariantsMethods(db: Database) {
           },
         })
         .returning();
+      if (!variant) {
+        throw new Error(
+          `Failed to upsert FrameVariant for frame ${data.frameId} (${data.variantType}/${data.model})`
+        );
+      }
       return variant;
     },
 
@@ -183,10 +188,16 @@ export function createFrameVariantsMethods(db: Database) {
             sql`${frameVariants.divergedAt} IS NOT NULL`
           )
         );
-      if (existing.length > 0) {
-        return existing[0];
+      const existingRow = existing[0];
+      if (existingRow) {
+        return existingRow;
       }
       const [variant] = await db.insert(frameVariants).values(data).returning();
+      if (!variant) {
+        throw new Error(
+          `Failed to insert divergent FrameVariant for frame ${data.frameId} (${data.variantType}/${data.model})`
+        );
+      }
       return variant;
     },
 
@@ -198,10 +209,11 @@ export function createFrameVariantsMethods(db: Database) {
         .select({ hash: frameVariants.inputHash })
         .from(frameVariants)
         .where(eq(frameVariants.id, variantId));
-      if (result.length === 0) {
+      const row = result[0];
+      if (!row) {
         throw new Error(`FrameVariant ${variantId} not found`);
       }
-      const stored = result[0].hash;
+      const stored = row.hash;
       if (stored === null) return false;
       return currentHash !== stored;
     },
@@ -313,13 +325,14 @@ export function createFrameVariantsMethods(db: Database) {
       // the row was deleted between the pre-check and the batch — surface
       // it so the caller sees the inconsistency rather than silently
       // discarding a nonexistent variant or "promoting" with no live frame.
-      if (frameRows.length === 0) {
+      const promotedFrame = frameRows[0];
+      if (!promotedFrame) {
         throw new Error(`Frame ${frameId} disappeared during promote`);
       }
       if (variantRows.length === 0) {
         throw new Error(`FrameVariant ${variantId} disappeared during promote`);
       }
-      return { frame: frameRows[0], discardedAt: now };
+      return { frame: promotedFrame, discardedAt: now };
     },
 
     /**

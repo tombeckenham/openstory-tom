@@ -54,7 +54,7 @@ async function seedFixtures() {
 
 beforeAll(async () => {
   client = createClient({ url: ':memory:' });
-  db = drizzle({ client, relations, casing: 'snake_case' });
+  db = drizzle({ client, relations });
   await migrate(db, { migrationsFolder: './drizzle/migrations' });
 });
 
@@ -72,6 +72,7 @@ describe('talent v1 RQB OR predicate (cross-tenant isolation)', () => {
       .insert(talent)
       .values({ teamId: teamA.id, name: 'A-private', isPublic: false })
       .returning();
+    if (!own) throw new Error('Failed to insert own talent');
 
     const found = await db.query.talent.findFirst({
       where: {
@@ -88,6 +89,7 @@ describe('talent v1 RQB OR predicate (cross-tenant isolation)', () => {
       .insert(talent)
       .values({ teamId: teamC.id, name: 'C-public', isPublic: true })
       .returning();
+    if (!pub) throw new Error('Failed to insert public talent');
 
     const found = await db.query.talent.findFirst({
       where: {
@@ -104,6 +106,7 @@ describe('talent v1 RQB OR predicate (cross-tenant isolation)', () => {
       .insert(talent)
       .values({ teamId: teamB.id, name: 'B-private', isPublic: false })
       .returning();
+    if (!other) throw new Error('Failed to insert other team talent');
 
     const found = await db.query.talent.findFirst({
       where: {
@@ -122,6 +125,7 @@ describe('talent v1 RQB OR predicate (cross-tenant isolation)', () => {
       .insert(talent)
       .values({ teamId: teamB.id, name: 'B-private', isPublic: false })
       .returning();
+    if (!other) throw new Error('Failed to insert other team talent');
 
     // Sanity: the row exists when queried unscoped.
     const unscoped = await db.query.talent.findFirst({

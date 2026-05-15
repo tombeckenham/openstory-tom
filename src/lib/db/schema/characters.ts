@@ -7,7 +7,7 @@ import { type InferInsertModel, type InferSelectModel } from 'drizzle-orm';
 import {
   index,
   integer,
-  sqliteTable,
+  snakeCase,
   text,
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
@@ -28,51 +28,48 @@ export type SheetStatus = (typeof SHEET_STATUSES)[number];
  * Stores characters extracted from a sequence's script with their generated reference sheets
  * and optional casting assignment to talent
  */
-export const characters = sqliteTable(
+export const characters = snakeCase.table(
   'characters',
   {
     id: text()
       .$defaultFn(() => generateId())
       .primaryKey()
       .notNull(),
-    sequenceId: text('sequence_id')
+    sequenceId: text()
       .notNull()
       .references(() => sequences.id, { onDelete: 'cascade' }),
     // Casting assignment (which talent plays this character)
-    talentId: text('talent_id').references(() => talent.id, {
+    talentId: text().references(() => talent.id, {
       onDelete: 'set null',
     }),
     // From script analysis
-    characterId: text('character_id').notNull(), // e.g. "char_001" from script analysis
+    characterId: text().notNull(), // e.g. "char_001" from script analysis
     name: text({ length: 255 }).notNull(),
     // Flattened character bible fields (previously in metadata JSON)
     age: text(), // Can be "30s" or "35"; nullable — LLM may omit
     gender: text(),
     ethnicity: text(),
-    physicalDescription: text('physical_description'),
-    standardClothing: text('standard_clothing'),
-    distinguishingFeatures: text('distinguishing_features'),
-    consistencyTag: text('consistency_tag'), // e.g. "char_001: Jack-denim-jacket"
+    physicalDescription: text(),
+    standardClothing: text(),
+    distinguishingFeatures: text(),
+    consistencyTag: text(), // e.g. "char_001: Jack-denim-jacket"
     // First appearance in script
-    firstMentionSceneId: text('first_mention_scene_id'),
-    firstMentionText: text('first_mention_text'),
-    firstMentionLine: integer('first_mention_line'),
+    firstMentionSceneId: text(),
+    firstMentionText: text(),
+    firstMentionLine: integer(),
     // Character sheet image (full body turnaround)
-    sheetImageUrl: text('sheet_image_url'),
-    sheetImagePath: text('sheet_image_path'), // R2 storage path
+    sheetImageUrl: text(),
+    sheetImagePath: text(), // R2 storage path
     // Generation status tracking
-    sheetStatus: text('sheet_status')
-      .$type<SheetStatus>()
-      .default('pending')
-      .notNull(),
-    sheetGeneratedAt: integer('sheet_generated_at', { mode: 'timestamp' }),
-    sheetError: text('sheet_error'),
-    sheetInputHash: text('sheet_input_hash'),
+    sheetStatus: text().$type<SheetStatus>().default('pending').notNull(),
+    sheetGeneratedAt: integer({ mode: 'timestamp' }),
+    sheetError: text(),
+    sheetInputHash: text(),
     // Timestamps
-    createdAt: integer('created_at', { mode: 'timestamp' })
+    createdAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
-    updatedAt: integer('updated_at', { mode: 'timestamp' })
+    updatedAt: integer({ mode: 'timestamp' })
       .$defaultFn(() => new Date())
       .notNull(),
   },

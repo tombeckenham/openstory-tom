@@ -11,13 +11,14 @@
 
 import { callLLMStream } from '@/lib/ai/llm-client';
 import { getContextWindow } from '@/lib/ai/models.config';
-import { sceneSplittingResultSchema } from '@/lib/ai/response-schemas';
+import {
+  type SceneSplittingResult,
+  sceneSplittingResultSchema,
+} from '@/lib/ai/response-schemas';
 import {
   createStreamingSceneParser,
   type SceneSplittingScene,
-  stripCodeFences,
 } from '@/lib/ai/streaming-scene-parser';
-import { parse } from 'partial-json';
 import { ZERO_MICROS } from '@/lib/billing/money';
 import { deductWorkflowCredits } from '@/lib/billing/workflow-deduction';
 import type { NewFrame } from '@/lib/db/schema';
@@ -110,8 +111,9 @@ export const sceneSplitWorkflow = createScopedWorkflow<
         let chunkCount = 0;
         let prevScene: SceneSplittingScene | undefined = undefined;
         let prevFrameId: string | undefined = undefined;
+        let parsedResult: SceneSplittingResult | undefined;
         // Stream the LLM response
-        for await (const chunk of callLLMStream({
+        for await (const chunk of callLLMStream<SceneSplittingResult>({
           model: modelId,
           messages: messages,
           max_tokens: Math.floor(getContextWindow(modelId) * 0.65),
@@ -124,6 +126,9 @@ export const sceneSplitWorkflow = createScopedWorkflow<
           userId: input.userId,
           sessionId: input.sequenceId,
         })) {
+          if (chunk.done && chunk.parsed !== undefined) {
+            parsedResult = chunk.parsed;
+          }
           chunkCount++;
           finalText = chunk.accumulated;
           const events = parser.feed(chunk.accumulated);
@@ -316,11 +321,15 @@ export const sceneSplitWorkflow = createScopedWorkflow<
           );
         }
 
-        // Parse final accumulated text with full schema (use partial-json
-        // so a truncated stream doesn't crash — Zod still validates the shape)
-        const parsed = sceneSplittingResultSchema.parse(
-          parse(stripCodeFences(finalText))
-        );
+        if (!parsedResult) {
+          throw new Error(
+            `[Stream:${logName}] Stream ended without a validated structured-output payload. ` +
+              `chunks=${chunkCount} chars=${finalText.length} ` +
+              `streamedScenes=${frameMapping.length} model=${modelId}. ` +
+              `Likely cause: provider did not honor responseFormat:json_schema.`
+          );
+        }
+        const parsed = parsedResult;
         console.log(
           `[Stream:${logName}] Complete | ${chunkCount} chunks | ${parsed.scenes.length} scenes | ${finalText.length} chars`
         );

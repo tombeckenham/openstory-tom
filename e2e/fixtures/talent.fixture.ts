@@ -151,12 +151,12 @@ export async function getSystemTalentByName(name: string): Promise<TestTalent> {
     .from(talent)
     .where(and(eq(talent.name, name), eq(talent.isPublic, true)))
     .limit(1);
-  if (rows.length === 0) {
+  const found = rows[0];
+  if (!found) {
     throw new Error(
       `System talent "${name}" not found in test DB — was \`bun scripts/seed.ts --test\` run during global setup?`
     );
   }
-  const found = rows[0];
   const sheets = await testDb
     .select()
     .from(talentSheets)
@@ -164,7 +164,8 @@ export async function getSystemTalentByName(name: string): Promise<TestTalent> {
       and(eq(talentSheets.talentId, found.id), eq(talentSheets.isDefault, true))
     )
     .limit(1);
-  if (sheets.length === 0) {
+  const defaultSheet = sheets[0];
+  if (!defaultSheet) {
     throw new Error(
       `System talent "${name}" has no default sheet — re-run seed`
     );
@@ -173,6 +174,6 @@ export async function getSystemTalentByName(name: string): Promise<TestTalent> {
     id: found.id,
     name: found.name,
     teamId: found.teamId,
-    sheetId: sheets[0].id,
+    sheetId: defaultSheet.id,
   };
 }

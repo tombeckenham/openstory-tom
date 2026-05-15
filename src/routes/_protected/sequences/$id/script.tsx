@@ -15,10 +15,11 @@ function ScriptPage() {
     useSequence(sequenceId);
 
   const handleSuccess = (sequenceIds: string[]) => {
-    if (sequenceIds.length > 0) {
+    const [firstId] = sequenceIds;
+    if (firstId) {
       void navigate({
         to: '/sequences/$id/scenes',
-        params: { id: sequenceIds[0] },
+        params: { id: firstId },
       });
     }
   };

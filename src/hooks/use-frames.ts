@@ -688,8 +688,9 @@ export function useFramePreviewStatus(frames: Frame[]) {
   }, [frames]);
 
   // Auto-refresh frames list when there are frames potentially generating previews
+  const firstFrame = frames[0];
   const { data: refreshedFrames = frames } = useFramesBySequence(
-    frames.length > 0 ? frames[0].sequenceId : '',
+    firstFrame ? firstFrame.sequenceId : '',
     {
       refetchInterval: framesNeedingPreviews.length > 0 ? 5000 : false, // Fallback poll
       staleTime: 500, // Shorter stale time for preview updates

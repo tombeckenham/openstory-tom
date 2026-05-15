@@ -155,7 +155,7 @@ export async function enhanceScript(
   const { prompt, compiled } = await getPrompt('script/enhance');
   const userPrompt = createUserPrompt(validatedOptions.originalScript);
 
-  const response = await callLLM({
+  const enhanced = await callLLM({
     model: RECOMMENDED_MODELS.structured,
     messages: [
       { role: 'system' as const, content: compiled },
@@ -169,13 +169,11 @@ export async function enhanceScript(
     apiKey: openRouterKey,
   });
 
-  if (!response) {
-    throw new Error('No response received from AI service');
-  }
+  // Security check still runs on text — scan the serialized output for
+  // injection patterns. callLLM already validated the schema upstream.
+  validateAIResponse(JSON.stringify(enhanced));
 
-  validateAIResponse(response);
-
-  return EnhancedScriptSchema.parse(JSON.parse(response));
+  return enhanced;
 }
 
 // In-memory sliding-window rate limiter

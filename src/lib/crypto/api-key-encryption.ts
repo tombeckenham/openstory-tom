@@ -125,7 +125,9 @@ export function getKeyHint(apiKey: string): string {
 function uint8ToBase64(bytes: Uint8Array): string {
   let binary = '';
   for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
+    const byte = bytes[i];
+    if (byte === undefined) throw new Error(`Byte at index ${i} is undefined`);
+    binary += String.fromCharCode(byte);
   }
   return btoa(binary);
 }

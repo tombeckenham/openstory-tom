@@ -83,7 +83,9 @@ export const SequenceTabs: React.FC<SequenceTabsProps> = ({ sequenceId }) => {
   const activeIndex = tabs.findIndex((tab) =>
     matchRoute({ to: tab.href, fuzzy: false })
   );
-  const activeHref = activeIndex >= 0 ? tabs[activeIndex].href : tabs[0].href;
+  const activeTab = activeIndex >= 0 ? tabs[activeIndex] : tabs[0];
+  if (!activeTab) return null;
+  const activeHref = activeTab.href;
 
   return (
     <>

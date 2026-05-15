@@ -19,13 +19,15 @@ export function sanitizeFailResponse(failResponse: unknown): string {
 
   // Extract inner message from QStash wrapper pattern
   const wrapperMatch = raw.match(/received:\s*'(.+)'$/s);
-  const message = wrapperMatch ? wrapperMatch[1].trim() : raw;
+  const innerMessage = wrapperMatch?.[1];
+  const message = innerMessage ? innerMessage.trim() : raw;
 
   // Map known CF error codes
   const codeMatch = message.match(/error code:\s*(\d+)/i);
-  if (codeMatch) {
-    const friendly = CF_ERROR_CODES[codeMatch[1]];
-    if (friendly) return `${friendly} (error code: ${codeMatch[1]})`;
+  const code = codeMatch?.[1];
+  if (code) {
+    const friendly = CF_ERROR_CODES[code];
+    if (friendly) return `${friendly} (error code: ${code})`;
   }
 
   // Truncate excessively long messages

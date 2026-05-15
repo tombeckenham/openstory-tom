@@ -22,7 +22,6 @@ const _db = drizzle({
   client: sqlite,
   relations,
   logger: false,
-  casing: 'snake_case',
 });
 
 export const getDb = () => _db;

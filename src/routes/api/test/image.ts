@@ -64,7 +64,9 @@ function pngChunk(type: string, data: Buffer): Buffer {
 function crc32(buf: Buffer): number {
   let c = 0xffffffff;
   for (let i = 0; i < buf.length; i++) {
-    c ^= buf[i];
+    const byte = buf[i];
+    if (byte === undefined) continue;
+    c ^= byte;
     for (let j = 0; j < 8; j++) {
       c = (c >>> 1) ^ (c & 1 ? 0xedb88320 : 0);
     }

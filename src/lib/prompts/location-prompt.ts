@@ -27,8 +27,8 @@ export const buildLocationDescription = (
   const parts: string[] = [];
 
   if (location.description) {
-    const descSummary = location.description.split(/[.,]/)[0].trim();
-    if (descSummary.length < 100) {
+    const descSummary = location.description.split(/[.,]/)[0]?.trim() ?? '';
+    if (descSummary.length > 0 && descSummary.length < 100) {
       parts.push(descSummary);
     }
   }

@@ -136,7 +136,9 @@ async function fetchAll(
   const blobs: Blob[] = [];
   for (let i = 0; i < urls.length; i++) {
     if (signal?.aborted) throw new Error('Browser merge aborted');
-    blobs.push(await fetchOne(urls[i], signal));
+    const url = urls[i];
+    if (!url) throw new Error(`expected url at index ${i}`);
+    blobs.push(await fetchOne(url, signal));
     onProgress?.({ phase, completed: i + 1, total: totalSteps });
   }
   return blobs;

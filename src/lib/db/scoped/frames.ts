@@ -105,6 +105,11 @@ export function createFramesMethods(db: Database) {
 
     create: async (data: NewFrame): Promise<Frame> => {
       const [frame] = await db.insert(frames).values(data).returning();
+      if (!frame) {
+        throw new Error(
+          `Failed to create frame for sequence ${data.sequenceId}`
+        );
+      }
       return frame;
     },
 
@@ -119,7 +124,6 @@ export function createFramesMethods(db: Database) {
         .where(eq(frames.id, frameId))
         .returning();
 
-      // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard: DB query may return undefined
       if (!frame && options?.throwOnMissing !== false) {
         throw new Error(`Frame ${frameId} not found`);
       }
@@ -140,6 +144,11 @@ export function createFramesMethods(db: Database) {
           },
         })
         .returning();
+      if (!frame) {
+        throw new Error(
+          `Failed to upsert frame for sequence ${data.sequenceId} at orderIndex ${data.orderIndex}`
+        );
+      }
       return frame;
     },
     delete: async (frameId: string): Promise<boolean> => {
@@ -205,6 +214,7 @@ export function createFramesMethods(db: Database) {
           .set({ orderIndex: frameOrder.order_index, updatedAt: new Date() })
           .where(eq(frames.id, frameOrder.id))
       );
+      if (!first) return;
       await db.batch([first, ...rest]);
     },
 
@@ -230,10 +240,11 @@ export function createFramesMethods(db: Database) {
         })
         .from(frames)
         .where(eq(frames.id, frameId));
-      if (result.length === 0) {
+      const row = result[0];
+      if (!row) {
         throw new Error(`Frame ${frameId} not found`);
       }
-      const stored = result[0].hash;
+      const stored = row.hash;
       if (stored === null) return false;
       return currentHash !== stored;
     },

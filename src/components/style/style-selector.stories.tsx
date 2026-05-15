@@ -16,16 +16,18 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const mockStyles = generateMockStyles(15);
+const firstMockStyle = mockStyles[0];
+if (!firstMockStyle) throw new Error('story setup: expected mock styles');
 
 export const Default: Story = {
   args: {
     styles: mockStyles,
-    selectedStyleId: mockStyles[0].id,
+    selectedStyleId: firstMockStyle.id,
     onStyleSelect: fn(),
   },
   render: function RenderDefault() {
     const [selectedStyleId, setSelectedStyleId] = useState<string | null>(
-      mockStyles[0].id
+      firstMockStyle.id
     );
 
     return (

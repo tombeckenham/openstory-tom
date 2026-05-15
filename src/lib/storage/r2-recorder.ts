@@ -177,7 +177,9 @@ export function tryReplay(fp: UploadFingerprint): ReplayResult {
   const fixture = readFixture(filePath);
   if (!fixture || fixture.entries.length === 0) return { type: 'miss' };
   if (fixture.entries.length === 1) {
-    return { type: 'hit', response: fixture.entries[0].response };
+    const entry = fixture.entries[0];
+    if (!entry) throw new Error('expected single fixture entry');
+    return { type: 'hit', response: entry.response };
   }
   return { type: 'need-body' };
 }

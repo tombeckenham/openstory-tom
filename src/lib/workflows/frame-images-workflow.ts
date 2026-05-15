@@ -261,7 +261,13 @@ export const frameImagesWorkflow = createScopedWorkflow<
         );
 
         // Return the primary (first) model's image URL
-        return modelResults[0];
+        const primaryImageUrl = modelResults[0];
+        if (!primaryImageUrl) {
+          throw new WorkflowValidationError(
+            `No image URLs returned for scene ${scene.sceneId}`
+          );
+        }
+        return primaryImageUrl;
       })
     );
 

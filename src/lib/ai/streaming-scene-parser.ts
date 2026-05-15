@@ -2,11 +2,11 @@
  * Streaming Scene Parser
  *
  * Incrementally extracts complete scenes from a partial JSON stream.
- * Uses partial-json to parse incomplete LLM output and emits events
- * as new scenes become fully parseable.
+ * Uses @tanstack/ai's parsePartialJSON to parse incomplete LLM output
+ * and emits events as new scenes become fully parseable.
  */
 
-import { parse } from 'partial-json';
+import { parsePartialJSON } from '@tanstack/ai';
 import { z } from 'zod';
 import {
   type CharacterBibleEntry,
@@ -64,12 +64,8 @@ export function createStreamingSceneParser() {
     feed(accumulated: string): StreamedSceneEvent[] {
       const events: StreamedSceneEvent[] = [];
 
-      let raw: unknown;
-      try {
-        raw = parse(stripCodeFences(accumulated));
-      } catch {
-        return events;
-      }
+      const raw = parsePartialJSON(stripCodeFences(accumulated));
+      if (raw === undefined) return events;
 
       if (!isRecord(raw)) return events;
 

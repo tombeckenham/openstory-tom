@@ -13,10 +13,12 @@ import type { ScopedDb } from '../db/scoped';
 import { createAdapter } from './create-adapter';
 import { getContextWindow } from './models.config';
 
-type StreamChunk = {
+type StreamChunk<T = unknown> = {
   delta: string;
   accumulated: string;
   done: boolean;
+  /** Validated structured output, set only on the terminal chunk when responseSchema is provided. */
+  parsed?: T;
 };
 
 export type ProgressCallback = (progress: {
@@ -32,7 +34,7 @@ type ProviderPreference = {
   allow_fallbacks?: boolean;
 };
 
-export type LLMRequestParams = {
+export type LLMRequestParams<T = unknown> = {
   model: TextModel;
   messages: ChatMessage[];
   temperature?: number;
@@ -54,7 +56,7 @@ export type LLMRequestParams = {
   userId?: string;
   /** Session id for Langfuse trace grouping (typically sequenceId) */
   sessionId?: string;
-  responseSchema?: z.ZodTypeAny;
+  responseSchema?: z.ZodType<T>;
   apiKey?: string;
   /** OpenRouter plugins (e.g. web search) to enable for this request */
   plugins?: Array<{ id: 'web'; max_results?: number }>;
@@ -82,33 +84,6 @@ const STRUCTURED_OUTPUT_MODELS = new Set([
 
 export function modelSupportsStructuredOutputs(model: string): boolean {
   return STRUCTURED_OUTPUT_MODELS.has(model);
-}
-
-/**
- * Recursively strip `~standard` metadata that Zod v4's toJSONSchema() injects.
- * OpenRouter rejects it: "property '~standard' is not supported".
- */
-function stripZodMetadata(obj: unknown): unknown {
-  if (Array.isArray(obj)) return obj.map(stripZodMetadata);
-  if (obj && typeof obj === 'object') {
-    return Object.fromEntries(
-      Object.entries(obj)
-        .filter(([key]) => key !== '~standard')
-        .map(([key, value]) => [key, stripZodMetadata(value)])
-    );
-  }
-  return obj;
-}
-
-function buildResponseFormat(schema: z.ZodTypeAny, name: string) {
-  return {
-    type: 'json_schema' as const,
-    jsonSchema: {
-      name,
-      strict: true,
-      schema: stripZodMetadata(z.toJSONSchema(schema)),
-    },
-  };
 }
 
 const DEFAULT_PROVIDER: ProviderPreference = {
@@ -163,12 +138,6 @@ function buildModelOptions(params: LLMRequestParams) {
     provider: params.provider ?? DEFAULT_PROVIDER,
     frequency_penalty: params.frequency_penalty,
     presence_penalty: params.presence_penalty,
-    ...(params.responseSchema && {
-      responseFormat: buildResponseFormat(
-        params.responseSchema,
-        params.observationName ?? 'response'
-      ),
-    }),
     ...(params.plugins && { plugins: params.plugins }),
   };
 }
@@ -208,7 +177,16 @@ function baseChatOptions(params: LLMRequestParams) {
 }
 
 export async function callLLM(params: LLMRequestParams): Promise<string> {
-  if (params.responseSchema) validateStructuredOutputSupport(params.model);
+  if (params.responseSchema) {
+    validateStructuredOutputSupport(params.model);
+    const parsed = await chat({
+      ...baseChatOptions(params),
+      stream: false,
+      metadata: buildChatMetadata(params),
+      outputSchema: params.responseSchema,
+    });
+    return JSON.stringify(parsed);
+  }
 
   return chat({
     ...baseChatOptions(params),
@@ -217,36 +195,64 @@ export async function callLLM(params: LLMRequestParams): Promise<string> {
   });
 }
 
-export async function* callLLMStream(
-  params: LLMRequestParams
-): AsyncGenerator<StreamChunk> {
+export async function* callLLMStream<T = unknown>(
+  params: LLMRequestParams<T>
+): AsyncGenerator<StreamChunk<T>> {
   let accumulated = '';
+  let parsed: T | undefined;
 
-  // NOTE: outputSchema cannot be used here — @tanstack/ai forces stream:false when
-  // outputSchema is set. And modelOptions.response_format is not forwarded by the
-  // OpenRouter adapter. So streaming relies on the system prompt for JSON structure,
-  // with stripCodeFences + schema validation as the safety net.
-  const stream = chat({
+  const baseOptions = {
     ...baseChatOptions(params),
     metadata: buildChatMetadata(params),
     modelOptions: {
       ...buildModelOptions(params),
       streamOptions: { includeUsage: true },
     },
-    stream: true,
-  });
+    stream: true as const,
+  };
 
-  for await (const event of stream) {
-    if (event.type === 'TEXT_MESSAGE_CONTENT') {
-      accumulated += event.delta;
-      yield { delta: event.delta, accumulated, done: false };
+  const responseSchema = params.responseSchema;
+  if (responseSchema) {
+    validateStructuredOutputSupport(params.model);
+    for await (const event of chat({
+      ...baseOptions,
+      outputSchema: responseSchema,
+    })) {
+      if (
+        event.type === 'CUSTOM' &&
+        event.name === 'structured-output.complete'
+      ) {
+        parsed = responseSchema.parse(event.value.object);
+        continue;
+      }
+      if (
+        event.type === 'TEXT_MESSAGE_CONTENT' &&
+        typeof event.delta === 'string'
+      ) {
+        accumulated += event.delta;
+        yield { delta: event.delta, accumulated, done: false };
+      }
+      if (event.type === 'RUN_ERROR') {
+        const message =
+          typeof event.message === 'string'
+            ? event.message
+            : JSON.stringify(event.message);
+        throw new Error(`LLM stream error: ${message}`);
+      }
     }
-    if (event.type === 'RUN_ERROR') {
-      throw new Error(`LLM stream error: ${event.message}`);
+  } else {
+    for await (const event of chat(baseOptions)) {
+      if (event.type === 'TEXT_MESSAGE_CONTENT') {
+        accumulated += event.delta;
+        yield { delta: event.delta, accumulated, done: false };
+      }
+      if (event.type === 'RUN_ERROR') {
+        throw new Error(`LLM stream error: ${event.message}`);
+      }
     }
   }
 
-  yield { delta: '', accumulated, done: true };
+  yield { delta: '', accumulated, done: true, parsed };
 }
 
 export type DurableLLMCallConfig<TSchema extends z.ZodType> = {

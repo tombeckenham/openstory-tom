@@ -70,7 +70,7 @@
     "test:e2e:record": "E2E_RECORD=1 bun --bun playwright test",
     "test:e2e:full:record": "E2E_RECORD=1 PLAYWRIGHT_FULL_PIPELINE=true bun --bun playwright test full-sequence",
     "test:e2e:full:record:built": "bun run build:e2e && E2E_BUILT=true E2E_RECORD=1 PLAYWRIGHT_FULL_PIPELINE=true bun --bun playwright test full-sequence",
-    "test:e2e:setup": "bun --bun drizzle-kit migrate --config=drizzle.config.test.ts && bun --bun scripts/seed.ts --test",
+    "test:e2e:setup": "rm -f test.db && bun --bun drizzle-kit migrate --config=drizzle.config.test.ts && bun --bun scripts/seed.ts --test",
     "auth:generate": "bunx @better-auth/cli generate --config src/lib/auth/cli-config.ts",
     "db:generate": "bun --bun drizzle-kit generate --config=drizzle.config.local.ts",
     "db:migrate": "bun --bun drizzle-kit migrate --config=drizzle.config.local.ts",

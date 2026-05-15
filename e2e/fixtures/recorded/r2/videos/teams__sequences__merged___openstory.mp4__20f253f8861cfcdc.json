@@ -7,26 +7,26 @@
   "entries": [
     {
       "request": {
-        "key": "videos/teams/01KRMHKYTXRVDTB0QMQPXPXB77/sequences/01KRMHMYSHJEZTC361S01Q8QFG/merged/733YBQ2D_openstory.mp4",
-        "bodyHash": "8172f0d3b5c1c12c21b4fe3bf97062be1b05624ea8bdb881e92b3ee263269528",
-        "bodySize": 16971650
+        "key": "videos/teams/01KRMKS88ZRXB9Z8RAX8MSZKJ5/sequences/01KRMKTJ3HZZBFMFJEC5H25FVH/merged/2KEEFQ9W_openstory.mp4",
+        "bodyHash": "30ef5e9a560396e475f2b58873e7f9aeaae9a3e315930e59c45ab8024771070b",
+        "bodySize": 12107914
       },
       "response": {
-        "path": "videos/teams/01KRMHKYTXRVDTB0QMQPXPXB77/sequences/01KRMHMYSHJEZTC361S01Q8QFG/merged/733YBQ2D_openstory.mp4",
-        "publicUrl": "https://storage-dev.openstory.so/videos/teams/01KRMHKYTXRVDTB0QMQPXPXB77/sequences/01KRMHMYSHJEZTC361S01Q8QFG/merged/733YBQ2D_openstory.mp4",
-        "fullPath": "videos/teams/01KRMHKYTXRVDTB0QMQPXPXB77/sequences/01KRMHMYSHJEZTC361S01Q8QFG/merged/733YBQ2D_openstory.mp4"
+        "path": "videos/teams/01KRMKS88ZRXB9Z8RAX8MSZKJ5/sequences/01KRMKTJ3HZZBFMFJEC5H25FVH/merged/2KEEFQ9W_openstory.mp4",
+        "publicUrl": "https://storage-dev.openstory.so/videos/teams/01KRMKS88ZRXB9Z8RAX8MSZKJ5/sequences/01KRMKTJ3HZZBFMFJEC5H25FVH/merged/2KEEFQ9W_openstory.mp4",
+        "fullPath": "videos/teams/01KRMKS88ZRXB9Z8RAX8MSZKJ5/sequences/01KRMKTJ3HZZBFMFJEC5H25FVH/merged/2KEEFQ9W_openstory.mp4"
       }
     },
     {
       "request": {
-        "key": "videos/teams/01KRMHKYTXRVDTB0QMQPXPXB77/sequences/01KRMHMYSHJEZTC361S01Q8QFG/merged/AZ5NAMP3_openstory.mp4",
-        "bodyHash": "a3337b586ec843ca9873e3f014a4908a17c3dd6463a19d525fcd754d94abfd94",
-        "bodySize": 15367333
+        "key": "videos/teams/01KRMKS88ZRXB9Z8RAX8MSZKJ5/sequences/01KRMKTJ3HZZBFMFJEC5H25FVH/merged/60BQ4W4C_openstory.mp4",
+        "bodyHash": "d908ce4bd2d57185761dbd3915e2b1dd4aefc77dea4c33c464e2070dfa49e0e6",
+        "bodySize": 10995884
       },
       "response": {
-        "path": "videos/teams/01KRMHKYTXRVDTB0QMQPXPXB77/sequences/01KRMHMYSHJEZTC361S01Q8QFG/merged/AZ5NAMP3_openstory.mp4",
-        "publicUrl": "https://storage-dev.openstory.so/videos/teams/01KRMHKYTXRVDTB0QMQPXPXB77/sequences/01KRMHMYSHJEZTC361S01Q8QFG/merged/AZ5NAMP3_openstory.mp4",
-        "fullPath": "videos/teams/01KRMHKYTXRVDTB0QMQPXPXB77/sequences/01KRMHMYSHJEZTC361S01Q8QFG/merged/AZ5NAMP3_openstory.mp4"
+        "path": "videos/teams/01KRMKS88ZRXB9Z8RAX8MSZKJ5/sequences/01KRMKTJ3HZZBFMFJEC5H25FVH/merged/60BQ4W4C_openstory.mp4",
+        "publicUrl": "https://storage-dev.openstory.so/videos/teams/01KRMKS88ZRXB9Z8RAX8MSZKJ5/sequences/01KRMKTJ3HZZBFMFJEC5H25FVH/merged/60BQ4W4C_openstory.mp4",
+        "fullPath": "videos/teams/01KRMKS88ZRXB9Z8RAX8MSZKJ5/sequences/01KRMKTJ3HZZBFMFJEC5H25FVH/merged/60BQ4W4C_openstory.mp4"
       }
     }
   ]

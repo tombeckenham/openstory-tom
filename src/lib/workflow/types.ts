@@ -407,6 +407,14 @@ export interface VisualPromptSceneWorkflowInput extends SequenceWorkflowContext 
   styleConfig: StyleConfig;
   analysisModelId: AnalysisModelId;
   frameId?: string;
+  /**
+   * Stream incremental `fullPrompt` deltas over the per-frame realtime
+   * channel while the LLM generates. Set by the explicit "Regenerate Prompt"
+   * button so the active viewer sees the prompt fill in live; left unset by
+   * script-analysis / auto-staleness paths so we don't burn realtime
+   * publishes on workflows nobody is watching.
+   */
+  emitStreaming?: boolean;
 }
 
 export interface MotionPromptWorkflowInput extends SequenceWorkflowContext {
@@ -431,6 +439,8 @@ export interface MotionPromptSceneWorkflowInput extends SequenceWorkflowContext 
   styleConfig: StyleConfig;
   analysisModelId: AnalysisModelId;
   frameId?: string;
+  /** See {@link VisualPromptSceneWorkflowInput.emitStreaming}. */
+  emitStreaming?: boolean;
 }
 /**
  * Workflow result types

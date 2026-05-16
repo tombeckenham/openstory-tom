@@ -29,6 +29,7 @@ import { rescanContinuityFromPrompt } from '@/lib/scenes/rescan-continuity-from-
 import { triggerWorkflow } from '@/lib/workflow/client';
 import { buildWorkflowLabel } from '@/lib/workflow/labels';
 import type {
+  FrameImageSceneSnapshot,
   ImageWorkflowInput,
   StoryboardWorkflowInput,
   ShotVariantWorkflowInput,
@@ -37,7 +38,9 @@ import type {
 import {
   matchCharactersToScene,
   matchElementsToScene,
+  matchLocationsToScene,
 } from '@/lib/workflows/scene-matching';
+import { computeFrameImageSceneHash } from '@/lib/workflows/sheet-snapshots';
 import { createServerFn } from '@tanstack/react-start';
 import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
@@ -165,12 +168,20 @@ export const generateFrameImageFn = createServerFn({ method: 'POST' })
     const allCharacters = await context.scopedDb.characters.listWithSheets(
       sequence.id
     );
-    const characterReferences = buildCharacterReferenceImages(
-      matchCharactersToScene(allCharacters, continuity?.characterTags ?? [])
+    const matchedCharacters = matchCharactersToScene(
+      allCharacters,
+      continuity?.characterTags ?? []
     );
+    const characterReferences =
+      buildCharacterReferenceImages(matchedCharacters);
 
     const allLocations =
       await context.scopedDb.sequenceLocations.listWithReferences(sequence.id);
+    const matchedLocations = matchLocationsToScene(
+      allLocations,
+      continuity?.environmentTag ?? '',
+      frame.metadata?.metadata?.location ?? ''
+    );
     const locationReferences = getSceneLocationReferenceImages(
       allLocations,
       continuity?.environmentTag ?? '',
@@ -180,13 +191,12 @@ export const generateFrameImageFn = createServerFn({ method: 'POST' })
     const allElements = await context.scopedDb.sequenceElements.list(
       sequence.id
     );
-    const elementReferences = buildElementReferenceImages(
-      matchElementsToScene(
-        allElements,
-        continuity?.elementTags ?? [],
-        frame.metadata?.originalScript.extract ?? ''
-      )
+    const matchedElements = matchElementsToScene(
+      allElements,
+      continuity?.elementTags ?? [],
+      frame.metadata?.originalScript.extract ?? ''
     );
+    const elementReferences = buildElementReferenceImages(matchedElements);
 
     const model =
       data.model || safeTextToImageModel(frame.imageModel, DEFAULT_IMAGE_MODEL);
@@ -195,6 +205,36 @@ export const generateFrameImageFn = createServerFn({ method: 'POST' })
       context.scopedDb,
       estimateImageCost(model, sequence.aspectRatio, 1),
       { errorMessage: 'Insufficient credits for image generation' }
+    );
+
+    // Build a per-scene snapshot so the image workflow records a non-null
+    // `thumbnailInputHash`. Without this the convergent write path stores
+    // `null`, and the staleness check loses the ability to flip back to
+    // 'stale' on a future prompt regenerate. The sceneId fallback covers
+    // legacy frames generated before scene metadata was attached.
+    const sortedHashes = (
+      values: ReadonlyArray<string | null | undefined>
+    ): string[] =>
+      values
+        .filter((v): v is string => typeof v === 'string' && v.length > 0)
+        .sort();
+    const sceneSnapshot: FrameImageSceneSnapshot = {
+      sceneId: frame.metadata?.sceneId ?? frame.id,
+      visualPrompt: prompt,
+      characterSheetHashes: sortedHashes(
+        matchedCharacters.map((c) => c.sheetInputHash)
+      ),
+      locationSheetHashes: sortedHashes(
+        matchedLocations.map((l) => l.referenceInputHash)
+      ),
+      elementReferenceHashes: sortedHashes(
+        matchedElements.map((e) => e.imageUrl)
+      ),
+    };
+    const snapshotInputHash = await computeFrameImageSceneHash(
+      sceneSnapshot,
+      model,
+      sequence.aspectRatio
     );
 
     const workflowInput: ImageWorkflowInput = {
@@ -206,6 +246,9 @@ export const generateFrameImageFn = createServerFn({ method: 'POST' })
       numImages: 1,
       frameId: frame.id,
       sequenceId: sequence.id,
+      aspectRatio: sequence.aspectRatio,
+      sceneSnapshot,
+      snapshotInputHash,
       referenceImages: [
         ...characterReferences,
         ...locationReferences,

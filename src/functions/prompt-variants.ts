@@ -46,6 +46,20 @@ export function framePromptDedupId(
   return `prompt-${promptType}-${frameId}-${liveHash}`;
 }
 
+/**
+ * Unique deduplication ID for an explicit user-driven force-regeneration.
+ * Distinct from `framePromptDedupId` because the user is asking for a fresh
+ * LLM completion regardless of whether upstream inputs changed — collapsing
+ * repeat clicks to one run would silently swallow the regeneration.
+ */
+export function framePromptForceDedupId(
+  promptType: 'visual' | 'motion',
+  frameId: string,
+  nonce: string
+): string {
+  return `prompt-${promptType}-${frameId}-force-${nonce}`;
+}
+
 /** Stable deduplication ID for music-prompt regeneration — see above. */
 export function musicPromptDedupId(
   sequenceId: string,
@@ -176,6 +190,10 @@ const frameRegenerateInput = z.object({
   sequenceId: ulidSchema,
   frameId: ulidSchema,
   promptType: promptTypeSchema,
+  // `force: true` bypasses the up-to-date short-circuit so the user can roll
+  // the dice on a fresh non-deterministic LLM completion even when no upstream
+  // inputs have changed. The staleness-banner path leaves this unset.
+  force: z.boolean().optional(),
 });
 
 export const regenerateFramePromptFn = createServerFn({ method: 'POST' })
@@ -199,6 +217,10 @@ export const regenerateFramePromptFn = createServerFn({ method: 'POST' })
     // appends a no-op `'regenerated'` history row. Hash inputs are narrowed
     // to what this frame's continuity actually references; the workflow
     // downstream still gets the full bibles for LLM context.
+    //
+    // `force` skips this bail so an explicit user click always reaches the
+    // LLM — there's no other way to get a fresh non-deterministic completion
+    // when upstream inputs are unchanged.
     const narrowed = narrowFramePromptContext(ctx);
     const liveHash =
       data.promptType === 'visual'
@@ -208,10 +230,15 @@ export const regenerateFramePromptFn = createServerFn({ method: 'POST' })
       data.promptType === 'visual'
         ? frame.visualPromptInputHash
         : frame.motionPromptInputHash;
-    if (isPromptUpToDate(storedHash, liveHash)) {
+    if (!data.force && isPromptUpToDate(storedHash, liveHash)) {
       return { workflowRunId: null, alreadyUpToDate: true } as const;
     }
 
+    // Stream incremental deltas only on the explicit force-regen path — the
+    // user is actively watching the frame in that case. The auto-staleness
+    // path can land later when the user isn't viewing this frame, so we skip
+    // the realtime publishes to avoid burning Redis ops for a stream nobody
+    // is consuming.
     const baseInput:
       | VisualPromptSceneWorkflowInput
       | MotionPromptSceneWorkflowInput = {
@@ -227,6 +254,7 @@ export const regenerateFramePromptFn = createServerFn({ method: 'POST' })
       styleConfig: ctx.styleConfig,
       analysisModelId:
         getAnalysisModelById(ctx.analysisModel)?.id ?? DEFAULT_ANALYSIS_MODEL,
+      emitStreaming: data.force === true,
     };
 
     const urlPath =
@@ -234,11 +262,20 @@ export const regenerateFramePromptFn = createServerFn({ method: 'POST' })
         ? '/visual-prompt-scene'
         : '/motion-prompt-scene';
 
-    // Dedup by the live input hash so a QStash retry of the same upstream
-    // context collapses to one workflow run instead of N — `Date.now()` would
-    // defeat the deduplication entirely.
+    // Force-regen needs a unique dedup ID per click so QStash doesn't collapse
+    // repeat clicks into a single run — the user is explicitly asking for
+    // another LLM completion. The auto-staleness path keeps the stable
+    // hash-based ID so genuine retries collapse to one run.
+    const deduplicationId = data.force
+      ? framePromptForceDedupId(
+          data.promptType,
+          frame.id,
+          `${Date.now()}-${crypto.randomUUID()}`
+        )
+      : framePromptDedupId(data.promptType, frame.id, liveHash);
+
     const workflowRunId = await triggerWorkflow(urlPath, baseInput, {
-      deduplicationId: framePromptDedupId(data.promptType, frame.id, liveHash),
+      deduplicationId,
       label: buildWorkflowLabel(sequence.id),
     });
 

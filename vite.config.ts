@@ -21,28 +21,6 @@ const isE2EBuild = process.env.BUILD_E2E === '1';
 const e2eConditions = isE2EBuild ? ['e2e'] : [];
 
 /**
- * Bun's node:http shim wraps Bun.serve, whose idleTimeout defaults to 10s.
- * Bun maps Node's server.timeout (ms) onto Bun.serve idleTimeout (sec), so
- * setting it on the vite dev server lifts the dev-only "Bun.serve: request
- * timed out after 10 seconds." footgun without touching production. #681
- */
-function bunDevIdleTimeout(): import('vite').Plugin {
-  return {
-    name: 'bun-dev-idle-timeout',
-    apply: 'serve',
-    configureServer(server) {
-      const isBun =
-        typeof (globalThis as { Bun?: unknown }).Bun !== 'undefined';
-      if (!isBun) return;
-      server.httpServer?.once('listening', () => {
-        const httpServer = server.httpServer;
-        if (httpServer && 'timeout' in httpServer) httpServer.timeout = 240_000;
-      });
-    },
-  };
-}
-
-/**
  * Rolldown reorders CJS-to-ESM wrappers: tsyringe checks for
  * Reflect.getMetadata before reflect-metadata's factory runs.
  * This plugin moves the require_Reflect() call before the check.
@@ -94,7 +72,6 @@ export default defineConfig({
     contentCollections(),
     isDev && devtools(),
     reflectMetadataPolyfill(),
-    bunDevIdleTimeout(),
     tailwindcss(),
     process.env.BUILD_CLOUDFLARE
       ? cloudflare({ viteEnvironment: { name: 'ssr' } })

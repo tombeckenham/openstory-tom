@@ -10,12 +10,12 @@ import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
 import type { MotionPromptSceneWorkflowInput } from '@/lib/workflow/types';
 import { computeMotionPromptInputHash } from '../ai/input-hash';
 import { narrowFramePromptContext } from '../ai/prompt-context';
-import { getGenerationChannel } from '../realtime';
+import { getFramePromptChannel, getGenerationChannel } from '../realtime';
 import {
   type MotionPrompt,
   motionPromptSchema,
 } from '../ai/scene-analysis.schema';
-import { durableLLMCall } from './llm-call-helper';
+import { durableStreamingLLMCall } from './llm-call-helper';
 
 export const motionPromptSceneWorkflow = createScopedWorkflow<
   MotionPromptSceneWorkflowInput,
@@ -68,7 +68,8 @@ export const motionPromptSceneWorkflow = createScopedWorkflow<
         };
       }
     );
-    const motionPrompt = await durableLLMCall(
+    // See visual-prompt-scene-workflow for the streaming rationale.
+    const motionPrompt = await durableStreamingLLMCall(
       context,
       {
         name: 'motion-prompts',
@@ -85,6 +86,10 @@ export const motionPromptSceneWorkflow = createScopedWorkflow<
       {
         sequenceId,
         scopedDb,
+        framePromptStream:
+          input.emitStreaming && frameId
+            ? { frameId, promptType: 'motion' }
+            : undefined,
       }
     );
 
@@ -124,7 +129,14 @@ export const motionPromptSceneWorkflow = createScopedWorkflow<
         );
         const source = previous ? 'regenerated' : 'ai-generated';
 
-        await scopedDb.frames.update(frameId, { metadata: enrichedScene });
+        // Clear `frame.motionPrompt` user-override when regenerating; see
+        // the matching note in visual-prompt-scene-workflow.ts. The variant
+        // row below preserves the new prompt; the prior user override is
+        // restorable from the prompt-history sheet.
+        await scopedDb.frames.update(frameId, {
+          metadata: enrichedScene,
+          motionPrompt: null,
+        });
 
         await scopedDb.framePromptVariants.write({
           frameId,
@@ -145,6 +157,12 @@ export const motionPromptSceneWorkflow = createScopedWorkflow<
             metadata: enrichedScene,
           }
         );
+
+        if (input.emitStreaming) {
+          await getFramePromptChannel(frameId).emit('framePrompt.completed', {
+            promptType: 'motion',
+          });
+        }
       });
     }
     return { sceneId: scene.sceneId, motionPrompt };
@@ -157,6 +175,20 @@ export const motionPromptSceneWorkflow = createScopedWorkflow<
         failStatus,
         failResponse: error,
       });
+      try {
+        const payload = context.requestPayload;
+        if (payload.emitStreaming && payload.frameId) {
+          await getFramePromptChannel(payload.frameId).emit(
+            'framePrompt.failed',
+            { promptType: 'motion', error }
+          );
+        }
+      } catch (emitErr) {
+        console.warn(
+          '[MotionPromptSceneWorkflow] failed to emit failure',
+          emitErr
+        );
+      }
       return `Motion prompt generation failed: ${error}`;
     },
   }

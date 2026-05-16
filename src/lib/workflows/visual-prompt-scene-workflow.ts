@@ -14,8 +14,8 @@ import {
   type VisualPromptWithContinuity,
   visualPromptWithContinuitySchema,
 } from '../ai/scene-analysis.schema';
-import { getGenerationChannel } from '../realtime';
-import { durableLLMCall } from './llm-call-helper';
+import { getFramePromptChannel, getGenerationChannel } from '../realtime';
+import { durableStreamingLLMCall } from './llm-call-helper';
 
 export const visualPromptSceneWorkflow = createScopedWorkflow<
   VisualPromptSceneWorkflowInput,
@@ -37,7 +37,11 @@ export const visualPromptSceneWorkflow = createScopedWorkflow<
       sequenceId,
     } = input;
 
-    const result = await durableLLMCall(
+    // Streaming kicks in only when emitStreaming is set (force-regen path
+    // from the "Regenerate Prompt" button). For script-analysis the helper
+    // degrades to a plain durable call, so the auto-generation flows don't
+    // pay the realtime publish cost.
+    const result = await durableStreamingLLMCall(
       context,
       {
         name: 'visual-prompts',
@@ -69,6 +73,10 @@ export const visualPromptSceneWorkflow = createScopedWorkflow<
       {
         sequenceId,
         scopedDb,
+        framePromptStream:
+          input.emitStreaming && frameId
+            ? { frameId, promptType: 'visual' }
+            : undefined,
       }
     );
 
@@ -109,7 +117,17 @@ export const visualPromptSceneWorkflow = createScopedWorkflow<
         );
         const source = previous ? 'regenerated' : 'ai-generated';
 
-        await scopedDb.frames.update(frameId, { metadata: enrichedScene });
+        // Clear `frame.imagePrompt` user-override when regenerating. The
+        // override would otherwise mask the freshly regenerated prompt in
+        // every downstream read (effective-prompt fallback chain), so a
+        // regen-prompt click on a previously user-edited frame would do
+        // nothing visible. The variant row above preserves the new prompt;
+        // the user's prior override is still in the prompt-history sheet
+        // and can be restored from there.
+        await scopedDb.frames.update(frameId, {
+          metadata: enrichedScene,
+          imagePrompt: null,
+        });
 
         await scopedDb.framePromptVariants.write({
           frameId,
@@ -129,6 +147,14 @@ export const visualPromptSceneWorkflow = createScopedWorkflow<
             metadata: enrichedScene,
           }
         );
+
+        // Signal end-of-stream to the per-frame channel so the UI can swap
+        // out the streamed-deltas buffer for the persisted prompt.
+        if (input.emitStreaming) {
+          await getFramePromptChannel(frameId).emit('framePrompt.completed', {
+            promptType: 'visual',
+          });
+        }
       });
     }
 
@@ -142,6 +168,20 @@ export const visualPromptSceneWorkflow = createScopedWorkflow<
         failStatus,
         failResponse: error,
       });
+      // Surface the failure on the per-frame channel so an actively-viewing
+      // client can clear its streaming state and toast. Best-effort — the
+      // input isn't available here, so we read it off the workflow context.
+      try {
+        const payload = context.requestPayload;
+        if (payload.emitStreaming && payload.frameId) {
+          await getFramePromptChannel(payload.frameId).emit(
+            'framePrompt.failed',
+            { promptType: 'visual', error }
+          );
+        }
+      } catch (emitErr) {
+        console.warn('[VisualPromptWorkflow] failed to emit failure', emitErr);
+      }
       return `Visual prompt generation failed: ${error}`;
     },
   }

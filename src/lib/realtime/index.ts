@@ -32,6 +32,28 @@ export const realtimeSchema = {
     }),
   },
 
+  // Per-frame prompt regeneration events. Lives on its own channel
+  // (`frame-prompt:${frameId}`) so a client only pays the realtime cost while
+  // it's actually viewing the frame, and history replay rebuilds the
+  // streaming-text state for the active prompt type if the user navigates
+  // away and back mid-generation. The `delta` carries the incremental visible
+  // characters of the `fullPrompt` field — extraction happens server-side via
+  // `extractStreamingStringField` so the client doesn't have to parse partial
+  // JSON.
+  framePrompt: {
+    streaming: z.object({
+      promptType: z.enum(['visual', 'motion']),
+      delta: z.string(),
+    }),
+    completed: z.object({
+      promptType: z.enum(['visual', 'motion']),
+    }),
+    failed: z.object({
+      promptType: z.enum(['visual', 'motion']),
+      error: z.string(),
+    }),
+  },
+
   generation: {
     // Phase lifecycle events
     'phase:start': z.object({
@@ -300,6 +322,7 @@ function createRealtime() {
   return new Realtime({
     schema: realtimeSchema,
     redis,
+    maxDurationSecs: 10,
     history: {
       expireAfterSecs: 60 * 60 * 24 * 30, // 30 days
     },
@@ -357,4 +380,19 @@ export function getLocationChannel(locationId?: string) {
   return locationId
     ? getRealtime().channel(`location:${locationId}`)
     : noopChannel('location');
+}
+
+/**
+ * Get a channel for per-frame prompt regeneration streaming.
+ * @param frameId - The frame ID to use as the channel identifier
+ */
+export function getFramePromptChannel(frameId?: string) {
+  return frameId
+    ? getRealtime().channel(`frame-prompt:${frameId}`)
+    : noopChannel('frame-prompt');
+}
+
+/** Build the channel id for a frame's prompt-regen events. */
+export function framePromptChannelId(frameId: string): string {
+  return `frame-prompt:${frameId}`;
 }

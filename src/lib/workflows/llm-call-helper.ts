@@ -8,10 +8,12 @@ import { getEnv } from '#env';
 import { createAdapter } from '@/lib/ai/create-adapter';
 import type { TextModel } from '@/lib/ai/models';
 import { getContextWindow } from '@/lib/ai/models.config';
+import { extractStreamingStringField } from '@/lib/ai/stream-extract';
 import { ZERO_MICROS } from '@/lib/billing/money';
 import { deductWorkflowCredits } from '@/lib/billing/workflow-deduction';
 import type { ScopedDb } from '@/lib/db/scoped';
 import { getChatPrompt } from '@/lib/prompts';
+import { getFramePromptChannel } from '@/lib/realtime';
 import { chat, convertSchemaToJsonSchema } from '@tanstack/ai';
 import type { WorkflowContext } from '@upstash/workflow';
 import { z } from 'zod';
@@ -33,6 +35,30 @@ export type DurableLLMCallContext = {
   openRouterApiKey?: string;
   /** Scoped DB context for resolving team API keys and deducting credits. Falls back to env key when absent. */
   scopedDb?: ScopedDb;
+};
+
+export type DurableStreamingLLMCallContext = DurableLLMCallContext & {
+  /**
+   * When set, the helper streams the LLM call and emits incremental visible
+   * deltas of the `fullPrompt` field on the per-frame realtime channel
+   * (`frame-prompt:${frameId}`). The client only subscribes while viewing
+   * the frame, and history replay rebuilds the streaming text on nav-back.
+   *
+   * Omit (or pass `undefined`) for the non-interactive path (script
+   * analysis) — the helper then degrades to a non-streaming `chat` call so
+   * we don't burn Redis publishes nobody is listening to.
+   */
+  framePromptStream?: {
+    frameId: string;
+    promptType: 'visual' | 'motion';
+    /**
+     * Minimum gap (ms) between realtime publishes. The LLM can emit
+     * hundreds of tiny chunks per second; without batching every chunk
+     * round-trips through Redis. Default 80ms keeps the UI feeling live
+     * while collapsing into ~12 publishes/sec at the upper bound.
+     */
+    flushIntervalMs?: number;
+  };
 };
 
 /**
@@ -160,6 +186,199 @@ export async function durableLLMCall<TInput, TSchema extends z.ZodType>(
   });
 
   // Deduct LLM credits (cost tracked via Langfuse; adapter doesn't expose per-call usage)
+  if (callContext.scopedDb) {
+    await context.run(`deduct-llm-credits-${name}`, async () => {
+      await deductWorkflowCredits({
+        scopedDb: callContext.scopedDb,
+        costMicros: ZERO_MICROS,
+        usedOwnKey: !!callContext.openRouterApiKey,
+        description: `LLM analysis (${modelId})`,
+        metadata: {
+          model: modelId,
+          phase: phase.number,
+          phaseName: phase.name,
+          stepName: name,
+          sequenceId: callContext.sequenceId,
+        },
+      });
+    });
+  }
+
+  return config.responseSchema.parse(jsonResponse);
+}
+
+/**
+ * Streaming variant of {@link durableLLMCall} for the user-driven
+ * prompt-regen path. Behaves identically to `durableLLMCall` when
+ * `callContext.framePromptStream` is omitted — the streaming code path only
+ * activates when an active viewer is expected (force-regen from the
+ * "Regenerate Prompt" button), so script-analysis flows that share these
+ * workflows don't pay the realtime cost.
+ *
+ * Schema is passed via `modelOptions.responseFormat` (not `outputSchema`) to
+ * avoid @tanstack/ai's agentic-loop pre-pass — same rationale as
+ * `durableLLMCall`. The visible `fullPrompt` field is pulled out of the
+ * partial JSON with `extractStreamingStringField` and emitted as deltas; the
+ * full validated object is `JSON.parse(accumulated)` once the stream closes.
+ */
+export async function durableStreamingLLMCall<
+  TInput,
+  TSchema extends z.ZodType,
+>(
+  context: WorkflowContext<TInput>,
+  config: DurableLLMCallConfig<TSchema>,
+  callContext: DurableStreamingLLMCallContext
+) {
+  if (!callContext.framePromptStream) {
+    return durableLLMCall(context, config, callContext);
+  }
+
+  const { name, phase, modelId } = config;
+  const {
+    frameId,
+    promptType,
+    flushIntervalMs = 80,
+  } = callContext.framePromptStream;
+  const logName = `phase-${phase.number}-${name}`;
+  const logTags = [name, `phase-${phase.number}`, 'analysis', 'stream'];
+  const logMetadata = {
+    phase: phase.number,
+    phaseName: phase.name,
+    ...config.additionalMetadata,
+  };
+
+  const { messages, promptReference } = await context.run(
+    `prepare-${name}`,
+    async () => {
+      const { messages } = await getChatPrompt(
+        config.promptName,
+        config.promptVariables
+      );
+      return { messages, promptReference: undefined };
+    }
+  );
+
+  const jsonResponse = await context.run(`${name}-stream`, async () => {
+    const openRouterApiKeyInfo = callContext.scopedDb
+      ? await callContext.scopedDb.apiKeys.resolveKey('openrouter')
+      : (() => {
+          const env = getEnv();
+          if (!env.OPENROUTER_KEY)
+            throw new Error('No API key available for provider: openrouter');
+          return { key: env.OPENROUTER_KEY, source: 'platform' as const };
+        })();
+    const adapter = createAdapter(modelId, openRouterApiKeyInfo.key);
+
+    console.log(`[LLM:${logName}] Starting streaming call`, {
+      model: modelId,
+      keySource: openRouterApiKeyInfo.source,
+      messageCount: messages.length,
+      frameId,
+      promptType,
+    });
+
+    const systemPrompts: string[] = [];
+    const chatMessages: Array<{
+      role: 'user' | 'assistant';
+      content: string;
+    }> = [];
+    for (const msg of messages) {
+      const flat =
+        typeof msg.content === 'string'
+          ? msg.content
+          : msg.content
+              .map((part) => (part.type === 'text' ? part.content : ''))
+              .filter(Boolean)
+              .join('\n');
+      if (msg.role === 'system') {
+        systemPrompts.push(flat);
+      } else {
+        chatMessages.push({ role: msg.role, content: flat });
+      }
+    }
+
+    const abortController = new AbortController();
+    const timeout = setTimeout(() => abortController.abort(), 300_000);
+
+    const strictSchema = convertSchemaToJsonSchema(config.responseSchema, {
+      forStructuredOutput: true,
+    });
+
+    const channel = getFramePromptChannel(frameId);
+    let accumulated = '';
+    let lastExtracted = '';
+    let pendingDelta = '';
+    let lastEmitAt = 0;
+
+    const flushDelta = async () => {
+      if (!pendingDelta) return;
+      const delta = pendingDelta;
+      pendingDelta = '';
+      lastEmitAt = Date.now();
+      await channel.emit('framePrompt.streaming', { promptType, delta });
+    };
+
+    try {
+      for await (const event of chat({
+        adapter,
+        messages: chatMessages,
+        systemPrompts,
+        stream: true,
+        maxTokens: Math.floor(getContextWindow(config.modelId) * 0.5),
+        abortController,
+        metadata: {
+          observationName: logName,
+          prompt: promptReference,
+          tags: logTags,
+          metadata: logMetadata,
+          sessionId: callContext.sequenceId,
+          userId: callContext.userId,
+        },
+        modelOptions: {
+          responseFormat: {
+            type: 'json_schema',
+            jsonSchema: {
+              name: 'structured_output',
+              schema: strictSchema,
+              strict: true,
+            },
+          },
+        },
+        debug: false,
+      })) {
+        if (
+          event.type === 'TEXT_MESSAGE_CONTENT' &&
+          typeof event.delta === 'string'
+        ) {
+          accumulated += event.delta;
+          const next = extractStreamingStringField(accumulated, 'fullPrompt');
+          if (next.length > lastExtracted.length) {
+            pendingDelta += next.slice(lastExtracted.length);
+            lastExtracted = next;
+          }
+          if (pendingDelta && Date.now() - lastEmitAt >= flushIntervalMs) {
+            await flushDelta();
+          }
+          continue;
+        }
+        if (event.type === 'RUN_ERROR') {
+          const message =
+            'message' in event && typeof event.message === 'string'
+              ? event.message
+              : JSON.stringify(
+                  'message' in event ? event.message : 'Unknown LLM error'
+                );
+          throw new Error(`LLM stream error: ${message}`);
+        }
+      }
+      await flushDelta();
+      console.log(`[LLM:${logName}] Streaming call succeeded`);
+      return JSON.parse(accumulated);
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+
   if (callContext.scopedDb) {
     await context.run(`deduct-llm-credits-${name}`, async () => {
       await deductWorkflowCredits({

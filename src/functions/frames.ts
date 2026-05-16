@@ -546,30 +546,44 @@ export const getFrameStalenessFn = createServerFn({ method: 'GET' })
     const { frame, sequence, scopedDb } = context;
 
     let thumbnail: 'stale' | 'fresh' | 'untracked' = 'untracked';
-    if (frame.imagePrompt) {
-      const [characters, locations] = await Promise.all([
-        scopedDb.characters.listWithSheets(sequence.id),
-        scopedDb.sequenceLocations.listWithReferences(sequence.id),
-      ]);
+    // Effective prompt: same fallback chain as `buildRegenerateFrameSnapshot`
+    // and `generateFrameImageFn`. `frame.imagePrompt` alone misses
+    // AI-generated frames (where `imagePrompt` stays null) and frames whose
+    // visual prompt was regenerated (which only updates metadata). See #713.
+    const effectivePrompt =
+      frame.imagePrompt || frame.metadata?.prompts?.visual?.fullPrompt;
+    if (effectivePrompt) {
+      // Distinguish "stored hash absent" from "stored hash matches". A null
+      // stored hash means the image predates hash tracking (or was generated
+      // by a pre-fix `generateFrameImageFn` that didn't pass a sceneSnapshot)
+      // — we genuinely have no opinion, so 'untracked' rather than lying with
+      // 'fresh'. Once the user regenerates the image once under the new code
+      // path, this column populates and the live-vs-stored comparison takes
+      // over.
+      if (frame.thumbnailInputHash === null) {
+        thumbnail = 'untracked';
+      } else {
+        const [characters, locations] = await Promise.all([
+          scopedDb.characters.listWithSheets(sequence.id),
+          scopedDb.sequenceLocations.listWithReferences(sequence.id),
+        ]);
 
-      const snapshot = await buildRegenerateFrameSnapshot({
-        frame,
-        characters,
-        locations,
-        imageModel: safeTextToImageModel(frame.imageModel, DEFAULT_IMAGE_MODEL),
-        aspectRatio: sequence.aspectRatio,
-      });
+        const snapshot = await buildRegenerateFrameSnapshot({
+          frame,
+          characters,
+          locations,
+          imageModel: safeTextToImageModel(
+            frame.imageModel,
+            DEFAULT_IMAGE_MODEL
+          ),
+          aspectRatio: sequence.aspectRatio,
+        });
 
-      // `isStale` returns false for both "fresh" and "no stored hash" — the
-      // imagePrompt-present check above narrows it to "fresh" when isStale
-      // returns false.
-      thumbnail = (await scopedDb.frames.isStale(
-        frame.id,
-        'thumbnail',
-        snapshot.snapshotInputHash
-      ))
-        ? 'stale'
-        : 'fresh';
+        thumbnail =
+          snapshot.snapshotInputHash !== frame.thumbnailInputHash
+            ? 'stale'
+            : 'fresh';
+      }
     }
 
     let visualPrompt: 'stale' | 'fresh' | 'untracked' = 'untracked';

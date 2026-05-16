@@ -7,7 +7,6 @@ import { StalenessIndicator } from '@/components/staleness/staleness-indicator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -58,6 +57,7 @@ import { FrameStalenessBanners } from './frame-staleness-banners';
 import { SceneCastTab } from './scene-cast-tab';
 import { SceneElementsTab } from './scene-elements-tab';
 import { SceneLocationTab } from './scene-location-tab';
+import { SceneScriptTab } from './scene-script-tab';
 import { VariantSelector } from './variant-selector';
 
 export type TabValue =
@@ -186,7 +186,7 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
     undefined
   );
   const [editedDurationSeconds, setEditedDurationSeconds] = useState<
-    string | undefined
+    number | undefined
   >(undefined);
   const prevScriptFrameIdRef = useRef<string | undefined>(undefined);
 
@@ -770,151 +770,19 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
       </TabsList>
 
       <TabsContent value="script">
-        {(() => {
-          const savedScript = scriptText ?? '';
-          const currentScript = editedScript ?? savedScript;
-          const isScriptDirty =
-            editedScript !== undefined && editedScript !== savedScript;
-
-          const savedDurationSeconds =
-            frame?.durationMs !== undefined &&
-            frame.durationMs !== null &&
-            frame.durationMs > 0
-              ? frame.durationMs / 1000
-              : (frame?.metadata?.metadata?.durationSeconds ?? undefined);
-          const savedDurationDisplay =
-            savedDurationSeconds !== undefined
-              ? String(savedDurationSeconds)
-              : '';
-          const currentDurationDisplay =
-            editedDurationSeconds ?? savedDurationDisplay;
-          const parsedDuration =
-            editedDurationSeconds === undefined
-              ? undefined
-              : Number(editedDurationSeconds);
-          const isDurationDirty =
-            editedDurationSeconds !== undefined &&
-            editedDurationSeconds !== savedDurationDisplay;
-          const isDurationValid =
-            editedDurationSeconds === undefined ||
-            (parsedDuration !== undefined &&
-              Number.isFinite(parsedDuration) &&
-              parsedDuration >= 1 &&
-              parsedDuration <= 60);
-
-          const isDirty = isScriptDirty || isDurationDirty;
-          const canSave =
-            isDirty &&
-            isDurationValid &&
-            !!frame?.metadata &&
-            !saveScriptMutation.isPending;
-          return (
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label
-                    htmlFor="script-extract-input"
-                    className="text-sm font-medium"
-                  >
-                    Scene script
-                  </label>
-                  <span className="text-xs text-muted-foreground">
-                    {currentScript.length} characters
-                  </span>
-                </div>
-                <div className="relative">
-                  <Textarea
-                    id="script-extract-input"
-                    value={currentScript}
-                    onChange={(e) => setEditedScript(e.target.value)}
-                    placeholder="Enter the script text for this scene…"
-                    className="min-h-[180px] resize-y pr-10"
-                    disabled={!frame || saveScriptMutation.isPending}
-                  />
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => void handleCopy(currentScript, 'script')}
-                    disabled={!currentScript}
-                    aria-label="Copy scene script"
-                    className="absolute right-1 top-1 h-8 w-8"
-                  >
-                    {copiedTab === 'script' ? (
-                      <span className="text-xs">✓</span>
-                    ) : (
-                      <CopyIcon className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label
-                  htmlFor="scene-duration-input"
-                  className="text-sm font-medium"
-                >
-                  Duration (seconds)
-                </label>
-                <Input
-                  id="scene-duration-input"
-                  type="number"
-                  inputMode="decimal"
-                  min={1}
-                  max={60}
-                  step={0.5}
-                  value={currentDurationDisplay}
-                  onChange={(e) => setEditedDurationSeconds(e.target.value)}
-                  placeholder="3"
-                  className="w-32"
-                  disabled={!frame || saveScriptMutation.isPending}
-                  aria-invalid={!isDurationValid}
-                />
-                {!isDurationValid && (
-                  <p className="text-xs text-destructive">
-                    Duration must be between 1 and 60 seconds.
-                  </p>
-                )}
-              </div>
-
-              <div className="flex items-center justify-end gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setEditedScript(undefined);
-                    setEditedDurationSeconds(undefined);
-                  }}
-                  disabled={!isDirty || saveScriptMutation.isPending}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    saveScriptMutation.mutate({
-                      nextExtract: currentScript,
-                      nextDurationSeconds: isDurationDirty
-                        ? parsedDuration
-                        : undefined,
-                    })
-                  }
-                  disabled={!canSave}
-                >
-                  {saveScriptMutation.isPending && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  {saveScriptMutation.isPending ? 'Saving…' : 'Save'}
-                </Button>
-              </div>
-
-              {isDirty && isDurationValid && (
-                <p className="text-xs text-muted-foreground">
-                  Saving will mark the image and motion prompts as stale.
-                </p>
-              )}
-            </div>
-          );
-        })()}
+        <SceneScriptTab
+          frame={frame}
+          scriptText={scriptText}
+          motionModel={selectedMotionModel || DEFAULT_VIDEO_MODEL}
+          editedScript={editedScript}
+          onEditedScriptChange={setEditedScript}
+          editedDurationSeconds={editedDurationSeconds}
+          onEditedDurationChange={setEditedDurationSeconds}
+          isSaving={saveScriptMutation.isPending}
+          onSave={(payload) => saveScriptMutation.mutate(payload)}
+          isCopied={copiedTab === 'script'}
+          onCopy={(text) => void handleCopy(text, 'script')}
+        />
       </TabsContent>
 
       <TabsContent value="image-prompt">

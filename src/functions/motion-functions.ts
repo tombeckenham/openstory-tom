@@ -15,6 +15,7 @@ import {
 import { estimateVideoCost } from '@/lib/billing/cost-estimation';
 import { multiplyMicros, usdToMicros } from '@/lib/billing/money';
 import { requireCredits } from '@/lib/billing/preflight';
+import { resolveFrameDuration } from '@/lib/motion/resolve-frame-duration';
 import { snapDuration } from '@/lib/motion/motion-generation';
 import { generateMotionSchema } from '@/lib/schemas/frame.schemas';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
@@ -75,17 +76,17 @@ export const generateFrameMotionFn = createServerFn({ method: 'POST' })
       }
     }
 
-    // Honor the frame's stored duration (set on scene-split + editable via the
-    // script tab) so user edits to scene duration actually take effect on the
-    // next motion regenerate. `durationMs` is the canonical source — populated
-    // both on scene-split and after motion completes — falling back to
-    // `metadata.durationSeconds` for legacy frames and finally the model
-    // default if nothing is stored.
-    const frameDurationSeconds = frame.durationMs
-      ? frame.durationMs / 1000
-      : (frame.metadata?.metadata?.durationSeconds ?? null);
-    const duration =
-      data.duration ?? frameDurationSeconds ?? snapDuration(undefined, model);
+    // Snap the resolved duration onto the selected model's valid set before
+    // both the credit pre-flight and the workflow input — otherwise an
+    // unsnapped value (e.g. legacy `durationMs` from a different model) gets
+    // priced at the raw seconds while the workflow bills against the snapped
+    // value, leaving the two paths inconsistent.
+    const duration = resolveFrameDuration({
+      explicit: data.duration,
+      durationMs: frame.durationMs,
+      metadataSeconds: frame.metadata?.metadata?.durationSeconds,
+      model,
+    });
 
     await requireCredits(context.scopedDb, estimateVideoCost(model, duration), {
       errorMessage: 'Insufficient credits for motion generation',

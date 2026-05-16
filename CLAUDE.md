@@ -1,6 +1,65 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 AI-powered video sequence platform built with TanStack Start, optimized for edge deployment.
+
+## Commands
+
+```bash
+# Dev
+bun dev                            # All-in-one: DB migrate + seed, Vite, QStash (Docker), Stripe listener
+bun storybook                      # Storybook on :6006
+bun db:studio                      # Drizzle Studio for local DB
+
+# Quality
+bun lint                           # oxlint (type-aware)
+bun lint:fix                       # oxlint with autofix
+bun format                         # oxfmt write
+bun format:check                   # oxfmt check (CI)
+bun typecheck                      # tsgo --noEmit (NOT `tsc`)
+bun dead-code                      # knip (unused exports)
+
+# Tests
+bun test                           # unit (bun:test)
+bun test path/to/file.test.ts      # single file
+bun test --watch                   # watch mode
+bun test --coverage
+bun test:e2e                       # Playwright
+bun test:e2e:ui                    # Playwright UI
+bun test:e2e:setup                 # rebuild test.db + seed
+
+# DB
+bun db:generate                    # Generate migration from schema edits
+bun db:migrate                     # Apply migrations (local)
+bun db:setup                       # migrate + seed
+
+# Build / deploy
+bun run build                      # Vite production build (note: NOT `bun build`)
+bun cf:deploy:prd                  # Cloudflare Workers production deploy
+```
+
+`bun dev` runs everything in parallel — there is no separate `qstash:dev` terminal anymore (Docker is required so QStash can start).
+
+## Project Structure
+
+```
+src/
+  routes/           # TanStack Router file-based routes
+    api/            #   Webhooks (workflows + auth only)
+    _protected/     #   Auth-required pages
+  functions/        # createServerFn endpoints — most business logic lives here
+  components/       # React UI (shadcn/ui base + layout-only Tailwind)
+  lib/
+    ai/             #   AI model configs, prompt schemas, frame.schema
+    db/             #   Drizzle schema + clients (libSQL/D1/Turso)
+    services/       #   Frame, motion, etc. business services
+    workflows/      #   QStash durable workflow definitions
+    auth/           #   Better Auth wiring + action-utils
+e2e/                # Playwright tests
+scripts/            # CLI tooling and setup
+drizzle/migrations/ # Generated SQL (do NOT hand-edit)
+```
 
 ## Architecture Overview
 
@@ -42,12 +101,11 @@ bun setup                          # Auto-configure local dev (SQLite + QStash)
 bun db:setup                       # Migrate + seed database
 ```
 
-**Daily workflow (2 terminals):**
+**Daily workflow:** `bun dev` — runs DB migrate/seed, Vite, QStash (Docker), and Stripe listener in parallel.
 
-- Terminal 1: `bun qstash:dev` (async job processing)
-- Terminal 2: `bun dev`
+**Branch + commit conventions:** Branches must be named `<issue-number>-feature-name` (e.g. `393-improve-readme`). Lefthook extracts the issue number and tags commits with `#<issue>` automatically. See `CONTRIBUTING.md`.
 
-**Before commit:** Lefthook auto-checks quality. Branch `123-feature` → commits tagged `#123`.
+**Before commit:** Lefthook auto-checks quality.
 
 ---
 

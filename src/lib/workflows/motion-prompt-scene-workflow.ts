@@ -129,7 +129,14 @@ export const motionPromptSceneWorkflow = createScopedWorkflow<
         );
         const source = previous ? 'regenerated' : 'ai-generated';
 
-        await scopedDb.frames.update(frameId, { metadata: enrichedScene });
+        // Clear `frame.motionPrompt` user-override when regenerating; see
+        // the matching note in visual-prompt-scene-workflow.ts. The variant
+        // row below preserves the new prompt; the prior user override is
+        // restorable from the prompt-history sheet.
+        await scopedDb.frames.update(frameId, {
+          metadata: enrichedScene,
+          motionPrompt: null,
+        });
 
         await scopedDb.framePromptVariants.write({
           frameId,

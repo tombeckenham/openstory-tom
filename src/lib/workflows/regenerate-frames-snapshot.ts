@@ -56,11 +56,19 @@ export async function buildRegenerateFrameSnapshot(params: {
 }): Promise<RegenerateFrameSnapshot> {
   const { frame, characters, locations, imageModel, aspectRatio } = params;
 
+  // Effective prompt: user-override column wins over the AI-generated prompt
+  // stored in scene metadata. Both sites must read this same fallback chain
+  // so a `visualPromptSceneWorkflow` regen (which only updates metadata)
+  // produces a different hash than the prior thumbnail's stored hash. See #713
+  // for the longer-term single-source-of-truth refactor.
+  const effectivePrompt =
+    frame.imagePrompt || frame.metadata?.prompts?.visual?.fullPrompt;
+
   // Reject empty prompts at the snapshot boundary so trigger-time data
   // errors fail loudly at the call site instead of being absorbed as
   // per-frame failures inside the workflow.
-  if (!frame.imagePrompt || frame.imagePrompt.length === 0) {
-    throw new Error(`Frame ${frame.id} has no imagePrompt; cannot snapshot`);
+  if (!effectivePrompt || effectivePrompt.length === 0) {
+    throw new Error(`Frame ${frame.id} has no visual prompt; cannot snapshot`);
   }
 
   const characterTags = frame.metadata?.continuity?.characterTags ?? [];
@@ -88,7 +96,7 @@ export async function buildRegenerateFrameSnapshot(params: {
 
   const hashInput: FrameImageHashInput = {
     kind: 'thumbnail',
-    visualPrompt: frame.imagePrompt,
+    visualPrompt: effectivePrompt,
     imageModel,
     aspectRatio,
     characterSheetHashes,
@@ -100,7 +108,7 @@ export async function buildRegenerateFrameSnapshot(params: {
 
   return {
     frameId: frame.id,
-    imagePrompt: frame.imagePrompt,
+    imagePrompt: effectivePrompt,
     characterSheetHashes,
     locationSheetHashes,
     characterRefs,

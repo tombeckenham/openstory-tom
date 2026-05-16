@@ -117,7 +117,17 @@ export const visualPromptSceneWorkflow = createScopedWorkflow<
         );
         const source = previous ? 'regenerated' : 'ai-generated';
 
-        await scopedDb.frames.update(frameId, { metadata: enrichedScene });
+        // Clear `frame.imagePrompt` user-override when regenerating. The
+        // override would otherwise mask the freshly regenerated prompt in
+        // every downstream read (effective-prompt fallback chain), so a
+        // regen-prompt click on a previously user-edited frame would do
+        // nothing visible. The variant row above preserves the new prompt;
+        // the user's prior override is still in the prompt-history sheet
+        // and can be restored from there.
+        await scopedDb.frames.update(frameId, {
+          metadata: enrichedScene,
+          imagePrompt: null,
+        });
 
         await scopedDb.framePromptVariants.write({
           frameId,

@@ -187,7 +187,82 @@ describe('buildRegenerateFrameSnapshot', () => {
     expect(snapshot.characterSheetHashes).toEqual([]);
   });
 
-  it('throws when imagePrompt is null (locks in non-empty contract)', () => {
+  it('falls back to metadata.prompts.visual.fullPrompt when imagePrompt is null', async () => {
+    const baseMetadata = makeFrame().metadata;
+    if (!baseMetadata) throw new Error('test setup: base metadata missing');
+    const frame = makeFrame({
+      imagePrompt: null,
+      metadata: {
+        ...baseMetadata,
+        prompts: {
+          visual: {
+            fullPrompt: 'AI-generated prompt from metadata',
+            negativePrompt: '',
+            components: {
+              sceneDescription: '',
+              subject: '',
+              environment: '',
+              lighting: '',
+              camera: '',
+              composition: '',
+              style: '',
+              technical: '',
+              atmosphere: '',
+            },
+          },
+        },
+      },
+    });
+    const snapshot = await buildRegenerateFrameSnapshot({
+      frame,
+      characters: [makeCharacter()],
+      locations: NO_LOCATIONS,
+      imageModel: 'nano_banana_2',
+      aspectRatio: '16:9',
+    });
+    expect(snapshot.imagePrompt).toBe('AI-generated prompt from metadata');
+  });
+
+  it('detects a metadata-prompt change as a hash change (regen-prompt staleness)', async () => {
+    const baseMetadata = makeFrame().metadata;
+    if (!baseMetadata) throw new Error('test setup: base metadata missing');
+    const buildWithMetaPrompt = (fullPrompt: string) =>
+      buildRegenerateFrameSnapshot({
+        frame: makeFrame({
+          imagePrompt: null,
+          metadata: {
+            ...baseMetadata,
+            prompts: {
+              visual: {
+                fullPrompt,
+                negativePrompt: '',
+                components: {
+                  sceneDescription: '',
+                  subject: '',
+                  environment: '',
+                  lighting: '',
+                  camera: '',
+                  composition: '',
+                  style: '',
+                  technical: '',
+                  atmosphere: '',
+                },
+              },
+            },
+          },
+        }),
+        characters: [makeCharacter()],
+        locations: NO_LOCATIONS,
+        imageModel: 'nano_banana_2',
+        aspectRatio: '16:9',
+      });
+
+    const before = await buildWithMetaPrompt('Original AI prompt');
+    const after = await buildWithMetaPrompt('Regenerated AI prompt');
+    expect(after.snapshotInputHash).not.toBe(before.snapshotInputHash);
+  });
+
+  it('throws when both imagePrompt and metadata.prompts are absent', () => {
     expect(
       buildRegenerateFrameSnapshot({
         frame: makeFrame({ imagePrompt: null }),
@@ -196,10 +271,10 @@ describe('buildRegenerateFrameSnapshot', () => {
         imageModel: 'nano_banana_2',
         aspectRatio: '16:9',
       })
-    ).rejects.toThrow(/has no imagePrompt/);
+    ).rejects.toThrow(/has no visual prompt/);
   });
 
-  it('throws when imagePrompt is empty string', () => {
+  it('throws when imagePrompt is empty string and no metadata prompt', () => {
     expect(
       buildRegenerateFrameSnapshot({
         frame: makeFrame({ imagePrompt: '' }),
@@ -208,7 +283,7 @@ describe('buildRegenerateFrameSnapshot', () => {
         imageModel: 'nano_banana_2',
         aspectRatio: '16:9',
       })
-    ).rejects.toThrow(/has no imagePrompt/);
+    ).rejects.toThrow(/has no visual prompt/);
   });
 });
 

@@ -17,6 +17,10 @@ type MotionModelSelectorProps = {
   aspectRatio?: AspectRatio;
   /** When set, models with a matching `requiredStyleCategory` are included */
   styleCategory?: string;
+  /** Style-recommended model key — renders a "Recommended" badge on the match. */
+  recommendedVideoModel?: string | null;
+  /** Style name, used in the recommendation tooltip. */
+  styleName?: string;
 };
 
 export const MotionModelSelector: React.FC<MotionModelSelectorProps> = ({
@@ -25,6 +29,8 @@ export const MotionModelSelector: React.FC<MotionModelSelectorProps> = ({
   disabled = false,
   aspectRatio,
   styleCategory,
+  recommendedVideoModel,
+  styleName,
 }) => {
   const models = useMemo(
     () =>
@@ -47,8 +53,14 @@ export const MotionModelSelector: React.FC<MotionModelSelectorProps> = ({
           name: m.name,
           group: 'all',
           badge: m.license,
+          recommendedFor:
+            recommendedVideoModel && key === recommendedVideoModel
+              ? styleName
+                ? `Recommended for ${styleName}`
+                : 'Recommended for this style'
+              : undefined,
         })),
-    [aspectRatio, styleCategory]
+    [aspectRatio, styleCategory, recommendedVideoModel, styleName]
   );
 
   return (

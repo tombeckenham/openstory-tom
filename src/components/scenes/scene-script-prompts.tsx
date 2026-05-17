@@ -110,6 +110,12 @@ type SceneScriptPromptsProps = {
   onImageModelChange?: (model: string) => void;
   /** Current style category, used to show/hide style-restricted motion models */
   styleCategory?: string;
+  /** Current style name, used in recommendation tooltips */
+  styleName?: string;
+  /** Style-recommended image model — drives the "Recommended" badge */
+  recommendedImageModel?: string | null;
+  /** Style-recommended video model — drives the "Recommended" badge */
+  recommendedVideoModel?: string | null;
   /** Live divergent alternates for the current frame across variant types. */
   frameDivergentVariants?: FrameVariant[];
   onCompareDivergent?: (variant: FrameVariant) => void;
@@ -133,6 +139,9 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
   variantForSelectedModel,
   onImageModelChange,
   styleCategory,
+  styleName,
+  recommendedImageModel,
+  recommendedVideoModel,
   frameDivergentVariants,
   onCompareDivergent,
   sequenceMotionModel,
@@ -960,6 +969,8 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
               selectedModel={selectedImageModel || imageModel}
               onModelChange={handleImageModelChange}
               disabled={isGenerating}
+              recommendedImageModel={recommendedImageModel}
+              styleName={styleName}
             />
           </div>
 
@@ -1146,6 +1157,8 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
               disabled={isGenerating || isGeneratingMotion}
               aspectRatio={aspectRatio}
               styleCategory={styleCategory}
+              recommendedVideoModel={recommendedVideoModel}
+              styleName={styleName}
             />
           </div>
 
@@ -1321,6 +1334,8 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
               selectedModel={selectedImageModel || imageModel}
               onModelChange={handleImageModelChange}
               disabled={isGenerating || isGeneratingSceneVariants}
+              recommendedImageModel={recommendedImageModel}
+              styleName={styleName}
             />
           </div>
 

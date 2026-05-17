@@ -8,7 +8,17 @@ import { useMemo } from 'react';
 
 const GROUP_ORDER = ['all'] as const;
 
-function useImageModels() {
+type RecommendationProps = {
+  /** Style-recommended model key — renders a "Recommended" badge on the match. */
+  recommendedImageModel?: string | null;
+  /** Style name, used in the recommendation tooltip. */
+  styleName?: string;
+};
+
+function useImageModels({
+  recommendedImageModel,
+  styleName,
+}: RecommendationProps = {}) {
   return useMemo(
     () =>
       Object.entries(IMAGE_MODELS)
@@ -19,8 +29,14 @@ function useImageModels() {
           name: m.name,
           group: 'all',
           badge: m.license,
+          recommendedFor:
+            recommendedImageModel && key === recommendedImageModel
+              ? styleName
+                ? `Recommended for ${styleName}`
+                : 'Recommended for this style'
+              : undefined,
         })),
-    []
+    [recommendedImageModel, styleName]
   );
 }
 
@@ -30,15 +46,17 @@ type ImageModelSelectorProps = {
   disabled?: boolean;
   /** When set, only show these models instead of all available models */
   filterModels?: TextToImageModel[];
-};
+} & RecommendationProps;
 
 export const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
   selectedModel,
   onModelChange,
   disabled = false,
   filterModels,
+  recommendedImageModel,
+  styleName,
 }) => {
-  const allModels = useImageModels();
+  const allModels = useImageModels({ recommendedImageModel, styleName });
   const models = filterModels
     ? allModels.filter(
         (m) => isValidTextToImageModel(m.id) && filterModels.includes(m.id)
@@ -67,12 +85,18 @@ type ImageModelMultiSelectorProps = {
   selectedModels: TextToImageModel[];
   onModelsChange: (models: TextToImageModel[]) => void;
   disabled?: boolean;
-};
+} & RecommendationProps;
 
 export const ImageModelMultiSelector: React.FC<
   ImageModelMultiSelectorProps
-> = ({ selectedModels, onModelsChange, disabled = false }) => {
-  const models = useImageModels();
+> = ({
+  selectedModels,
+  onModelsChange,
+  disabled = false,
+  recommendedImageModel,
+  styleName,
+}) => {
+  const models = useImageModels({ recommendedImageModel, styleName });
 
   return (
     <BaseModelSelector

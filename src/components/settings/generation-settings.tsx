@@ -75,6 +75,14 @@ type GenerationSettingsProps = {
   singleSelectImage?: boolean;
   /** Current style category, used to show/hide style-restricted motion models */
   styleCategory?: string;
+  /** Current style name, used in recommendation tooltips */
+  styleName?: string;
+  /** Style-recommended image model — drives the "Recommended" badge */
+  recommendedImageModel?: string | null;
+  /** Style-recommended video model — drives the "Recommended" badge */
+  recommendedVideoModel?: string | null;
+  /** Style-recommended aspect ratio — drives the "Recommended" badge */
+  recommendedAspectRatio?: string | null;
 };
 
 export const GenerationSettings: FC<GenerationSettingsProps> = ({
@@ -96,6 +104,10 @@ export const GenerationSettings: FC<GenerationSettingsProps> = ({
   singleSelectAnalysis = false,
   singleSelectImage = false,
   styleCategory,
+  styleName,
+  recommendedImageModel,
+  recommendedVideoModel,
+  recommendedAspectRatio,
 }) => {
   const [open, setOpen] = useState(false);
 
@@ -118,6 +130,8 @@ export const GenerationSettings: FC<GenerationSettingsProps> = ({
             <AspectRatioPills
               value={aspectRatio}
               onChange={onAspectRatioChange}
+              recommendedAspectRatio={recommendedAspectRatio}
+              styleName={styleName}
             />
           </section>
 
@@ -148,12 +162,16 @@ export const GenerationSettings: FC<GenerationSettingsProps> = ({
                 selectedModel={imageModels[0] ?? DEFAULT_IMAGE_MODEL}
                 onModelChange={(model) => onImageModelsChange([model])}
                 disabled={disabled}
+                recommendedImageModel={recommendedImageModel}
+                styleName={styleName}
               />
             ) : (
               <ImageModelMultiSelector
                 selectedModels={imageModels}
                 onModelsChange={onImageModelsChange}
                 disabled={disabled}
+                recommendedImageModel={recommendedImageModel}
+                styleName={styleName}
               />
             )}
           </section>
@@ -180,6 +198,8 @@ export const GenerationSettings: FC<GenerationSettingsProps> = ({
               disabled={disabled || !autoGenerateMotion}
               aspectRatio={aspectRatio}
               styleCategory={styleCategory}
+              recommendedVideoModel={recommendedVideoModel}
+              styleName={styleName}
             />
           </section>
 

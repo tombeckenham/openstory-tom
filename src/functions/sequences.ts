@@ -36,6 +36,26 @@ import { z } from 'zod';
 import { authWithTeamMiddleware, sequenceAccessMiddleware } from './middleware';
 import { copySequenceElements } from '@/lib/sequence-elements/copy-sequence-elements';
 import { promoteTempElements } from '@/lib/sequence-elements/promote-temp-elements';
+import { getPostHogClient } from '@/lib/posthog-server';
+
+function trackStyleSelected(args: {
+  styleId: string;
+  sequenceId: string;
+  teamId: string;
+  userId: string;
+}) {
+  const posthog = getPostHogClient();
+  if (!posthog) return;
+  posthog.capture({
+    distinctId: args.userId,
+    event: 'style_selected',
+    properties: {
+      styleId: args.styleId,
+      sequenceId: args.sequenceId,
+      teamId: args.teamId,
+    },
+  });
+}
 
 export const getSequencesFn = createServerFn({ method: 'GET' })
   .middleware([authWithTeamMiddleware])
@@ -155,6 +175,14 @@ export const createSequenceFn = createServerFn({ method: 'POST' })
             : undefined,
         });
 
+        await context.scopedDb.styles.incrementUsage(styleId);
+        trackStyleSelected({
+          styleId,
+          sequenceId: sequence.id,
+          teamId,
+          userId: context.user.id,
+        });
+
         // Promote any draft element uploads to this new sequence (temp → final
         // path + insert rows + trigger vision). Runs before workflow trigger
         // so analyze-script-workflow can wait for vision to complete.
@@ -232,12 +260,28 @@ export const updateSequenceFn = createServerFn({ method: 'POST' })
       updateData.aspectRatio !== undefined ||
       updateData.analysisModel !== undefined;
 
+    const previousStyleId = context.sequence.styleId;
+
     const sequence = await context.scopedDb.sequences.update({
       id: sequenceId,
       aspectRatio: updateData.aspectRatio ?? DEFAULT_ASPECT_RATIO,
       ...updateData,
       status: needsRegeneration ? 'processing' : undefined,
     });
+
+    if (
+      updateData.styleId !== undefined &&
+      updateData.styleId !== previousStyleId &&
+      sequence.styleId
+    ) {
+      await context.scopedDb.styles.incrementUsage(sequence.styleId);
+      trackStyleSelected({
+        styleId: sequence.styleId,
+        sequenceId: sequence.id,
+        teamId: context.teamId,
+        userId: context.user.id,
+      });
+    }
 
     if (needsRegeneration) {
       await requireCredits(

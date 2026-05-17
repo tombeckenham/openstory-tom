@@ -9,6 +9,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { ChevronDown } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
@@ -17,6 +23,8 @@ type ModelItem = {
   name: string;
   group: string;
   badge?: 'open-source' | 'proprietary';
+  /** Show a "Recommended" badge with the given tooltip text */
+  recommendedFor?: string;
 };
 
 type BaseModelSelectorProps = {
@@ -183,6 +191,20 @@ export const BaseModelSelector: React.FC<BaseModelSelectorProps> = ({
                   >
                     <span className="flex items-center gap-2 text-sm">
                       <span className="truncate">{model.name}</span>
+                      {model.recommendedFor && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                                Recommended
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {model.recommendedFor}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                       {model.badge === 'open-source' && (
                         <span className="shrink-0 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-500">
                           Open Source

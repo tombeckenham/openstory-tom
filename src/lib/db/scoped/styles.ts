@@ -3,19 +3,28 @@
  * Team-scoped style library CRUD (includes public styles in listing).
  */
 
-import { asc, and, eq, or } from 'drizzle-orm';
+import { asc, desc, and, eq, or, sql } from 'drizzle-orm';
 import type { Database } from '@/lib/db/client';
 import { styles } from '@/lib/db/schema';
 import type { NewStyle, Style } from '@/lib/db/schema';
 
+export type StylesListOptions = {
+  orderBy?: 'popular' | 'sortOrder';
+};
+
 export function createStylesReadMethods(db: Database, teamId: string) {
   return {
-    list: async (): Promise<Style[]> => {
+    list: async (options: StylesListOptions = {}): Promise<Style[]> => {
+      const orderBy = options.orderBy ?? 'sortOrder';
+      const order =
+        orderBy === 'popular'
+          ? [desc(styles.usageCount), asc(styles.name)]
+          : [asc(styles.sortOrder), asc(styles.name)];
       return await db
         .select()
         .from(styles)
         .where(or(eq(styles.teamId, teamId), eq(styles.isPublic, true)))
-        .orderBy(asc(styles.sortOrder), asc(styles.name));
+        .orderBy(...order);
     },
 
     getById: async (styleId: string): Promise<Style | null> => {
@@ -75,6 +84,13 @@ export function createStylesMethods(
       await db
         .delete(styles)
         .where(and(eq(styles.id, styleId), eq(styles.teamId, teamId)));
+    },
+
+    incrementUsage: async (styleId: string): Promise<void> => {
+      await db
+        .update(styles)
+        .set({ usageCount: sql`${styles.usageCount} + 1` })
+        .where(eq(styles.id, styleId));
     },
   };
 }

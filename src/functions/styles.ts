@@ -24,8 +24,15 @@ import { authWithTeamMiddleware } from './middleware';
  */
 export const getStylesFn = createServerFn({ method: 'GET' })
   .middleware([authWithTeamMiddleware])
-  .handler(async ({ context }) => {
-    return context.scopedDb.styles.list();
+  .inputValidator(
+    zodValidator(
+      z
+        .object({ orderBy: z.enum(['popular', 'sortOrder']).optional() })
+        .optional()
+    )
+  )
+  .handler(async ({ data, context }) => {
+    return context.scopedDb.styles.list({ orderBy: data?.orderBy });
   });
 
 // ============================================================================
@@ -113,6 +120,26 @@ export const updateStyleFn = createServerFn({ method: 'POST' })
 const deleteStyleInputSchema = z.object({
   styleId: ulidSchema,
 });
+
+// ============================================================================
+// Increment Usage
+// ============================================================================
+
+const incrementStyleUsageInputSchema = z.object({
+  styleId: ulidSchema,
+});
+
+/**
+ * Atomically increment a style's global usageCount.
+ * Global counter — no team scoping. Used when a style is selected on a sequence.
+ */
+export const incrementStyleUsageFn = createServerFn({ method: 'POST' })
+  .middleware([authWithTeamMiddleware])
+  .inputValidator(zodValidator(incrementStyleUsageInputSchema))
+  .handler(async ({ data, context }) => {
+    await context.scopedDb.styles.incrementUsage(data.styleId);
+    return { success: true };
+  });
 
 /**
  * Delete a style (requires admin/owner role)

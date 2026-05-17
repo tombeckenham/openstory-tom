@@ -235,13 +235,16 @@ export const ScriptView: FC<{
     }
   }, [styles, isLoadingStyles, styleId, sequence?.styleId]);
 
-  // Derive style category for motion model filtering
-  const styleCategory = useMemo(
-    () =>
-      styles.find((s) => s.id === (styleId || sequence?.styleId))?.category ??
-      undefined,
+  // Derive style metadata for motion model filtering + recommendation badges
+  const selectedStyle = useMemo(
+    () => styles.find((s) => s.id === (styleId || sequence?.styleId)),
     [styles, styleId, sequence?.styleId]
   );
+  const styleCategory = selectedStyle?.category ?? undefined;
+  const styleName = selectedStyle?.name ?? undefined;
+  const recommendedImageModel = selectedStyle?.recommendedImageModel ?? null;
+  const recommendedVideoModel = selectedStyle?.recommendedVideoModel ?? null;
+  const recommendedAspectRatio = selectedStyle?.defaultAspectRatio ?? null;
 
   // Sync draft state when creating new sequences (not editing)
   const hasSyncedDraftRef = React.useRef(false);
@@ -593,6 +596,10 @@ export const ScriptView: FC<{
             onAutoGenerateMusicChange={(v) => updateGen('autoGenerateMusic', v)}
             disabled={loading}
             styleCategory={styleCategory}
+            styleName={styleName}
+            recommendedImageModel={recommendedImageModel}
+            recommendedVideoModel={recommendedVideoModel}
+            recommendedAspectRatio={recommendedAspectRatio}
           />
           <div className="flex items-center gap-2 min-h-10">
             <TalentSuggestionSelector

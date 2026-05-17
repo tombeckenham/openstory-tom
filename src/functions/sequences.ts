@@ -38,23 +38,38 @@ import { copySequenceElements } from '@/lib/sequence-elements/copy-sequence-elem
 import { promoteTempElements } from '@/lib/sequence-elements/promote-temp-elements';
 import { getPostHogClient } from '@/lib/posthog-server';
 
-function trackStyleSelected(args: {
+/**
+ * Fire-and-forget analytics + popularity bump for "this user picked this style".
+ * Failures must never break the critical path that drives the click.
+ */
+function bumpStylePopularity(args: {
+  scopedDb: { styles: { incrementUsage: (id: string) => Promise<void> } };
   styleId: string;
-  sequenceId: string;
+  sequenceIds: string[];
   teamId: string;
   userId: string;
 }) {
-  const posthog = getPostHogClient();
-  if (!posthog) return;
-  posthog.capture({
-    distinctId: args.userId,
-    event: 'style_selected',
-    properties: {
+  args.scopedDb.styles.incrementUsage(args.styleId).catch((err) => {
+    console.warn('[styles] incrementUsage failed', {
       styleId: args.styleId,
-      sequenceId: args.sequenceId,
-      teamId: args.teamId,
-    },
+      err,
+    });
   });
+  try {
+    const posthog = getPostHogClient();
+    if (!posthog) return;
+    posthog.capture({
+      distinctId: args.userId,
+      event: 'style_selected',
+      properties: {
+        styleId: args.styleId,
+        sequenceIds: args.sequenceIds,
+        teamId: args.teamId,
+      },
+    });
+  } catch (err) {
+    console.warn('[posthog] style_selected capture failed', err);
+  }
 }
 
 export const getSequencesFn = createServerFn({ method: 'GET' })
@@ -142,7 +157,7 @@ export const createSequenceFn = createServerFn({ method: 'POST' })
       }
     );
 
-    return Promise.all(
+    const sequences = await Promise.all(
       analysisModels.map(async (modelId) => {
         // Only persist video/music model choices when the user actually opts
         // into auto-generation. Otherwise the sequence ends up with a "ghost"
@@ -173,14 +188,6 @@ export const createSequenceFn = createServerFn({ method: 'POST' })
           suggestedLocationIds: suggestedLocationIds?.length
             ? suggestedLocationIds
             : undefined,
-        });
-
-        await context.scopedDb.styles.incrementUsage(styleId);
-        trackStyleSelected({
-          styleId,
-          sequenceId: sequence.id,
-          teamId,
-          userId: context.user.id,
         });
 
         // Promote any draft element uploads to this new sequence (temp → final
@@ -240,6 +247,18 @@ export const createSequenceFn = createServerFn({ method: 'POST' })
         return sequence;
       })
     );
+
+    // One click = one popularity bump + one analytics event, regardless of how
+    // many analysis models the user picked. Fire-and-forget — never block.
+    bumpStylePopularity({
+      scopedDb: context.scopedDb,
+      styleId,
+      sequenceIds: sequences.map((s) => s.id),
+      teamId,
+      userId: context.user.id,
+    });
+
+    return sequences;
   });
 
 /**
@@ -274,10 +293,10 @@ export const updateSequenceFn = createServerFn({ method: 'POST' })
       updateData.styleId !== previousStyleId &&
       sequence.styleId
     ) {
-      await context.scopedDb.styles.incrementUsage(sequence.styleId);
-      trackStyleSelected({
+      bumpStylePopularity({
+        scopedDb: context.scopedDb,
         styleId: sequence.styleId,
-        sequenceId: sequence.id,
+        sequenceIds: [sequence.id],
         teamId: context.teamId,
         userId: context.user.id,
       });

@@ -118,6 +118,7 @@ const mockStylesUpdate = mock();
 const mockStylesDelete = mock();
 const mockStylesGetById = mock();
 const mockStylesGetPublic = mock();
+const mockStylesIncrementUsage = mock();
 
 mock.module('@/lib/db/scoped/styles', () => ({
   createStylesReadMethods: mock(() => ({
@@ -132,6 +133,7 @@ mock.module('@/lib/db/scoped/styles', () => ({
     delete: mockStylesDelete,
     getById: mockStylesGetById,
     getPublic: mockStylesGetPublic,
+    incrementUsage: mockStylesIncrementUsage,
   })),
 }));
 
@@ -346,6 +348,7 @@ describe('createScopedDb', () => {
       mockStylesDelete,
       mockStylesGetById,
       mockStylesGetPublic,
+      mockStylesIncrementUsage,
       mockLocationsList,
       mockLocationsSearch,
       mockLocationsCreate,

@@ -13,7 +13,7 @@ import {
   it,
 } from 'bun:test';
 import { type Client, createClient } from '@libsql/client';
-import { asc, desc, eq, or, sql, and } from 'drizzle-orm';
+import { asc, desc, eq, or, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import { generateId } from '@/lib/db/id';
@@ -27,10 +27,12 @@ import {
 } from '@/lib/db/schema';
 import { relations } from '@/lib/db/schema/relations';
 
-// scoped.test.ts globally mocks @/lib/db/scoped/styles via bun's mock.module
-// (without cleanup), so any import of this module returns stubbed methods.
-// To exercise the real DB-bound behavior we recreate the relevant methods
-// inline against the in-memory test DB.
+// scoped.test.ts registers a global module mock for @/lib/db/scoped/styles
+// via bun:test mock.module(), and bun does not reliably unwind module mocks
+// (https://github.com/oven-sh/bun/issues/7823) — so importing the real
+// createStylesMethods here would yield stubs in a full-suite run. We mirror
+// the production methods inline against an in-memory libSQL DB to exercise
+// real SQL behavior; keep these in lockstep with src/lib/db/scoped/styles.ts.
 function makeStylesMethods(database: Database, teamId: string, userId: string) {
   return {
     list: async (
@@ -66,11 +68,13 @@ function makeStylesMethods(database: Database, teamId: string, userId: string) {
       if (!style) throw new Error('insert returned nothing');
       return style;
     },
-    incrementUsage: async (styleId: string): Promise<void> => {
-      await database
+    incrementUsage: async (styleId: string): Promise<number> => {
+      const rows = await database
         .update(styles)
         .set({ usageCount: sql`${styles.usageCount} + 1` })
-        .where(and(eq(styles.id, styleId)));
+        .where(eq(styles.id, styleId))
+        .returning({ id: styles.id });
+      return rows.length;
     },
   };
 }
@@ -118,7 +122,7 @@ beforeEach(async () => {
 });
 
 describe('createStylesMethods.incrementUsage', () => {
-  it('bumps usageCount by 1 atomically', async () => {
+  it('bumps usageCount by 1 on each call', async () => {
     const methods = makeStylesMethods(db, team.id, userRow.id);
 
     const style = await methods.create({
@@ -133,6 +137,12 @@ describe('createStylesMethods.incrementUsage', () => {
 
     const after = await methods.getById(style.id);
     expect(after?.usageCount).toBe(2);
+  });
+
+  it('returns zero affected rows for an unknown styleId', async () => {
+    const methods = makeStylesMethods(db, team.id, userRow.id);
+    const affected = await methods.incrementUsage('does_not_exist');
+    expect(affected).toBe(0);
   });
 });
 
@@ -166,5 +176,78 @@ describe("createStylesMethods.list({ orderBy: 'popular' })", () => {
 
     const sorted = await methods.list();
     expect(sorted.map((s) => s.id)).toEqual([a.id, b.id, c.id]);
+  });
+
+  it('includes public styles owned by other teams', async () => {
+    const otherTeamId = generateId();
+    await db
+      .insert(teams)
+      .values([{ id: otherTeamId, name: 'Other', slug: 'o' }]);
+
+    const ownMethods = makeStylesMethods(db, team.id, userRow.id);
+    const otherMethods = makeStylesMethods(db, otherTeamId, userRow.id);
+
+    const mine = await ownMethods.create({
+      name: 'Mine',
+      config: baseConfig,
+      sortOrder: 1,
+    });
+    const theirsPublic = await otherMethods.create({
+      name: 'TheirsPublic',
+      config: baseConfig,
+      sortOrder: 2,
+      isPublic: true,
+    });
+    const theirsPrivate = await otherMethods.create({
+      name: 'TheirsPrivate',
+      config: baseConfig,
+      sortOrder: 3,
+    });
+
+    const visible = await ownMethods.list();
+    const ids = visible.map((s) => s.id);
+    expect(ids).toContain(mine.id);
+    expect(ids).toContain(theirsPublic.id);
+    expect(ids).not.toContain(theirsPrivate.id);
+  });
+});
+
+describe('createStylesMethods.create — new schema fields round-trip', () => {
+  it('persists sampleVideos, useCases, recommended* and defaultAspectRatio', async () => {
+    const methods = makeStylesMethods(db, team.id, userRow.id);
+
+    const created = await methods.create({
+      name: 'Loaded',
+      config: baseConfig,
+      sortOrder: 1,
+      sampleVideos: [
+        {
+          url: 'https://example.com/v.mp4',
+          kind: 'canonical',
+          label: 'demo',
+          durationSeconds: 5,
+          order: 0,
+        },
+      ],
+      useCases: ['promo', 'social'],
+      recommendedImageModel: 'flux_pro',
+      recommendedVideoModel: 'wan_i2v',
+      defaultAspectRatio: '16:9',
+    });
+
+    const fetched = await methods.getById(created.id);
+    expect(fetched?.sampleVideos).toEqual([
+      {
+        url: 'https://example.com/v.mp4',
+        kind: 'canonical',
+        label: 'demo',
+        durationSeconds: 5,
+        order: 0,
+      },
+    ]);
+    expect(fetched?.useCases).toEqual(['promo', 'social']);
+    expect(fetched?.recommendedImageModel).toBe('flux_pro');
+    expect(fetched?.recommendedVideoModel).toBe('wan_i2v');
+    expect(fetched?.defaultAspectRatio).toBe('16:9');
   });
 });

@@ -87,10 +87,14 @@ export function createStylesMethods(
     },
 
     incrementUsage: async (styleId: string): Promise<void> => {
-      await db
+      const rows = await db
         .update(styles)
         .set({ usageCount: sql`${styles.usageCount} + 1` })
-        .where(eq(styles.id, styleId));
+        .where(eq(styles.id, styleId))
+        .returning({ id: styles.id });
+      if (rows.length === 0) {
+        console.warn('[styles] incrementUsage matched zero rows', { styleId });
+      }
     },
   };
 }

@@ -73,15 +73,9 @@ export const createStyleFn = createServerFn({ method: 'POST' })
   .middleware([authWithTeamMiddleware])
   .inputValidator(zodValidator(createStyleSchema))
   .handler(async ({ data, context }) => {
-    return context.scopedDb.styles.create({
-      name: data.name,
-      description: data.description,
-      config: data.config,
-      category: data.category,
-      tags: data.tags,
-      isPublic: data.isPublic,
-      previewUrl: data.previewUrl,
-    });
+    // teamId/createdBy are injected by scoped.create — strip any client-supplied values.
+    const { teamId: _teamId, createdBy: _createdBy, ...input } = data;
+    return context.scopedDb.styles.create(input);
   });
 
 // ============================================================================
@@ -120,26 +114,6 @@ export const updateStyleFn = createServerFn({ method: 'POST' })
 const deleteStyleInputSchema = z.object({
   styleId: ulidSchema,
 });
-
-// ============================================================================
-// Increment Usage
-// ============================================================================
-
-const incrementStyleUsageInputSchema = z.object({
-  styleId: ulidSchema,
-});
-
-/**
- * Atomically increment a style's global usageCount.
- * Global counter — no team scoping. Used when a style is selected on a sequence.
- */
-export const incrementStyleUsageFn = createServerFn({ method: 'POST' })
-  .middleware([authWithTeamMiddleware])
-  .inputValidator(zodValidator(incrementStyleUsageInputSchema))
-  .handler(async ({ data, context }) => {
-    await context.scopedDb.styles.incrementUsage(data.styleId);
-    return { success: true };
-  });
 
 /**
  * Delete a style (requires admin/owner role)

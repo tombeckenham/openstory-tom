@@ -4,7 +4,7 @@ import {
   isValidTextToImageModel,
   type TextToImageModel,
 } from '@/lib/ai/models';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 const GROUP_ORDER = ['all'] as const;
 
@@ -19,7 +19,7 @@ function useImageModels({
   recommendedImageModel,
   styleName,
 }: RecommendationProps = {}) {
-  return useMemo(
+  const models = useMemo(
     () =>
       Object.entries(IMAGE_MODELS)
         .filter(([, m]) => !('hidden' in m))
@@ -38,6 +38,20 @@ function useImageModels({
         })),
     [recommendedImageModel, styleName]
   );
+
+  // Surface unmatched recommendations so a stale style key doesn't silently
+  // vanish from the UI (e.g. a model rename or removal).
+  useEffect(() => {
+    if (!recommendedImageModel) return;
+    if (!models.some((m) => m.recommendedFor)) {
+      console.warn(
+        '[ImageModelSelector] recommendedImageModel did not match any rendered model',
+        { recommendedImageModel, styleName }
+      );
+    }
+  }, [models, recommendedImageModel, styleName]);
+
+  return models;
 }
 
 type ImageModelSelectorProps = {
@@ -57,6 +71,8 @@ export const ImageModelSelector: React.FC<ImageModelSelectorProps> = ({
   styleName,
 }) => {
   const allModels = useImageModels({ recommendedImageModel, styleName });
+  // isValidTextToImageModel narrows m.id from string → TextToImageModel so
+  // filterModels.includes typechecks; keep it.
   const models = filterModels
     ? allModels.filter(
         (m) => isValidTextToImageModel(m.id) && filterModels.includes(m.id)

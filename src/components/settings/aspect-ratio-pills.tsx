@@ -11,7 +11,7 @@ import {
   aspectRatioSchema,
   type AspectRatio,
 } from '@/lib/constants/aspect-ratios';
-import type { FC } from 'react';
+import { useEffect, type FC } from 'react';
 
 function isValidAspectRatio(value: string): value is AspectRatio {
   return aspectRatioSchema.safeParse(value).success;
@@ -35,6 +35,18 @@ export const AspectRatioPills: FC<AspectRatioPillsProps> = ({
   const tooltipText = styleName
     ? `Recommended for ${styleName}`
     : 'Recommended for this style';
+
+  // Warn when a style's recommendation references a ratio we don't render —
+  // otherwise the badge silently disappears with no signal.
+  useEffect(() => {
+    if (!recommendedAspectRatio) return;
+    if (!ASPECT_RATIOS.some((r) => r.value === recommendedAspectRatio)) {
+      console.warn(
+        '[AspectRatioPills] recommendedAspectRatio did not match any rendered ratio',
+        { recommendedAspectRatio, styleName }
+      );
+    }
+  }, [recommendedAspectRatio, styleName]);
 
   return (
     <ToggleGroup

@@ -6,7 +6,7 @@ import {
   type ImageToVideoModel,
 } from '@/lib/ai/models';
 import type { AspectRatio } from '@/lib/constants/aspect-ratios';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 const GROUP_ORDER = ['all'] as const;
 
@@ -32,6 +32,32 @@ export const MotionModelSelector: React.FC<MotionModelSelectorProps> = ({
   recommendedVideoModel,
   styleName,
 }) => {
+  // When the recommendation exists in the model catalog but is filtered out by
+  // aspect-ratio compatibility, surface that as a distinct "incompatible with
+  // current ratio" badge rather than hiding the recommendation entirely.
+  const recommendationStatus = useMemo<
+    'matched' | 'incompatible-ratio' | 'unknown' | 'none'
+  >(() => {
+    if (!recommendedVideoModel) return 'none';
+    if (!isValidImageToVideoModel(recommendedVideoModel)) return 'unknown';
+    if (
+      aspectRatio &&
+      !isModelCompatibleWithAspectRatio(recommendedVideoModel, aspectRatio)
+    ) {
+      return 'incompatible-ratio';
+    }
+    return 'matched';
+  }, [recommendedVideoModel, aspectRatio]);
+
+  useEffect(() => {
+    if (recommendationStatus === 'unknown') {
+      console.warn(
+        '[MotionModelSelector] recommendedVideoModel did not match any model',
+        { recommendedVideoModel, styleName }
+      );
+    }
+  }, [recommendationStatus, recommendedVideoModel, styleName]);
+
   const models = useMemo(
     () =>
       Object.entries(IMAGE_TO_VIDEO_MODELS)
@@ -48,35 +74,53 @@ export const MotionModelSelector: React.FC<MotionModelSelectorProps> = ({
             : true;
         })
         .sort(([, a], [, b]) => a.qualityRank - b.qualityRank)
-        .map(([key, m]) => ({
-          id: key,
-          name: m.name,
-          group: 'all',
-          badge: m.license,
-          recommendedFor:
-            recommendedVideoModel && key === recommendedVideoModel
-              ? styleName
-                ? `Recommended for ${styleName}`
-                : 'Recommended for this style'
-              : undefined,
-        })),
+        .map(([key, m]) => {
+          const isRecommended = key === recommendedVideoModel;
+          const recommendedFor = isRecommended
+            ? styleName
+              ? `Recommended for ${styleName}`
+              : 'Recommended for this style'
+            : undefined;
+          return {
+            id: key,
+            name: m.name,
+            group: 'all',
+            badge: m.license,
+            recommendedFor,
+          };
+        }),
     [aspectRatio, styleCategory, recommendedVideoModel, styleName]
   );
 
+  const recommendedModelName =
+    recommendedVideoModel && isValidImageToVideoModel(recommendedVideoModel)
+      ? IMAGE_TO_VIDEO_MODELS[recommendedVideoModel].name
+      : undefined;
+
   return (
-    <BaseModelSelector
-      label="Motion Model"
-      models={models}
-      groupOrder={GROUP_ORDER}
-      selectedIds={[selectedModel]}
-      onSelectionChange={(ids) => {
-        const firstId = ids[0];
-        if (firstId && isValidImageToVideoModel(firstId)) {
-          onModelChange(firstId);
-        }
-      }}
-      disabled={disabled}
-      multiSelect={false}
-    />
+    <div className="flex flex-col gap-1">
+      <BaseModelSelector
+        label="Motion Model"
+        models={models}
+        groupOrder={GROUP_ORDER}
+        selectedIds={[selectedModel]}
+        onSelectionChange={(ids) => {
+          const firstId = ids[0];
+          if (firstId && isValidImageToVideoModel(firstId)) {
+            onModelChange(firstId);
+          }
+        }}
+        disabled={disabled}
+        multiSelect={false}
+      />
+      {recommendationStatus === 'incompatible-ratio' &&
+        recommendedModelName && (
+          <p className="text-[10px] text-muted-foreground">
+            {styleName ? `${styleName} recommends` : 'Recommended'}{' '}
+            <span className="font-medium">{recommendedModelName}</span>, but
+            it's not compatible with the current aspect ratio.
+          </p>
+        )}
+    </div>
   );
 };

@@ -158,6 +158,7 @@ export function createSequencesMethods(
       aspectRatio?: AspectRatio;
       imageModel?: string;
       videoModel?: string;
+      musicModel?: string;
       musicStatus?: MusicStatus;
       musicError?: string | null;
       musicUrl?: string;

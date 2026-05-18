@@ -7,7 +7,11 @@ import { createServerFn } from '@tanstack/react-start';
 import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 
-import { DEFAULT_VIDEO_MODEL, safeImageToVideoModel } from '@/lib/ai/models';
+import {
+  AUDIO_MODELS,
+  DEFAULT_VIDEO_MODEL,
+  safeImageToVideoModel,
+} from '@/lib/ai/models';
 import { estimateVideoCost } from '@/lib/billing/cost-estimation';
 import { multiplyMicros, usdToMicros } from '@/lib/billing/money';
 import { requireCredits } from '@/lib/billing/preflight';
@@ -115,6 +119,12 @@ const batchGenerateMotionInputSchema = z.object({
   sequenceId: ulidSchema,
   includeMusic: z.boolean().optional(),
   model: generateMotionSchema.shape.model,
+  musicModel: z
+    .enum(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Required for z.enum with dynamic keys
+      Object.keys(AUDIO_MODELS) as [keyof typeof AUDIO_MODELS]
+    )
+    .optional(),
   duration: generateMotionSchema.shape.duration,
   fps: generateMotionSchema.shape.fps,
   motionBucket: generateMotionSchema.shape.motionBucket,
@@ -156,6 +166,21 @@ export const batchGenerateMotionFn = createServerFn({ method: 'POST' })
     const includeMusic =
       (data.includeMusic ?? false) && sequence.musicStatus !== 'generating';
 
+    // Persist the batch model picks so the sequence header chip, future batch
+    // sessions, and storyboard regen reflect what the user just chose.
+    const videoModelChanged = data.model && data.model !== sequence.videoModel;
+    const musicModelChanged =
+      includeMusic &&
+      data.musicModel &&
+      data.musicModel !== sequence.musicModel;
+    if (videoModelChanged || musicModelChanged) {
+      await context.scopedDb.sequences.update({
+        id: sequence.id,
+        ...(videoModelChanged ? { videoModel: data.model } : {}),
+        ...(musicModelChanged ? { musicModel: data.musicModel } : {}),
+      });
+    }
+
     // Build music config if requested
     let musicConfig: BatchMotionMusicWorkflowInput['music'];
     if (includeMusic) {
@@ -174,6 +199,7 @@ export const batchGenerateMotionFn = createServerFn({ method: 'POST' })
         prompt: sequence.musicPrompt,
         tags: sequence.musicTags,
         duration: totalDuration || 30,
+        model: data.musicModel,
       };
     }
 

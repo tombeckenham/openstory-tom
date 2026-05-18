@@ -124,6 +124,17 @@ export const createSequenceFn = createServerFn({ method: 'POST' })
 
     return Promise.all(
       analysisModels.map(async (modelId) => {
+        // Only persist video/music model choices when the user actually opts
+        // into auto-generation. Otherwise the sequence ends up with a "ghost"
+        // model preference the user never picked, which surfaces stale values
+        // in the header chip and batch footer. Tracked in #714.
+        const persistedMusicModel =
+          autoGenerateMusic && musicModel && isValidAudioModel(musicModel)
+            ? musicModel
+            : autoGenerateMusic
+              ? DEFAULT_MUSIC_MODEL
+              : undefined;
+
         const sequence = await context.scopedDb.sequences.create({
           title: data.title || 'Untitled Sequence',
           script: data.script,
@@ -132,11 +143,8 @@ export const createSequenceFn = createServerFn({ method: 'POST' })
           analysisModel:
             getAnalysisModelById(modelId)?.id || DEFAULT_ANALYSIS_MODEL,
           imageModel: primaryImageModel,
-          videoModel,
-          musicModel:
-            musicModel && isValidAudioModel(musicModel)
-              ? musicModel
-              : DEFAULT_MUSIC_MODEL,
+          videoModel: autoGenerateMotion ? videoModel : undefined,
+          musicModel: persistedMusicModel,
           autoGenerateMotion,
           autoGenerateMusic,
           suggestedTalentIds: suggestedTalentIds?.length

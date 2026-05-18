@@ -1,11 +1,25 @@
+import { MotionModelSelector } from '@/components/model/motion-model-selector';
+import { MusicModelSelector } from '@/components/model/music-model-selector';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  DEFAULT_MUSIC_MODEL,
+  DEFAULT_VIDEO_MODEL,
+  type AudioModel,
+  type ImageToVideoModel,
+} from '@/lib/ai/models';
 import type { AspectRatio } from '@/lib/constants/aspect-ratios';
 import type { Frame, FrameVariant } from '@/lib/db/schema';
 import { Loader2, Video } from 'lucide-react';
-import { memo, useMemo, useState } from 'react';
+import { memo, useMemo, useRef, useState } from 'react';
 import { SceneListItem } from './scene-list-item';
+
+export type BatchGenerateMotionArgs = {
+  includeMusic: boolean;
+  motionModel: ImageToVideoModel;
+  musicModel: AudioModel;
+};
 
 type SceneListProps = {
   frames?: Frame[] | undefined;
@@ -14,13 +28,19 @@ type SceneListProps = {
   onSelectFrame: (frameId: string) => void;
   regeneratingImages: Set<string>;
   regeneratingMotion: Set<string>;
-  onBatchGenerateMotion?: (includeMusic: boolean) => Promise<void>;
+  onBatchGenerateMotion?: (args: BatchGenerateMotionArgs) => Promise<void>;
   musicPromptsReady: boolean;
   /** Hide the batch motion button (e.g. while auto-generate motion is in flight). */
   hideBatchButton?: boolean;
   /** Live divergent alternates for the current sequence (filtered per-frame). */
   divergentVariants?: FrameVariant[];
   onCompareDivergent?: (variant: FrameVariant) => void;
+  /** Initial motion model for the batch selector (from `sequence.videoModel`). */
+  initialMotionModel?: ImageToVideoModel;
+  /** Initial music model for the batch selector (from `sequence.musicModel`). */
+  initialMusicModel?: AudioModel;
+  /** Current style category — used to filter style-restricted motion models. */
+  styleCategory?: string;
 };
 
 const isCompleted = (frame: Frame) => {
@@ -41,6 +61,9 @@ const SceneListComponent: React.FC<SceneListProps> = ({
   hideBatchButton = false,
   divergentVariants,
   onCompareDivergent,
+  initialMotionModel,
+  initialMusicModel,
+  styleCategory,
 }) => {
   const divergentByFrameId = useMemo(() => {
     const map = new Map<string, FrameVariant>();
@@ -55,6 +78,28 @@ const SceneListComponent: React.FC<SceneListProps> = ({
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [includeMusic, setIncludeMusic] = useState(true);
+  const [motionModel, setMotionModel] = useState<ImageToVideoModel>(
+    initialMotionModel ?? DEFAULT_VIDEO_MODEL
+  );
+  const [musicModel, setMusicModel] = useState<AudioModel>(
+    initialMusicModel ?? DEFAULT_MUSIC_MODEL
+  );
+
+  // Sync local selection when the sequence's saved model changes from outside
+  // (e.g. after generation completes and the workflow persists the new model).
+  const prevInitialMotionRef = useRef(initialMotionModel);
+  if (
+    initialMotionModel &&
+    initialMotionModel !== prevInitialMotionRef.current
+  ) {
+    prevInitialMotionRef.current = initialMotionModel;
+    setMotionModel(initialMotionModel);
+  }
+  const prevInitialMusicRef = useRef(initialMusicModel);
+  if (initialMusicModel && initialMusicModel !== prevInitialMusicRef.current) {
+    prevInitialMusicRef.current = initialMusicModel;
+    setMusicModel(initialMusicModel);
+  }
 
   const totalFrames = frames?.length ?? 0;
 
@@ -88,7 +133,7 @@ const SceneListComponent: React.FC<SceneListProps> = ({
 
     setIsGenerating(true);
     try {
-      await onBatchGenerateMotion(includeMusic);
+      await onBatchGenerateMotion({ includeMusic, motionModel, musicModel });
     } finally {
       setIsGenerating(false);
     }
@@ -154,6 +199,26 @@ const SceneListComponent: React.FC<SceneListProps> = ({
       {/* Sticky footer with Generate Motion button */}
       {showButton && (
         <div className="sticky bottom-0 border-t bg-background p-4 flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground">Motion model</span>
+            <MotionModelSelector
+              selectedModel={motionModel}
+              onModelChange={setMotionModel}
+              disabled={isGenerating || isMotionInProgress}
+              aspectRatio={aspectRatio}
+              styleCategory={styleCategory}
+            />
+          </div>
+          {includeMusic && (
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Music model</span>
+              <MusicModelSelector
+                selectedModel={musicModel}
+                onModelChange={setMusicModel}
+                disabled={isGenerating || isMotionInProgress}
+              />
+            </div>
+          )}
           <Button
             variant="default"
             className="w-full"
@@ -213,7 +278,10 @@ const areEqual = (
   if (
     prevProps.selectedFrameId !== nextProps.selectedFrameId ||
     prevProps.aspectRatio !== nextProps.aspectRatio ||
-    prevProps.musicPromptsReady !== nextProps.musicPromptsReady
+    prevProps.musicPromptsReady !== nextProps.musicPromptsReady ||
+    prevProps.initialMotionModel !== nextProps.initialMotionModel ||
+    prevProps.initialMusicModel !== nextProps.initialMusicModel ||
+    prevProps.styleCategory !== nextProps.styleCategory
   ) {
     return false;
   }

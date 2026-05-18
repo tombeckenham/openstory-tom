@@ -166,6 +166,21 @@ export const batchGenerateMotionFn = createServerFn({ method: 'POST' })
     const includeMusic =
       (data.includeMusic ?? false) && sequence.musicStatus !== 'generating';
 
+    // Persist the batch model picks so the sequence header chip, future batch
+    // sessions, and storyboard regen reflect what the user just chose.
+    const videoModelChanged = data.model && data.model !== sequence.videoModel;
+    const musicModelChanged =
+      includeMusic &&
+      data.musicModel &&
+      data.musicModel !== sequence.musicModel;
+    if (videoModelChanged || musicModelChanged) {
+      await context.scopedDb.sequences.update({
+        id: sequence.id,
+        ...(videoModelChanged ? { videoModel: data.model } : {}),
+        ...(musicModelChanged ? { musicModel: data.musicModel } : {}),
+      });
+    }
+
     // Build music config if requested
     let musicConfig: BatchMotionMusicWorkflowInput['music'];
     if (includeMusic) {

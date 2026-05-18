@@ -559,6 +559,12 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
             musicModel: includeMusic ? musicModel : undefined,
           },
         });
+        // Server may have updated sequence.videoModel / sequence.musicModel to
+        // the batch picks; invalidate so the header badge, footer pre-fill,
+        // and per-frame fallback all reflect the new values.
+        void queryClient.invalidateQueries({
+          queryKey: sequenceKeys.detail(sequenceId),
+        });
       } catch (error) {
         setRegeneratingMotion((prev) =>
           removeAllFromSet(prev, eligibleFrameIds)
@@ -722,6 +728,7 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
             variantForSelectedModel={variantForSelectedModel}
             onImageModelChange={setImageModelOverride}
             styleCategory={styleCategory}
+            sequenceMotionModel={sequenceMotionModel}
             frameDivergentVariants={divergentVariants?.filter(
               (v) => v.frameId === curSelectedFrameId
             )}

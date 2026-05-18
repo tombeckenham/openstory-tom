@@ -110,6 +110,11 @@ type SceneScriptPromptsProps = {
   /** Live divergent alternates for the current frame across variant types. */
   frameDivergentVariants?: FrameVariant[];
   onCompareDivergent?: (variant: FrameVariant) => void;
+  /**
+   * Sequence-level motion model. Used as the display fallback when the user
+   * hasn't picked one in the dropdown and the frame has no completed motion.
+   */
+  sequenceMotionModel?: ImageToVideoModel;
 };
 
 export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
@@ -127,6 +132,7 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
   styleCategory,
   frameDivergentVariants,
   onCompareDivergent,
+  sequenceMotionModel,
 }) => {
   const divergentImageVariant = useMemo(
     () => frameDivergentVariants?.find((v) => v.variantType === 'image'),
@@ -673,6 +679,21 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
   const rawMotionPrompt =
     frame?.motionPrompt || motionPromptData?.fullPrompt || '';
 
+  // Resolved motion model for this scene. Precedence:
+  //   1. user picked one in the dropdown right now
+  //   2. frame already has completed motion → show what it was generated with
+  //   3. sequence-level model (reflects most recent batch pick or creation)
+  //   4. global default
+  // Without (2) and (3) the per-frame label would just show DEFAULT_VIDEO_MODEL
+  // regardless of what was actually used or what batch-generate just selected.
+  const effectiveMotionModel: ImageToVideoModel =
+    selectedMotionModel ||
+    (frame?.videoStatus === 'completed' && frame.motionModel
+      ? safeImageToVideoModel(frame.motionModel, DEFAULT_VIDEO_MODEL)
+      : undefined) ||
+    sequenceMotionModel ||
+    DEFAULT_VIDEO_MODEL;
+
   // Assembled preview: exactly what resolveMotionPrompt produces on the server
   const assembledPrompt = useMemo(() => {
     const promptOverride = editedMotionPrompt || rawMotionPrompt;
@@ -682,17 +703,17 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
         metadata: frame?.metadata ?? null,
         description: frame?.description ?? null,
       },
-      selectedMotionModel || DEFAULT_VIDEO_MODEL
+      effectiveMotionModel
     );
   }, [
     editedMotionPrompt,
     rawMotionPrompt,
     frame?.metadata,
     frame?.description,
-    selectedMotionModel,
+    effectiveMotionModel,
   ]);
 
-  const motionModel = selectedMotionModel || DEFAULT_VIDEO_MODEL;
+  const motionModel = effectiveMotionModel;
   const maxPromptLength = IMAGE_TO_VIDEO_MODELS[motionModel].maxPromptLength;
   const isOverLimit = assembledPrompt.length > maxPromptLength;
 
@@ -1154,7 +1175,7 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
           <div className="space-y-2">
             <span className="text-sm font-medium">Model</span>
             <MotionModelSelector
-              selectedModel={selectedMotionModel || DEFAULT_VIDEO_MODEL}
+              selectedModel={effectiveMotionModel}
               onModelChange={setSelectedMotionModel}
               disabled={isGenerating || isGeneratingMotion}
               aspectRatio={aspectRatio}

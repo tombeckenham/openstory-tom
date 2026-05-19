@@ -22,23 +22,33 @@ function getStylePreviewUrl(styleName: string): string {
 
 // Default style templates that can be imported into any team.
 // The new optional fields (sampleVideos, recommendedImageModel,
-// recommendedVideoModel, defaultAspectRatio, useCases) are intentionally
-// omitted here so we don't have to touch every template at once.
-export const DEFAULT_STYLE_TEMPLATES: Array<
-  Omit<
-    Style,
-    | 'id'
-    | 'teamId'
-    | 'createdAt'
-    | 'updatedAt'
-    | 'createdBy'
-    | 'sampleVideos'
-    | 'recommendedImageModel'
-    | 'recommendedVideoModel'
-    | 'defaultAspectRatio'
-    | 'useCases'
-  >
-> = [
+// recommendedVideoModel, defaultAspectRatio, useCases) can be set per-template
+// where the style has an opinion; the mapper below fills in safe defaults for
+// templates that leave them unset.
+type StyleTemplateEntry = Omit<
+  Style,
+  | 'id'
+  | 'teamId'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'createdBy'
+  | 'sampleVideos'
+  | 'recommendedImageModel'
+  | 'recommendedVideoModel'
+  | 'defaultAspectRatio'
+  | 'useCases'
+> &
+  Partial<
+    Pick<
+      Style,
+      | 'recommendedImageModel'
+      | 'recommendedVideoModel'
+      | 'defaultAspectRatio'
+      | 'useCases'
+    >
+  >;
+
+export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
   {
     name: 'Product Ad',
     description:
@@ -457,6 +467,2305 @@ export const DEFAULT_STYLE_TEMPLATES: Array<
     version: null,
     usageCount: null,
   },
+  // ==========================================================================
+  // Commercial / brand (15)
+  // ==========================================================================
+  {
+    name: 'Glossy Product Hero',
+    description:
+      'Polished, ad-agency hero shots with deep blacks, controlled reflections, and a single confident product silhouette. Built for launch films, brand homepages, and digital OOH.',
+    category: 'commercial',
+    tags: ['commercial', 'hero', 'product', 'glossy', 'brand', 'launch'],
+    config: {
+      mood: 'Confident, premium, hyper-controlled',
+      artStyle:
+        'Studio hero photography with a single product as protagonist. Sculpted gradient backdrops, immaculate surfaces, perfect symmetry. The product is rendered like a sculpture -- every facet, edge, and material highlight intentional. No clutter, no distractions. Just light, surface, and form',
+      lighting:
+        'Studio strobe and softbox setup. Crisp specular highlights, controlled reflections on glass and metal, deep velvet blacks. Rim light separates product from background. Hero kicker for the brand mark',
+      colorPalette: ['#0A0A0A', '#1F1F1F', '#F2F2F2', '#C8A464', '#FFFFFF'],
+      cameraWork:
+        'Locked-off hero frames, slow rotating turntable moves, hyper-smooth dolly-ins from wide to macro. Beauty pass with shallow depth. No handheld energy -- everything feels designed',
+      referenceFilms: [
+        'Apple Product Films',
+        'Bang & Olufsen Launches',
+        'Leica Brand Films',
+        'Dyson Cinema Spots',
+      ],
+      colorGrading:
+        'Rich and contrasty with true blacks and neutral whites. Slight warm accent on metallic highlights. Skin and surface tones rendered faithfully. Print-campaign polish',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Glossy Product Hero'),
+    sortOrder: 100,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['product', 'b-roll'],
+  },
+  {
+    name: 'Premium Lifestyle',
+    description:
+      'Aspirational brand-lifestyle storytelling. Beautiful people, beautiful places, the product woven naturally into rituals. Built for luxury brand films and seasonal campaigns.',
+    category: 'commercial',
+    tags: ['commercial', 'lifestyle', 'brand', 'premium', 'aspirational'],
+    config: {
+      mood: 'Elegant, sun-soaked, quietly confident',
+      artStyle:
+        'Editorial lifestyle photography with cinematic depth. Model-grade talent in considered wardrobe inhabiting beautiful environments -- linen sofas, sunlit balconies, marble kitchens. The product appears in real ritual moments rather than being presented. Compositions feel composed but unforced',
+      lighting:
+        'Wraparound natural light supplemented by soft bounce. Window light dominant, warm practicals at night. Golden hour favored for exteriors. Highlights gently rolled off, never clipped',
+      colorPalette: ['#F4EDE2', '#C9A682', '#3B2F26', '#8AA39B', '#FFFFFF'],
+      cameraWork:
+        'Slow handheld and tracked moves. Frequent shallow depth, often racking focus from hand to face. Wider clean masters for context, intimate close-ups on touch and texture',
+      referenceFilms: [
+        'Aesop Brand Films',
+        'Loewe Campaigns',
+        'COS Lookbooks',
+        'Aman Resorts Films',
+      ],
+      colorGrading:
+        'Warm, low-contrast filmic with creamy highlights. Skin tones soft and natural. Subtle desaturation in shadow, slight green-cream cast overall. Looks like an editorial spread',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Premium Lifestyle'),
+    sortOrder: 101,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'veo3_1',
+    defaultAspectRatio: '16:9',
+    useCases: ['lifestyle', 'b-roll'],
+  },
+  {
+    name: 'Beauty Macro',
+    description:
+      'Beauty-counter close-ups with dewy texture, micro-detail, and slow-motion product engagement. Built for skincare, cosmetics, and fragrance launch content.',
+    category: 'commercial',
+    tags: ['commercial', 'beauty', 'macro', 'skincare', 'cosmetics'],
+    config: {
+      mood: 'Sensory, intimate, luxurious',
+      artStyle:
+        'Macro beauty photography focused on texture and material. Cream swirling on porcelain, serum dripping down a glass dropper, lipstick gliding across a fingertip. Skin rendered with realistic pore detail. Backgrounds are simple gradient washes that flatter the product',
+      lighting:
+        'Soft, glowing key with a discreet edge light. Slight backlight to make liquids and gels glow. Even, flattering, never harsh. Subtle bounce into shadows so detail is preserved',
+      colorPalette: ['#F8E9DA', '#E2A8A1', '#3D2A24', '#F4D5C5', '#FFFFFF'],
+      cameraWork:
+        'Slow macro push-ins, slight rotational moves, slow-motion liquid pours and ribbon shots. Locked frames for hero product. Probe lens style for unusual angles into bottles and jars',
+      referenceFilms: [
+        'Charlotte Tilbury Films',
+        'La Mer Brand Spots',
+        'Glossier Beauty Films',
+        'Pat McGrath Launch Reels',
+      ],
+      colorGrading:
+        'Warm and luminous. Highlights softly bloomed, skin tones flushed and dewy. Pinks and peaches gently amplified. Looks like a high-end beauty editorial',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Beauty Macro'),
+    sortOrder: 102,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '9:16',
+    useCases: ['product', 'social-vertical'],
+  },
+  {
+    name: 'Automotive Cinematic',
+    description:
+      'Wide cinematic driving content with engineered motion, controlled reflections, and big-sky drama. Built for car brand films and launch teasers.',
+    category: 'commercial',
+    tags: ['commercial', 'automotive', 'cinematic', 'driving', 'launch'],
+    config: {
+      mood: 'Powerful, engineered, kinetic',
+      artStyle:
+        'Cinematic automotive photography on empty roads, salt flats, mountain passes, and reflective urban environments. The car is shot like an architectural subject -- low angles emphasizing stance, high angles revealing line and form. Backgrounds chosen for graphic clarity, never cluttered',
+      lighting:
+        'Late golden hour or magic hour. Hard sun raking across painted surfaces, controlled lens flares. Night content lit by city neon, headlights, and discreet rim sources. Sky and reflections are characters of their own',
+      colorPalette: ['#0F1620', '#1F3A5F', '#C0392B', '#E8E8E8', '#F3C969'],
+      cameraWork:
+        'Tracking vehicle shots from gimbal cars and aerial drones. Long lens compression for highway sequences, wide for landscape integration. Slow rotational beauty passes around static heroes. Pans that follow the car cleanly through frame',
+      referenceFilms: [
+        'Porsche Brand Films',
+        'BMW M Films',
+        'Polestar Launch Spots',
+        'Ford Bronco Cinema',
+      ],
+      colorGrading:
+        'Cinematic teal-and-amber with deep saturated paint colors. Skies pushed toward blue, asphalt cool, sunlit faces warm. Crushed shadows, controlled highlights. Looks like a feature film trailer',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Automotive Cinematic'),
+    sortOrder: 103,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_max',
+    recommendedVideoModel: 'veo3_1',
+    defaultAspectRatio: '16:9',
+    useCases: ['b-roll', 'product'],
+  },
+  {
+    name: 'Fashion Editorial',
+    description:
+      'High-fashion editorial cinematography with strong poses, considered locations, and an unmistakable magazine feel. Built for seasonal campaigns and runway films.',
+    category: 'commercial',
+    tags: ['commercial', 'fashion', 'editorial', 'runway', 'campaign'],
+    config: {
+      mood: 'Cool, sculptural, deliberate',
+      artStyle:
+        'Editorial fashion photography brought to motion. Model occupies space with intent -- a single beat held, a slow head turn, a hand brushing fabric. Locations have graphic clarity: bare concrete, painted walls, dunes, raw industrial interiors. Clothing is the protagonist, body the canvas',
+      lighting:
+        'High-contrast hard light from a single direction, or perfectly soft north-window flat light. Shadows are intentional and shaped. No spill, no clutter. Often features one heavy directional source',
+      colorPalette: ['#1A1A1A', '#F0EDE6', '#7F1D1D', '#3F3F3F', '#C2B280'],
+      cameraWork:
+        'Locked or slow-tracked frames at portrait, wide, and detail focal lengths. Model often centered or held to a strong vertical. Slow reveals via dolly-in or pan. Beats held longer than commercial pacing',
+      referenceFilms: [
+        'Saint Laurent Campaign Films',
+        'Bottega Veneta Lookbooks',
+        'The Row Brand Films',
+        'Jacquemus Show Films',
+      ],
+      colorGrading:
+        'Filmic with deep blacks and slightly desaturated mid-tones. Skin tones cooled fractionally. Strong color accents from wardrobe punch against muted environments. Magazine-print finish',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Fashion Editorial'),
+    sortOrder: 104,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_max',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['lifestyle', 'product'],
+  },
+  {
+    name: 'Luxury Still',
+    description:
+      'Slow, painterly still-life cinematography for premium goods -- spirits, leather goods, ceramics, art objects. Built for boutique brand films and limited-edition launches.',
+    category: 'commercial',
+    tags: ['commercial', 'luxury', 'still-life', 'boutique', 'craft'],
+    config: {
+      mood: 'Quiet, reverent, painterly',
+      artStyle:
+        'Still-life composition in the tradition of Dutch master painting. A single hero object on a sculpted surface, perhaps with one accompanying prop. Materials emphasized: hand-stitched leather, hand-thrown ceramic, blown glass. Negative space and asymmetry favored over symmetry',
+      lighting:
+        'A single soft window-like key from one side, deep ambient shadow on the other. Chiaroscuro inspired by Vermeer. Highlights gentle, falloff dramatic. Surfaces breathe',
+      colorPalette: ['#2A2118', '#7A5A3A', '#D6BE94', '#1A1A1A', '#F0E8D6'],
+      cameraWork:
+        'Locked frames, glacial pushes, slow orbital tracks. Compositions held in stillness for long enough that the viewer notices the silence. Macro detail passes for texture',
+      referenceFilms: [
+        'Hermès Brand Films',
+        'Bulgari Heritage Spots',
+        'Single Malt Whisky Launch Films',
+        'Loewe Craft Films',
+      ],
+      colorGrading:
+        'Rich, oil-painting palette. Deep walnut shadows, golden mid-tones, soft highlights. Subtle warmth across the frame. Looks like a museum-lit object',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Luxury Still'),
+    sortOrder: 105,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_max',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['product', 'b-roll'],
+  },
+  {
+    name: 'Food & Beverage Hero',
+    description:
+      'Mouthwatering food cinematography with controlled steam, slow pours, and sensory micro-detail. Built for restaurant brand films, CPG launches, and recipe content.',
+    category: 'commercial',
+    tags: ['commercial', 'food', 'beverage', 'restaurant', 'cpg'],
+    config: {
+      mood: 'Sensory, appetizing, crafted',
+      artStyle:
+        'Hero food cinematography. Cuts hitting boards with audible weight, butter melting, sauces pulled across plates with the back of a spoon, ice cracking into a glass, steam rising from a fresh espresso. Plating considered, props natural, surfaces honest -- aged wood, marble, raw linen',
+      lighting:
+        'Single soft window-like key from the side or behind. Strong backlight to define steam, sauce sheen, and glassware. Subtle fill, never flat. Highlights pop on garnish',
+      colorPalette: ['#3F2A1A', '#C97B4E', '#F0D7A1', '#1F2F1F', '#FFFFFF'],
+      cameraWork:
+        'Macro slow-motion pours, slices, and drips. Overhead flat-lay reveals. Slow tabletop tracking past plated dishes. Probe lens dives into bubbles, pots, and grills. Beats held long enough to feel the texture',
+      referenceFilms: [
+        'Le Creuset Brand Films',
+        'Bon Appetit Test Kitchen',
+        'Salt Fat Acid Heat',
+        'Magnolia Bakery Spots',
+      ],
+      colorGrading:
+        'Warm and rich. Golden highlights, deep saucy shadows, vivid greens for herbs and produce. Slight contrast lift in midtones. Looks delicious before the cut even lands',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Food & Beverage Hero'),
+    sortOrder: 106,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['product', 'b-roll'],
+  },
+  {
+    name: 'Tech Keynote',
+    description:
+      'Clean, stage-ready technology presentation aesthetic with controlled gradients, sharp typography surfaces, and architectural precision. Built for product launches and conference reveals.',
+    category: 'commercial',
+    tags: ['commercial', 'tech', 'keynote', 'launch', 'conference'],
+    config: {
+      mood: 'Precise, future-facing, confident',
+      artStyle:
+        'Stage-presentation aesthetic. Dark seamless backgrounds with one or two glowing gradient orbs, hero product lit clinically center-frame. UI fragments float in clean perspective. Architectural lines, perfect symmetry, ample negative space. Every element feels engineered',
+      lighting:
+        'Controlled studio lighting with cool key from above, warmer rim from behind. Black backgrounds illuminated by gradient glow rather than direct light. Product surfaces show clean specular highlights without reflection clutter',
+      colorPalette: ['#0A0A0F', '#1E2A3A', '#6FC2FF', '#FFFFFF', '#A8AFB8'],
+      cameraWork:
+        'Locked hero frames, slow dolly-ins, perfect rotational reveals. UI flythroughs with measured parallax. No handheld energy, no wobble. Everything moves on rails',
+      referenceFilms: [
+        'Apple Keynote Reveal Films',
+        'Tesla Launch Events',
+        'Nothing Brand Films',
+        'OnePlus Hero Spots',
+      ],
+      colorGrading:
+        'Cool, contrasty, slightly desaturated. Deep blacks, neon-glass blues, crisp whites. Skin tones pulled fractionally cool. Looks like a stage feed',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Tech Keynote'),
+    sortOrder: 107,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['pitch-deck', 'product'],
+  },
+  {
+    name: 'Fintech Explainer',
+    description:
+      'Trustworthy, motion-graphics-friendly fintech aesthetic. Clean dashboards, soft UI cards, and human moments of relief and clarity. Built for product explainer films and onboarding.',
+    category: 'commercial',
+    tags: ['commercial', 'fintech', 'explainer', 'onboarding', 'saas'],
+    config: {
+      mood: 'Calm, trustworthy, modern',
+      artStyle:
+        'Clean fintech storytelling that intercuts diverse, relaxed human moments with hyper-readable UI inserts. Apartments lit with warm afternoon light, phones held naturally, dashboards rendered in soft glass-card UI. Money is implied rather than shown -- the focus is on confidence and ease',
+      lighting:
+        'Soft natural daylight indoors, gentle key with bounce fill for faces. UI surfaces have subtle inner glow and ambient occlusion. Never harsh, never clinical',
+      colorPalette: ['#F7F8FB', '#0A2540', '#22C55E', '#A8B0BC', '#FF7B5A'],
+      cameraWork:
+        'Locked or gently floated handheld for human moments. UI inserts are flat-on with measured push-ins to specific dashboard elements. Smooth transitions from person to screen and back',
+      referenceFilms: [
+        'Wise Brand Films',
+        'Monzo Onboarding',
+        'Revolut Product Spots',
+        'Stripe Explainers',
+      ],
+      colorGrading:
+        'Bright and airy with one brand accent. Whites kept clean, mid-tones gently warm, shadows soft. UI rendered with high fidelity and no banding',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Fintech Explainer'),
+    sortOrder: 108,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['tutorial', 'pitch-deck'],
+  },
+  {
+    name: 'Perfume Editorial',
+    description:
+      'Atmospheric, scent-as-mood perfume cinematography. Bottles in mist, fabric drifting, silhouettes against light. Built for fragrance launch films and seasonal campaigns.',
+    category: 'commercial',
+    tags: ['commercial', 'perfume', 'fragrance', 'editorial', 'campaign'],
+    config: {
+      mood: 'Mysterious, sensorial, romantic',
+      artStyle:
+        'Fragrance cinematography that treats scent as cinema. The bottle is one of several subjects: silk drifting in slow motion, a hand brushing a collarbone, a figure backlit through a sheer curtain, a window full of dust catching sun. Locations are spare and architectural',
+      lighting:
+        'Heavy backlight cutting through atmosphere -- haze, mist, or fine dust. Bottles caught with rim light, faces partial-silhouette. Single hard sun or a single soft window source, never both. Dramatic falloff',
+      colorPalette: ['#1A1410', '#7F3F2C', '#E6D5BD', '#9B6A45', '#FFFFFF'],
+      cameraWork:
+        'Slow tracking, slow rotation, slow reveal. Soft slow-motion fabric and liquid passes. Beats held in stillness until they almost break. Macro detail on glass, skin, light',
+      referenceFilms: [
+        'Chanel Fragrance Films',
+        'Tom Ford Perfume Spots',
+        'Dior Sauvage Films',
+        'Byredo Brand Films',
+      ],
+      colorGrading:
+        'Warm amber and deep walnut shadows. Skin tones rich, slightly bronzed. Highlights bloomed gently. Looks like film stock from the mid-90s',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Perfume Editorial'),
+    sortOrder: 109,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_max',
+    recommendedVideoModel: 'veo3_1',
+    defaultAspectRatio: '9:16',
+    useCases: ['product', 'lifestyle'],
+  },
+  {
+    name: 'Watch Macro',
+    description:
+      'Hyper-detailed horological cinematography with engineered light catching every facet of case and dial. Built for watch brands, jewellery, and collector launches.',
+    category: 'commercial',
+    tags: ['commercial', 'watch', 'horology', 'macro', 'luxury'],
+    config: {
+      mood: 'Precision, craft, weight',
+      artStyle:
+        'Macro horology photography. Watch case shown against a deep gradient, dial detail isolated, crown and lugs revealed at extreme close-up. Subtle motion in the second hand or rotor. Surfaces are everything -- brushed steel, polished gold, sapphire crystal, dial lacquer',
+      lighting:
+        'Carefully placed strip lights and softboxes shaping each facet. Strong specular control -- no reflection of the camera, no glare blowouts. Dial markers and indices catch a deliberate kicker',
+      colorPalette: ['#0A0A0A', '#1F1F1F', '#8C7A3B', '#E8E8E8', '#1F3A5F'],
+      cameraWork:
+        'Locked hero frames, slow rotational reveals at 1 frame per second feel. Macro probe lens for tiny details. The watch turns; the camera barely moves',
+      referenceFilms: [
+        'Rolex Brand Films',
+        'Patek Philippe Spots',
+        'Audemars Piguet Launches',
+        'Omega Heritage Films',
+      ],
+      colorGrading:
+        'Deep blacks, neutral midtones, gold and steel rendered with no color cast. Restrained, faithful to the materials. Print-campaign clarity',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Watch Macro'),
+    sortOrder: 110,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_max',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '1:1',
+    useCases: ['product'],
+  },
+  {
+    name: 'Sportswear Motion',
+    description:
+      'High-energy sportswear cinematography with athletic motion, sweat, and crisp performance detail. Built for sports brand films, drop campaigns, and athlete features.',
+    category: 'commercial',
+    tags: ['commercial', 'sportswear', 'athletic', 'motion', 'performance'],
+    config: {
+      mood: 'Kinetic, focused, sweat-and-grit',
+      artStyle:
+        'Performance photography with athletic intensity. Athletes mid-stride, mid-jump, mid-recovery. Sweat, breath, and chalk caught in suspended motion. Locations include empty stadiums, neon-lit gyms, wet asphalt, indoor courts. Apparel and footwear are featured naturally in performance, not posed',
+      lighting:
+        'Hard-edged sport lighting -- stadium banks, single high-output soft source, occasional flash for stop-motion crispness. Strong rim light separating athlete from background. Night sequences lit by neon and reflected wet ground',
+      colorPalette: ['#0F0F0F', '#FF4F1F', '#F7F7F7', '#1F2937', '#E0E0E0'],
+      cameraWork:
+        'Slow motion at 120-240fps for hero action. Tracking shots alongside running athletes, low-angle wides for elevation, tight macro on sweat and texture. Quick cuts between disciplines',
+      referenceFilms: [
+        'Nike Brand Films',
+        'On Running Films',
+        'Lululemon Athlete Spots',
+        'Adidas Performance Films',
+      ],
+      colorGrading:
+        'High contrast, slightly desaturated, with one brand accent pushed. Skin tones warm, blacks crushed, highlights crisp. Looks like a global brand spot',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Sportswear Motion'),
+    sortOrder: 111,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'veo3_1',
+    defaultAspectRatio: '9:16',
+    useCases: ['lifestyle', 'product', 'social-vertical'],
+  },
+  {
+    name: 'Alcohol Pour',
+    description:
+      'Slow-motion spirits cinematography with controlled splashes, condensation, and bottle hero shots. Built for whisky, gin, tequila, and craft beer brand films.',
+    category: 'commercial',
+    tags: ['commercial', 'alcohol', 'spirits', 'pour', 'beverage'],
+    config: {
+      mood: 'Crafted, anticipatory, weighty',
+      artStyle:
+        'Spirits hero cinematography. Bottle on a clean gradient backdrop, glass beside it, single ice cube descending in slow motion. Pour sequences captured at high frame rate, condensation forming, label catching a deliberate kicker. Surfaces are dark wood, slate, or seamless paper',
+      lighting:
+        'Strong backlight to glow the liquid -- amber, gold, or clear. Rim light shaping bottle silhouette. Negative fill on the opposite side for definition. Dramatic contrast preserved',
+      colorPalette: ['#1A0F08', '#B5762C', '#E8B86E', '#3F2A1A', '#FFFFFF'],
+      cameraWork:
+        'Locked hero, slow rotational tracks, macro probe shots into the glass. High frame rate pours -- 480fps for splash, 120fps for the bottle settle. Beats long enough to savor',
+      referenceFilms: [
+        'Macallan Brand Films',
+        'Hendrick’s Gin Spots',
+        'Patron Tequila Launches',
+        'Guinness Stout Films',
+      ],
+      colorGrading:
+        'Warm and rich. Amber liquids amplified, deep walnut shadows, golden highlights. Skin tones (if present) warm. Looks like a heritage spirits campaign',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Alcohol Pour'),
+    sortOrder: 112,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_max',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['product', 'b-roll'],
+  },
+  {
+    name: 'Jewellery Rotation',
+    description:
+      'Precise rotational hero shots that show every facet of fine jewellery. Built for diamond, gold, and statement-piece campaigns.',
+    category: 'commercial',
+    tags: ['commercial', 'jewellery', 'jewelry', 'macro', 'luxury'],
+    config: {
+      mood: 'Refined, brilliant, deliberate',
+      artStyle:
+        'Hero jewellery cinematography. A single piece -- ring, necklace, earring -- on a sculpted velvet or stone surface. Hand passes for scale. Surfaces understated so the piece dominates. Brilliance and fire of stones is the protagonist',
+      lighting:
+        'Carefully placed pinpoint lights to ignite facets. Soft ambient base for metalwork. Polarizing controls for unwanted glare. Subtle backlight for stone luminance',
+      colorPalette: ['#0A0A0A', '#1A1A1A', '#E8C766', '#F0F0F0', '#B23A48'],
+      cameraWork:
+        'Locked frames, ultra-slow rotational beauty passes, macro probe into stone settings. Hand-model passes shot at 60-120fps. Movement is glacial and deliberate',
+      referenceFilms: [
+        'Tiffany & Co. Brand Films',
+        'Cartier Spots',
+        'Van Cleef & Arpels Films',
+        'Bvlgari Heritage Reels',
+      ],
+      colorGrading:
+        'Deep blacks, neutral whites. Metals rendered faithfully, stones with a touch of extra brilliance. No color cast. Print-jewellery polish',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Jewellery Rotation'),
+    sortOrder: 113,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_max',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '1:1',
+    useCases: ['product'],
+  },
+  {
+    name: 'Hospitality Lifestyle',
+    description:
+      'Aspirational hotel and resort cinematography with soft golden light, infinity pools, breakfast on linen, and unhurried bodies in beautiful spaces. Built for hospitality brand films.',
+    category: 'commercial',
+    tags: ['commercial', 'hospitality', 'hotel', 'resort', 'travel'],
+    config: {
+      mood: 'Calm, restorative, indulgent',
+      artStyle:
+        'Editorial hospitality cinematography. Guests at ease in beautifully designed rooms, infinity pools meeting horizons, breakfasts on linen with a sea view, cocktails at sunset. Architecture, materials, and natural surroundings carry equal weight with people',
+      lighting:
+        'Soft natural daylight, warm interior practicals at evening, golden hour for exteriors. Wraparound bounce keeps shadows luminous. Never harsh -- the space always feels welcoming',
+      colorPalette: ['#F5EAD8', '#A6886F', '#3D2A1F', '#8DB6B8', '#FFFFFF'],
+      cameraWork:
+        'Slow gimbal and tracked moves through interiors and grounds. Aerial reveals of architecture and landscape. Intimate medium shots for guests, wide masters for environment. Long beats that let the place breathe',
+      referenceFilms: [
+        'Aman Resorts Brand Films',
+        'Six Senses Spots',
+        'Soho House Films',
+        'Belmond Resort Films',
+      ],
+      colorGrading:
+        'Warm filmic with creamy highlights. Skin tones soft and golden. Natural greens and blues lightly enhanced. Looks like a travel-magazine spread in motion',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Hospitality Lifestyle'),
+    sortOrder: 114,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'veo3_1',
+    defaultAspectRatio: '16:9',
+    useCases: ['lifestyle', 'b-roll'],
+  },
+  // ==========================================================================
+  // Ecommerce (12)
+  // ==========================================================================
+  {
+    name: 'White Background Studio',
+    description:
+      'Clean catalogue-style product shots on pure white seamless. Built for marketplace listings, PDPs, and DTC product pages where the product alone has to sell.',
+    category: 'ecommerce',
+    tags: ['ecommerce', 'studio', 'white-bg', 'catalogue', 'pdp'],
+    config: {
+      mood: 'Clean, neutral, honest',
+      artStyle:
+        'Pure white seamless studio. The product is centered, perfectly exposed, and shown from the angles a buyer needs -- front three-quarter, profile, top-down, detail. No props beyond what is essential. The product, exactly as it ships, is the protagonist',
+      lighting:
+        'Two large softboxes flanking the product at 45 degrees with a top light for shadow control. Background lit to clean white without spill onto the product. Even, neutral, flattering. No drama',
+      colorPalette: ['#FFFFFF', '#F5F5F5', '#1A1A1A', '#9CA3AF', '#E5E7EB'],
+      cameraWork:
+        'Locked hero frames at each required angle. Slow rotational beauty pass. Macro detail passes for label, stitching, finish. No handheld energy, no creative angles',
+      referenceFilms: [
+        'Amazon PDP Imagery',
+        'Net-a-Porter Product Pages',
+        'Apple Online Store',
+        'Shopify Brand Templates',
+      ],
+      colorGrading:
+        'Neutral and true-to-life. Whites are clean and white, color rendered faithfully. No stylization. Buyer-trustworthy color accuracy',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('White Background Studio'),
+    sortOrder: 200,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_max',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '1:1',
+    useCases: ['product'],
+  },
+  {
+    name: 'Lifestyle On-Model',
+    description:
+      'Product in use on real-world talent in everyday context -- worn, held, applied, lived in. Built for PDP secondary images, social cuts, and email hero.',
+    category: 'ecommerce',
+    tags: ['ecommerce', 'lifestyle', 'on-model', 'pdp', 'social'],
+    config: {
+      mood: 'Natural, relatable, warm',
+      artStyle:
+        'On-model lifestyle photography. Talent wears or uses the product in a believable environment -- the product is integrated, never floating. Wardrobe and prop choices feel like the customer’s own life rather than a stylist’s mood board. Modest art direction',
+      lighting:
+        'Soft natural daylight, occasional reflector fill for face. Outdoor and indoor both supported. Highlights gentle, never blown',
+      colorPalette: ['#F8EFE0', '#C5A88D', '#3F3F3F', '#8FA9B5', '#FFFFFF'],
+      cameraWork:
+        'Mix of locked and lightly-floated handheld. Medium shots for context, close-ups for product interaction, occasional wide for environment. Pace is unhurried',
+      referenceFilms: [
+        'Everlane Product Pages',
+        'COS Lookbooks',
+        'Patagonia Spots',
+        'Allbirds Brand Content',
+      ],
+      colorGrading:
+        'Warm naturalism. Skin tones honest, shadows soft, whites slightly cream. Product color faithful. Looks like a friendly catalogue',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Lifestyle On-Model'),
+    sortOrder: 201,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '1:1',
+    useCases: ['lifestyle', 'product'],
+  },
+  {
+    name: 'UGC Unboxing',
+    description:
+      'Authentic-feeling unboxing from a real-customer POV. Built for social ads, organic short-form, and influencer-style content that performs like UGC.',
+    category: 'ecommerce',
+    tags: ['ecommerce', 'ugc', 'unboxing', 'social', 'authentic'],
+    config: {
+      mood: 'Excited, casual, authentic',
+      artStyle:
+        'Phone-shot unboxing aesthetic. Box on a coffee table, packing tape pulled, layers of tissue and protective material revealed, product lifted into frame. Hands are the only person on camera. Environment is a real apartment or office -- visible plant, mug, laptop',
+      lighting:
+        'Natural window light or an inexpensive ring light. Never studio-perfect. Some shadow, some warmth, occasional auto-exposure shifts',
+      colorPalette: ['#F5EFE5', '#3A3A3A', '#D85F4A', '#FFFFFF', '#A8AFB8'],
+      cameraWork:
+        'Handheld phone POV from chest height. Slight micro-jitter. Occasional reframing as the action proceeds. Quick cuts that mimic a creator’s editing rhythm. Native vertical framing',
+      referenceFilms: [
+        'TikTok Creator Unboxings',
+        'Reels Product Reveals',
+        'Amazon Live Streams',
+        'Influencer Haul Videos',
+      ],
+      colorGrading:
+        'Auto-WB digital look. Slightly oversharpened, slightly soft. Highlights occasionally clipped. Looks like a phone camera roll',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('UGC Unboxing'),
+    sortOrder: 202,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_2',
+    recommendedVideoModel: 'minimax_hailuo_02',
+    defaultAspectRatio: '9:16',
+    useCases: ['product', 'social-vertical'],
+  },
+  {
+    name: 'Flat-Lay Overhead',
+    description:
+      'Composed flat-lay product photography from directly overhead. Built for editorial PDPs, social posts, and category banners where styling sells the story.',
+    category: 'ecommerce',
+    tags: ['ecommerce', 'flat-lay', 'overhead', 'styling', 'editorial'],
+    config: {
+      mood: 'Composed, calm, considered',
+      artStyle:
+        'Top-down flat-lay composition. Product surrounded by a curated arrangement of complementary props -- a coffee, a notebook, a sprig of herb, folded linen. Negative space respected. Surfaces are honest -- raw wood, marble, linen, paper',
+      lighting:
+        'Single soft overhead window-like source, slight directional shadow that anchors objects. Even, gentle, no spill onto the lens',
+      colorPalette: ['#F5EDE0', '#A18258', '#3F3F3F', '#D9E3D4', '#FFFFFF'],
+      cameraWork:
+        'Locked overhead camera. Subtle dolly-in or push-out. Slow rotational reframes around the centerpiece. Occasional reveal of a hand placing or adjusting an element',
+      referenceFilms: [
+        'Kinfolk Magazine Spreads',
+        'The Sill Plant Editorial',
+        'Bon Appetit Top-Down Recipes',
+        'Aesop Catalogue Imagery',
+      ],
+      colorGrading:
+        'Warm naturalism. Subtle film grain texture. Highlights soft, shadows luminous. Looks like a stylist’s portfolio',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Flat-Lay Overhead'),
+    sortOrder: 203,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '1:1',
+    useCases: ['product', 'lifestyle'],
+  },
+  {
+    name: '360 Turntable',
+    description:
+      'Rotational beauty pass that shows the product from every angle in a single move. Built for marketplace hero modules, PDP turntables, and AR-style preview content.',
+    category: 'ecommerce',
+    tags: ['ecommerce', 'turntable', '360', 'rotation', 'pdp'],
+    config: {
+      mood: 'Confident, complete, mechanical',
+      artStyle:
+        'Product on a seamless gradient backdrop, viewed from a fixed camera as it slowly rotates a full 360 degrees. No props, no distractions. Every angle visible in a single move. Product centered and consistently exposed throughout the rotation',
+      lighting:
+        'Three-point softbox setup that holds even illumination across all rotational angles. Subtle rim light from above. Background lit to gentle gradient',
+      colorPalette: ['#F5F5F5', '#1A1A1A', '#9CA3AF', '#FFFFFF', '#D1D5DB'],
+      cameraWork:
+        'Fully locked camera, product rotates on a motorized turntable. Single take, single move, smooth constant velocity. No cuts',
+      referenceFilms: [
+        'Apple Store AR Previews',
+        'Best Buy PDP Turntables',
+        '3D Sketchfab Product Showcases',
+        'Sneaker Resale Detail Reels',
+      ],
+      colorGrading:
+        'Neutral, faithful, even. No stylization. Buyer-trustworthy',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('360 Turntable'),
+    sortOrder: 204,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_max',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '1:1',
+    useCases: ['product'],
+  },
+  {
+    name: 'As Seen On Phone',
+    description:
+      'Product shot framed inside a phone screen, mimicking how the customer will actually see it scrolling. Built for ad creative, social-first launches, and conversion tests.',
+    category: 'ecommerce',
+    tags: ['ecommerce', 'social', 'phone', 'mockup', 'ad'],
+    config: {
+      mood: 'Native, modern, mobile-first',
+      artStyle:
+        'A single phone (often held in-hand in a real environment) showing a vertical product video or PDP. Bezel and notch present. Thumb sometimes enters frame to scroll or tap. Background environment is unobtrusive but real -- a kitchen counter, a desk, a sofa',
+      lighting:
+        'Soft natural daylight on the phone-holding hand, screen glow slightly reflected on fingers. Phone screen renders at full brightness',
+      colorPalette: ['#F4F4F4', '#1A1A1A', '#3478F6', '#FFFFFF', '#A8AFB8'],
+      cameraWork:
+        'Mostly locked over-the-shoulder onto the phone. Occasional reframe as the user scrolls. Macro detail when the product hits the feed. Cuts mirror typical short-form pacing',
+      referenceFilms: [
+        'Apple iPhone Ads',
+        'Meta Ad Creative Templates',
+        'TikTok Spark Ads',
+        'Mobile-Native Brand Films',
+      ],
+      colorGrading:
+        'Neutral environment, screen color faithful. Slight warmth on hand and surface. Looks like a phone in real use',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('As Seen On Phone'),
+    sortOrder: 205,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '9:16',
+    useCases: ['product', 'social-vertical'],
+  },
+  {
+    name: 'Marketplace Listing',
+    description:
+      'Strict, marketplace-compliant product imagery -- pure white, single product, no overlays. Built for Amazon, Etsy, and aggregator listings.',
+    category: 'ecommerce',
+    tags: ['ecommerce', 'marketplace', 'amazon', 'compliance', 'listing'],
+    config: {
+      mood: 'Disciplined, unembellished, compliant',
+      artStyle:
+        'Single product on pure white. No props, no text overlays, no watermarks, no humans, no other items. The product fills 85 percent of the frame. Standard PDP angles -- main, alternate angles, scale reference, in-package detail',
+      lighting:
+        'Two large softboxes flanking the product, top light for shadow control, white-card fill below. Even illumination, no dramatic shadow. Background blown to pure white',
+      colorPalette: ['#FFFFFF', '#F5F5F5', '#1A1A1A', '#9CA3AF', '#E5E7EB'],
+      cameraWork:
+        'Locked hero frames for each required angle. No movement. No cuts within a frame. Square aspect for thumbnails',
+      referenceFilms: [
+        'Amazon Listing Standards',
+        'Etsy Product Photography Guide',
+        'Walmart Marketplace PDPs',
+        'eBay Hero Imagery',
+      ],
+      colorGrading:
+        'Neutral, true to life. No filter, no contrast push. Pure compliant clarity',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Marketplace Listing'),
+    sortOrder: 206,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_max',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '1:1',
+    useCases: ['product'],
+  },
+  {
+    name: 'Kitchen Counter UGC',
+    description:
+      'Authentic-feeling UGC of food, kitchen tools, or supplements shot in a real home kitchen. Built for CPG social ads and food/beverage organic short-form.',
+    category: 'ecommerce',
+    tags: ['ecommerce', 'ugc', 'kitchen', 'cpg', 'authentic'],
+    config: {
+      mood: 'Genuine, lived-in, energetic',
+      artStyle:
+        'Real-home kitchen setting. Product on the counter alongside everyday items -- a mug, a half-cut lemon, a tea towel. Hand sometimes enters to scoop, pour, or stir. Slight visual clutter signals authenticity rather than studio polish',
+      lighting:
+        'Available daylight from a kitchen window or a single off-axis overhead. Mixed temperature accepted -- the world isn’t a studio',
+      colorPalette: ['#F7EFE3', '#8FA98D', '#3F3F3F', '#D85F4A', '#FFFFFF'],
+      cameraWork:
+        'Handheld phone framing, slight micro-jitter, occasional refocus hunt. Mix of medium shots and macro detail. Pacing matches creator-style edit',
+      referenceFilms: [
+        'TikTok Recipe Creators',
+        'Reels Cookware Demos',
+        'YouTube Shorts Kitchen Reviews',
+        'Instagram Food Hauls',
+      ],
+      colorGrading:
+        'Auto-WB digital look. Slight oversharpening, slightly cooler shadows. No professional grade. Looks like a creator just hit post',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Kitchen Counter UGC'),
+    sortOrder: 207,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_2',
+    recommendedVideoModel: 'minimax_hailuo_02',
+    defaultAspectRatio: '9:16',
+    useCases: ['product', 'social-vertical'],
+  },
+  {
+    name: 'Bathroom Counter UGC',
+    description:
+      'Authentic-feeling beauty UGC shot on a real bathroom counter -- skincare, haircare, cosmetics in their natural habitat. Built for beauty social ads and creator-style content.',
+    category: 'ecommerce',
+    tags: ['ecommerce', 'ugc', 'bathroom', 'beauty', 'skincare'],
+    config: {
+      mood: 'Intimate, daily-ritual, real',
+      artStyle:
+        'Bathroom counter or vanity setting. Product among other believable items -- toothbrush, hair tie, a candle. Hand enters frame to dispense, apply, or swatch. A mirror occasionally visible. Routine feels like a real morning',
+      lighting:
+        'Available bathroom lighting -- overhead vanity bar, plus daylight if a window is present. Mixed temperature, sometimes slightly warm-tinted',
+      colorPalette: ['#F8EDE3', '#D6A48F', '#3F3F3F', '#A8C0B5', '#FFFFFF'],
+      cameraWork:
+        'Phone-shot POV from chest height with slight handheld energy. Macro detail on swatches and texture. Occasional self-shot mirror frames. Native vertical aspect',
+      referenceFilms: [
+        'Skincare TikTok Routines',
+        'Beauty Reels Demos',
+        'Sephora Squad Creator Content',
+        'Influencer GRWM Videos',
+      ],
+      colorGrading:
+        'Auto-WB digital look. Slight pink/cream cast typical of bathroom lighting. Skin tones warm. Looks like a real morning routine',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Bathroom Counter UGC'),
+    sortOrder: 208,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_2',
+    recommendedVideoModel: 'minimax_hailuo_02',
+    defaultAspectRatio: '9:16',
+    useCases: ['product', 'social-vertical'],
+  },
+  {
+    name: 'Returns-Friendly Diagnostic',
+    description:
+      'Hyper-honest product photography that shows scale, fit, dimensions, and material so customers buy with confidence. Built to reduce returns and dispel ambiguity on PDPs.',
+    category: 'ecommerce',
+    tags: ['ecommerce', 'diagnostic', 'fit', 'scale', 'returns'],
+    config: {
+      mood: 'Honest, helpful, thorough',
+      artStyle:
+        'Product photographed with explicit scale and dimension cues -- next to a hand, a tape measure, or a recognizable object. Apparel shown on multiple body types from front, side, and back. Footwear includes sole, profile, and stack-height detail. Materials shown at macro to show weave and weight',
+      lighting:
+        'Even soft studio key with subtle directional fill. Color rendering accurate -- a fabric’s true color must read. Macro detail lit to show texture',
+      colorPalette: ['#F4F4F4', '#1A1A1A', '#6B7280', '#FFFFFF', '#E5E7EB'],
+      cameraWork:
+        'Locked frames at each diagnostic angle. Slow rotational beauty pass. Macro detail at material grain. Side-by-side scale references',
+      referenceFilms: [
+        'Zappos PDP Imagery',
+        'Bonobos Fit Guides',
+        'ASOS Catwalk Loops',
+        'Patagonia Product Notes',
+      ],
+      colorGrading:
+        'Neutral and faithful. No stylization. Print-ready color accuracy',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Returns-Friendly Diagnostic'),
+    sortOrder: 209,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '1:1',
+    useCases: ['product', 'tutorial'],
+  },
+  {
+    name: 'Packaging Close-Up',
+    description:
+      'Macro packaging cinematography that lingers on print finish, foil, emboss, and material. Built for craft brands, premium DTC, and unboxing-driven campaigns.',
+    category: 'ecommerce',
+    tags: ['ecommerce', 'packaging', 'macro', 'craft', 'brand'],
+    config: {
+      mood: 'Crafted, tactile, considered',
+      artStyle:
+        'Macro photography of packaging detail. Embossed logos catching raking light, foil stamping reflecting deliberately, paper grain visible, ribbon edges sharp. The product is implied; the package itself is the protagonist',
+      lighting:
+        'Single raking light low across the surface to reveal emboss and texture. Soft fill from the opposite side. Glints on foil controlled with strip light',
+      colorPalette: ['#F2EBDD', '#1F1A14', '#C8A464', '#7F1D1D', '#FFFFFF'],
+      cameraWork:
+        'Locked frames or slow rotational moves. Macro probe lens at edges and seams. Beats held long enough to feel the craft',
+      referenceFilms: [
+        'Apple Packaging Reveals',
+        'Aesop Box Films',
+        'Diptyque Packaging Spots',
+        'Boutique Spirits Box Films',
+      ],
+      colorGrading:
+        'Warm, rich, with deep blacks and faithful highlights. Foils rendered with true gleam. Looks like an art-book print',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Packaging Close-Up'),
+    sortOrder: 210,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_max',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['product', 'b-roll'],
+  },
+  {
+    name: 'In-Context Use',
+    description:
+      'Product shown solving its actual problem in its actual environment -- the cooler at the picnic, the bag on the bike, the lamp on the desk. Built for benefits-led ad creative.',
+    category: 'ecommerce',
+    tags: ['ecommerce', 'in-context', 'use-case', 'benefits', 'ad'],
+    config: {
+      mood: 'Practical, situational, persuasive',
+      artStyle:
+        'Product captured solving a real problem in a real place. A backpack loaded for a flight, a kettle pouring into a mug at the kitchen counter, a lamp illuminating a desk at dusk. Surrounding context is honest. The benefit is shown, not stated',
+      lighting:
+        'Available natural and practical lighting matched to the scene. Soft fill where faces are present. Believable, never staged',
+      colorPalette: ['#F5EDE0', '#3F3F3F', '#A18258', '#8AA39B', '#FFFFFF'],
+      cameraWork:
+        'Mix of medium shots showing context and tight inserts showing function. Light handheld energy. Cuts driven by the action -- pour, click, zip, swipe',
+      referenceFilms: [
+        'YETI Brand Films',
+        'Patagonia Worn Wear Stories',
+        'Bellroy Function Films',
+        'Knife Aid Sharpening Spots',
+      ],
+      colorGrading:
+        'Warm naturalism with slight contrast lift. Skin tones honest. Looks like a believable day, not a studio',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('In-Context Use'),
+    sortOrder: 211,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['product', 'lifestyle', 'tutorial'],
+  },
+  // ==========================================================================
+  // Influencer / talking-head (10)
+  // ==========================================================================
+  {
+    name: 'Warm Vlog',
+    description:
+      'Cozy at-home vlog aesthetic with warm practicals, soft handheld energy, and direct-to-camera intimacy. Built for creator-style brand films and personal narratives.',
+    category: 'influencer',
+    tags: ['influencer', 'vlog', 'talking-head', 'home', 'cozy'],
+    config: {
+      mood: 'Warm, intimate, conversational',
+      artStyle:
+        'Creator-style at-home vlog. Subject talks to camera from a sofa, desk, or kitchen island with the lived-in clutter of a real apartment behind them -- plants, books, a coffee. Wardrobe casual. Set design is the actual room',
+      lighting:
+        'Soft natural daylight through a window plus warm tungsten practicals -- a lamp, fairy lights, candles. Mixed temperature embraced. Subject lit gently from the side, never flat',
+      colorPalette: ['#F4E4CF', '#A4805D', '#3F2A1A', '#D9A78A', '#FFFFFF'],
+      cameraWork:
+        'Light handheld locked-off on a tripod with the occasional reframe. Medium and close-up framing. Cuts driven by edit pace, b-roll inserts of hands, mug, laptop, dog. Native vertical or 16:9 supported',
+      referenceFilms: [
+        'Casey Neistat Vlogs',
+        'Emma Chamberlain Films',
+        'Matt D’Avella Episodes',
+        'Sami Clarke Lifestyle',
+      ],
+      colorGrading:
+        'Warm filmic. Cream highlights, soft shadows, gentle saturation. Skin tones warm and forgiving. Looks like a thoughtful creator’s grade',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Warm Vlog'),
+    sortOrder: 300,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_2',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['talking-head', 'lifestyle'],
+  },
+  {
+    name: 'Ring-Light Tutorial',
+    description:
+      'Direct-to-camera tutorial aesthetic with even ring-light fill, clean background, and tight talking-head framing. Built for how-tos, product demos, and creator education.',
+    category: 'influencer',
+    tags: ['influencer', 'tutorial', 'ring-light', 'talking-head', 'demo'],
+    config: {
+      mood: 'Clear, instructional, friendly',
+      artStyle:
+        'Creator at a desk or vanity speaking directly to camera with a ring light visible in their eyes. Background tidy but personal -- a shelf, a piece of art, a houseplant. Occasional cut to overhead hands or insert of the product being demoed',
+      lighting:
+        'Single ring light as key (visible catchlight in eyes), soft ambient fill from the room. Even, frontal, flattering. No dramatic shadow',
+      colorPalette: ['#F7EFE3', '#F0AAB7', '#1F1A14', '#8AA39B', '#FFFFFF'],
+      cameraWork:
+        'Locked-off tripod head-and-shoulders frame. Occasional re-zoom for emphasis. Insert cuts to overhead hand demos. Native vertical aspect',
+      referenceFilms: [
+        'TikTok Beauty Tutorials',
+        'YouTube Shorts How-Tos',
+        'Reels Skincare Routines',
+        'Creator-Led Brand Tutorials',
+      ],
+      colorGrading:
+        'Bright, even, slightly warm. Skin tones flattering. Whites slightly cream. Looks like a polished but personal tutorial',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Ring-Light Tutorial'),
+    sortOrder: 301,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_2',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '9:16',
+    useCases: ['talking-head', 'tutorial', 'social-vertical'],
+  },
+  {
+    name: 'Podcast Clip',
+    description:
+      'Studio-podcast aesthetic with broadcast mic, dual angles, and warm directional light. Built for repurposed-podcast short-form and creator interview series.',
+    category: 'influencer',
+    tags: ['influencer', 'podcast', 'interview', 'clip', 'broadcast'],
+    config: {
+      mood: 'Considered, conversational, broadcast-grade',
+      artStyle:
+        'Two-host podcast setup at a wood-top table with broadcast mics on boom arms. Background features warm shelving, neon sign, plants, or acoustic panels. Hosts wear neutral wardrobe. Cuts intercut between host singles and a wide two-shot',
+      lighting:
+        'Warm directional key from one side with cool ambient fill from the opposite. Mics catch a deliberate kicker. Background lit moodily but legibly',
+      colorPalette: ['#1A1410', '#7F3F2C', '#E6C28C', '#3D2A1F', '#FFFFFF'],
+      cameraWork:
+        'Three locked cameras -- two singles and a two-shot. Slow lens-zoom punches in for emphasis. Captions burned in for vertical reframes',
+      referenceFilms: [
+        'Joe Rogan Experience',
+        'Diary of a CEO',
+        'Smartless Studios',
+        'Call Her Daddy',
+      ],
+      colorGrading:
+        'Warm, rich, low-contrast filmic. Highlights bloomed, blacks lifted slightly. Skin tones warm. Looks like a content studio shoot',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Podcast Clip'),
+    sortOrder: 302,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '9:16',
+    useCases: ['talking-head', 'social-vertical'],
+  },
+  {
+    name: 'Street Interview',
+    description:
+      'On-the-street talking-head with handheld camera, real ambient sound vibe, and unscripted-feeling reactions. Built for man-on-the-street ads and organic reportage content.',
+    category: 'influencer',
+    tags: [
+      'influencer',
+      'street',
+      'interview',
+      'man-on-the-street',
+      'reportage',
+    ],
+    config: {
+      mood: 'Spontaneous, unscripted, in-the-moment',
+      artStyle:
+        'Subject standing in a busy urban setting -- a sidewalk, a park, a market -- being interviewed off-camera. Handheld mic sometimes visible in frame. Real passersby and ambient detail. Often shot with a presenter visible in cutaway',
+      lighting:
+        'Available daylight. Subject backlit by sun or front-lit on overcast. Camera adjusts exposure on the fly. No fill, no diffusion. Real world only',
+      colorPalette: ['#F4EAD3', '#7F8C8D', '#1F1F1F', '#D85F4A', '#FFFFFF'],
+      cameraWork:
+        'Handheld camera at chest height with subtle micro-shake. Frequent reframes as the subject reacts. Cuts to b-roll of the location. Native vertical aspect for short-form repurposing',
+      referenceFilms: [
+        'Cleo Abram Street Vox',
+        'BBC News Vox Pops',
+        'TikTok Street Interviews',
+        'Hot Ones Off-Set Cuts',
+      ],
+      colorGrading:
+        'Natural with slight digital crunch. Skin tones honest. Highlights occasionally rolled off. Reads like a news package',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Street Interview'),
+    sortOrder: 303,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_2',
+    recommendedVideoModel: 'minimax_hailuo_02',
+    defaultAspectRatio: '9:16',
+    useCases: ['talking-head', 'social-vertical'],
+  },
+  {
+    name: 'Bedroom Confessional',
+    description:
+      'Intimate, low-energy direct-to-camera moment shot on a bed or floor with warm available light. Built for personal-narrative content, mental-health stories, and vulnerable creator posts.',
+    category: 'influencer',
+    tags: ['influencer', 'confessional', 'bedroom', 'personal', 'intimate'],
+    config: {
+      mood: 'Vulnerable, quiet, candid',
+      artStyle:
+        'Subject sits on a bed, against a headboard, or on a bedroom floor, speaking quietly to camera. Wardrobe is loungewear. Background is a real personal bedroom -- bedside table, books, soft textiles. Eye-level intimacy',
+      lighting:
+        'Warm lamp light or window light only. Soft, often low-key, with subject partially shadowed. No fill from camera. Mood preserved over flattery',
+      colorPalette: ['#F4D9C2', '#A4805D', '#1F1410', '#D9A78A', '#FFFFFF'],
+      cameraWork:
+        'Locked tripod or steady handheld at eye level. Tight medium and close-up framing. Long beats held in silence. Minimal cuts',
+      referenceFilms: [
+        'TikTok Confession Trend Videos',
+        'Reels Mental Health Creators',
+        'YouTube Storytime Vlogs',
+        'Vsco-Style Personal Diaries',
+      ],
+      colorGrading:
+        'Warm filmic with rich shadow. Highlights softly bloomed. Skin tones warm. Looks like a private moment posted publicly',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Bedroom Confessional'),
+    sortOrder: 304,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_2',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '9:16',
+    useCases: ['talking-head', 'social-vertical'],
+  },
+  {
+    name: 'Kitchen Tutorial',
+    description:
+      'Creator-style cooking tutorial with overhead inserts, talking-head pieces-to-camera, and warm kitchen light. Built for recipe content, CPG tutorials, and food creator brand films.',
+    category: 'influencer',
+    tags: ['influencer', 'kitchen', 'cooking', 'tutorial', 'recipe'],
+    config: {
+      mood: 'Warm, instructive, appetizing',
+      artStyle:
+        'Creator in a real home kitchen demonstrating a recipe. Cuts between piece-to-camera at the counter, top-down hand action, and macro detail of ingredients. Cookware honest, ingredients photographed naturally',
+      lighting:
+        'Soft window daylight plus a warm overhead practical. Counter surfaces lit evenly. Bounce fill on the host’s face',
+      colorPalette: ['#F8EDD7', '#A18258', '#3F2A1A', '#8FA98D', '#FFFFFF'],
+      cameraWork:
+        'Two cameras -- one locked head-and-shoulders, one locked overhead on the work surface. Macro insert lens for hand detail. Cuts driven by the recipe steps',
+      referenceFilms: [
+        'NYT Cooking Videos',
+        'Bon Appetit Test Kitchen',
+        'Joshua Weissman Reels',
+        'Carla Lalli Music Creator Cuts',
+      ],
+      colorGrading:
+        'Warm, appetizing, with rich greens and golden tones. Skin tones warm, whites cream. Looks like a friendly recipe channel',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Kitchen Tutorial'),
+    sortOrder: 305,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '9:16',
+    useCases: ['talking-head', 'tutorial', 'social-vertical'],
+  },
+  {
+    name: 'Gym Selfie Cam',
+    description:
+      'Mirror or chest-mount gym vlog aesthetic with bright LED, sweat, and self-shot energy. Built for fitness creators, supplement brand UGC, and gymwear social cuts.',
+    category: 'influencer',
+    tags: ['influencer', 'gym', 'fitness', 'selfie', 'workout'],
+    config: {
+      mood: 'High-energy, sweaty, motivational',
+      artStyle:
+        'Self-shot or peer-shot gym content. Mirror selfies, rack-cam angles, GoPro on the bar, between-sets piece-to-camera. Real gym setting with rubber floor, plates, sweat, and incidental other athletes. Performance wear visible',
+      lighting:
+        'Bright commercial gym overhead LED. Mixed practicals. No diffusion. Occasional cool fluorescent kick',
+      colorPalette: ['#1A1A1A', '#FF4F1F', '#9CA3AF', '#FFFFFF', '#0A0A0A'],
+      cameraWork:
+        'Phone-mounted POV, mirror selfie, chest-mounted GoPro. Mix of slow-motion lift hero shots and quick-cut piece-to-camera. Native vertical',
+      referenceFilms: [
+        'Sam Sulek Vlogs',
+        'David Laid Training Reels',
+        'Athlean-X Demos',
+        'Gymshark Athlete Content',
+      ],
+      colorGrading:
+        'Cool, slightly desaturated, with high contrast. Skin slightly cool. Looks like an LED-lit gym',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Gym Selfie Cam'),
+    sortOrder: 306,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_2',
+    recommendedVideoModel: 'minimax_hailuo_02',
+    defaultAspectRatio: '9:16',
+    useCases: ['talking-head', 'lifestyle', 'social-vertical'],
+  },
+  {
+    name: 'Car Talk',
+    description:
+      'In-car talking-head with dashboard mount, ambient road light, and casual confessional energy. Built for creator monologues, podcast clips, and brand storytelling in transit.',
+    category: 'influencer',
+    tags: ['influencer', 'car', 'in-car', 'talking-head', 'monologue'],
+    config: {
+      mood: 'Casual, candid, mobile',
+      artStyle:
+        'Subject in the driver seat talking to a dashboard- or windscreen-mounted camera. Seatbelt visible, hands on the wheel. Traffic and city pass outside. Occasional cut to a side angle from the passenger seat',
+      lighting:
+        'Available daylight through the windshield. Mixed natural and reflected light from car interior. No fill. Exposure shifts as the car moves through shadow and sun',
+      colorPalette: ['#1F1A14', '#A18258', '#F4D9C2', '#3F3F3F', '#FFFFFF'],
+      cameraWork:
+        'Locked dashboard mount with subtle road jitter. Occasional cut to passenger-seat profile. Tight head-and-shoulders framing. Native vertical or 16:9',
+      referenceFilms: [
+        'James Corden Carpool Karaoke',
+        'TikTok Car Confessionals',
+        'Hot Ones In-Car Clips',
+        'Creator-Driven Monologue Reels',
+      ],
+      colorGrading:
+        'Warm, naturalistic. Slight digital cast. Skin tones honest. Looks like real life in a car',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Car Talk'),
+    sortOrder: 307,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_2',
+    recommendedVideoModel: 'minimax_hailuo_02',
+    defaultAspectRatio: '9:16',
+    useCases: ['talking-head', 'social-vertical'],
+  },
+  {
+    name: 'Walking and Talking',
+    description:
+      'Walk-and-talk vlog energy with gimbal-stabilized motion, urban backdrop, and direct-to-camera narration. Built for creator-led brand films and city-based storytelling.',
+    category: 'influencer',
+    tags: ['influencer', 'walking', 'gimbal', 'urban', 'vlog'],
+    config: {
+      mood: 'Energetic, exploratory, present',
+      artStyle:
+        'Creator walks through a city street, park, or neighborhood while addressing the camera. Background moves behind them with parallax. Pace is brisk but conversational. Wardrobe is everyday',
+      lighting:
+        'Available daylight. Subject lit by sky bounce. Backlit silhouettes occasionally embraced. Exposure shifts with the environment',
+      colorPalette: ['#F4EAD3', '#7F8C8D', '#1F1F1F', '#D9A78A', '#FFFFFF'],
+      cameraWork:
+        'Gimbal-stabilized walking shot held at chest height. Subject medium-close-up with environment behind. Occasional cut to subject POV looking around. Steady but not sterile',
+      referenceFilms: [
+        'Casey Neistat Walking Vlogs',
+        'Peter McKinnon Cinematic Vlogs',
+        'TikTok City Walks',
+        'Reels Walk-and-Talk Creators',
+      ],
+      colorGrading:
+        'Warm filmic with slight contrast lift. Skin tones honest. Highlights soft. Looks like a polished creator vlog',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Walking and Talking'),
+    sortOrder: 308,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_2',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '9:16',
+    useCases: ['talking-head', 'lifestyle', 'social-vertical'],
+  },
+  {
+    name: 'Reaction Cam',
+    description:
+      'Tight reaction-style framing with small inset of the source media and exaggerated facial reaction. Built for creator reaction content, product reviews, and viral-format ads.',
+    category: 'influencer',
+    tags: ['influencer', 'reaction', 'webcam', 'review', 'viral'],
+    config: {
+      mood: 'Expressive, immediate, exaggerated',
+      artStyle:
+        'Tight head-and-shoulders frame of a creator reacting to something. Picture-in-picture inset of the source content top-right or top-left. Background is a creator desk or bedroom -- LED panel, posters, gaming chair. Mic visible in foreground',
+      lighting:
+        'RGB LED ambient on background, soft key light on the creator. Color cast deliberate -- often purples, teals, pinks',
+      colorPalette: ['#1A1029', '#FF40A3', '#36E6B8', '#FFFFFF', '#0A0A0A'],
+      cameraWork:
+        'Locked webcam or desk-mounted DSLR. Tight punch-in framing. Cuts driven by reaction beats. Native vertical or 16:9. Constant captions burned in',
+      referenceFilms: [
+        'MrBeast Reaction Cuts',
+        'Twitch Streamer Highlight Reels',
+        'TikTok React Trends',
+        'YouTube Reaction Channels',
+      ],
+      colorGrading:
+        'Punchy, contrasty, with vivid LED color. Skin tones warm against cool backgrounds. Looks like a streaming setup',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Reaction Cam'),
+    sortOrder: 309,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_2',
+    recommendedVideoModel: 'minimax_hailuo_02',
+    defaultAspectRatio: '9:16',
+    useCases: ['talking-head', 'social-vertical'],
+  },
+  // ==========================================================================
+  // Storytelling / kids (10)
+  // ==========================================================================
+  {
+    name: 'Bedtime Storybook',
+    description:
+      'Soft illustrated bedtime-story aesthetic with rounded shapes, calming colors, and a gentle narrative pace. Built for kids storytelling, lullaby content, and sleep apps.',
+    category: 'kids',
+    tags: ['kids', 'storybook', 'bedtime', 'illustration', 'gentle'],
+    config: {
+      mood: 'Gentle, dreamy, reassuring',
+      artStyle:
+        'Hand-illustrated storybook art with rounded shapes, friendly characters, and a hand-painted texture. Pages feel like a beloved bedtime book -- soft borders, painterly backgrounds, warm faces. Not 3D, not photographic, not computer-perfect',
+      lighting:
+        'Implied warm twilight or moonlight. Soft glows on cheeks and lanterns. Gentle gradients in sky and rooms. No harsh shadows',
+      colorPalette: ['#1F2A4A', '#7F86D9', '#F6C886', '#F4A4A4', '#E8E1D0'],
+      cameraWork:
+        'Static composed pages with slow Ken-Burns push-ins and gentle parallax between layered illustration planes. The camera lingers. Beats long enough for a parent to point',
+      referenceFilms: [
+        'Goodnight Moon Illustrations',
+        'Oliver Jeffers Picture Books',
+        'Julia Donaldson Storybooks',
+        'Sandra Boynton Board Books',
+      ],
+      colorGrading:
+        'Warm, low-contrast, painterly. Cream highlights, dusky shadows. Looks like a beloved storybook page',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Bedtime Storybook'),
+    sortOrder: 400,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['kids'],
+  },
+  {
+    name: 'Saturday Morning Cartoon',
+    description:
+      'Classic 90s Saturday-morning animation aesthetic with bold flat colors, snappy character animation, and zany energy. Built for kids brand films, toy launches, and animated explainers.',
+    category: 'animation',
+    tags: ['kids', 'cartoon', '90s', 'animation', 'flat-color'],
+    config: {
+      mood: 'Energetic, playful, zany',
+      artStyle:
+        'Flat 2D cartoon animation in the spirit of 1990s Saturday morning television. Bold color blocks, simple lineart, exaggerated character expressions, big eyes, snappy action poses. Backgrounds are simple painted plates. Not photoreal, not 3D, not CGI',
+      lighting:
+        'Implied flat lighting with simple shadow shapes and occasional gradient skies. No volumetric or physical lighting',
+      colorPalette: ['#FF595E', '#FFCA3A', '#8AC926', '#1982C4', '#6A4C93'],
+      cameraWork:
+        'Smear-frame action poses, snappy holds, anticipation-and-overshoot, occasional in-camera shake on impact. Camera mostly static, characters do the work',
+      referenceFilms: [
+        'Animaniacs',
+        'Powerpuff Girls',
+        'Dexter’s Laboratory',
+        'SpongeBob SquarePants',
+      ],
+      colorGrading:
+        'Saturated and punchy with crisp blacks. Looks like a TV broadcast circa 1998',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Saturday Morning Cartoon'),
+    sortOrder: 401,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'seedance_v2',
+    defaultAspectRatio: '16:9',
+    useCases: ['kids', 'b-roll'],
+  },
+  {
+    name: 'Claymation',
+    description:
+      'Stop-motion claymation aesthetic with visible fingerprints, slight wobble, and handmade charm. Built for nostalgic kids content, craft-brand stories, and quirky narratives.',
+    category: 'animation',
+    tags: ['kids', 'claymation', 'stop-motion', 'handmade', 'craft'],
+    config: {
+      mood: 'Whimsical, handmade, nostalgic',
+      artStyle:
+        'Stop-motion clay puppet animation with visible thumbprints, subtle deformation between frames, and a slightly imperfect rig. Sets are tabletop dioramas of cardboard and clay. Characters move with quirky weight. Not CGI, not 2D animation',
+      lighting:
+        'Tabletop tungsten studio lighting with soft key and warm fill. Subtle shadow from each clay element on the diorama floor',
+      colorPalette: ['#F4D9A8', '#C97B4E', '#3F2A1A', '#8FA98D', '#FFFFFF'],
+      cameraWork:
+        'Locked tripod with occasional moco moves. Slight strobing motion characteristic of 12-fps stop-motion. Cuts feel theatrical, beats held long',
+      referenceFilms: [
+        'Wallace and Gromit',
+        'Chicken Run',
+        'Shaun the Sheep',
+        'Pingu Episodes',
+      ],
+      colorGrading:
+        'Warm filmic with rich saturation and soft contrast. Slight tungsten glow. Looks like a beloved Aardman short',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Claymation'),
+    sortOrder: 402,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'seedance_v2',
+    defaultAspectRatio: '16:9',
+    useCases: ['kids', 'b-roll'],
+  },
+  {
+    name: 'Paper Cutout',
+    description:
+      'Stop-motion paper-cutout aesthetic with layered card, scissor edges, and tactile shadow. Built for craft-style explainers, kids stories, and whimsical brand films.',
+    category: 'animation',
+    tags: ['kids', 'paper', 'cutout', 'collage', 'craft'],
+    config: {
+      mood: 'Tactile, crafty, charming',
+      artStyle:
+        'Stop-motion paper cutout puppets on a layered card background. Characters constructed from scissored card pieces, sometimes with visible brad joints at limbs. Sets are folded paper landscapes. Edges are deliberately imperfect',
+      lighting:
+        'Single soft overhead key casting clean drop shadow beneath each cutout. Slight rim from the side',
+      colorPalette: ['#F2EBDD', '#D85F4A', '#FFB400', '#1F8E7D', '#1F1A14'],
+      cameraWork:
+        'Locked top-down or near-top-down camera. Slight stop-motion strobing. Pans by sliding background paper layers. Beats medium-long',
+      referenceFilms: [
+        'Lotte Reiniger Films',
+        'South Park Early Episodes',
+        'Drawn-on-Film Animations',
+        'Sesame Street Counting Shorts',
+      ],
+      colorGrading:
+        'Warm naturalism with vivid paper-print color. Subtle film grain. Looks like a craft-table film',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Paper Cutout'),
+    sortOrder: 403,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'seedance_v2',
+    defaultAspectRatio: '16:9',
+    useCases: ['kids', 'b-roll'],
+  },
+  {
+    name: 'Watercolour Fable',
+    description:
+      'Hand-painted watercolour fable aesthetic with brushy edges, paper texture, and gentle narrative pace. Built for kids fables, nature stories, and read-aloud content.',
+    category: 'kids',
+    tags: ['kids', 'watercolour', 'watercolor', 'painted', 'fable'],
+    config: {
+      mood: 'Lyrical, gentle, contemplative',
+      artStyle:
+        'Watercolor illustration on visible cotton paper. Soft washes, brush strokes, occasional pencil underdrawing, slight color bleed at edges. Characters are tender, slightly stylized, painted with a few decisive strokes. Backgrounds are atmospheric washes',
+      lighting:
+        'Implied soft morning or twilight light. Color and tone do the work of lighting -- darker washes for shadow, paper showing through for light',
+      colorPalette: ['#F2E9D8', '#7F9B7F', '#C7A1B2', '#3F4F5F', '#D8B68E'],
+      cameraWork:
+        'Static page-compositions with very slow Ken-Burns moves and gentle parallax. Camera reverent. Long beats',
+      referenceFilms: [
+        'Beatrix Potter Illustrations',
+        'Robert McCloskey Picture Books',
+        'Studio Ghibli Concept Watercolors',
+        'Jon Klassen Illustrations',
+      ],
+      colorGrading:
+        'Cream paper white. Pigments rendered faithfully with slight bleed and grain. Looks like an open picture book in afternoon light',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Watercolour Fable'),
+    sortOrder: 404,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['kids'],
+  },
+  {
+    name: 'Pop-Up Book',
+    description:
+      'Mechanical pop-up book aesthetic with hinged paper, perspective reveals, and tactile depth. Built for kids storytelling, branded books-in-motion, and educational reveals.',
+    category: 'kids',
+    tags: ['kids', 'pop-up', 'paper', 'mechanical', 'storybook'],
+    config: {
+      mood: 'Discovery, magical, tactile',
+      artStyle:
+        'Pop-up storybook spread with paper elements that unfold as the camera tilts in. Cardboard hinges visible, slight rigging implied. Characters and trees rise from the page in layered cutouts. Background is patterned endpaper',
+      lighting:
+        'Warm overhead reading-lamp light with soft cast shadow into the page gutter. Highlights catch paper edges. Cozy intimacy',
+      colorPalette: ['#F4E4CF', '#C97B4E', '#1F8E7D', '#D85F4A', '#FFFFFF'],
+      cameraWork:
+        'Slow tilt-in from a flat page to a 3D reveal. Camera moves around the spread to discover hidden mechanics. Beats held to admire each fold',
+      referenceFilms: [
+        'Robert Sabuda Pop-Up Books',
+        'Matthew Reinhart Spreads',
+        'Sesame Street Storybook Episodes',
+        'BBC Get Squiggling Reveals',
+      ],
+      colorGrading:
+        'Warm reading-light grade. Cream highlights, rich shadow in the gutter. Looks like a beloved hardback opened on a lap',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Pop-Up Book'),
+    sortOrder: 405,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['kids'],
+  },
+  {
+    name: 'Felt and Yarn',
+    description:
+      'Stop-motion felt and yarn puppet aesthetic with soft textiles, button eyes, and homespun charm. Built for cozy kids stories and craft-brand films.',
+    category: 'animation',
+    tags: ['kids', 'felt', 'yarn', 'puppet', 'stop-motion'],
+    config: {
+      mood: 'Soft, cozy, homespun',
+      artStyle:
+        'Stop-motion felt and yarn puppets with button eyes and hand-stitched mouths. Sets built from textured fabric, knitted backdrops, and felt scenery. Characters move with handmade weight, visible thread and seams celebrated',
+      lighting:
+        'Soft tabletop key with warm fill. Subtle shadow on textured fabric. Highlights catch fluff and fiber',
+      colorPalette: ['#F4E4CF', '#D8B68E', '#7F9B7F', '#D85F4A', '#FFFFFF'],
+      cameraWork:
+        'Locked tripod with subtle stop-motion strobing. Slow pans across stitched landscapes. Beats long enough to feel the wool',
+      referenceFilms: [
+        'Clangers',
+        'Bagpuss',
+        'In the Night Garden',
+        'Wooly and Tig',
+      ],
+      colorGrading:
+        'Warm filmic with rich textile color. Slight grain. Looks like a beloved hand-knit world',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Felt and Yarn'),
+    sortOrder: 406,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'seedance_v2',
+    defaultAspectRatio: '16:9',
+    useCases: ['kids'],
+  },
+  {
+    name: 'Chalkboard Doodle',
+    description:
+      'Hand-drawn chalkboard animation aesthetic with white chalk on slate, erasure smudges, and live drawing energy. Built for educational shorts, kids explainers, and STEM stories.',
+    category: 'animation',
+    tags: ['kids', 'chalkboard', 'doodle', 'educational', 'hand-drawn'],
+    config: {
+      mood: 'Inviting, instructive, hand-drawn',
+      artStyle:
+        'White and pastel chalk drawn on a dark green or black slate. Lines accumulate as the narrator describes. Diagrams, doodles, and characters appear and erase. Visible smudges and chalk dust. Not slick, not vector',
+      lighting:
+        'Even ambient lighting on the chalkboard surface. Slight rake to bring out chalk texture. No drama, just legibility',
+      colorPalette: ['#1F2A1F', '#F8F4E3', '#F4C065', '#A8DFFF', '#FF8FA3'],
+      cameraWork:
+        'Mostly locked frame on the chalkboard with occasional push-in to highlight a diagram. Sometimes the chalk-holding hand is visible. Beats paced for narration',
+      referenceFilms: [
+        'TED-Ed Lessons',
+        'RSA Animate Talks',
+        'Kurzgesagt Whiteboard Variants',
+        'Khan Academy Doodles',
+      ],
+      colorGrading:
+        'Slate green or near-black background, pastel chalk colors rendered with slight glow. Looks like a classroom blackboard at the front of a sunny room',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Chalkboard Doodle'),
+    sortOrder: 407,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'seedance_v2',
+    defaultAspectRatio: '16:9',
+    useCases: ['kids', 'tutorial'],
+  },
+  {
+    name: 'Lo-Fi Anime',
+    description:
+      'Soft 90s-anime aesthetic with cel-shaded characters, painted backgrounds, and contemplative pacing. Built for older kids and teen storytelling, music videos, and slice-of-life narratives.',
+    category: 'animation',
+    tags: ['kids', 'anime', 'lo-fi', 'cel-shaded', 'slice-of-life'],
+    config: {
+      mood: 'Wistful, slow, atmospheric',
+      artStyle:
+        'Hand-drawn cel-shaded anime in the spirit of late 1990s television -- two-tone shading on characters, painted gouache backgrounds, sparse keyframes between long held beats. Subject is often a teen in a quiet domestic moment -- a window seat, a train ride, a corner store',
+      lighting:
+        'Warm afternoon or magic-hour light in the painted backgrounds. Cel shading on characters in two clean tones. Atmospheric haze in distant elements',
+      colorPalette: ['#F4D9A8', '#E69B6F', '#7F86D9', '#1F2A4A', '#F8F4E3'],
+      cameraWork:
+        'Long held compositions with subtle parallax pans. Slow zooms into character eyes for emotional beats. Cuts feel weighted, breaths between dialogue',
+      referenceFilms: [
+        'Studio Ghibli Films',
+        'Makoto Shinkai Shorts',
+        'Cowboy Bebop Quiet Scenes',
+        'Lo-Fi Hip-Hop Radio Loop Backgrounds',
+      ],
+      colorGrading:
+        'Warm, slightly faded, low-contrast. Looks like a VHS pull from a beloved tape',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Lo-Fi Anime'),
+    sortOrder: 408,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'seedance_v2',
+    defaultAspectRatio: '16:9',
+    useCases: ['kids', 'b-roll'],
+  },
+  {
+    name: 'Hand-Drawn Picture Book',
+    description:
+      'Crayon and colored-pencil picture-book aesthetic with playful linework and bright fields of color. Built for early-reader content and kids brand storytelling.',
+    category: 'kids',
+    tags: ['kids', 'picture-book', 'crayon', 'pencil', 'illustration'],
+    config: {
+      mood: 'Playful, bright, child-led',
+      artStyle:
+        'Hand-drawn picture book illustration with crayon and colored pencil texture. Loose linework, fields of bright flat color, occasional scribble texture, simplified figures with big friendly faces. Backgrounds spare but expressive',
+      lighting:
+        'Implied flat illustration light. No physical light model. Tone and color do all the work',
+      colorPalette: ['#FFCB47', '#FF6B6B', '#4ECDC4', '#1F2A4A', '#F8F4E3'],
+      cameraWork:
+        'Static composed pages with slow push-ins and gentle parallax between drawn layers. Camera respectful of the artwork',
+      referenceFilms: [
+        'Eric Carle Picture Books',
+        'Mo Willems Pigeon Books',
+        'Shaun Tan Illustrations',
+        'Mira Lobe Picture Stories',
+      ],
+      colorGrading:
+        'Bright, saturated, with paper-cream background and slight crayon grain. Looks like a freshly opened library book',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Hand-Drawn Picture Book'),
+    sortOrder: 409,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['kids'],
+  },
+  // ==========================================================================
+  // Animatic / internal-pitch (8)
+  // ==========================================================================
+  {
+    name: 'Rough Storyboard',
+    description:
+      'Pencil-and-marker storyboard panel aesthetic for pre-production and pitch reels. Built for animatic explorations and director treatments.',
+    category: 'animatic',
+    tags: ['animatic', 'storyboard', 'pre-vis', 'pencil', 'pitch'],
+    config: {
+      mood: 'Working-draft, exploratory, gestural',
+      artStyle:
+        'Rough pencil-and-marker storyboard panels. Confident gestural lines, simplified silhouettes, light marker shading. Frame numbers and shot notes in margins. Faces and hands described with a few decisive strokes -- expressive but not finished',
+      lighting:
+        'Implied value-shading only. Hatching and marker wash suggest light direction. No rendered lighting',
+      colorPalette: ['#F5F1E8', '#2B2826', '#7A6F66', '#C44536', '#3A6B8C'],
+      cameraWork:
+        'Static panel frames. Camera moves drawn as ghosted arrows or nested frames. Cuts marked by fresh panels rather than smooth transitions',
+      referenceFilms: [
+        'Pixar Storyboard Reels',
+        'DreamWorks Animatic Tests',
+        'Studio Ghibli Imageboards',
+        'The Iron Giant Pre-Vis Reels',
+      ],
+      colorGrading:
+        'Warm paper-tone background with occasional smudge. Marker-bleed mid-tones, cool shadow ink. Looks like a scanned sketchpad',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Rough Storyboard'),
+    sortOrder: 500,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_dev',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['animatic', 'pitch-deck'],
+  },
+  {
+    name: 'Low-Detail Blockout',
+    description:
+      'Untextured 3D blockout aesthetic for early staging, layout, and shot composition. Built for previs reels, animation layout reviews, and architectural concept passes.',
+    category: 'animatic',
+    tags: ['animatic', 'blockout', '3d', 'previs', 'layout'],
+    config: {
+      mood: 'Functional, schematic, in-progress',
+      artStyle:
+        'Untextured 3D blockout. Characters and props rendered as simple grey primitive shapes. Environment built from box geometry with minimal detail. Visible polygon edges. No materials, no textures, no lighting beyond a flat ambient',
+      lighting:
+        'Flat ambient occlusion lighting only. No direct light source, no shadow drama. Functional visibility',
+      colorPalette: ['#B0B0B0', '#7F7F7F', '#4F4F4F', '#3478F6', '#FFFFFF'],
+      cameraWork:
+        'Wide layout cameras, slow tracking moves, frequent shot changes to verify staging. Camera notes might be burned in -- focal length, shot number',
+      referenceFilms: [
+        'Pixar Layout Reels',
+        'Disney Animation Previs',
+        'Unreal Engine Greybox Previews',
+        'Game Cinematic Blockouts',
+      ],
+      colorGrading:
+        'Flat, neutral, with no stylization. Looks like a raw OpenGL viewport',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Low-Detail Blockout'),
+    sortOrder: 501,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_dev',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['animatic', 'pitch-deck'],
+  },
+  {
+    name: 'Mood-Only Frames',
+    description:
+      'Atmospheric mood-frame aesthetic for early treatments and pitch documents -- color, light, and tone over plot. Built for director lookbooks and brand-film treatments.',
+    category: 'animatic',
+    tags: ['animatic', 'mood', 'treatment', 'lookbook', 'pitch'],
+    config: {
+      mood: 'Suggestive, atmospheric, painterly',
+      artStyle:
+        'Single hero moments rendered like still-frame paintings -- a silhouette in fog, a hand on a window, a sun pouring through curtains. Plot is implied, never spelled out. Subject ambiguous, color and light dominant',
+      lighting:
+        'Highly designed cinematic lighting -- single hard key with deep falloff, or saturated practical sources. Every frame considered as a lighting study',
+      colorPalette: ['#1F2A40', '#A9633C', '#E8C28C', '#3F3F3F', '#F4E4CF'],
+      cameraWork:
+        'Locked static frames held in stillness. Slow Ken-Burns push-ins on key moments. No camera movement that would distract from the composition',
+      referenceFilms: [
+        'Roger Deakins Stills',
+        'Emmanuel Lubezki Frame Studies',
+        'Wong Kar-wai Color Lookbooks',
+        'Apichatpong Weerasethakul Stills',
+      ],
+      colorGrading:
+        'Bold, saturated, painterly. Strong color palette per frame. Cinematic black levels',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Mood-Only Frames'),
+    sortOrder: 502,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_max',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['pitch-deck', 'animatic'],
+  },
+  {
+    name: 'Black & White Previz',
+    description:
+      'Monochrome staging passes with full lighting and composition but no color information. Built for shot-design review and pre-production decisions where color would distract.',
+    category: 'animatic',
+    tags: ['animatic', 'bw', 'previz', 'monochrome', 'staging'],
+    config: {
+      mood: 'Disciplined, compositional, focused',
+      artStyle:
+        'Full-scene previz rendered in monochrome -- characters, environments, and lighting present, color stripped. Composition, staging, and silhouette tested in pure tone. Sometimes a single hero accent color permitted',
+      lighting:
+        'Real cinematic lighting setups -- hard key, soft fill, rim. Shadow shapes are the protagonists. Volumetric haze allowed',
+      colorPalette: ['#0A0A0A', '#3F3F3F', '#7F7F7F', '#C0C0C0', '#FFFFFF'],
+      cameraWork:
+        'Real production cinematography -- handheld, dolly, crane. Camera moves at intended final pacing. Shot numbers and lens info may be burned in',
+      referenceFilms: [
+        'Schindler’s List Stills',
+        'The Lighthouse',
+        'Roma Pre-Production Reels',
+        'Joker Black-and-White Cut',
+      ],
+      colorGrading:
+        'Classic monochrome with rich tonal range. Deep blacks, luminous whites, controlled midtones. Looks like a black-and-white film',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Black & White Previz'),
+    sortOrder: 503,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_max',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['animatic', 'pitch-deck'],
+  },
+  {
+    name: 'Schematic Concept',
+    description:
+      'Diagrammatic illustration aesthetic with labels, callouts, and isometric views. Built for technical pitches, product concept docs, and internal explainers.',
+    category: 'animatic',
+    tags: ['animatic', 'schematic', 'diagram', 'isometric', 'concept'],
+    config: {
+      mood: 'Technical, clear, considered',
+      artStyle:
+        'Diagrammatic concept illustration. Isometric or exploded views of products, environments, or systems. Clean linework, labels with leader lines, dashed bounding boxes for callouts. Color used sparingly to highlight focus',
+      lighting:
+        'Flat technical illustration light. No physical lighting model. Subtle gradient fills for surface',
+      colorPalette: ['#F7F8FB', '#0A2540', '#3478F6', '#F4C065', '#A8AFB8'],
+      cameraWork:
+        'Static isometric or perspective frames. Slow zoom into callout areas. Sometimes elements animate in sequentially as the narration steps through',
+      referenceFilms: [
+        'Apple Patent Drawings',
+        'Wired How-It-Works Diagrams',
+        'IKEA Assembly Instructions',
+        'NASA Technical Concept Boards',
+      ],
+      colorGrading:
+        'Clean, neutral, with crisp linework. Slight paper-grain background. Looks like a polished technical doc',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Schematic Concept'),
+    sortOrder: 504,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['pitch-deck', 'animatic'],
+  },
+  {
+    name: 'Marker Rough',
+    description:
+      'Loose marker-comp aesthetic with bold flats, drop shadows, and ad-agency layout energy. Built for creative pitches, ad concepts, and storyboards mid-comp.',
+    category: 'animatic',
+    tags: ['animatic', 'marker', 'comp', 'ad-concept', 'pitch'],
+    config: {
+      mood: 'Loose, energetic, ad-agency',
+      artStyle:
+        'Marker comp drawn on layout paper. Bold flat tones with one or two accent colors, soft drop shadow under figures, simplified silhouettes, occasional hand-lettered headline or callout. Looks like an art director’s pitch board',
+      lighting:
+        'Implied flat marker shading. Simple value flats with a single highlight per object',
+      colorPalette: ['#F5F1E8', '#2B2826', '#FFCA3A', '#FF595E', '#1982C4'],
+      cameraWork:
+        'Static composed boards with subtle Ken-Burns moves. Occasional reveal of a new comp page. Beats sized for narration',
+      referenceFilms: [
+        'Mad Men Pitch Boards',
+        'Saatchi & Saatchi Concept Reels',
+        'BBDO Internal Decks',
+        'Wieden+Kennedy Pitch Boards',
+      ],
+      colorGrading:
+        'Warm paper background with vivid marker color. Slight grain. Looks like a freshly mounted board',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Marker Rough'),
+    sortOrder: 505,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_dev',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['pitch-deck', 'animatic'],
+  },
+  {
+    name: 'Greyscale Layout',
+    description:
+      'Greyscale shot-layout aesthetic with tonal blockouts of full scenes -- no color, no detail. Built for shot-design review and director walkthroughs.',
+    category: 'animatic',
+    tags: ['animatic', 'greyscale', 'layout', 'tonal', 'review'],
+    config: {
+      mood: 'Analytical, in-progress, considered',
+      artStyle:
+        'Full-scene compositions painted in greyscale with five or six tonal values. Characters in silhouette against environments built from blocked-in light and shadow. Composition prioritized over detail',
+      lighting:
+        'Implied via tonal value. Strong key direction visible in the shadow shapes. No texture, no specular',
+      colorPalette: ['#0A0A0A', '#3F3F3F', '#7F7F7F', '#C0C0C0', '#FFFFFF'],
+      cameraWork:
+        'Static or slow drift compositions. Frames feel like paintings. Camera moves are reserved for hero moments',
+      referenceFilms: [
+        'Pixar Visual Development Reels',
+        'Dreamworks Concept Paintings',
+        'Animation Master Class Tonal Studies',
+        'Disney Color Script Drafts',
+      ],
+      colorGrading:
+        'Monochrome with rich tonal range. Looks like a pre-color-script frame',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Greyscale Layout'),
+    sortOrder: 506,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_dev',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['animatic', 'pitch-deck'],
+  },
+  {
+    name: 'Intentionally Unfinished',
+    description:
+      'Mixed-fidelity pitch aesthetic that combines polished hero frames with sketch panels and notes -- showing what the final could be next to the working draft. Built for treatments and internal reviews.',
+    category: 'animatic',
+    tags: ['animatic', 'mixed-fidelity', 'unfinished', 'treatment', 'pitch'],
+    config: {
+      mood: 'Honest, exploratory, in-progress',
+      artStyle:
+        'A reel that intentionally mixes finished cinematic frames with rough sketch panels, mood photographs, schematic diagrams, and handwritten notes in the margins. Some shots are nearly finished, others clearly placeholder. The transitions celebrate the working-draft nature',
+      lighting:
+        'Varies by frame -- finished frames fully lit cinematically, rough frames implied tonally, notes flat and graphic',
+      colorPalette: ['#F5F1E8', '#2B2826', '#7A6F66', '#C44536', '#FFFFFF'],
+      cameraWork:
+        'Frame-to-frame jump cuts that switch fidelity deliberately. Some long held cinematic shots, some quick storyboard cuts, occasional sketch-overlay reveals',
+      referenceFilms: [
+        'Director Treatments',
+        'Spike Jonze Pitch Reels',
+        'A24 Production Lookbooks',
+        'Boards of Canada Visual Treatments',
+      ],
+      colorGrading:
+        'Mixed -- finished shots fully graded, rough shots paper-tone, notes flat. The contrast is intentional',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Intentionally Unfinished'),
+    sortOrder: 507,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'flux_2_dev',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['pitch-deck', 'animatic'],
+  },
+  // ==========================================================================
+  // Industry-specific (10)
+  // ==========================================================================
+  {
+    name: 'Real Estate Listing',
+    description:
+      'Bright, wide-angle real estate listing aesthetic with even daylight, level horizons, and architectural clarity. Built for residential PDPs, agent reels, and broker hero films.',
+    category: 'realestate',
+    tags: ['realestate', 'listing', 'residential', 'agent', 'tour'],
+    config: {
+      mood: 'Bright, welcoming, spacious',
+      artStyle:
+        'Real estate listing cinematography. Wide-angle interior frames showing room layout, exterior establishing shots at midday, drone reveal of property from the air. Furnishings styled but not over-styled. Vertical and horizontal lines perfectly level',
+      lighting:
+        'Bright even daylight through windows balanced with HDR interior exposure. Lamps and ceiling lights on. Shadows soft, highlights controlled. Everything legible',
+      colorPalette: ['#F8F4ED', '#A18258', '#3F3F3F', '#8FA98D', '#FFFFFF'],
+      cameraWork:
+        'Slow gimbal walks through rooms, drone reveal exteriors, locked wide interior frames. Level horizons, plumb verticals. Cuts paced for walkthrough rhythm',
+      referenceFilms: [
+        'Zillow 3D Tours',
+        'Compass Brand Films',
+        'Redfin Listing Videos',
+        'The Agency Property Films',
+      ],
+      colorGrading:
+        'Bright and clean with neutral whites and slightly warm woods. Greens in landscaping enhanced. Looks like a magazine real estate spread',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Real Estate Listing'),
+    sortOrder: 600,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['lifestyle', 'b-roll'],
+  },
+  {
+    name: 'SaaS Product Demo',
+    description:
+      'Screen-recording-meets-narrator SaaS demo aesthetic with crisp UI capture, subtle motion, and confident narration cuts. Built for product launches, onboarding, and feature explainers.',
+    category: 'corporate',
+    tags: ['saas', 'demo', 'product', 'ui', 'explainer'],
+    config: {
+      mood: 'Confident, clear, modern',
+      artStyle:
+        'High-fidelity SaaS product demo. The application UI fills most of the frame, cursor moves with intention through workflows, key elements zoom in with annotations. Cuts to a narrator at a clean desk or to a customer in context. Mockup devices framed in product hands',
+      lighting:
+        'For UI captures, pixel-perfect screen renders. For human moments, soft natural daylight at a desk. Clean, modern, never moody',
+      colorPalette: ['#F7F8FB', '#0A2540', '#3478F6', '#22C55E', '#FFFFFF'],
+      cameraWork:
+        'Locked UI captures with smooth cursor motion, subtle Ken-Burns zooms on key features. Cuts to medium head-and-shoulders of narrator. B-roll inserts of teammates at laptops',
+      referenceFilms: [
+        'Linear Product Films',
+        'Notion Launch Videos',
+        'Figma Config Spots',
+        'Vercel Product Reveals',
+      ],
+      colorGrading:
+        'Bright and clean. UI rendered crisply. Skin tones natural. One brand accent color punches. Looks like a launch-day landing page',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('SaaS Product Demo'),
+    sortOrder: 601,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['tutorial', 'pitch-deck', 'product'],
+  },
+  {
+    name: 'Healthcare Patient Story',
+    description:
+      'Warm, documentary-style patient-story aesthetic with soft natural light, honest faces, and unhurried pace. Built for healthcare brand films, fundraising stories, and clinical case studies.',
+    category: 'healthcare',
+    tags: ['healthcare', 'patient', 'documentary', 'story', 'brand'],
+    config: {
+      mood: 'Warm, dignified, hopeful',
+      artStyle:
+        'Documentary-style patient and family portraits. Subjects at home, in clinic, or in everyday moments -- a morning coffee, a walk in the garden, a hand held by a clinician. Real environments, modest art direction, no styling that hides the humanity',
+      lighting:
+        'Soft natural daylight through windows with subtle reflector fill. Practicals at evening. Faces always flattering, never clinical. Highlights gentle',
+      colorPalette: ['#F4E4CF', '#A8C0B5', '#3F3F3F', '#D9A78A', '#FFFFFF'],
+      cameraWork:
+        'Light handheld for interview and observation. Locked frames for portraits. Macro detail for tactile moments -- hand on hand, glass of water, photograph on a shelf',
+      referenceFilms: [
+        'Cleveland Clinic Brand Films',
+        'Mayo Clinic Patient Stories',
+        'Kaiser Permanente Spots',
+        'Pediatric Hospital Brand Reels',
+      ],
+      colorGrading:
+        'Warm, soft, with gentle saturation. Skin tones honest, shadows luminous. Looks like a respectful documentary',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Healthcare Patient Story'),
+    sortOrder: 602,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['talking-head', 'lifestyle'],
+  },
+  {
+    name: 'Restaurant Menu Hero',
+    description:
+      'Appetizing restaurant menu and signature-dish cinematography. Built for restaurant brand films, delivery app menus, and seasonal menu launches.',
+    category: 'food',
+    tags: ['restaurant', 'menu', 'food', 'dish', 'hero'],
+    config: {
+      mood: 'Appetizing, crafted, inviting',
+      artStyle:
+        'Restaurant hero food photography. Each dish photographed at the moment of plating -- garnish placed, sauce drizzled, herbs scattered. Surfaces are restaurant-honest -- raw wood, slate, marble. Cutlery and napkins styled simply. Chef hands occasionally enter frame',
+      lighting:
+        'Soft directional window light or designed restaurant practicals. Strong backlight to make steam, sheen, and oil glow. Subtle fill keeps shadows luminous',
+      colorPalette: ['#3F2A1A', '#C97B4E', '#F0D7A1', '#1F2F1F', '#FFFFFF'],
+      cameraWork:
+        'Overhead flat-lay reveals, slow tabletop tracks past plated dishes, macro detail of sauces and garnishes. Beats held to feel the texture',
+      referenceFilms: [
+        'Eleven Madison Park Brand Films',
+        'Noma Documentary Cuts',
+        'Doordash Menu Hero Spots',
+        'Salt Fat Acid Heat Episodes',
+      ],
+      colorGrading:
+        'Warm and rich, with vivid greens, golden sauces, deep walnut shadows. Skin tones (if visible) warm. Looks like a restaurant cookbook spread',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Restaurant Menu Hero'),
+    sortOrder: 603,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '1:1',
+    useCases: ['product', 'b-roll'],
+  },
+  {
+    name: 'Fitness Coaching',
+    description:
+      'Coach-led fitness instruction aesthetic with bright studio gym, clean form demos, and supportive piece-to-camera. Built for fitness brand films, training apps, and coaching content.',
+    category: 'fitness',
+    tags: ['fitness', 'coaching', 'gym', 'training', 'instruction'],
+    config: {
+      mood: 'Motivating, supportive, capable',
+      artStyle:
+        'Bright clean fitness studio with light wood floors, mirrors, and minimal equipment. Coach demonstrates exercises with proper form, talks to camera between sets, supports a client through a movement. Apparel branded but not loud',
+      lighting:
+        'Bright even studio LED supplemented by skylight or large windows. Coach lit cleanly from the front, slight rim from behind. No harsh shadow',
+      colorPalette: ['#F8F4ED', '#FF4F1F', '#1F1F1F', '#8FA98D', '#FFFFFF'],
+      cameraWork:
+        'Mix of locked head-and-shoulders coach pieces, wide form-check angles, and macro detail of grip and footwork. Smooth gimbal moves between camera positions',
+      referenceFilms: [
+        'Peloton Instructor Reels',
+        'Apple Fitness+ Spots',
+        'Tonal Workout Demos',
+        'Nike Training Club Sessions',
+      ],
+      colorGrading:
+        'Bright and energetic. One brand accent. Skin tones warm and healthy. Whites kept clean. Looks like a premium training app',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Fitness Coaching'),
+    sortOrder: 604,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '9:16',
+    useCases: ['tutorial', 'talking-head', 'social-vertical'],
+  },
+  {
+    name: 'Edtech Explainer',
+    description:
+      'Friendly edtech explainer aesthetic that combines learner moments with motion-graphic UI inserts and supportive narration. Built for course launches, learning apps, and education brand films.',
+    category: 'edtech',
+    tags: ['edtech', 'education', 'explainer', 'course', 'learning'],
+    config: {
+      mood: 'Friendly, encouraging, clear',
+      artStyle:
+        'Edtech storytelling intercutting diverse learners at desks, in cafés, and on phones with friendly UI inserts of the learning platform. Course cards, progress bars, and instructor avatars float in clean glass-card UI. Wardrobe casual, environments real',
+      lighting:
+        'Soft natural daylight for learners. UI inserts rendered with subtle inner glow. Never harsh, always inviting',
+      colorPalette: ['#FFF7E8', '#FF8C42', '#1F2A4A', '#8AC926', '#FFFFFF'],
+      cameraWork:
+        'Locked or gently floated handheld for learners. UI inserts flat-on with measured push-ins to specific course elements. Cuts driven by narration',
+      referenceFilms: [
+        'Duolingo Brand Films',
+        'Khan Academy Promo Spots',
+        'Coursera Learner Stories',
+        'MasterClass Trailers',
+      ],
+      colorGrading:
+        'Bright and warm. Skin tones honest, UI surfaces rendered cleanly. One brand accent punches. Looks like a friendly app launch',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Edtech Explainer'),
+    sortOrder: 605,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['tutorial', 'pitch-deck'],
+  },
+  {
+    name: 'Automotive Showroom',
+    description:
+      'Dealership and showroom cinematography that lets the car shine in a controlled retail environment. Built for dealer reels, inventory videos, and certified pre-owned spots.',
+    category: 'automotive',
+    tags: ['automotive', 'showroom', 'dealer', 'inventory', 'retail'],
+    config: {
+      mood: 'Inviting, confident, retail-grade',
+      artStyle:
+        'Showroom floor with polished concrete, bright overhead light, brand signage. Vehicle photographed from a slow walk-around. Interior reveals -- dashboard, infotainment, seats. Salesperson occasionally visible in soft focus',
+      lighting:
+        'Bright overhead retail LED with diffuse soft top. Reflections on paint controlled with diffusion overhead. Interior dashboard glow rendered cleanly',
+      colorPalette: ['#F8F4ED', '#1F2A40', '#C0392B', '#9CA3AF', '#FFFFFF'],
+      cameraWork:
+        'Slow gimbal walk-around. Locked wides for hero. Macro for badge, stitching, and dash detail. Beats paced for retail browsing',
+      referenceFilms: [
+        'CarMax Inventory Videos',
+        'Vroom Listing Films',
+        'Mercedes-Benz Dealer Spots',
+        'Polestar Showroom Reveal Films',
+      ],
+      colorGrading:
+        'Bright, clean, with faithful paint color. Whites neutral. Looks like a retail-tour spot',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Automotive Showroom'),
+    sortOrder: 606,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['product', 'lifestyle'],
+  },
+  {
+    name: 'B2B Keynote',
+    description:
+      'Conference-stage keynote aesthetic with executive on a clean stage, audience reverse-cuts, and brand-controlled stagecraft. Built for enterprise launches, summits, and CEO addresses.',
+    category: 'corporate',
+    tags: ['b2b', 'keynote', 'conference', 'executive', 'summit'],
+    config: {
+      mood: 'Authoritative, polished, brand-controlled',
+      artStyle:
+        'Executive on a minimal stage with a single brand mark behind. Audience reverse cuts catch attention and applause. Cuts to product reveals or content slides full-frame. Wardrobe considered, never showy',
+      lighting:
+        'Clean theatrical key on the presenter with soft fill. Stage backlight glow. Audience in soft ambient haze. Reveal lighting for hero product moments',
+      colorPalette: ['#0A0A0F', '#1E2A3A', '#FFFFFF', '#C8A464', '#A8AFB8'],
+      cameraWork:
+        'Three-camera coverage -- wide, medium, close. Slow lens-zoom punch-ins. Cuts to slides full-frame. Beats paced for live keynote',
+      referenceFilms: [
+        'Apple Keynote Events',
+        'Salesforce Dreamforce Keynotes',
+        'AWS re:Invent Mainstage',
+        'TED Mainstage Talks',
+      ],
+      colorGrading:
+        'Cool, contrasty, with clean blacks and faithful skin tones. Stage glow rendered without bloom. Looks like a live broadcast feed',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('B2B Keynote'),
+    sortOrder: 607,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'gpt_image_2',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['pitch-deck', 'talking-head'],
+  },
+  {
+    name: 'Nonprofit Cause',
+    description:
+      'Cause-led nonprofit storytelling aesthetic with documentary intimacy, dignified portraits, and supportive context. Built for fundraising reels, impact reports, and campaign films.',
+    category: 'nonprofit',
+    tags: ['nonprofit', 'cause', 'fundraising', 'impact', 'documentary'],
+    config: {
+      mood: 'Hopeful, dignified, urgent',
+      artStyle:
+        'Documentary portraits of beneficiaries, volunteers, and program staff in real settings -- a community center, a field, a classroom. Subjects framed with respect, never as victims. Cutaways to environmental detail and impact data',
+      lighting:
+        'Available natural light supplemented by minimal reflector. Practicals at evening. Faces always dignified. No harsh shadow',
+      colorPalette: ['#F4E4CF', '#A4805D', '#3F3F3F', '#8FA98D', '#FFFFFF'],
+      cameraWork:
+        'Light handheld for interview and observation. Locked frames for portraits. Slow wide reveals of environment. Beats let subjects breathe',
+      referenceFilms: [
+        'Charity: Water Brand Films',
+        'Doctors Without Borders Spots',
+        'UNICEF Campaign Reels',
+        'WaterAid Documentary Cuts',
+      ],
+      colorGrading:
+        'Warm naturalism. Skin tones honest, shadows luminous. Subtle filmic finish. Looks like a respectful documentary short',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Nonprofit Cause'),
+    sortOrder: 608,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'kling_v3_pro',
+    defaultAspectRatio: '16:9',
+    useCases: ['talking-head', 'lifestyle'],
+  },
+  {
+    name: 'Travel Destination',
+    description:
+      'Aspirational travel destination cinematography with sweeping landscapes, intimate cultural moments, and golden-hour magic. Built for tourism boards, hotel groups, and travel brand films.',
+    category: 'travel',
+    tags: ['travel', 'destination', 'tourism', 'landscape', 'culture'],
+    config: {
+      mood: 'Aspirational, romantic, expansive',
+      artStyle:
+        'Travel cinematography that alternates between sweeping landscape aerials and intimate cultural moments -- a hand pouring tea, a fisherman at dawn, lanterns lit at dusk. Locations rendered with respect and specificity, never generic',
+      lighting:
+        'Golden hour favored. Magic hour for hero exteriors, soft window light for intimate moments, candle and lantern glow at night. Big sky drama embraced',
+      colorPalette: ['#F4D9A8', '#7F3F2C', '#E8C28C', '#3F4F5F', '#FFFFFF'],
+      cameraWork:
+        'Drone reveal aerials, slow tracking landscape moves, intimate handheld portraits. Long beats let the place breathe. Cuts paced like a magazine essay',
+      referenceFilms: [
+        'Salt of the Earth',
+        'Anthony Bourdain Parts Unknown',
+        'Airbnb Brand Films',
+        'Visit Iceland Tourism Spots',
+      ],
+      colorGrading:
+        'Warm filmic with rich saturation. Skies pushed lightly toward blue, skin tones golden. Highlights bloomed gently. Looks like a travel-magazine spread',
+    },
+    isPublic: true,
+    isTemplate: true,
+    previewUrl: getStylePreviewUrl('Travel Destination'),
+    sortOrder: 609,
+    version: null,
+    usageCount: null,
+    recommendedImageModel: 'nano_banana_pro',
+    recommendedVideoModel: 'veo3_1',
+    defaultAspectRatio: '16:9',
+    useCases: ['lifestyle', 'b-roll'],
+  },
 ];
 
 // System styles without teamId - teamId will be added during seeding
@@ -467,10 +2776,10 @@ export const DEFAULT_SYSTEM_STYLES: Omit<Style, 'id' | 'teamId'>[] =
     updatedAt: new Date(),
     createdBy: 'system',
     sampleVideos: [],
-    recommendedImageModel: null,
-    recommendedVideoModel: null,
-    defaultAspectRatio: null,
-    useCases: [],
+    recommendedImageModel: style.recommendedImageModel ?? null,
+    recommendedVideoModel: style.recommendedVideoModel ?? null,
+    defaultAspectRatio: style.defaultAspectRatio ?? null,
+    useCases: style.useCases ?? [],
   }));
 
 // Mock styles for testing - includes mock IDs and teamId

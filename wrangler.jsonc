@@ -69,5 +69,10 @@
       "binding": "MERGE_VIDEO_WORKFLOW",
       "class_name": "MergeVideoWorkflow",
     },
+    {
+      "name": "motion-workflow",
+      "binding": "MOTION_WORKFLOW",
+      "class_name": "MotionWorkflow",
+    },
   ],
 }

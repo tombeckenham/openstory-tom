@@ -23,6 +23,7 @@ export { LibraryTalentSheetWorkflow } from '@/lib/workflows/cf/library-talent-sh
 export { LibraryLocationSheetWorkflow } from '@/lib/workflows/cf/library-location-sheet-workflow';
 export { ShotVariantWorkflow } from '@/lib/workflows/cf/shot-variant-workflow';
 export { UpscaleShotVariantWorkflow } from '@/lib/workflows/cf/upscale-shot-variant-workflow';
+export { VisualPromptSceneWorkflow } from '@/lib/workflows/cf/visual-prompt-scene-workflow';
 
 export default {
   fetch(request: Request) {

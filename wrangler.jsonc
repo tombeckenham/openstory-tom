@@ -104,5 +104,10 @@
       "binding": "UPSCALE_SHOT_VARIANT_WORKFLOW",
       "class_name": "UpscaleShotVariantWorkflow",
     },
+    {
+      "name": "visual-prompt-scene-workflow",
+      "binding": "VISUAL_PROMPT_SCENE_WORKFLOW",
+      "class_name": "VisualPromptSceneWorkflow",
+    },
   ],
 }

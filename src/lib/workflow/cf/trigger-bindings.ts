@@ -29,6 +29,7 @@ const TRIGGER_TO_BINDING: Record<string, keyof CloudflareEnv> = {
   'library-location-sheet': 'LIBRARY_LOCATION_SHEET_WORKFLOW',
   'variant-image': 'SHOT_VARIANT_WORKFLOW',
   'upscale-variant': 'UPSCALE_SHOT_VARIANT_WORKFLOW',
+  'visual-prompt-scene': 'VISUAL_PROMPT_SCENE_WORKFLOW',
 };
 
 export type CfTriggerResult = { workflowRunId: string };

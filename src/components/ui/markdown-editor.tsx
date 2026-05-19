@@ -55,7 +55,12 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   'aria-invalid': ariaInvalid,
   'data-testid': dataTestId,
 }) => {
-  const isInternalUpdateRef = useRef(false);
+  // Tracks the markdown string the editor's content currently corresponds to.
+  // Used to gate external value sync without relying on a one-shot "did the
+  // editor just emit?" flag — that flag misfires under rapid streaming
+  // (parent state churn batches into a single effect after several onUpdates)
+  // and silently drops external updates.
+  const syncedValueRef = useRef(value);
   const onKeyDownRef = useRef(onKeyDown);
   onKeyDownRef.current = onKeyDown;
 
@@ -92,22 +97,35 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
     },
     onUpdate: ({ editor: e }) => {
       const markdown = e.storage.markdown.getMarkdown() as string;
-      isInternalUpdateRef.current = true;
+      syncedValueRef.current = markdown;
       onValueChange(markdown);
     },
   });
 
-  // External value sync (e.g. AI enhance, form reset). Skip when the update
-  // originated from the editor itself to avoid an infinite loop / cursor jump.
+  // External value sync (e.g. AI enhance streaming, form reset). Only writes
+  // back when the incoming value differs from what we last told the editor or
+  // last received from it — both internal and external updates land in
+  // syncedValueRef, so this is a single source of truth.
+  //
+  // Coalesces rapid external updates (LLM streaming chunks at >30Hz) on a
+  // frame boundary — each setContent is a full markdown re-parse + doc
+  // rebuild, so applying every chunk synchronously can starve the streaming
+  // loop. With rAF, multiple chunks in the same frame collapse to one
+  // setContent with the latest value.
   useEffect(() => {
     if (!editor) return;
-    if (isInternalUpdateRef.current) {
-      isInternalUpdateRef.current = false;
-      return;
-    }
-    const current = editor.storage.markdown.getMarkdown() as string;
-    if (current === value) return;
-    editor.commands.setContent(value, { emitUpdate: false });
+    if (syncedValueRef.current === value) return;
+    let cancelled = false;
+    const rafId = requestAnimationFrame(() => {
+      if (cancelled || !editor) return;
+      if (syncedValueRef.current === value) return;
+      syncedValueRef.current = value;
+      editor.commands.setContent(value, { emitUpdate: false });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+    };
   }, [editor, value]);
 
   useEffect(() => {

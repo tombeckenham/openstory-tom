@@ -87,6 +87,57 @@ export const AutoFocused: Story = {
   ),
 };
 
+const StreamingDemo: React.FC = () => {
+  const target = `# Streaming Test\n\nThe quick **brown** fox jumps over the lazy dog.\n\n- one\n- two\n- three\n`;
+  const [value, setValue] = useState('');
+  const [running, setRunning] = useState(false);
+
+  const start = () => {
+    setRunning(true);
+    setValue('');
+    let i = 0;
+    const tick = () => {
+      i += 1;
+      setValue(target.slice(0, i));
+      if (i < target.length) {
+        setTimeout(tick, 8);
+      } else {
+        setRunning(false);
+      }
+    };
+    setTimeout(tick, 0);
+  };
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={start}
+        disabled={running}
+        className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+      >
+        {running ? 'Streaming…' : 'Start streaming'}
+      </button>
+      <MarkdownEditor value={value} onValueChange={setValue} />
+      <pre className="text-xs text-muted-foreground whitespace-pre-wrap rounded-md border p-2 max-h-40 overflow-auto">
+        {value || '(empty)'}
+      </pre>
+    </div>
+  );
+};
+
+export const Streaming: Story = {
+  render: () => <StreamingDemo />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Simulates LLM streaming: rapid external `value` updates (one character per ~8ms). Verifies the editor stays in sync with parent state and never drops chunks.',
+      },
+    },
+  },
+};
+
 export const LongContent: Story = {
   render: () => (
     <div className="h-[300px] flex">

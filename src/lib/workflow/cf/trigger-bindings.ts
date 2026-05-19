@@ -23,6 +23,7 @@ const TRIGGER_TO_BINDING: Record<string, keyof CloudflareEnv> = {
   'merge-audio-video': 'MERGE_AUDIO_VIDEO_WORKFLOW',
   'merge-video': 'MERGE_VIDEO_WORKFLOW',
   motion: 'MOTION_WORKFLOW',
+  'motion-batch': 'MOTION_BATCH_WORKFLOW',
   'character-sheet': 'CHARACTER_SHEET_WORKFLOW',
   'location-sheet': 'LOCATION_SHEET_WORKFLOW',
   'library-talent-sheet': 'LIBRARY_TALENT_SHEET_WORKFLOW',
@@ -44,6 +45,7 @@ const TRIGGER_TO_BINDING: Record<string, keyof CloudflareEnv> = {
   'regenerate-frames': 'REGENERATE_FRAMES_WORKFLOW',
   'recast-location': 'RECAST_LOCATION_WORKFLOW',
   'replace-element': 'REPLACE_ELEMENT_WORKFLOW',
+  'scene-split': 'SCENE_SPLIT_WORKFLOW',
 };
 
 export type CfTriggerResult = { workflowRunId: string };

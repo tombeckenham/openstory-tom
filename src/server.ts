@@ -17,6 +17,7 @@ export { MusicWorkflow } from '@/lib/workflows/cf/music-workflow';
 export { MergeAudioVideoWorkflow } from '@/lib/workflows/cf/merge-audio-video-workflow';
 export { MergeVideoWorkflow } from '@/lib/workflows/cf/merge-video-workflow';
 export { MotionWorkflow } from '@/lib/workflows/cf/motion-workflow';
+export { MotionBatchWorkflow } from '@/lib/workflows/cf/motion-batch-workflow';
 export { CharacterSheetWorkflow } from '@/lib/workflows/cf/character-sheet-workflow';
 export { LocationSheetWorkflow } from '@/lib/workflows/cf/location-sheet-workflow';
 export { LibraryTalentSheetWorkflow } from '@/lib/workflows/cf/library-talent-sheet-workflow';
@@ -38,6 +39,7 @@ export { MotionMusicPromptsWorkflow } from '@/lib/workflows/cf/motion-music-prom
 export { RegenerateFramesWorkflow } from '@/lib/workflows/cf/regenerate-frames-workflow';
 export { RecastLocationWorkflow } from '@/lib/workflows/cf/recast-location-workflow';
 export { ReplaceElementWorkflow } from '@/lib/workflows/cf/replace-element-workflow';
+export { SceneSplitWorkflow } from '@/lib/workflows/cf/scene-split-workflow';
 
 export default {
   fetch(request: Request) {

@@ -24,6 +24,7 @@ export type CloudflareEnv = Cloudflare.Env & {
   MERGE_AUDIO_VIDEO_WORKFLOW?: Workflow<unknown>;
   MERGE_VIDEO_WORKFLOW?: Workflow<unknown>;
   MOTION_WORKFLOW?: Workflow<unknown>;
+  MOTION_BATCH_WORKFLOW?: Workflow<unknown>;
   CHARACTER_SHEET_WORKFLOW?: Workflow<unknown>;
   LOCATION_SHEET_WORKFLOW?: Workflow<unknown>;
   LIBRARY_TALENT_SHEET_WORKFLOW?: Workflow<unknown>;
@@ -45,6 +46,9 @@ export type CloudflareEnv = Cloudflare.Env & {
   FRAME_IMAGES_WORKFLOW?: Workflow<unknown>;
   REGENERATE_FRAMES_WORKFLOW?: Workflow<unknown>;
   REPLACE_ELEMENT_WORKFLOW?: Workflow<unknown>;
+  STORYBOARD_WORKFLOW?: Workflow<unknown>;
+  ANALYZE_SCRIPT_WORKFLOW?: Workflow<unknown>;
+  SCENE_SPLIT_WORKFLOW?: Workflow<unknown>;
 };
 
 /** Engine selector for the per-workflow rollout switch. */

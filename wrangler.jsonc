@@ -75,6 +75,11 @@
       "class_name": "MotionWorkflow",
     },
     {
+      "name": "motion-batch-workflow",
+      "binding": "MOTION_BATCH_WORKFLOW",
+      "class_name": "MotionBatchWorkflow",
+    },
+    {
       "name": "character-sheet-workflow",
       "binding": "CHARACTER_SHEET_WORKFLOW",
       "class_name": "CharacterSheetWorkflow",
@@ -178,6 +183,11 @@
       "name": "replace-element-workflow",
       "binding": "REPLACE_ELEMENT_WORKFLOW",
       "class_name": "ReplaceElementWorkflow",
+    },
+    {
+      "name": "scene-split-workflow",
+      "binding": "SCENE_SPLIT_WORKFLOW",
+      "class_name": "SceneSplitWorkflow",
     },
   ],
 }

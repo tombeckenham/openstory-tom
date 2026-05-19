@@ -13,9 +13,8 @@
  *     `context.workflowRunId`.
  *   - Calls the snapshot DTO computers directly instead of going through
  *     the `context.snapshot.*` extension.
- *   - The chained `merge-audio-video` child invocation is stubbed out
- *     pending Pattern 3 (fan-out helpers) — exercised in a later batch
- *     after all leaves are ported.
+ *   - The chained `merge-audio-video` child invocation uses Pattern 3
+ *     (`spawnAndAwaitChild`) inside `chainAudioMux`.
  *
  * The QStash version stays as-is — both run side by side until
  * `engine-registry.ts` flips `merge-video` to `'cloudflare'`. See
@@ -34,13 +33,18 @@ import {
   getExtensionFromUrl,
   getMimeTypeFromExtension,
 } from '@/lib/utils/file';
+import { spawnAndAwaitChild } from '@/lib/workflow/cf/await-child';
 import { OpenStoryWorkflowEntrypoint } from '@/lib/workflow/cf/base-workflow';
+import type { CloudflareEnv } from '@/lib/workflow/cf/types';
 import { WorkflowValidationError } from '@/lib/workflow/errors';
 import type {
+  MergeAudioVideoWorkflowInput,
+  MergeAudioVideoWorkflowResult,
   MergeVideoWorkflowInput,
   MergeVideoWorkflowResult,
 } from '@/lib/workflow/types';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { NonRetryableError } from 'cloudflare:workflows';
 import { resolveMusicVariantForMux } from '@/lib/workflows/merge-variant-resolution';
 import {
   computeSequenceVideoHashCurrent,
@@ -61,9 +65,11 @@ export const MERGE_VIDEO_WORKFLOW_NAME = 'merge-video';
  */
 async function chainAudioMux(
   step: WorkflowStep,
+  env: CloudflareEnv,
+  parentInstanceId: string,
   scopedDb: ScopedDb,
   input: MergeVideoWorkflowInput & { sequenceId: string },
-  _mergedVideoVariantId: string
+  mergedVideoVariantId: string
 ): Promise<void> {
   if (input.skipAudioMux) {
     console.log(
@@ -81,9 +87,32 @@ async function chainAudioMux(
     return;
   }
 
-  throw new WorkflowValidationError(
-    'Child invocation from CF merge-video pending Pattern 3 batch; route this workflow via QStash'
-  );
+  const binding = env.MERGE_AUDIO_VIDEO_WORKFLOW;
+  if (!binding) {
+    throw new NonRetryableError(
+      'MERGE_AUDIO_VIDEO_WORKFLOW binding is missing on env — check wrangler.jsonc',
+      'WorkflowValidationError'
+    );
+  }
+
+  await spawnAndAwaitChild<
+    MergeAudioVideoWorkflowInput,
+    MergeAudioVideoWorkflowResult
+  >(step, {
+    binding,
+    parentBindingName: 'MERGE_VIDEO_WORKFLOW',
+    parentInstanceId,
+    childId: `merge-audio-video:${input.sequenceId}:${mergedVideoVariantId}:${musicVariantId}`,
+    childPayload: {
+      userId: input.userId,
+      teamId: input.teamId,
+      sequenceId: input.sequenceId,
+      mergedVideoVariantId,
+      musicVariantId,
+    },
+    spawnStepName: 'spawn-merge-audio-video',
+    awaitStepName: 'await-merge-audio-video',
+  });
 }
 
 export class MergeVideoWorkflow extends OpenStoryWorkflowEntrypoint<MergeVideoWorkflowInput> {
@@ -184,6 +213,8 @@ export class MergeVideoWorkflow extends OpenStoryWorkflowEntrypoint<MergeVideoWo
 
       await chainAudioMux(
         step,
+        this.env,
+        event.instanceId,
         scopedDb,
         narrowedInput,
         writeResult.variant.id
@@ -318,7 +349,14 @@ export class MergeVideoWorkflow extends OpenStoryWorkflowEntrypoint<MergeVideoWo
       );
     });
 
-    await chainAudioMux(step, scopedDb, narrowedInput, writeResult.variant.id);
+    await chainAudioMux(
+      step,
+      this.env,
+      event.instanceId,
+      scopedDb,
+      narrowedInput,
+      writeResult.variant.id
+    );
 
     return {
       mergedVideoUrl: storageResult.url,

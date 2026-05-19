@@ -316,7 +316,7 @@ export const replaceElementWorkflow = createScopedWorkflow<
       previousDescription: input.previousDescription,
     });
 
-    // Parallel fan-out — flowControl + per-invoke retries handle backpressure.
+    // Parallel fan-out — per-invoke retries handle backpressure.
     // `allSettled` so a per-frame throw (e.g. invoke rejection that bypasses
     // the isFailed/isCanceled return path) doesn't abort sibling frames.
     const settled = await Promise.allSettled(

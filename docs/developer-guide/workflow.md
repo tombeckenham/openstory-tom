@@ -395,7 +395,7 @@ Sub-workflows (image, motion, music, character bible, location bible, talent mat
 
 - Each `context.run()` step is checkpointed — if the server restarts mid-workflow, execution resumes from the last completed step
 - `context.invoke()` creates a child workflow that runs independently with its own retries
-- Flow control (`getFalFlowControl()`, `getLLMFlowControl()`) manages concurrency for external API calls
+- No application-level concurrency gating — fal queues submissions server-side (`IN_QUEUE` doesn't count toward the cap, jobs are never rejected), and OpenRouter handles its own rate limits. Past attempts at gating via QStash `flowControl` produced ghost slot leaks on cancel and PR-preview cross-contamination; see #725.
 
 ## Key Files Reference
 
@@ -407,7 +407,6 @@ Sub-workflows (image, motion, music, character bible, location bible, talent mat
 | `src/lib/workflows/storyboard-workflow.ts`           | Wrapper: verify, clear, poster, invoke analyze-script     |
 | `src/lib/workflows/analyze-script-workflow.ts`       | Core orchestration (phases 1-5)                           |
 | `src/lib/workflows/scene-split-workflow.ts`          | Phase 1: streaming scene split + preview images           |
-| `src/lib/workflows/constants.ts`                     | `getFalFlowControl()` / `getLLMFlowControl()`             |
 | `src/lib/ai/streaming-scene-parser.ts`               | Incremental JSON parser for streaming scene creation      |
 | `src/lib/workflow/sanitize-fail-response.ts`         | Error message extraction from QStash failures             |
 | `src/lib/db/helpers/frames.ts`                       | `upsertFrame()` / `bulkInsertFrames()` idempotent helpers |

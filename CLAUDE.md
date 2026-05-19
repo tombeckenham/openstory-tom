@@ -1,8 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-AI-powered video sequence platform built with TanStack Start, optimized for edge deployment.
+AI-powered video sequence platform built with TanStack Start, deployed to Cloudflare Workers.
 
 ## Commands
 
@@ -14,19 +12,19 @@ bun db:studio                      # Drizzle Studio for local DB
 
 # Quality
 bun lint                           # oxlint (type-aware)
-bun lint:fix                       # oxlint with autofix
-bun format                         # oxfmt write
-bun format:check                   # oxfmt check (CI)
+bun lint:fix
+bun format                         # oxfmt
+bun format:check
 bun typecheck                      # tsgo --noEmit (NOT `tsc`)
 bun dead-code                      # knip (unused exports)
 
 # Tests
 bun test                           # unit (bun:test)
 bun test path/to/file.test.ts      # single file
-bun test --watch                   # watch mode
-bun test --coverage
+bun test:watch
+bun test:coverage
 bun test:e2e                       # Playwright
-bun test:e2e:ui                    # Playwright UI
+bun test:e2e:ui
 bun test:e2e:setup                 # rebuild test.db + seed
 
 # DB
@@ -39,7 +37,7 @@ bun run build                      # Vite production build (note: NOT `bun build
 bun cf:deploy:prd                  # Cloudflare Workers production deploy
 ```
 
-`bun dev` runs everything in parallel — there is no separate `qstash:dev` terminal anymore (Docker is required so QStash can start).
+`bun dev` runs everything in parallel via Docker (QStash) — there is no separate `qstash:dev` terminal anymore.
 
 ## Project Structure
 
@@ -61,27 +59,18 @@ scripts/            # CLI tooling and setup
 drizzle/migrations/ # Generated SQL (do NOT hand-edit)
 ```
 
-## Architecture Overview
+## Architecture
 
-**Tech Stack:**
+**Stack:** Bun · TanStack Start + Router + Vite · Turso (libSQL/SQLite) + Drizzle · QStash (durable workflows) · Cloudflare R2 · Better Auth · Tailwind v4 + shadcn/ui · `bun:test`.
 
-- **Runtime**: Bun (not Node.js)
-- **Framework**: TanStack Start + TanStack Router + Vite
-- **Database**: Turso (libSQL/SQLite) + Drizzle ORM
-- **Workflows**: QStash (durable execution for AI tasks)
-- **Storage**: Cloudflare R2 (S3-compatible)
-- **Auth**: Better Auth
-- **Styling**: Tailwind v4 + shadcn/ui
-- **Testing**: Bun test
+**Core rules:**
 
-**Core Principles:**
+- Database access ONLY in server handlers (never in components).
+- Anonymous-first → upgrade to save work.
+- Team-based resources (sequences, styles, characters).
+- Script-driven generation for consistency.
 
-- Database access ONLY in server handlers (never in components)
-- Anonymous-first → upgrade to save work
-- Team-based resources (sequences, styles, characters)
-- Script-driven generation for consistency
-
-**Data Model:**
+**Data model:**
 
 ```
 teams
@@ -91,8 +80,6 @@ teams
   └── libraries (styles, characters, vfx, audio)
 ```
 
----
-
 ## Setup
 
 ```bash
@@ -101,55 +88,40 @@ bun setup                          # Auto-configure local dev (SQLite + QStash)
 bun db:setup                       # Migrate + seed database
 ```
 
-**Daily workflow:** `bun dev` — runs DB migrate/seed, Vite, QStash (Docker), and Stripe listener in parallel.
-
-**Branch + commit conventions:** Branches must be named `<issue-number>-feature-name` (e.g. `393-improve-readme`). Lefthook extracts the issue number and tags commits with `#<issue>` automatically. See `CONTRIBUTING.md`.
-
-**Before commit:** Lefthook auto-checks quality.
+**Branch + commit conventions:** Branches must be named `<issue-number>-feature-name` (e.g. `393-improve-readme`). Lefthook extracts the issue number and tags commits with `#<issue>` automatically. See `CONTRIBUTING.md`. Lefthook also runs quality checks pre-commit.
 
 ---
 
 ## Server Handler Pattern
 
-All API routes use TanStack Start server handlers:
+All API routes use TanStack Start server handlers. Standard shape:
 
 ```typescript
 // src/routes/api/example/$id.ts
-import { createFileRoute } from '@tanstack/react-router';
-import { json } from '@tanstack/react-start';
-import { requireUser } from '@/lib/auth/action-utils';
-import { handleApiError } from '@/lib/errors';
-
 export const Route = createFileRoute('/api/example/$id')({
   server: {
     handlers: {
       POST: async ({ params, request }) => {
         try {
-          // 1. Validate input
           const input = schema.parse(await request.json());
-
-          // 2. Check auth/team permissions
           const user = await requireUser();
 
-          // 3. Execute business logic (DB operations ONLY here)
-          const record = await db.insert(table).values({
-            ...input,
-            teamId: user.teamId,
-          });
+          const record = await db
+            .insert(table)
+            .values({ ...input, teamId: user.teamId });
 
-          // 4. Trigger workflows for async AI tasks
+          // Trigger workflows via QStash (see Workflow Pattern below)
           const { messageId } = await qstash.publishJSON({
             url: `${getQStashWebhookUrl()}/workflows/image`,
             body: { userId: user.id, teamId: user.teamId, ...input },
           });
 
-          // 5. Return standardized response
           return json({ id: record.id, workflowRunId: messageId });
         } catch (error) {
-          const handledError = handleApiError(error);
+          const handled = handleApiError(error);
           return json(
-            { success: false, error: handledError.toJSON() },
-            { status: handledError.statusCode }
+            { success: false, error: handled.toJSON() },
+            { status: handled.statusCode }
           );
         }
       },
@@ -158,101 +130,48 @@ export const Route = createFileRoute('/api/example/$id')({
 });
 ```
 
----
+Steps: 1) validate input · 2) `requireUser()` · 3) DB writes (only here) · 4) trigger workflow · 5) standardized response.
 
 ## Workflow Pattern
 
-**Triggering workflows (from server handlers):**
+**Triggering workflows — MUST use `qstash.publishJSON`, not `fetch`** (raw fetch skips QStash signatures):
 
 ```typescript
-// ❌ WRONG - Direct fetch() calls don't include QStash signatures
+// ❌ WRONG — no signatures
 await fetch('/api/workflows/image', {
   method: 'POST',
   body: JSON.stringify(data),
 });
 
-// ✅ CORRECT - Use qstash.publishJSON() for proper signatures
-const qstash = getQStashClient();
-const { messageId } = await qstash.publishJSON({
-  url: `${getQStashWebhookUrl()}/workflows/image`, // External URL QStash can reach
+// ✅ CORRECT
+const { messageId } = await getQStashClient().publishJSON({
+  url: `${getQStashWebhookUrl()}/workflows/image`,
   body: { userId, teamId, prompt, ...params },
 });
-const workflowRunId = messageId;
 ```
 
-**Implementing workflows (TanStack Start + serveMany):**
+**Registering workflows** — `src/routes/api/workflows/$.ts` uses `serveMany` from `@upstash/workflow/tanstack`:
 
 ```typescript
-// src/routes/api/workflows/$.ts - Register with serveMany
-import { createFileRoute } from '@tanstack/react-router';
-import { serveMany } from '@upstash/workflow/tanstack';
-
 const handler = serveMany({
   image: generateImageWorkflow,
   motion: generateMotionWorkflow,
   storyboard: generateStoryboardWorkflow,
 });
-
-export const Route = createFileRoute('/api/workflows/$')({
-  server: {
-    handlers: {
-      POST: async ({ request }) => {
-        return handler.POST({ request });
-      },
-    },
-  },
-});
-
-// Individual workflow (src/lib/workflows/image-workflow.ts)
-export const generateImageWorkflow = async (
-  context: WorkflowContext<ImageWorkflowInput>
-) => {
-  const input = context.requestPayload;
-  validateWorkflowAuth(input); // Check userId/teamId passed through context
-
-  const result = await context.run('generate-image', async () => {
-    // Step logic - automatically retried on failure
-    const image = await generateImage(input.prompt);
-
-    // Update database directly
-    await db
-      .update(frames)
-      .set({ thumbnailUrl: image.url })
-      .where(eq(frames.id, input.frameId));
-
-    return { imageUrl: image.url };
-  });
-
-  return result;
-};
 ```
 
-**Key principles:**
-
-- Workflows handle their own state (no DB job tracking needed)
-- Pass auth (userId/teamId) through workflow context
-- Steps are durable - execution continues even if server restarts
-- Update DB records directly in workflow steps
-
----
+Each workflow validates auth from `context.requestPayload`, runs steps via `context.run('step-name', async () => { ... })`, and writes DB updates directly. Steps are durable (auto-retried on failure); pass `userId`/`teamId` through context, not via global state.
 
 ## Frame System
 
-Frames are the core content unit - each represents one scene from script analysis.
+Frames are the core content unit — each represents one scene from script analysis.
 
-**Frame Structure:**
-
-- `thumbnailUrl` - Generated image
-- `videoUrl` - Motion video (image-to-video)
-- `metadata` - Complete `Scene` object (typed JSONB)
-
-**Frame.metadata IS the Scene object** (no wrapper):
+**Critical:** `frame.metadata` IS the `Scene` object (no wrapper). Fully typed via Drizzle JSONB.
 
 ```typescript
-// src/lib/ai/frame.schema.ts
 frame.metadata = {
-  sceneId: string,
-  sceneNumber: number,
+  sceneId,
+  sceneNumber,
   originalScript: { extract, lineNumber, dialogue },
   metadata: { title, durationSeconds, location, timeOfDay, storyBeat },
   variants: { cameraAngles, movementStyles, moodTreatments }, // A/B/C options
@@ -266,87 +185,24 @@ frame.metadata = {
 };
 ```
 
-**Working with frames:**
-
-```typescript
-import { frameService } from '@/lib/services/frame.service';
-
-// Get scene data (metadata IS the scene)
-const scene = frameService.getSceneData(frame);
-
-// Get prompts for regeneration
-const visualPrompt = frameService.getVisualPrompt(frame);
-const motionPrompt = frameService.getMotionPrompt(frame);
-
-// Access directly (fully typed!)
-const sceneTitle = frame.metadata.metadata.title;
-const fullPrompt = frame.metadata.prompts.visual.fullPrompt;
-```
-
-**Benefits:**
-
-- Complete scene data enables regeneration without re-analyzing script
-- Variants preserved for trying different creative options
-- Type-safe with Drizzle's typed JSONB
-
----
+Access via `frameService.getSceneData(frame)`, `getVisualPrompt(frame)`, `getMotionPrompt(frame)`, or directly: `frame.metadata.metadata.title`, `frame.metadata.prompts.visual.fullPrompt`. Storing the full scene lets us regenerate without re-analyzing the script and preserves variants for retries.
 
 ## Fal.ai Integration
 
-**Always verify API specs before updating models:**
+**Always check `/llms.txt` before updating models.** Machine-readable, authoritative param specs:
 
-```bash
-# Get authoritative parameter specifications
+```
 https://fal.ai/models/{model-path}/llms.txt
-
-# Examples
-https://fal.ai/models/fal-ai/kling-video/v2.5-turbo/pro/image-to-video/llms.txt
-https://fal.ai/models/fal-ai/fast-svd-lcm/llms.txt
+# e.g. https://fal.ai/models/fal-ai/kling-video/v2.5-turbo/pro/image-to-video/llms.txt
 ```
 
-**Why `/llms.txt`?**
+More reliable than HTML docs; essential for `src/lib/ai/models.ts`. **For new motion models, run `bun motion:codegen`** to auto-generate schemas — don't write inline.
 
-- Machine-readable, authoritative specs
-- Includes all parameters with types, defaults, constraints
-- More reliable than HTML docs
-- Essential for accurate `src/lib/ai/models.ts` definitions
-
-**Motion generation status checking:**
-
-```typescript
-// Generate motion
-const result = await generateMotionForFrame({
-  imageUrl: 'https://example.com/image.jpg',
-  prompt: 'Camera pan left',
-  model: 'wan_i2v',
-});
-// result.requestId, result.statusUrl, result.responseUrl, result.cancelUrl
-
-// Check status
-import {
-  checkMotionStatus,
-  getMotionResult,
-  cancelMotionGeneration,
-} from '@/lib/services/motion.service';
-
-const status = await checkMotionStatus(result.statusUrl);
-// status.status: "IN_QUEUE" | "IN_PROGRESS" | "COMPLETED"
-
-const video = await getMotionResult(result.responseUrl);
-await cancelMotionGeneration(result.cancelUrl);
-```
-
-**CLI status checking:**
-
-```bash
-bun scripts/check-motion-status.ts <status-url>
-bun scripts/check-motion-status.ts --result <response-url>
-bun scripts/check-motion-status.ts --cancel <cancel-url>
-```
+Motion status checking: `checkMotionStatus(statusUrl)`, `getMotionResult(responseUrl)`, `cancelMotionGeneration(cancelUrl)` from `@/lib/services/motion.service`, or `bun scripts/check-motion-status.ts <url>`.
 
 ---
 
-## Database Patterns
+## Database
 
 **Schema management:**
 
@@ -355,611 +211,153 @@ bun db:generate  # Generate migrations from schema changes
 bun db:migrate   # Apply migrations to local.db
 ```
 
-**Key conventions:**
+- Schema in `src/lib/db/schema/` (Drizzle auto-infers types).
+- **NEVER** hand-write migration SQL.
+- **ULID** primary keys (not UUID).
+- **Typed JSONB:** `frame.metadata` typed as `Scene`.
 
-- Schema in `src/lib/db/schema/` (Drizzle auto-infers types)
-- **NEVER** manually write migration SQL files
-- **ULID** primary keys (not UUID)
-- **Typed JSONB**: `frame.metadata` typed as `Scene`
-- **DB access ONLY in server handlers** (never in components)
-
-### D1 / Turso table-rebuild trap (read before changing schema)
+### D1 / Turso table-rebuild trap — READ BEFORE CHANGING SCHEMA
 
 drizzle-kit's HTTP migrators (`d1-http`, `turso`) join all migration statements into a single HTTP body. Both D1 and Turso libSQL wrap multi-statement bodies in an implicit transaction, and SQLite **silently** ignores `PRAGMA foreign_keys = OFF` inside a transaction. So when the standard SQLite "table rebuild" pattern (`CREATE __new_X` → `INSERT SELECT` → `DROP X` → `RENAME`) drops the parent table, every inbound `ON DELETE CASCADE` FK fires and child rows are deleted.
 
-This is what destroyed `team_members`, `session`, `account`, and `passkey` in production on 2026-04-29 (issue #612, migration `20260428013041_productive_kabuki`). `PRAGMA defer_foreign_keys = ON` does **not** help — it defers constraint _checks_ but CASCADE still fires.
+This destroyed `team_members`, `session`, `account`, and `passkey` in production on 2026-04-29 (issue #612, migration `20260428013041_productive_kabuki`). `PRAGMA defer_foreign_keys = ON` does **not** help — it defers constraint _checks_ but CASCADE still fires.
 
-**Workarounds (in order of preference):**
+**Workarounds (in order):**
 
-1. **Avoid table rebuilds.** Prefer `ALTER TABLE … RENAME COLUMN / ADD COLUMN / DROP COLUMN`. SQLite (and D1/Turso) supports these without a rebuild.
-2. **Apply destructive migrations manually.** Run `wrangler d1 export` to snapshot first, then apply the migration file directly via the D1 dashboard or `wrangler d1` (the `--file=…` form). Do not let `db:migrate:turso` / `db:migrate:d1` run it.
+1. **Avoid table rebuilds.** Prefer `ALTER TABLE … RENAME COLUMN / ADD COLUMN / DROP COLUMN` — SQLite/D1/Turso support these without a rebuild.
+2. **Apply destructive migrations manually.** Snapshot first (`wrangler d1 export`), then apply via the D1 dashboard or `wrangler d1 ... --file=…`. Do not let `db:migrate:turso` / `db:migrate:d1` run it.
 3. **Avoid `ON DELETE CASCADE`** on FKs to long-lived parent tables (`user`, `teams`, `sequences`). Use `'restrict'` or `'no action'` and clean up children in app code.
 
-**Local guardrail:** `scripts/check-migrations.ts` runs as a Lefthook pre-commit step on staged `drizzle/migrations/**/*.sql` files. It flags `DROP TABLE`, `TRUNCATE`, `DELETE FROM`, and `ALTER TABLE … DROP COLUMN`, and annotates each `DROP TABLE` with the count of inbound `ON DELETE CASCADE` FKs it found in the schema (so a high blast radius is visible at commit time). To bypass for a migration you've decided to apply manually: `bun scripts/check-migrations.ts --allow-destructive`.
+**Local guardrail:** `scripts/check-migrations.ts` runs as a Lefthook pre-commit step on staged `drizzle/migrations/**/*.sql`. It flags `DROP TABLE`, `TRUNCATE`, `DELETE FROM`, `ALTER TABLE … DROP COLUMN`, and annotates each `DROP TABLE` with the count of inbound `ON DELETE CASCADE` FKs. Bypass for a manually-applied migration: `bun scripts/check-migrations.ts --allow-destructive`.
 
-References: [drizzle-orm#3065](https://github.com/drizzle-team/drizzle-orm/issues/3065), [workers-sdk#5438](https://github.com/cloudflare/workers-sdk/issues/5438), [SQLite foreign_keys docs](https://sqlite.org/foreignkeys.html#fk_enable).
+Refs: [drizzle-orm#3065](https://github.com/drizzle-team/drizzle-orm/issues/3065), [workers-sdk#5438](https://github.com/cloudflare/workers-sdk/issues/5438), [SQLite foreign_keys docs](https://sqlite.org/foreignkeys.html#fk_enable).
 
 ---
 
 ## React Patterns
 
-### Data Fetching
+**Quick reference** (rules; examples below for the contrarian ones):
+
+- **Server data:** TanStack Query with `suspense: true`. No `isLoading` checks; use `<Suspense fallback={<Skeleton />} />`.
+- **Styling:** shadcn/ui base components handle theming; Tailwind ONLY for layout (`flex`, `grid`, `gap`). No hard-coded colors. No `margin` on components — use flex+gap on the parent.
+- **Loading:** inline `<Skeleton />` fallbacks that mirror final content (no separate skeleton components).
+- **Visibility:** CSS `hidden`/`block` (pre-render) rather than conditional mounting, to avoid layout shift.
+- **Forms:** TanStack Query mutations + Zod (`safeParse`) — no controlled-input boilerplate, use `FormData`.
+- **Routing:** TanStack Router `createFileRoute`, params via `Route.useParams()`. URL reflects state via search params.
+- **Files:** `kebab-case.tsx`, named exports, vanilla TS (`.ts`) for logic. `@/` alias. No default exports.
+
+### Data fetching
 
 ```tsx
-// ❌ BAD - useState + useEffect
-import { useEffect, useState } from 'react';
+// ❌ useState + useEffect
+const [user, setUser] = useState(null);
+const [isLoading, setIsLoading] = useState(true);
+useEffect(() => { fetch(...).then(r => r.json()).then(d => { setUser(d); setIsLoading(false); }); }, [userId]);
+if (isLoading) return <div>Loading...</div>;
 
-export default function UserProfile({ userId }: { userId: string }) {
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    fetch(`/api/users/${userId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setUser(data);
-        setIsLoading(false);
-      });
-  }, [userId]);
-
-  if (isLoading) return <div>Loading...</div>;
-  return <div style={{ fontSize: 16, color: '#333' }}>{user.name}</div>;
-}
-
-// ✅ GOOD - TanStack Query + Suspense + vanilla TS logic
-import { Suspense } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Skeleton } from '@/components/ui/skeleton';
-import { formatUserName } from '@/lib/users/format'; // vanilla TS function
-
-const UserProfileContent: React.FC<{ userId: string }> = ({ userId }) => {
-  const { data: user } = useQuery({
-    queryKey: ['user', userId],
-    queryFn: () => fetchUser(userId), // vanilla TS function
-    suspense: true, // No isLoading checks needed
-  });
-
-  return <div className="text-base">{formatUserName(user)}</div>;
+// ✅ TanStack Query + Suspense — no isLoading checks
+const UserContent: React.FC<{ userId: string }> = ({ userId }) => {
+  const { data: user } = useQuery({ queryKey: ['user', userId], queryFn: () => fetchUser(userId), suspense: true });
+  return <div>{user.name}</div>;
 };
 
-export const UserProfile: React.FC<{ userId: string }> = ({ userId }) => {
-  return (
-    <Suspense fallback={<Skeleton className="h-6 w-32" />}>
-      <UserProfileContent userId={userId} />
-    </Suspense>
-  );
-};
+export const UserProfile: React.FC<{ userId: string }> = (props) => (
+  <Suspense fallback={<Skeleton className="h-6 w-32" />}><UserContent {...props} /></Suspense>
+);
 ```
 
 ### Styling
 
 ```tsx
-// ❌ BAD - Excessive inline Tailwind, hard-coded colors
-export default function FrameCard({ frame, onSelect }) {
-  return (
-    <div
-      className="w-[300px] h-[200px] m-4 p-6 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl shadow-lg hover:shadow-xl transition-shadow border border-slate-200 dark:border-slate-700"
-      onClick={onSelect}
-    >
-      <h3 className="text-xl font-bold mb-2 text-slate-900 dark:text-white">
-        {frame.title}
-      </h3>
-      <p className="text-sm text-slate-600 dark:text-slate-400">
-        {frame.description}
-      </p>
-    </div>
-  );
-}
+// ❌ Hard-coded colors, dark variants, margin on the component
+<div className="w-[300px] m-4 p-6 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl shadow-lg border border-slate-200 dark:border-slate-700">
+  <h3 className="text-xl font-bold mb-2">{frame.title}</h3>
+</div>
 
-// ✅ GOOD - shadcn/ui base components + layout-only Tailwind
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
+// ✅ shadcn base handles theming; Tailwind for layout only; gap on parent (not margin on child)
+<Card onClick={onSelect} className="cursor-pointer">
+  <CardHeader><CardTitle>{frame.title}</CardTitle><CardDescription>{frame.description}</CardDescription></CardHeader>
+</Card>
 
-type FrameCardProps = {
-  frame: Frame;
-  onSelect?: () => void;
-};
-
-export const FrameCard: React.FC<FrameCardProps> = ({ frame, onSelect }) => {
-  return (
-    <Card onClick={onSelect} className="cursor-pointer">
-      <CardHeader>
-        <CardTitle>{frame.title}</CardTitle>
-        <CardDescription>{frame.description}</CardDescription>
-      </CardHeader>
-    </Card>
-  );
-};
-
-// Views use Tailwind ONLY for layout
-export const FrameGrid: React.FC<{ frames: Frame[] }> = ({ frames }) => {
-  return (
-    <div className="grid grid-cols-3 gap-4">
-      {frames.map((frame) => (
-        <FrameCard key={frame.id} frame={frame} />
-      ))}
-    </div>
-  );
-};
-```
-
-**Why this is better:**
-
-- Base `Card` component handles theming, colors, shadows automatically
-- Tailwind used ONLY for layout (grid, gap, flex)
-- Dark mode, hover states come from theme
-- Easy to maintain - change theme, not every component
-
-### Complex State Management
-
-```tsx
-// ❌ BAD - Multiple useState, scattered logic
-import { useEffect, useState } from 'react';
-
-function FrameEditor({ frameId }: { frameId: string }) {
-  const [frame, setFrame] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [prompt, setPrompt] = useState('');
-  const [style, setStyle] = useState('default');
-
-  useEffect(() => {
-    setIsLoading(true);
-    fetch(`/api/frames/${frameId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setFrame(data);
-        setIsLoading(false);
-      });
-  }, [frameId]);
-
-  if (isLoading) return <div>Loading...</div>;
-  // ... complex update logic scattered across handlers
-}
-
-// ✅ GOOD - Suspense + reducer for complex state
-import { Suspense, useReducer } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { frameReducer, initialState } from './frame-editor.reducer'; // vanilla TS
-import { Skeleton } from '@/components/ui/skeleton';
-
-type FrameEditorProps = {
-  frameId: string;
-  onUpdate?: (state: EditorState) => void;
-};
-
-const FrameEditorContent: React.FC<FrameEditorProps> = ({
-  frameId,
-  onUpdate,
-}) => {
-  const { data: frame } = useQuery({
-    queryKey: ['frame', frameId],
-    queryFn: () => fetchFrame(frameId),
-    suspense: true,
-  });
-
-  const [state, dispatch] = useReducer(frameReducer, initialState);
-
-  return (
-    <div className="flex flex-col gap-4">
-      <h2>{frame.title}</h2>
-      {/* ... */}
-    </div>
-  );
-};
-
-export const FrameEditor: React.FC<FrameEditorProps> = (props) => {
-  return (
-    <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-      <FrameEditorContent {...props} />
-    </Suspense>
-  );
-};
-```
-
-**Reducer pattern (vanilla TypeScript):**
-
-```typescript
-// frame-editor.reducer.ts - Pure vanilla TypeScript
-export type EditorState = {
-  isEditing: boolean;
-  prompt: string;
-  style: string;
-  isDirty: boolean;
-};
-
-export type EditorAction =
-  | { type: 'START_EDIT' }
-  | { type: 'UPDATE_PROMPT'; payload: string }
-  | { type: 'CHANGE_STYLE'; payload: string }
-  | { type: 'RESET' };
-
-export const initialState: EditorState = {
-  isEditing: false,
-  prompt: '',
-  style: 'default',
-  isDirty: false,
-};
-
-export function frameReducer(
-  state: EditorState,
-  action: EditorAction
-): EditorState {
-  switch (action.type) {
-    case 'START_EDIT':
-      return { ...state, isEditing: true };
-    case 'UPDATE_PROMPT':
-      return { ...state, prompt: action.payload, isDirty: true };
-    case 'CHANGE_STYLE':
-      return { ...state, style: action.payload, isDirty: true };
-    case 'RESET':
-      return initialState;
-    default:
-      return state;
-  }
-}
+// Parent owns spacing:
+<div className="grid grid-cols-3 gap-4">
+  {frames.map(f => <FrameCard key={f.id} frame={f} />)}
+</div>
 ```
 
 ### Forms
 
 ```tsx
-// ❌ BAD - Controlled inputs everywhere, manual validation
-import { useState } from 'react';
+// ❌ Controlled inputs everywhere, manual validation, setState per field
 
-function ScriptForm() {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [errors, setErrors] = useState({});
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!title) {
-      setErrors({ title: 'Required' });
-      return;
-    }
-    await fetch('/api/scripts', {
-      method: 'POST',
-      body: JSON.stringify({ title, content }),
-    });
-  };
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <input value={title} onChange={(e) => setTitle(e.target.value)} />
-      {errors.title && <span>{errors.title}</span>}
-    </form>
-  );
-}
-
-// ✅ GOOD - TanStack Query mutation + Zod validation
-import { useMutation } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { createScript } from '@/lib/api/scripts'; // vanilla TS function
-import { scriptSchema } from '@/lib/schemas/script'; // Zod schema
-
+// ✅ Uncontrolled + FormData + Zod + TanStack Query mutation
 export const ScriptForm: React.FC = () => {
-  const mutation = useMutation({
-    mutationFn: createScript,
-  });
+  const mutation = useMutation({ mutationFn: createScript });
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const result = scriptSchema.safeParse(Object.fromEntries(formData));
-
-    if (!result.success) {
-      // Handle validation errors
-      return;
-    }
-
+    const result = scriptSchema.safeParse(
+      Object.fromEntries(new FormData(e.currentTarget))
+    );
+    if (!result.success) return; // surface errors inline
     mutation.mutate(result.data);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <Input
-          name="title"
-          placeholder="Script title…"
-          autoComplete="off"
-          required
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <textarea
-          name="content"
-          placeholder="Write your script…"
-          className="min-h-[200px] resize-y"
-          required
-        />
-      </div>
-
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <Input name="title" placeholder="Script title…" required />
       <Button type="submit" disabled={mutation.isPending}>
-        {mutation.isPending ? 'Creating…' : 'Create Script'}
+        {mutation.isPending ? 'Creating…' : 'Create'}
       </Button>
     </form>
   );
 };
 ```
 
-### Loading States
+See `src/components/` for the house pattern.
 
-```tsx
-// ❌ BAD - Separate skeleton component, conditional rendering causes layout shift
-function FrameCardSkeleton() {
-  return (
-    <div className="p-4 border rounded">
-      <div className="h-4 bg-gray-200 rounded w-3/4" />
-      <div className="h-3 bg-gray-200 rounded w-1/2 mt-2" />
-    </div>
-  );
-}
+## UI/UX Non-Negotiables
 
-function FrameCard({ frame, showDetails }: Props) {
-  if (!frame) return <FrameCardSkeleton />;
-
-  return (
-    <div className="p-4 border rounded">
-      <h3>{frame.title}</h3>
-      {showDetails && <DetailPanel frame={frame} />} {/* Layout shift */}
-    </div>
-  );
-}
-
-// ✅ GOOD - Inline skeleton, CSS display for visibility
-import { Skeleton } from '@/components/ui/skeleton';
-
-type FrameCardProps = {
-  frame?: Frame;
-  showDetails?: boolean;
-};
-
-export const FrameCard: React.FC<FrameCardProps> = ({
-  frame,
-  showDetails = false,
-}) => {
-  return (
-    <div className="flex flex-col gap-3 p-4 border rounded">
-      {frame ? (
-        <h3 className="text-lg font-semibold">{frame.title}</h3>
-      ) : (
-        <Skeleton className="h-6 w-3/4" />
-      )}
-
-      {/* Pre-renders but hidden - no layout shift */}
-      <div className={showDetails ? 'block' : 'hidden'}>
-        {frame ? (
-          <DetailPanel frame={frame} />
-        ) : (
-          <Skeleton className="h-20 w-full" />
-        )}
-      </div>
-    </div>
-  );
-};
-```
-
-### File Organization
-
-```tsx
-// ❌ BAD
-// File: UserProfile.tsx (PascalCase causes git issues)
-export default function Component({ id }) {
-  const user = useGlobalUser(); // global state
-  // No URL state - can't deep link
-}
-
-// ✅ GOOD
-// File: src/components/user-profile.tsx
-import { formatUserName } from '@/lib/users/format-user-name'; // vanilla TS
-
-type UserProfileProps = {
-  userId: string; // from URL params
-};
-
-export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
-  const { data: user } = useQuery({
-    queryKey: ['user', userId],
-    queryFn: () => fetchUser(userId),
-  });
-
-  return (
-    <div className="flex flex-col gap-4">
-      <h1>{user ? formatUserName(user) : <Skeleton className="h-8 w-48" />}</h1>
-    </div>
-  );
-};
-
-// File: src/routes/_protected/users/$userId.tsx (TanStack Router)
-import { createFileRoute } from '@tanstack/react-router';
-import { UserProfile } from '@/components/user-profile';
-
-export const Route = createFileRoute('/_protected/users/$userId')({
-  component: RouteComponent,
-});
-
-function RouteComponent() {
-  const { userId } = Route.useParams();
-  return <UserProfile userId={userId} />;
-}
-```
-
-### Quick Reference
-
-- **State**: TanStack Query for server data, reducers ONLY for complex UI state
-- **Loading**: Suspense instead of isLoading checks, inline `<Skeleton />` fallbacks
-- **Styling**: shadcn/ui base components + layout-only Tailwind (flex, gap, grid)
-- **Layout**: Flexbox + gap (never margin on components), CSS display for show/hide
-- **Files**: kebab-case.tsx, named exports, vanilla TS for logic
-- **Forms**: TanStack Query mutations + Zod validation
-- **Routing**: TanStack Router with `createFileRoute`, params via `Route.useParams()`
-- **Imports**: Direct (useState not React.useState), @ alias, no default exports
-
----
-
-## UI/UX Rules (MUST/SHOULD/NEVER)
-
-**Keyboard & Focus:**
-
-- MUST: Full keyboard support per [WAI-ARIA APG](https://www.w3.org/WAI/ARIA/apg/patterns/)
-- MUST: Visible focus rings (`:focus-visible`), focus management (trap/return)
-
-**Inputs & Forms:**
-
-- MUST: Hit targets ≥24px (mobile ≥44px), font-size ≥16px to prevent zoom
-- MUST: Hydration-safe inputs, allow paste, trim values
-- MUST: Enter submits text input; Ctrl/Cmd+Enter submits textarea
-- MUST: Errors inline next to fields; focus first error on submit
-- MUST: `autocomplete` + meaningful `name`; correct `type` and `inputmode`
-- SHOULD: Placeholders end with `…`, disable spellcheck for codes/emails
-- NEVER: Block paste, disable browser zoom
-
-**State & Navigation:**
-
-- MUST: URL reflects state (filters/tabs/pagination) - use TanStack Router search params
-- MUST: Back/Forward restores scroll
-- MUST: Links use TanStack Router `<Link>` (supports Cmd/Ctrl/middle-click)
-
-**Feedback:**
-
-- SHOULD: Optimistic UI; reconcile on response; rollback or Undo on failure
-- MUST: Confirm destructive actions or provide Undo window
-- MUST: Use polite `aria-live` for toasts/inline validation
-- SHOULD: Ellipsis (`…`) for loading states ("Loading…", "Saving…")
-
-**Animation:**
-
-- MUST: Honor `prefers-reduced-motion` (provide reduced variant)
-- MUST: Animate compositor-friendly props (`transform`, `opacity`)
-- MUST: Animations are interruptible and input-driven (avoid autoplay)
-- SHOULD: Prefer CSS > Web Animations API > JS libraries
-
-**Accessibility:**
-
-- MUST: Redundant status cues (not color-only), icons have text labels
-- MUST: `aria-label` for icon-only buttons
-- MUST: Tabular numbers (`font-variant-numeric: tabular-nums`) for comparisons
-- MUST: Non-breaking spaces: `10&nbsp;MB`, `Cmd&nbsp;+&nbsp;K`
-- MUST: Prefer native semantics (`button`, `a`, `label`) before ARIA
-- MUST: Skeletons mirror final content to avoid layout shift
-
-**Performance:**
-
-- MUST: Virtualize long lists (use `virtua`)
-- MUST: Prevent CLS from images (explicit dimensions or reserved space)
-- MUST: Track re-renders (React DevTools/React Scan)
-- MUST: Mutations (`POST/PATCH/DELETE`) target <500ms
-- SHOULD: Prefer uncontrolled inputs; make controlled loops cheap
-
-**Layout:**
-
-- MUST: Verify mobile, laptop, ultra-wide (simulate at 50% zoom)
-- MUST: Respect safe areas (`env(safe-area-inset-*)`)
-- MUST: Deliberate alignment to grid/baseline/edges - no accidental placement
-- SHOULD: Optical alignment; adjust by ±1px when perception beats geometry
+- Keyboard: full keyboard support per [WAI-ARIA APG](https://www.w3.org/WAI/ARIA/apg/patterns/); visible `:focus-visible` rings.
+- Inputs: hit targets ≥24px (mobile ≥44px), `font-size` ≥16px, never block paste, `autocomplete` + correct `type`/`inputmode`. Enter submits inputs; Ctrl/Cmd+Enter submits textareas.
+- State: URL reflects filters/tabs/pagination; back/forward restores scroll. Use TanStack Router `<Link>` (supports Cmd/Ctrl/middle-click).
+- Feedback: optimistic UI with rollback or Undo; confirm destructive actions; `aria-live="polite"` for toasts; ellipsis (`…`) for loading states.
+- Animation: honor `prefers-reduced-motion`; animate `transform`/`opacity`; interruptible. CSS > WAAPI > JS libs.
+- Accessibility: redundant cues (not color-only), `aria-label` for icon-only buttons, tabular numerics for comparisons, prefer native semantics.
+- Performance: virtualize long lists (`virtua`); explicit image dimensions; mutations <500ms.
 
 ---
 
 ## Testing
 
-**Framework:** `bun:test` (migrated from Vitest)
+**Framework:** `bun:test` (migrated from Vitest).
 
-**Test location:**
+- Server handlers: `__tests__/` alongside routes.
+- Services/utils: co-located (`service.test.ts`).
+- Focus: business logic, not React components.
+- DB: mock Drizzle/Turso clients (not real connections); ULID primary keys.
+- Workflows: mock workflow context + AI calls; pass auth (userId/teamId) through context.
 
-- Server handlers: `__tests__/` directories alongside routes
-- Services/utils: Same directory as module (`service.test.ts`)
-
-**Focus:** Business logic (not React components)
-
-**Bun mock pattern** (avoid shared state):
+**Bun mock module pattern** (avoid shared state across files):
 
 ```typescript
 const mockDb = mock(() => ({
-  /* mock implementation */
+  /* impl */
 }));
 
-mock.module('@/lib/db/client', () => ({
-  db: mockDb,
-}));
+mock.module('@/lib/db/client', () => ({ db: mockDb }));
 
 beforeEach(async () => {
-  mockDb.mockClear(); // Clear call history
+  mockDb.mockClear();
   const module = await import('./module-under-test');
 });
 ```
 
-**Database testing:**
-
-- Mock Drizzle/Turso clients (not real connections)
-- Types auto-inferred from `src/lib/db/schema/`
-- ULID primary keys (not UUID)
-
-**Workflow testing:**
-
-- Mock workflow context + AI service calls
-- Test: step execution → state management → error handling
-- Pass auth (userId/teamId) through context
-
-**Commands:**
-
-```bash
-bun test                           # Run all tests
-bun test --watch                   # Watch mode
-bun test path/to/file.test.ts      # Single file
-bun test --coverage                # With coverage
-```
-
----
-
 ## Platform & Deployment
 
-**Automatic platform detection:**
+Automatic platform detection: `getDeploymentPlatform()` / `getAppUrl()` in `src/lib/utils/environment.ts` resolve `CF_PAGES_URL` / `VERCEL_URL` / etc.
 
-```typescript
-// src/lib/utils/environment.ts
-const platform = getDeploymentPlatform(); // cloudflare | vercel | railway | local
-const appUrl = getAppUrl(); // Auto-resolves CF_PAGES_URL/VERCEL_URL/etc.
-```
-
-**Supported platforms:**
-
-- **Cloudflare Pages** (recommended) - Edge runtime, R2 native, global CDN
-- **Vercel** - Auto-scaling, edge functions
-- **Railway** - Simple deploys, preview environments
-
-**CI/CD** (`.github/workflows/`):
-
-- Auto-deploys on push to main
-- PR preview deployments
-- Unique Turso database per PR
-
-**Environment variables:**
-
-- See `.env.example` for required vars
-- Run `bun setup` for local dev defaults
-- Production: Set via platform dashboard
-
----
-
-## Global Rules
-
-From `~/.claude/CLAUDE.md` (applies to all projects):
-
-- Don't cast to `any`
-- Don't create fallback code - display errors to user
-- Look for repeated code or existing implementations
-- Review code to make it concise and less repetitive
-- Inline skeleton states (no separate skeleton components)
-- Don't generate excessive tests - cover critical paths only
-- **Database migrations**: Use Drizzle Kit (`bun db:generate`), never manually write SQL
-- Use `type` instead of `interface`
-- Throw errors instead of returning success boolean
+Production target: **Cloudflare Workers**. CI auto-deploys main; PRs get preview deployments with unique Turso databases. See `.env.example` for required vars (or `bun setup` for local defaults).
 
 <!-- intent-skills:start -->
 

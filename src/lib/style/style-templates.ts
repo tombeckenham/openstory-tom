@@ -20,9 +20,24 @@ function getStylePreviewUrl(styleName: string): string {
   return `https://${getPublicAssetsDomain()}/styles/${sanitized}/thumbnail.webp`;
 }
 
-// Default style templates that can be imported into any team
+// Default style templates that can be imported into any team.
+// The new optional fields (sampleVideos, recommendedImageModel,
+// recommendedVideoModel, defaultAspectRatio, useCases) are intentionally
+// omitted here so we don't have to touch every template at once.
 export const DEFAULT_STYLE_TEMPLATES: Array<
-  Omit<Style, 'id' | 'teamId' | 'createdAt' | 'updatedAt' | 'createdBy'>
+  Omit<
+    Style,
+    | 'id'
+    | 'teamId'
+    | 'createdAt'
+    | 'updatedAt'
+    | 'createdBy'
+    | 'sampleVideos'
+    | 'recommendedImageModel'
+    | 'recommendedVideoModel'
+    | 'defaultAspectRatio'
+    | 'useCases'
+  >
 > = [
   {
     name: 'Product Ad',
@@ -451,6 +466,11 @@ export const DEFAULT_SYSTEM_STYLES: Omit<Style, 'id' | 'teamId'>[] =
     createdAt: new Date(),
     updatedAt: new Date(),
     createdBy: 'system',
+    sampleVideos: [],
+    recommendedImageModel: null,
+    recommendedVideoModel: null,
+    defaultAspectRatio: null,
+    useCases: [],
   }));
 
 // Mock styles for testing - includes mock IDs and teamId

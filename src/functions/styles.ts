@@ -24,8 +24,15 @@ import { authWithTeamMiddleware } from './middleware';
  */
 export const getStylesFn = createServerFn({ method: 'GET' })
   .middleware([authWithTeamMiddleware])
-  .handler(async ({ context }) => {
-    return context.scopedDb.styles.list();
+  .inputValidator(
+    zodValidator(
+      z
+        .object({ orderBy: z.enum(['popular', 'sortOrder']).optional() })
+        .optional()
+    )
+  )
+  .handler(async ({ data, context }) => {
+    return context.scopedDb.styles.list({ orderBy: data?.orderBy });
   });
 
 // ============================================================================
@@ -66,15 +73,7 @@ export const createStyleFn = createServerFn({ method: 'POST' })
   .middleware([authWithTeamMiddleware])
   .inputValidator(zodValidator(createStyleSchema))
   .handler(async ({ data, context }) => {
-    return context.scopedDb.styles.create({
-      name: data.name,
-      description: data.description,
-      config: data.config,
-      category: data.category,
-      tags: data.tags,
-      isPublic: data.isPublic,
-      previewUrl: data.previewUrl,
-    });
+    return context.scopedDb.styles.create(data);
   });
 
 // ============================================================================

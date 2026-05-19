@@ -193,6 +193,9 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
     sequence?.musicModel,
     DEFAULT_MUSIC_MODEL
   );
+  const styleName = style?.name ?? undefined;
+  const recommendedImageModel = style?.recommendedImageModel ?? null;
+  const recommendedVideoModel = style?.recommendedVideoModel ?? null;
 
   // Phase config from DB — set in stone when the workflow was triggered
   const phaseConfig = useMemo<GenerationPhaseConfig>(
@@ -732,6 +735,9 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
             onImageModelChange={setImageModelOverride}
             styleCategory={styleCategory}
             sequenceMotionModel={sequenceMotionModel}
+            styleName={styleName}
+            recommendedImageModel={recommendedImageModel}
+            recommendedVideoModel={recommendedVideoModel}
             frameDivergentVariants={divergentVariants?.filter(
               (v) => v.frameId === curSelectedFrameId
             )}

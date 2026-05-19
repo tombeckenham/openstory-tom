@@ -36,6 +36,7 @@ import { z } from 'zod';
 import { authWithTeamMiddleware, sequenceAccessMiddleware } from './middleware';
 import { copySequenceElements } from '@/lib/sequence-elements/copy-sequence-elements';
 import { promoteTempElements } from '@/lib/sequence-elements/promote-temp-elements';
+import { bumpStylePopularity } from '@/lib/style/bump-style-popularity';
 
 export const getSequencesFn = createServerFn({ method: 'GET' })
   .middleware([authWithTeamMiddleware])
@@ -122,7 +123,7 @@ export const createSequenceFn = createServerFn({ method: 'POST' })
       }
     );
 
-    return Promise.all(
+    const sequences = await Promise.all(
       analysisModels.map(async (modelId) => {
         // Only persist video/music model choices when the user actually opts
         // into auto-generation. Otherwise the sequence ends up with a "ghost"
@@ -212,6 +213,18 @@ export const createSequenceFn = createServerFn({ method: 'POST' })
         return sequence;
       })
     );
+
+    // One click = one popularity bump + one analytics event, regardless of how
+    // many analysis models the user picked. Fire-and-forget — never block.
+    bumpStylePopularity({
+      scopedDb: context.scopedDb,
+      styleId,
+      sequenceIds: sequences.map((s) => s.id),
+      teamId,
+      userId: context.user.id,
+    });
+
+    return sequences;
   });
 
 /**
@@ -232,12 +245,31 @@ export const updateSequenceFn = createServerFn({ method: 'POST' })
       updateData.aspectRatio !== undefined ||
       updateData.analysisModel !== undefined;
 
+    const previousStyleId = context.sequence.styleId;
+
     const sequence = await context.scopedDb.sequences.update({
       id: sequenceId,
       aspectRatio: updateData.aspectRatio ?? DEFAULT_ASPECT_RATIO,
       ...updateData,
       status: needsRegeneration ? 'processing' : undefined,
     });
+
+    // sequences.styleId is `.notNull() + onDelete: 'set null'` — TS types it as
+    // non-null but the runtime value can be null after the parent style is
+    // deleted. Keep the runtime guard despite what the type says.
+    if (
+      updateData.styleId !== undefined &&
+      updateData.styleId !== previousStyleId &&
+      sequence.styleId
+    ) {
+      bumpStylePopularity({
+        scopedDb: context.scopedDb,
+        styleId: sequence.styleId,
+        sequenceIds: [sequence.id],
+        teamId: context.teamId,
+        userId: context.user.id,
+      });
+    }
 
     if (needsRegeneration) {
       await requireCredits(

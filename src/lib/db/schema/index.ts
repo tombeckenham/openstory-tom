@@ -44,7 +44,14 @@ import { sequenceElements } from './sequence-elements';
 
 import { talent, talentMedia, talentSheets } from './talent';
 
-import { audio, StyleConfigSchema, styles, vfx } from './libraries';
+import {
+  audio,
+  StyleConfigSchema,
+  StyleSampleVideoKindSchema,
+  StyleSampleVideoSchema,
+  styles,
+  vfx,
+} from './libraries';
 
 import {
   creditBatches,
@@ -229,7 +236,14 @@ export type {
 } from './talent';
 
 // Library Resources
-export { audio, StyleConfigSchema, styles, vfx };
+export {
+  audio,
+  StyleConfigSchema,
+  StyleSampleVideoKindSchema,
+  StyleSampleVideoSchema,
+  styles,
+  vfx,
+};
 
 export type {
   Audio,

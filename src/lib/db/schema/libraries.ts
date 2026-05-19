@@ -22,6 +22,22 @@ export const StyleConfigSchema = z.object({
 
 export type StyleConfig = z.infer<typeof StyleConfigSchema>;
 
+export const StyleSampleVideoKindSchema = z.enum([
+  'canonical',
+  'category',
+  'bespoke',
+]);
+export type StyleSampleVideoKind = z.infer<typeof StyleSampleVideoKindSchema>;
+
+export const StyleSampleVideoSchema = z.object({
+  url: z.string().url(),
+  kind: StyleSampleVideoKindSchema,
+  label: z.string(),
+  durationSeconds: z.number().nonnegative(),
+  order: z.number().int().nonnegative(),
+});
+export type StyleSampleVideo = z.infer<typeof StyleSampleVideoSchema>;
+
 /**
  * Styles library
  * Style Stacks - JSON configurations for consistent AI-generated content
@@ -48,6 +64,15 @@ export const styles = snakeCase.table(
     isTemplate: integer({ mode: 'boolean' }).default(false),
     version: integer().default(1),
     previewUrl: text(),
+    sampleVideos: text({ mode: 'json' })
+      .$type<StyleSampleVideo[]>()
+      .$defaultFn(() => []),
+    recommendedImageModel: text(),
+    recommendedVideoModel: text(),
+    defaultAspectRatio: text(),
+    useCases: text({ mode: 'json' })
+      .$type<string[]>()
+      .$defaultFn(() => []),
     sortOrder: integer().default(100),
     usageCount: integer().default(0),
     createdAt: integer({ mode: 'timestamp' })

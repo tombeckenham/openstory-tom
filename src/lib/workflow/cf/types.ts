@@ -32,6 +32,7 @@ export type CloudflareEnv = Cloudflare.Env & {
   UPSCALE_SHOT_VARIANT_WORKFLOW?: Workflow<unknown>;
   VISUAL_PROMPT_SCENE_WORKFLOW?: Workflow<unknown>;
   MOTION_PROMPT_SCENE_WORKFLOW?: Workflow<unknown>;
+  MUSIC_PROMPT_WORKFLOW?: Workflow<unknown>;
 };
 
 /** Engine selector for the per-workflow rollout switch. */

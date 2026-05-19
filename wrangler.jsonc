@@ -114,5 +114,10 @@
       "binding": "MOTION_PROMPT_SCENE_WORKFLOW",
       "class_name": "MotionPromptSceneWorkflow",
     },
+    {
+      "name": "music-prompt-workflow",
+      "binding": "MUSIC_PROMPT_WORKFLOW",
+      "class_name": "MusicPromptWorkflow",
+    },
   ],
 }

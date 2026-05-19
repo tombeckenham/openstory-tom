@@ -31,6 +31,7 @@ const TRIGGER_TO_BINDING: Record<string, keyof CloudflareEnv> = {
   'upscale-variant': 'UPSCALE_SHOT_VARIANT_WORKFLOW',
   'visual-prompt-scene': 'VISUAL_PROMPT_SCENE_WORKFLOW',
   'motion-prompt-scene': 'MOTION_PROMPT_SCENE_WORKFLOW',
+  'music-prompt': 'MUSIC_PROMPT_WORKFLOW',
 };
 
 export type CfTriggerResult = { workflowRunId: string };

@@ -61,7 +61,8 @@ export const MERGE_VIDEO_WORKFLOW_NAME = 'merge-video';
  * Both the merged video and the music are sourced as variants — `merge-audio-video`
  * accepts variant ids so the final output is a function of `(video, music)`.
  *
- * NOTE: child invocation is stubbed pending Pattern 3 batch (see file docblock).
+ * The child is spawned via `spawnAndAwaitChild` (Pattern 3) — both
+ * variant ids are passed so `merge-audio-video` can resolve the URLs.
  */
 async function chainAudioMux(
   step: WorkflowStep,

@@ -8,6 +8,11 @@
 import './instrumentation';
 import handler from '@tanstack/react-start/server-entry';
 
+// Re-export Cloudflare Workflow entrypoint classes so the Worker bundle
+// includes them. Each must have a matching entry in `wrangler.jsonc` under
+// `workflows[]`. See docs/investigations/cloudflare-workflows-poc.md.
+export { ImageWorkflow } from '@/lib/workflows/cf/image-workflow';
+
 export default {
   fetch(request: Request) {
     return handler.fetch(request);

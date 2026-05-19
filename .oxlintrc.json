@@ -66,6 +66,7 @@
         "**/auth/config.ts",
         "**/functions/middleware.ts",
         "**/workflow/scoped-workflow.ts",
+        "**/workflow/cf/base-workflow.ts",
         "**/openrouter/callback.ts"
       ],
       "rules": {

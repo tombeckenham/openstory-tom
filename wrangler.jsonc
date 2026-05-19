@@ -38,4 +38,16 @@
       "bucket_name": "openstory-storage",
     },
   ],
+  "workflows": [
+    // CF Workflows PoC (issue #728). The class is exported from src/server.ts
+    // and the binding is consulted by `triggerWorkflow()` when the per-workflow
+    // engine registry routes `image` to `'cloudflare'`. Defaults to QStash —
+    // flip via `CF_WORKFLOWS_ENABLED=image` env var or by editing the
+    // registry. See docs/investigations/cloudflare-workflows-poc.md.
+    {
+      "name": "image-workflow",
+      "binding": "IMAGE_WORKFLOW",
+      "class_name": "ImageWorkflow",
+    },
+  ],
 }

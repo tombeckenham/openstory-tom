@@ -1,6 +1,11 @@
 import { getEnv } from '#env';
 import { ConfigurationError } from '@/lib/errors';
 import { getServerAppUrl } from '@/lib/utils/environment';
+import {
+  resolveEngineForTrigger,
+  triggerCfWorkflow,
+} from '@/lib/workflow/cf/trigger-bindings';
+import type { CloudflareEnv } from '@/lib/workflow/cf/types';
 import { getRequest } from '@tanstack/react-start/server';
 import { Client as QStashClient } from '@upstash/qstash';
 import { Client as WorkflowClient } from '@upstash/workflow';
@@ -81,6 +86,21 @@ export async function triggerWorkflow<
       `[E2E] Skipping workflow trigger: ${urlPath} (mock ID: ${mockId})`
     );
     return mockId;
+  }
+
+  // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion -- getEnv()'s type is platform-dependent; CF runtime guarantees Cloudflare.Env shape with workflow bindings present
+  const cfEnv = env as unknown as CloudflareEnv;
+  const { engine, binding } = resolveEngineForTrigger(urlPath, cfEnv);
+  if (engine === 'cloudflare' && binding) {
+    const result = await triggerCfWorkflow({
+      binding,
+      triggerPath: urlPath,
+      body,
+      env: cfEnv,
+      deduplicationId: options?.deduplicationId,
+    });
+    console.log('[TriggerWorkflow] CF Response:', result);
+    return result.workflowRunId;
   }
 
   const client = new WorkflowClient({

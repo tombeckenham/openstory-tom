@@ -64,5 +64,10 @@
       "binding": "MERGE_AUDIO_VIDEO_WORKFLOW",
       "class_name": "MergeAudioVideoWorkflow",
     },
+    {
+      "name": "merge-video-workflow",
+      "binding": "MERGE_VIDEO_WORKFLOW",
+      "class_name": "MergeVideoWorkflow",
+    },
   ],
 }

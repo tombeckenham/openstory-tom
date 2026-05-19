@@ -15,6 +15,7 @@ export { ImageWorkflow } from '@/lib/workflows/cf/image-workflow';
 export { ElementVisionWorkflow } from '@/lib/workflows/cf/element-vision-workflow';
 export { MusicWorkflow } from '@/lib/workflows/cf/music-workflow';
 export { MergeAudioVideoWorkflow } from '@/lib/workflows/cf/merge-audio-video-workflow';
+export { MergeVideoWorkflow } from '@/lib/workflows/cf/merge-video-workflow';
 
 export default {
   fetch(request: Request) {

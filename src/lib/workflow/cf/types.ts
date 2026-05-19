@@ -22,6 +22,7 @@ export type CloudflareEnv = Cloudflare.Env & {
   ELEMENT_VISION_WORKFLOW?: Workflow<unknown>;
   MUSIC_WORKFLOW?: Workflow<unknown>;
   MERGE_AUDIO_VIDEO_WORKFLOW?: Workflow<unknown>;
+  MERGE_VIDEO_WORKFLOW?: Workflow<unknown>;
 };
 
 /** Engine selector for the per-workflow rollout switch. */

@@ -59,5 +59,10 @@
       "binding": "MUSIC_WORKFLOW",
       "class_name": "MusicWorkflow",
     },
+    {
+      "name": "merge-audio-video-workflow",
+      "binding": "MERGE_AUDIO_VIDEO_WORKFLOW",
+      "class_name": "MergeAudioVideoWorkflow",
+    },
   ],
 }

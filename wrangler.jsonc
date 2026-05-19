@@ -94,5 +94,10 @@
       "binding": "LIBRARY_LOCATION_SHEET_WORKFLOW",
       "class_name": "LibraryLocationSheetWorkflow",
     },
+    {
+      "name": "shot-variant-workflow",
+      "binding": "SHOT_VARIANT_WORKFLOW",
+      "class_name": "ShotVariantWorkflow",
+    },
   ],
 }

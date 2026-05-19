@@ -136,9 +136,13 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
         (el) => el.visionStatus === 'pending' || el.visionStatus === 'analyzing'
       );
       if (stillRunning.length > 0) {
-        throw new WorkflowValidationError(
+        // NonRetryableError (not WorkflowValidationError) because the base
+        // class's re-wrap only runs at the runImpl catch boundary; a throw
+        // inside step.do gets retried by CF's step machinery first.
+        throw new NonRetryableError(
           `Element vision is still running for ${stillRunning.length} element(s). ` +
-            `Wait for vision analysis to finish before regenerating.`
+            `Wait for vision analysis to finish before regenerating.`,
+          'WorkflowValidationError'
         );
       }
       return list;

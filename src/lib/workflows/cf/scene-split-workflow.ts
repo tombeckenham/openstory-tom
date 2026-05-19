@@ -392,7 +392,20 @@ export class SceneSplitWorkflow extends OpenStoryWorkflowEntrypoint<SceneSplitWo
         return JSON.stringify(streamResult);
       }
     );
+    // Defensive shape check on replay — the data was Zod-validated once
+    // inside the step, but if CF's step-cache persisted something corrupt
+    // we fail loud here instead of silently downstream.
     const streamResult: StreamResult = JSON.parse(streamResultJson);
+    if (
+      !streamResult ||
+      !Array.isArray(streamResult.scenes) ||
+      !Array.isArray(streamResult.frameMapping)
+    ) {
+      throw new NonRetryableError(
+        'scene-splitting-stream returned a malformed result from cache',
+        'WorkflowValidationError'
+      );
+    }
 
     // Step 3: Reconcile — ensure all frames exist (handles cached step replay).
     const reconcileJson = await step.do(
@@ -477,6 +490,16 @@ export class SceneSplitWorkflow extends OpenStoryWorkflowEntrypoint<SceneSplitWo
       }
     );
     const reconciled: SceneSplitWorkflowResult = JSON.parse(reconcileJson);
+    if (
+      !reconciled ||
+      !Array.isArray(reconciled.scenes) ||
+      !Array.isArray(reconciled.frameMapping)
+    ) {
+      throw new NonRetryableError(
+        'reconcile-frames returned a malformed result from cache',
+        'WorkflowValidationError'
+      );
+    }
 
     // Step 4: Reconcile element bible → update firstMention on existing rows.
     if (sequenceId && reconciled.elementBible.length > 0) {

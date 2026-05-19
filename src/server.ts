@@ -22,6 +22,7 @@ export { LocationSheetWorkflow } from '@/lib/workflows/cf/location-sheet-workflo
 export { LibraryTalentSheetWorkflow } from '@/lib/workflows/cf/library-talent-sheet-workflow';
 export { LibraryLocationSheetWorkflow } from '@/lib/workflows/cf/library-location-sheet-workflow';
 export { ShotVariantWorkflow } from '@/lib/workflows/cf/shot-variant-workflow';
+export { UpscaleShotVariantWorkflow } from '@/lib/workflows/cf/upscale-shot-variant-workflow';
 
 export default {
   fetch(request: Request) {

@@ -99,5 +99,10 @@
       "binding": "SHOT_VARIANT_WORKFLOW",
       "class_name": "ShotVariantWorkflow",
     },
+    {
+      "name": "upscale-shot-variant-workflow",
+      "binding": "UPSCALE_SHOT_VARIANT_WORKFLOW",
+      "class_name": "UpscaleShotVariantWorkflow",
+    },
   ],
 }

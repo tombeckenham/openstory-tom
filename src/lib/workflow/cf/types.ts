@@ -29,6 +29,7 @@ export type CloudflareEnv = Cloudflare.Env & {
   LIBRARY_TALENT_SHEET_WORKFLOW?: Workflow<unknown>;
   LIBRARY_LOCATION_SHEET_WORKFLOW?: Workflow<unknown>;
   SHOT_VARIANT_WORKFLOW?: Workflow<unknown>;
+  UPSCALE_SHOT_VARIANT_WORKFLOW?: Workflow<unknown>;
 };
 
 /** Engine selector for the per-workflow rollout switch. */

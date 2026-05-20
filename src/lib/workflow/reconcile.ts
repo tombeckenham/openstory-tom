@@ -1,56 +1,18 @@
 /**
- * Lazy reconciliation for stale frame statuses.
+ * Shared helper for resolving a stale workflow run via QStash.
  *
- * When frames are stuck in 'generating' for >5 minutes, we check QStash
- * to see if the workflow actually finished (success/fail/canceled).
- * If so, we update the DB to reflect reality.
- *
- * Called as fire-and-forget when frames are loaded — doesn't block responses.
- *
- * See `reconcile-all.ts` for the broad cron-driven sweep that covers every
- * status-bearing table (frame variants, sequence video variants, sequences,
- * sequence elements) and runs on a schedule rather than on user load.
+ * Used by the cron-driven sweep in `reconcile-all.ts`, which is the single
+ * source of truth for healing rows stuck in 'generating' / 'merging' /
+ * 'analyzing'. The previous on-load reconciler (`reconcileStaleFrameStatuses`)
+ * was removed in #727 — it duplicated cron work, doubled QStash query rate
+ * for stuck rows, and made `updated_at` writes hard to reason about (two
+ * systems writing to the same row).
  */
 
-import type { Frame } from '@/lib/db/schema';
 import { getWorkflowClient } from './client';
 import type { WorkflowRunState } from './status';
 
 export const STALE_THRESHOLD_MS = 5 * 60 * 1000;
-
-type StatusField =
-  | 'thumbnailStatus'
-  | 'videoStatus'
-  | 'variantImageStatus'
-  | 'audioStatus';
-
-type RunIdField =
-  | 'thumbnailWorkflowRunId'
-  | 'videoWorkflowRunId'
-  | 'variantWorkflowRunId'
-  | 'audioWorkflowRunId';
-
-const STATUS_TO_RUN_ID_FIELD: Record<StatusField, RunIdField> = {
-  thumbnailStatus: 'thumbnailWorkflowRunId',
-  videoStatus: 'videoWorkflowRunId',
-  variantImageStatus: 'variantWorkflowRunId',
-  audioStatus: 'audioWorkflowRunId',
-};
-
-const STATUS_FIELDS: StatusField[] = [
-  'thumbnailStatus',
-  'videoStatus',
-  'variantImageStatus',
-  'audioStatus',
-];
-
-type FrameUpdater = {
-  update: (
-    frameId: string,
-    data: Record<string, string | Date>,
-    options?: { throwOnMissing?: boolean }
-  ) => Promise<Frame | undefined>;
-};
 
 /**
  * Resolve a stale workflow run via QStash.
@@ -92,46 +54,5 @@ export async function resolveRunState(
       error instanceof Error ? error.message : error
     );
     return null;
-  }
-}
-
-/**
- * Check frames stuck in 'generating' for >5 minutes against QStash.
- * If the workflow is no longer running, mark the frame as 'failed' or
- * 'completed' to match QStash truth.
- *
- * @param frameList - frames to check
- * @param framesDb - scopedDb.frames (or equivalent with .update method)
- */
-export async function reconcileStaleFrameStatuses(
-  frameList: Frame[],
-  framesDb: FrameUpdater
-): Promise<void> {
-  const now = Date.now();
-
-  const staleEntries: Array<{ frame: Frame; field: StatusField }> = [];
-
-  for (const frame of frameList) {
-    if (now - frame.updatedAt.getTime() < STALE_THRESHOLD_MS) continue;
-
-    for (const field of STATUS_FIELDS) {
-      if (frame[field] === 'generating') {
-        staleEntries.push({ frame, field });
-      }
-    }
-  }
-
-  if (staleEntries.length === 0) return;
-
-  for (const { frame, field } of staleEntries) {
-    const runId = frame[STATUS_TO_RUN_ID_FIELD[field]] ?? '';
-    const next = await resolveRunState(runId);
-    if (next === null) continue;
-
-    await framesDb.update(
-      frame.id,
-      { [field]: next, updatedAt: new Date() },
-      { throwOnMissing: false }
-    );
   }
 }

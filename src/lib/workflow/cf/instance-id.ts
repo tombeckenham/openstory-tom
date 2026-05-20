@@ -30,11 +30,16 @@ export function getEnvironmentSlug(env: { VITE_APP_URL?: string }): string {
 }
 
 /**
- * Build an instance ID of the form `${envSlug}:${workflowName}:${suffix}`.
+ * Build an instance ID of the form `${envSlug}_${workflowName}_${suffix}`.
  *
  * The suffix is whatever the caller wants to deduplicate on
- * (e.g. `${sequenceId}:${frameId}` for image-workflow). The envSlug prefix
+ * (e.g. `${sequenceId}_${frameId}` for image-workflow). The envSlug prefix
  * is what isolates PR-preview deployments from each other and from prod.
+ *
+ * Cloudflare Workflows enforces `^[a-zA-Z0-9_-]+$` on instance IDs — no
+ * colons, dots, slashes, or other separators. Any non-alphanumeric in the
+ * suffix is collapsed to `-`, and the separator between envSlug /
+ * workflowName / suffix is `_`.
  *
  * Truncates to 100 chars (CF limit). Truncation happens at the suffix
  * because the env slug + workflow name are needed for namespacing and the
@@ -51,13 +56,14 @@ export function buildInstanceId({
   suffix: string;
 }): string {
   const envSlug = getEnvironmentSlug(env);
-  const prefix = `${envSlug}:${workflowName}:`;
+  const safeWorkflowName = workflowName.replace(/[^a-zA-Z0-9_-]+/g, '-');
+  const prefix = `${envSlug}_${safeWorkflowName}_`;
   const room = MAX_INSTANCE_ID_LENGTH - prefix.length;
   if (room <= 0) {
     throw new Error(
       `Instance ID prefix '${prefix}' exceeds the ${MAX_INSTANCE_ID_LENGTH}-char limit; shorten the env slug or workflow name`
     );
   }
-  const safeSuffix = suffix.replace(/[^a-zA-Z0-9:_-]+/g, '-');
+  const safeSuffix = suffix.replace(/[^a-zA-Z0-9_-]+/g, '-');
   return `${prefix}${safeSuffix.slice(0, room)}`;
 }

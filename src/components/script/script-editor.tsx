@@ -1,4 +1,4 @@
-import { MarkdownEditor } from '@/components/ui/markdown-editor';
+import { MarkdownEditor } from '@/components/text-editor/markdown-editor';
 import { cn } from '@/lib/utils';
 import type * as React from 'react';
 import { useCallback } from 'react';

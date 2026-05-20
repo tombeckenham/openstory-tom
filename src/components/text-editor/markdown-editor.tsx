@@ -55,12 +55,8 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   'aria-invalid': ariaInvalid,
   'data-testid': dataTestId,
 }) => {
-  // Tracks the markdown string the editor's content currently corresponds to.
-  // Used to gate external value sync without relying on a one-shot "did the
-  // editor just emit?" flag — that flag misfires under rapid streaming
-  // (parent state churn batches into a single effect after several onUpdates)
-  // and silently drops external updates.
-  const syncedValueRef = useRef(value);
+  // useEditor captures props at init. Bag the live onKeyDown in a ref so the
+  // handler reads the freshest callback without needing to recreate the editor.
   const onKeyDownRef = useRef(onKeyDown);
   onKeyDownRef.current = onKeyDown;
 
@@ -90,44 +86,35 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         ...(name ? { 'data-name': name } : {}),
         class: cn(proseClasses, placeholderClasses),
       },
-      handleKeyDown: (_view, event) => {
-        const result = onKeyDownRef.current?.(event);
-        return result === true;
-      },
+      handleKeyDown: (_view, event) => onKeyDownRef.current?.(event) === true,
     },
     onUpdate: ({ editor: e }) => {
-      const markdown = e.storage.markdown.getMarkdown() as string;
-      syncedValueRef.current = markdown;
-      onValueChange(markdown);
+      onValueChange(e.storage.markdown.getMarkdown());
     },
   });
 
-  // External value sync (e.g. AI enhance streaming, form reset). Only writes
-  // back when the incoming value differs from what we last told the editor or
-  // last received from it — both internal and external updates land in
-  // syncedValueRef, so this is a single source of truth.
+  // Canonical Tiptap external-value sync (mirrors the Vue v-model example in
+  // their docs): only setContent if the editor's current markdown differs
+  // from the incoming value. The comparison itself is the guard — when our
+  // onUpdate echoes the user's edit back into parent state, the round-trip
+  // matches and this no-ops. emitUpdate:false prevents an onUpdate from
+  // setContent retriggering this loop.
   //
-  // Coalesces rapid external updates (LLM streaming chunks at >30Hz) on a
-  // frame boundary — each setContent is a full markdown re-parse + doc
-  // rebuild, so applying every chunk synchronously can starve the streaming
-  // loop. With rAF, multiple chunks in the same frame collapse to one
-  // setContent with the latest value.
+  // Defer the write to the next frame so a burst of value changes (LLM
+  // streaming the script chunk-by-chunk) collapses to one setContent with
+  // the latest value. Each setContent is a full markdown re-parse + doc
+  // rebuild and freezes the renderer if applied per-chunk at ~30Hz+.
   useEffect(() => {
     if (!editor) return;
-    if (syncedValueRef.current === value) return;
-    let cancelled = false;
+    if (editor.storage.markdown.getMarkdown() === value) return;
     const rafId = requestAnimationFrame(() => {
-      if (cancelled || !editor) return;
-      if (syncedValueRef.current === value) return;
-      syncedValueRef.current = value;
+      if (editor.storage.markdown.getMarkdown() === value) return;
       editor.commands.setContent(value, { emitUpdate: false });
     });
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(rafId);
-    };
+    return () => cancelAnimationFrame(rafId);
   }, [editor, value]);
 
+  // editable is captured at init; mirror prop changes through to the editor.
   useEffect(() => {
     if (!editor) return;
     if (editor.isEditable === !disabled) return;

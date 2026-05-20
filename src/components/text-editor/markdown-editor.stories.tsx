@@ -83,6 +83,7 @@ export const WithError: Story = {
 
 export const AutoFocused: Story = {
   render: () => (
+    // eslint-disable-next-line jsx-a11y/no-autofocus -- exercising the prop is the point
     <Interactive placeholder="I should be focused on load" autoFocus />
   ),
 };

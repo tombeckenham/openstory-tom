@@ -18,7 +18,10 @@
 export {};
 
 type ServeFn = (opts: Record<string, unknown>) => unknown;
-type PatchableBun = { serve: ServeFn & { __idleTimeoutPatched?: true } };
+type PatchableBun = {
+  serve: ServeFn & { __idleTimeoutPatched?: true };
+  version?: string;
+};
 
 declare const Bun: PatchableBun | undefined;
 
@@ -28,9 +31,17 @@ const MAX_IDLE_TIMEOUT_SECONDS = 255;
 if (typeof Bun !== 'undefined' && typeof Bun.serve === 'function') {
   if (!Bun.serve.__idleTimeoutPatched) {
     const original = Bun.serve;
-    const patched: ServeFn & { __idleTimeoutPatched?: true } = (opts) =>
-      original({ ...opts, idleTimeout: MAX_IDLE_TIMEOUT_SECONDS });
+    const patched: ServeFn & { __idleTimeoutPatched?: true } = (opts) => {
+      const port = (opts as { port?: number }).port ?? '?';
+      console.log(
+        `[bun-preload-idle-timeout] intercepting Bun.serve port=${port} idleTimeout=${MAX_IDLE_TIMEOUT_SECONDS}`
+      );
+      return original({ ...opts, idleTimeout: MAX_IDLE_TIMEOUT_SECONDS });
+    };
     patched.__idleTimeoutPatched = true;
     Bun.serve = patched;
+    console.log(
+      `[bun-preload-idle-timeout] installed (Bun ${Bun.version ?? '?'})`
+    );
   }
 }

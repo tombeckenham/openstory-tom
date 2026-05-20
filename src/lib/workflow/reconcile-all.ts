@@ -102,38 +102,35 @@ export async function reconcileAllStuckJobs(): Promise<ReconcileCounts> {
 
 type FramePipeline = 'thumbnail' | 'video' | 'variantImage' | 'audio';
 
+// Why we don't bump `updatedAt` on reconciler writes (applies to every pass
+// in this file): the staleness predicate is `updated_at < cutoff`. If pass A
+// updated `updated_at = now` while writing its status column, pass B's
+// SELECT for the same row would see a fresh timestamp and skip it. So when a
+// frame is stuck across multiple pipelines simultaneously, only the first
+// pass would reconcile. Leaving `updated_at` untouched lets sequential
+// passes all see the row as stale until each one has flipped its own
+// status column. The on-load reconciler doesn't have this issue because it
+// collects all stale entries from in-memory data before writing.
 const FRAMES_PIPELINE_COLUMNS = {
   thumbnail: {
     status: frames.thumbnailStatus,
     runId: frames.thumbnailWorkflowRunId,
-    setStatus: (next: 'failed' | 'completed') => ({
-      thumbnailStatus: next,
-      updatedAt: new Date(),
-    }),
+    setStatus: (next: 'failed' | 'completed') => ({ thumbnailStatus: next }),
   },
   video: {
     status: frames.videoStatus,
     runId: frames.videoWorkflowRunId,
-    setStatus: (next: 'failed' | 'completed') => ({
-      videoStatus: next,
-      updatedAt: new Date(),
-    }),
+    setStatus: (next: 'failed' | 'completed') => ({ videoStatus: next }),
   },
   variantImage: {
     status: frames.variantImageStatus,
     runId: frames.variantWorkflowRunId,
-    setStatus: (next: 'failed' | 'completed') => ({
-      variantImageStatus: next,
-      updatedAt: new Date(),
-    }),
+    setStatus: (next: 'failed' | 'completed') => ({ variantImageStatus: next }),
   },
   audio: {
     status: frames.audioStatus,
     runId: frames.audioWorkflowRunId,
-    setStatus: (next: 'failed' | 'completed') => ({
-      audioStatus: next,
-      updatedAt: new Date(),
-    }),
+    setStatus: (next: 'failed' | 'completed') => ({ audioStatus: next }),
   },
 } as const;
 
@@ -206,12 +203,12 @@ async function reconcileFrameVariantsPass(
     if (pipeline === 'primary') {
       await db
         .update(frameVariants)
-        .set({ status: next, updatedAt: new Date() })
+        .set({ status: next })
         .where(eq(frameVariants.id, row.id));
     } else {
       await db
         .update(frameVariants)
-        .set({ shotVariantStatus: next, updatedAt: new Date() })
+        .set({ shotVariantStatus: next })
         .where(eq(frameVariants.id, row.id));
     }
     updated++;
@@ -244,7 +241,7 @@ async function reconcileSequenceVideoVariantsPass(
     if (next === null) continue;
     await db
       .update(sequenceVideoVariants)
-      .set({ status: next, updatedAt: new Date() })
+      .set({ status: next })
       .where(eq(sequenceVideoVariants.id, row.id));
     updated++;
   }
@@ -273,12 +270,11 @@ async function blindFailPass(
   pipeline: BlindFailPipeline
 ): Promise<number> {
   const staleCutoff = new Date(Date.now() - BLIND_FAIL_THRESHOLD_MS);
-  const updatedAt = new Date();
 
   if (pipeline === 'sequencesMusic') {
     const result = await db
       .update(sequences)
-      .set({ musicStatus: 'failed', updatedAt })
+      .set({ musicStatus: 'failed' })
       .where(
         and(
           eq(sequences.musicStatus, 'generating'),
@@ -292,7 +288,7 @@ async function blindFailPass(
   if (pipeline === 'sequencesMergedVideo') {
     const result = await db
       .update(sequences)
-      .set({ mergedVideoStatus: 'failed', updatedAt })
+      .set({ mergedVideoStatus: 'failed' })
       .where(
         and(
           eq(sequences.mergedVideoStatus, 'merging'),
@@ -306,7 +302,7 @@ async function blindFailPass(
   // sequenceElements
   const result = await db
     .update(sequenceElements)
-    .set({ visionStatus: 'failed', updatedAt })
+    .set({ visionStatus: 'failed' })
     .where(
       and(
         eq(sequenceElements.visionStatus, 'analyzing'),

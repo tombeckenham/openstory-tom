@@ -135,14 +135,14 @@ describe('reconcileAllStuckJobs — blind-fail passes', () => {
     expect(visionUpdate?.payload.visionStatus).toBe('failed');
   });
 
-  test('every update payload bumps updated_at', async () => {
+  test('update payloads do NOT bump updated_at (so sequential passes still see the row as stale)', async () => {
     blindFailReturning = [{ id: 'seq_1' }];
     const { reconcileAllStuckJobs } = await import('./reconcile-all');
 
     await reconcileAllStuckJobs();
 
     for (const call of updateCalls) {
-      expect(call.payload.updatedAt).toBeInstanceOf(Date);
+      expect('updatedAt' in call.payload).toBe(false);
     }
   });
 });

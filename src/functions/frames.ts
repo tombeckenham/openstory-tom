@@ -13,7 +13,6 @@ import {
   updateFrameSchema,
 } from '@/lib/schemas/frame.schemas';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
-import { reconcileStaleFrameStatuses } from '@/lib/workflow/reconcile';
 import { rescanContinuityFromPrompt } from '@/lib/scenes/rescan-continuity-from-prompt';
 import { buildRegenerateFrameSnapshot } from '@/lib/workflows/regenerate-frames-snapshot';
 import { createServerFn } from '@tanstack/react-start';
@@ -29,16 +28,7 @@ const frameIdInputSchema = z.object({
 export const getFramesFn = createServerFn({ method: 'GET' })
   .middleware([sequenceAccessMiddleware])
   .handler(async ({ context }) => {
-    const frames = await context.scopedDb.frames.listBySequence(
-      context.sequence.id
-    );
-
-    // Fire-and-forget: reconcile stale statuses in background
-    reconcileStaleFrameStatuses(frames, context.scopedDb.frames).catch(
-      console.error
-    );
-
-    return frames;
+    return context.scopedDb.frames.listBySequence(context.sequence.id);
   });
 
 export const getFrameFn = createServerFn({ method: 'GET' })

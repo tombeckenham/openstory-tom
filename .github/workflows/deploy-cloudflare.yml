@@ -169,6 +169,10 @@ jobs:
               { bucket_name: 'openstory-public-assets', binding: 'R2_PUBLIC_ASSETS_BUCKET', remote: true },
               { binding: 'R2_STORAGE_BUCKET', bucket_name: 'openstory-storage-stg' }
             ];
+            // NOTE: triggers.crons retained on previews so the reconciler
+            // sweep can be tested end-to-end. Each preview has its own
+            // isolated D1, so the sweep operates on preview rows only. See
+            // issue #727 / PR #730.
             fs.writeFileSync('wrangler.jsonc', JSON.stringify(obj, null, 2));
           "
           echo "Patched wrangler.jsonc:"

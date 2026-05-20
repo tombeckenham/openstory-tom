@@ -10,7 +10,10 @@
  *   1. Explicit map entry in `WORKFLOW_ENGINES`
  *   2. Env-var override `CF_WORKFLOWS_ENABLED` — comma-separated list of
  *      workflow trigger paths to force onto CF (without the leading slash).
- *      Useful for canarying without redeploying.
+ *      Useful for canarying without redeploying. Set to `*` or `all` to
+ *      route every workflow that has a CF binding registered onto CF
+ *      (workflows without a binding fall back to QStash automatically via
+ *      `resolveEngineForTrigger`).
  *
  * See docs/investigations/cloudflare-workflows.md §8 for the rollout shape.
  */
@@ -27,20 +30,26 @@ function normaliseTriggerPath(path: string): string {
   return path.startsWith('/') ? path.slice(1) : path;
 }
 
-function readOverrideSet(): Set<string> {
+type OverrideMatcher = { kind: 'all' } | { kind: 'set'; entries: Set<string> };
+
+function readOverride(): OverrideMatcher {
   const raw = getEnv().CF_WORKFLOWS_ENABLED;
-  if (!raw) return new Set();
-  return new Set(
-    raw
-      .split(',')
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.length > 0)
-      .map(normaliseTriggerPath)
-  );
+  if (!raw) return { kind: 'set', entries: new Set() };
+  const entries = raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+    .map(normaliseTriggerPath);
+  if (entries.includes('*') || entries.includes('all')) {
+    return { kind: 'all' };
+  }
+  return { kind: 'set', entries: new Set(entries) };
 }
 
 export function getEngineForWorkflow(triggerPath: string): WorkflowEngine {
   const key = normaliseTriggerPath(triggerPath);
-  if (readOverrideSet().has(key)) return 'cloudflare';
+  const override = readOverride();
+  if (override.kind === 'all') return 'cloudflare';
+  if (override.entries.has(key)) return 'cloudflare';
   return WORKFLOW_ENGINES[key] ?? 'qstash';
 }

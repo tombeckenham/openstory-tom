@@ -41,4 +41,23 @@ describe('getEngineForWorkflow', () => {
     expect(getEngineForWorkflow('storyboard')).toBe('cloudflare');
     expect(getEngineForWorkflow('character-sheet')).toBe('qstash');
   });
+
+  test('CF_WORKFLOWS_ENABLED=all routes every workflow to cloudflare', async () => {
+    envState.CF_WORKFLOWS_ENABLED = 'all';
+    const { getEngineForWorkflow } =
+      await import('@/lib/workflow/cf/engine-registry');
+    expect(getEngineForWorkflow('image')).toBe('cloudflare');
+    expect(getEngineForWorkflow('storyboard')).toBe('cloudflare');
+    expect(getEngineForWorkflow('something-not-yet-defined')).toBe(
+      'cloudflare'
+    );
+  });
+
+  test('CF_WORKFLOWS_ENABLED=* is also a wildcard', async () => {
+    envState.CF_WORKFLOWS_ENABLED = '*';
+    const { getEngineForWorkflow } =
+      await import('@/lib/workflow/cf/engine-registry');
+    expect(getEngineForWorkflow('image')).toBe('cloudflare');
+    expect(getEngineForWorkflow('analyze-script')).toBe('cloudflare');
+  });
 });

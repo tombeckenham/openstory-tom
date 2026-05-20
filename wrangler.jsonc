@@ -36,6 +36,10 @@
     {
       "binding": "R2_STORAGE_BUCKET",
       "bucket_name": "openstory-storage",
+      // Proxy to the real R2 bucket in local dev too, so getPublicUrl URLs
+      // (storage-dev.openstory.so/...) actually resolve — miniflare's local
+      // R2 emulator has no public domain to serve from.
+      "remote": true,
     },
   ],
   "workflows": [

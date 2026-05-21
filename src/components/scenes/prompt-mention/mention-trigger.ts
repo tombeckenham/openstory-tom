@@ -18,13 +18,11 @@ export function detectMentionTrigger(
   if (caret < 1 || caret > text.length) return null;
 
   for (let i = caret - 1; i >= 0; i--) {
-    const ch = text[i];
+    const ch = text.charAt(i);
     if (ch === '@') {
-      const prev = i === 0 ? '' : text[i - 1];
-      if (i !== 0 && prev && !/\s/.test(prev)) return null;
+      if (i !== 0 && !/\s/.test(text.charAt(i - 1))) return null;
       return { atIndex: i, query: text.slice(i + 1, caret) };
     }
-    if (ch === undefined) return null;
     // Allow letters, digits, hyphen, underscore, colon (tags contain these).
     // Any other char (including whitespace) closes the trigger window.
     if (!/[A-Za-z0-9_\-:]/.test(ch)) return null;
@@ -35,7 +33,8 @@ export function detectMentionTrigger(
 /**
  * Replaces the active `@query` span (from `atIndex` through `caret`) with
  * the canonical tag plus a trailing space. The caret is positioned after
- * the inserted tag + space.
+ * the inserted tag + space. If the next character is already whitespace,
+ * the trailing space is absorbed so we don't produce a double gap.
  */
 export type InsertMentionResult = {
   text: string;
@@ -49,7 +48,8 @@ export function insertMention(
   tag: string
 ): InsertMentionResult {
   const before = text.slice(0, trigger.atIndex);
-  const after = text.slice(caret);
+  const rawAfter = text.slice(caret);
+  const after = /^\s/.test(rawAfter) ? rawAfter.slice(1) : rawAfter;
   const insert = `${tag} `;
   return {
     text: `${before}${insert}${after}`,

@@ -1,3 +1,4 @@
+// oxlint-disable jsx-a11y/prefer-tag-over-role -- WAI-ARIA APG combobox-with-listbox pattern needs role="combobox" / "listbox" / "option" on non-native elements; native <select>/<datalist>/<option> can't host a typed query against rich sectioned items.
 import {
   Popover,
   PopoverAnchor,
@@ -5,10 +6,11 @@ import {
 } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { Image } from '@unpic/react';
 import {
   useCallback,
   useEffect,
-  useImperativeHandle,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -28,12 +30,11 @@ import {
 
 type PromptMentionTextareaProps = Omit<
   React.ComponentProps<typeof Textarea>,
-  'value' | 'onChange' | 'ref'
+  'value' | 'onChange'
 > & {
   value: string;
   onChange: (value: string) => void;
   mentionItems: MentionItem[];
-  ref?: React.Ref<HTMLTextAreaElement>;
 };
 
 const MAX_ITEMS = 8;
@@ -45,15 +46,15 @@ export const PromptMentionTextarea: React.FC<PromptMentionTextareaProps> = ({
   onKeyDown,
   onSelect,
   className,
-  ref,
   ...props
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  useImperativeHandle(ref, () => {
-    const t = textareaRef.current;
-    if (!t) throw new Error('PromptMentionTextarea ref accessed before mount');
-    return t;
-  });
+  const popoverId = useId();
+  const listboxId = `${popoverId}-listbox`;
+  const optionId = useCallback(
+    (item: MentionItem) => `${popoverId}-opt-${item.id}`,
+    [popoverId]
+  );
 
   const [trigger, setTrigger] = useState<MentionTrigger | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -78,6 +79,7 @@ export const PromptMentionTextarea: React.FC<PromptMentionTextareaProps> = ({
   }, [mentionItems, trigger]);
 
   const open = trigger !== null && visibleItems.length > 0;
+  const activeItem = open ? visibleItems[activeIdx] : undefined;
 
   // Clamp active index whenever the visible list shrinks.
   useEffect(() => {
@@ -140,7 +142,7 @@ export const PromptMentionTextarea: React.FC<PromptMentionTextareaProps> = ({
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const next = e.target.value;
       onChange(next);
-      refreshTrigger(next, e.target.selectionEnd ?? next.length);
+      refreshTrigger(next, e.target.selectionEnd);
     },
     [onChange, refreshTrigger]
   );
@@ -165,19 +167,25 @@ export const PromptMentionTextarea: React.FC<PromptMentionTextareaProps> = ({
           onKeyDown={handleKeyDown}
           onSelect={handleSelect}
           onBlur={(e) => {
-            // Close menu when focus leaves the textarea unless focus moves
-            // into the popover (item clicked).
+            // Close menu when focus leaves the textarea. The popover swallows
+            // pointerdown on its items (see onMouseDown below) so a click
+            // doesn't blur the textarea before `commit` runs.
             setTrigger(null);
             props.onBlur?.(e);
           }}
           className={className}
+          role="combobox"
+          // Native <textarea> is focusable by default; declaring tabIndex here
+          // satisfies jsx-a11y/interactive-supports-focus (it can't see through
+          // the Textarea wrapper) without changing behaviour.
+          tabIndex={0}
           aria-autocomplete="list"
           aria-expanded={open}
-          aria-controls={open ? 'mention-popover' : undefined}
+          aria-controls={open ? listboxId : undefined}
+          aria-activedescendant={activeItem ? optionId(activeItem) : undefined}
         />
       </PopoverAnchor>
       <PopoverContent
-        id="mention-popover"
         side="bottom"
         align="start"
         sideOffset={4}
@@ -189,8 +197,10 @@ export const PromptMentionTextarea: React.FC<PromptMentionTextareaProps> = ({
         className="w-80 max-h-72 overflow-y-auto p-1"
       >
         <MentionList
+          listboxId={listboxId}
           items={visibleItems}
           activeIdx={activeIdx}
+          optionId={optionId}
           onHoverIndex={setActiveIdx}
           onSelect={commit}
         />
@@ -200,15 +210,19 @@ export const PromptMentionTextarea: React.FC<PromptMentionTextareaProps> = ({
 };
 
 type MentionListProps = {
+  listboxId: string;
   items: MentionItem[];
   activeIdx: number;
+  optionId: (item: MentionItem) => string;
   onHoverIndex: (idx: number) => void;
   onSelect: (item: MentionItem) => void;
 };
 
 const MentionList: React.FC<MentionListProps> = ({
+  listboxId,
   items,
   activeIdx,
+  optionId,
   onHoverIndex,
   onSelect,
 }) => {
@@ -223,7 +237,12 @@ const MentionList: React.FC<MentionListProps> = ({
 
   let runningIdx = 0;
   return (
-    <div aria-label="Mention suggestions" className="flex flex-col">
+    <div
+      id={listboxId}
+      role="listbox"
+      aria-label="Mention suggestions"
+      className="flex flex-col"
+    >
       {sections.map(({ section, entries }) => (
         <div key={section} className="py-1 first:pt-0 last:pb-0">
           <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -235,8 +254,10 @@ const MentionList: React.FC<MentionListProps> = ({
             return (
               <button
                 key={item.id}
+                id={optionId(item)}
                 type="button"
-                aria-current={isActive ? 'true' : undefined}
+                role="option"
+                aria-selected={isActive}
                 onMouseEnter={() => onHoverIndex(idx)}
                 onClick={() => onSelect(item)}
                 className={cn(
@@ -248,9 +269,11 @@ const MentionList: React.FC<MentionListProps> = ({
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded bg-muted">
                   {item.thumbnailUrl ? (
-                    <img
+                    <Image
                       src={item.thumbnailUrl}
                       alt=""
+                      width={32}
+                      height={32}
                       className="h-full w-full object-cover"
                     />
                   ) : (

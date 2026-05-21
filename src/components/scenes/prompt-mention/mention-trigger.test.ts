@@ -67,12 +67,12 @@ describe('insertMention', () => {
     expect(result.caret).toBe(result.text.length);
   });
 
-  it('keeps text after the caret intact', () => {
+  it('keeps text after the caret intact and avoids a double space', () => {
     const text = 'see @ja later';
     // caret is at index 7 (between "ja" and " later")
     const trigger = { atIndex: 4, query: 'ja' };
     const result = insertMention(text, trigger, 7, 'jack-denim-jacket');
-    expect(result.text).toBe('see jack-denim-jacket  later');
+    expect(result.text).toBe('see jack-denim-jacket later');
     expect(result.caret).toBe('see jack-denim-jacket '.length);
   });
 

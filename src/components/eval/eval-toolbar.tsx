@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -15,6 +15,11 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { SCRIPT_ANALYSIS_MODELS } from '@/lib/ai/models.config';
 import { IMAGE_MODELS } from '@/lib/ai/models';
 import { ASPECT_RATIOS } from '@/lib/constants/aspect-ratios';
@@ -27,6 +32,9 @@ import {
   X,
   ArrowUpDown,
   Plus,
+  SlidersHorizontal,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import {
   isValidSortField,
@@ -43,7 +51,6 @@ type EvalToolbarProps = {
   onFiltersChange: (filters: FilterState) => void;
   sortCriteria: SortCriteria[];
   onSortChange: (criteria: SortCriteria[]) => void;
-  availableWorkflows: string[];
   supportMode?: boolean;
   // Support-mode controls (rendered inline when isAdmin is true)
   isAdmin?: boolean;
@@ -59,8 +66,125 @@ const SORT_FIELDS: { value: SortCriteria['field']; label: string }[] = [
   { value: 'title', label: 'Title' },
   { value: 'analysisModel', label: 'Analysis Model' },
   { value: 'imageModel', label: 'Image Model' },
-  { value: 'workflow', label: 'Workflow' },
 ];
+
+const countActiveFilters = (filters: FilterState): number => {
+  let count = 0;
+  if (filters.analysisModel) count++;
+  if (filters.imageModel) count++;
+  if (filters.aspectRatio) count++;
+  if (filters.hasMergedVideo) count++;
+  if (filters.dateFrom) count++;
+  if (filters.dateTo) count++;
+  return count;
+};
+
+const VIEW_MODE_ITEMS: {
+  value: ViewMode;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
+  { value: 'script', label: 'Script', icon: FileTextIcon },
+  { value: 'prompts', label: 'Prompts', icon: TextIcon },
+  { value: 'images', label: 'Images', icon: ImageIcon },
+  { value: 'motion', label: 'Motion', icon: Clapperboard },
+];
+
+type ViewModeToggleProps = {
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
+  iconOnly?: boolean;
+};
+
+const ViewModeToggle: React.FC<ViewModeToggleProps> = ({
+  viewMode,
+  onViewModeChange,
+  iconOnly,
+}) => {
+  return (
+    <ToggleGroup
+      type="single"
+      value={viewMode}
+      onValueChange={(value) => {
+        if (value && isValidViewMode(value)) {
+          onViewModeChange(value);
+        }
+      }}
+      variant="outline"
+      className={iconOnly ? 'w-full' : undefined}
+    >
+      {VIEW_MODE_ITEMS.map(({ value, label, icon: Icon }) => (
+        <ToggleGroupItem
+          key={value}
+          value={value}
+          aria-label={`Show ${label.toLowerCase()}`}
+          className={iconOnly ? 'h-10 flex-1' : undefined}
+        >
+          <Icon className={iconOnly ? 'h-4 w-4' : 'h-4 w-4 mr-2'} />
+          {!iconOnly && label}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  );
+};
+
+const getSortFieldOptions = (criteria: SortCriteria[], index: number) => {
+  const usedFields = new Set(
+    criteria.filter((_, i) => i !== index).map((c) => c.field)
+  );
+  const currentField = criteria[index]?.field;
+  return SORT_FIELDS.filter(
+    (f) => !usedFields.has(f.value) || f.value === currentField
+  );
+};
+
+type FilterSelectOption = { value: string; label: string };
+
+type FilterSelectProps = {
+  id?: string;
+  label?: string;
+  value: string;
+  onValueChange: (value: string) => void;
+  options: FilterSelectOption[];
+  placeholder: string;
+  triggerClassName?: string;
+};
+
+const FilterSelect: React.FC<FilterSelectProps> = ({
+  id,
+  label,
+  value,
+  onValueChange,
+  options,
+  placeholder,
+  triggerClassName,
+}) => {
+  const select = (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger id={id} className={triggerClassName}>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  if (!label || !id) return select;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={id} className="text-xs text-muted-foreground">
+        {label}
+      </Label>
+      {select}
+    </div>
+  );
+};
 
 export const EvalToolbar: React.FC<EvalToolbarProps> = ({
   viewMode,
@@ -69,7 +193,6 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
   onFiltersChange,
   sortCriteria,
   onSortChange,
-  availableWorkflows,
   supportMode,
   isAdmin,
   onSupportModeChange,
@@ -79,6 +202,18 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
   hideInternalLocked,
 }) => {
   const [searchDraft, setSearchDraft] = useState(filters.search);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Keep latest filters/onFiltersChange in refs so the debounce effect can
+  // depend only on the draft. Without this, an external `filters` change
+  // (e.g. parent clears search) restarts the timer and the in-flight commit
+  // overwrites the new value with the stale draft.
+  const filtersRef = useRef(filters);
+  const onFiltersChangeRef = useRef(onFiltersChange);
+  useEffect(() => {
+    filtersRef.current = filters;
+    onFiltersChangeRef.current = onFiltersChange;
+  });
 
   // Reset draft when the committed search changes from outside (e.g. Clear).
   useEffect(() => {
@@ -87,12 +222,13 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
 
   // Debounce draft → committed search to avoid a server roundtrip per keystroke.
   useEffect(() => {
-    if (searchDraft === filters.search) return;
     const t = setTimeout(() => {
-      onFiltersChange({ ...filters, search: searchDraft });
+      const current = filtersRef.current;
+      if (searchDraft === current.search) return;
+      onFiltersChangeRef.current({ ...current, search: searchDraft });
     }, 250);
     return () => clearTimeout(t);
-  }, [searchDraft, filters, onFiltersChange]);
+  }, [searchDraft]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchDraft(e.target.value);
@@ -112,13 +248,6 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
     });
   };
 
-  const handleWorkflowChange = (value: string) => {
-    onFiltersChange({
-      ...filters,
-      workflow: value === 'all' ? null : value,
-    });
-  };
-
   const handleAspectRatioChange = (value: string) => {
     const match = ASPECT_RATIOS.find((r) => r.value === value);
     onFiltersChange({
@@ -134,21 +263,13 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
       dateTo: null,
       analysisModel: null,
       imageModel: null,
-      workflow: null,
       aspectRatio: null,
       hasMergedVideo: false,
     });
   };
 
-  const hasActiveFilters =
-    filters.search ||
-    filters.analysisModel ||
-    filters.imageModel ||
-    filters.workflow ||
-    filters.aspectRatio ||
-    filters.hasMergedVideo ||
-    filters.dateFrom ||
-    filters.dateTo;
+  const activeFilterCount = countActiveFilters(filters);
+  const hasActiveFilters = Boolean(filters.search) || activeFilterCount > 0;
 
   const addSortCriteria = () => {
     if (sortCriteria.length >= 3) return;
@@ -205,22 +326,211 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
       })),
   ];
 
-  const workflowOptions = [
-    { value: 'all', label: 'All Workflows' },
-    ...availableWorkflows.map((workflow) => ({
-      value: workflow,
-      label: workflow,
-    })),
-  ];
-
   const aspectRatioOptions = [
     { value: 'all', label: 'All Aspect Ratios' },
     ...ASPECT_RATIOS.map((r) => ({ value: r.value, label: r.label })),
   ];
 
+  const primarySort = sortCriteria[0];
+
   return (
-    <Card className="p-3">
-      <div className="flex flex-col gap-3">
+    <>
+      {/* Mobile layout (≤sm) — flat, no Card chrome */}
+      <div className="flex flex-col gap-2 pb-3 border-b border-border sm:hidden">
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder={
+              supportMode ? 'Search title, name, email…' : 'Search by title…'
+            }
+            value={searchDraft}
+            onChange={handleSearchChange}
+            className="h-11 flex-1 min-w-0"
+          />
+          <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-11 shrink-0 gap-1.5 px-3"
+                aria-label={
+                  activeFilterCount > 0
+                    ? `Filters and sort, ${activeFilterCount} active`
+                    : 'Filters and sort'
+                }
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                {activeFilterCount > 0 && (
+                  <Badge
+                    variant="secondary"
+                    className="h-5 min-w-5 justify-center px-1.5"
+                  >
+                    {activeFilterCount}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-3"
+            >
+              {primarySort && (
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs text-muted-foreground">
+                    Sort by
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={primarySort.field}
+                      onValueChange={(value) => {
+                        if (isValidSortField(value)) {
+                          updateSortField(0, value);
+                        }
+                      }}
+                    >
+                      <SelectTrigger
+                        aria-label="Sort by"
+                        className="h-11 flex-1"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getSortFieldOptions(sortCriteria, 0).map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-11 w-11 shrink-0"
+                      onClick={() => toggleSortDirection(0)}
+                      aria-label={
+                        primarySort.direction === 'asc'
+                          ? 'Sort ascending'
+                          : 'Sort descending'
+                      }
+                    >
+                      {primarySort.direction === 'asc' ? (
+                        <ArrowUp className="h-4 w-4" />
+                      ) : (
+                        <ArrowDown className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <FilterSelect
+                id="mobile-analysis-model"
+                label="Analysis Model"
+                value={filters.analysisModel || 'all'}
+                onValueChange={handleAnalysisModelChange}
+                options={analysisModelOptions}
+                placeholder="Analysis Model"
+                triggerClassName="h-11"
+              />
+
+              <FilterSelect
+                id="mobile-image-model"
+                label="Image Model"
+                value={filters.imageModel || 'all'}
+                onValueChange={handleImageModelChange}
+                options={imageModelOptions}
+                placeholder="Image Model"
+                triggerClassName="h-11"
+              />
+
+              <FilterSelect
+                id="mobile-aspect-ratio"
+                label="Aspect Ratio"
+                value={filters.aspectRatio || 'all'}
+                onValueChange={handleAspectRatioChange}
+                options={aspectRatioOptions}
+                placeholder="Aspect Ratio"
+                triggerClassName="h-11"
+              />
+
+              <label
+                htmlFor="mobile-filter-has-merged-video"
+                className="flex h-11 items-center gap-2 text-sm cursor-pointer select-none"
+              >
+                <Checkbox
+                  id="mobile-filter-has-merged-video"
+                  checked={filters.hasMergedVideo}
+                  onCheckedChange={(checked) =>
+                    onFiltersChange({
+                      ...filters,
+                      hasMergedVideo: checked === true,
+                    })
+                  }
+                />
+                Has video
+              </label>
+
+              {isAdmin && (
+                <div className="flex flex-col gap-3 border-t pt-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label
+                      htmlFor="mobile-support-mode"
+                      className="flex items-center gap-2 text-sm font-medium"
+                    >
+                      <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+                      Support
+                    </Label>
+                    <Switch
+                      id="mobile-support-mode"
+                      checked={Boolean(supportMode)}
+                      onCheckedChange={(v) => onSupportModeChange?.(v)}
+                    />
+                  </div>
+                  {supportMode && hideInternalAvailable && (
+                    <div className="flex items-center justify-between gap-2">
+                      <Label
+                        htmlFor="mobile-hide-internal"
+                        className="text-sm font-medium"
+                      >
+                        Hide internal
+                      </Label>
+                      <Switch
+                        id="mobile-hide-internal"
+                        checked={Boolean(hideInternal)}
+                        onCheckedChange={(v) => onHideInternalChange?.(v)}
+                        disabled={Boolean(hideInternalLocked)}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between gap-2 border-t pt-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  disabled={!hasActiveFilters}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Clear
+                </Button>
+                <Button size="sm" onClick={() => setFiltersOpen(false)}>
+                  Done
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <ViewModeToggle
+          viewMode={viewMode}
+          onViewModeChange={onViewModeChange}
+          iconOnly
+        />
+      </div>
+
+      {/* Desktop layout (≥sm) — keeps Card chrome */}
+      <Card className="hidden sm:flex sm:flex-col sm:gap-3 p-3">
         {/* Row 1: filters */}
         <div className="flex flex-wrap items-center gap-2">
           <Input
@@ -233,68 +543,27 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
             onChange={handleSearchChange}
             className="w-48"
           />
-          <Select
+          <FilterSelect
             value={filters.analysisModel || 'all'}
             onValueChange={handleAnalysisModelChange}
-          >
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="Analysis Model" />
-            </SelectTrigger>
-            <SelectContent>
-              {analysisModelOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
+            options={analysisModelOptions}
+            placeholder="Analysis Model"
+            triggerClassName="w-44"
+          />
+          <FilterSelect
             value={filters.imageModel || 'all'}
             onValueChange={handleImageModelChange}
-          >
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="Image Model" />
-            </SelectTrigger>
-            <SelectContent>
-              {imageModelOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {availableWorkflows.length > 0 && (
-            <Select
-              value={filters.workflow || 'all'}
-              onValueChange={handleWorkflowChange}
-            >
-              <SelectTrigger className="w-52">
-                <SelectValue placeholder="Workflow" />
-              </SelectTrigger>
-              <SelectContent>
-                {workflowOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Select
+            options={imageModelOptions}
+            placeholder="Image Model"
+            triggerClassName="w-44"
+          />
+          <FilterSelect
             value={filters.aspectRatio || 'all'}
             onValueChange={handleAspectRatioChange}
-          >
-            <SelectTrigger className="w-36">
-              <SelectValue placeholder="Aspect Ratio" />
-            </SelectTrigger>
-            <SelectContent>
-              {aspectRatioOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            options={aspectRatioOptions}
+            placeholder="Aspect Ratio"
+            triggerClassName="w-36"
+          />
           <label
             htmlFor="filter-has-merged-video"
             className="flex items-center gap-2 text-sm cursor-pointer select-none"
@@ -321,43 +590,15 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
 
         {/* Row 2: view toggle, sort, support mode */}
         <div className="flex flex-wrap items-center gap-3">
-          <ToggleGroup
-            type="single"
-            value={viewMode}
-            onValueChange={(value) => {
-              if (value && isValidViewMode(value)) {
-                onViewModeChange(value);
-              }
-            }}
-            variant="outline"
-          >
-            <ToggleGroupItem value="script" aria-label="Show script">
-              <FileTextIcon className="h-4 w-4 mr-2" />
-              Script
-            </ToggleGroupItem>
-            <ToggleGroupItem value="prompts" aria-label="Show prompts">
-              <TextIcon className="h-4 w-4 mr-2" />
-              Prompts
-            </ToggleGroupItem>
-            <ToggleGroupItem value="images" aria-label="Show images">
-              <ImageIcon className="h-4 w-4 mr-2" />
-              Images
-            </ToggleGroupItem>
-            <ToggleGroupItem value="motion" aria-label="Show frame videos">
-              <Clapperboard className="h-4 w-4 mr-2" />
-              Motion
-            </ToggleGroupItem>
-          </ToggleGroup>
+          <ViewModeToggle
+            viewMode={viewMode}
+            onViewModeChange={onViewModeChange}
+          />
 
           <div className="flex items-center gap-2">
             <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
             {sortCriteria.map((criteria, index) => {
-              const usedFields = new Set(
-                sortCriteria.filter((_, i) => i !== index).map((c) => c.field)
-              );
-              const sortFieldOptions = SORT_FIELDS.filter(
-                (f) => !usedFields.has(f.value) || f.value === criteria.field
-              ).map((f) => ({ value: f.value, label: f.label }));
+              const sortFieldOptions = getSortFieldOptions(sortCriteria, index);
 
               return (
                 <Badge
@@ -453,7 +694,7 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
             </div>
           )}
         </div>
-      </div>
-    </Card>
+      </Card>
+    </>
   );
 };

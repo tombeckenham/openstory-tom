@@ -5,7 +5,13 @@ import { frameKeys } from './use-frames';
 import { getFramesFn } from '@/functions/frames';
 import type { Sequence, Frame } from '@/types/database';
 
-export type SequenceWithFrames = Sequence & { frames: Frame[] };
+export type SequenceWithFrames = Sequence & {
+  frames: Frame[];
+  // Present only when fetched via the admin/support endpoint. Optional on the
+  // base type so components render a single CreatorIdentity regardless of source.
+  creatorName?: string | null;
+  creatorEmail?: string | null;
+};
 
 /**
  * Fetches all sequences and their frames in parallel.

@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 @import 'tw-animate-css';
-@import '@videojs/react/video/skin.css';
+@import '@videojs/react/video/minimal-skin.css';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/geist';

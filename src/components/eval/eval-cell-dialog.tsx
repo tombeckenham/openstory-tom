@@ -7,6 +7,13 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { VideoPlayer } from '@/components/motion/video-player';
 import type { Frame } from '@/types/database';
 import type { AspectRatio } from '@/lib/constants/aspect-ratios';
@@ -20,7 +27,7 @@ import {
 } from 'lucide-react';
 import { Image } from '@unpic/react';
 import type React from 'react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   getMotionPrompt,
   getSceneScript,
@@ -29,6 +36,16 @@ import {
 import type { ViewMode } from './eval-view';
 
 export type DialogTab = ViewMode | 'theatre';
+
+function isDialogTab(value: string): value is DialogTab {
+  return (
+    value === 'theatre' ||
+    value === 'script' ||
+    value === 'prompts' ||
+    value === 'images' ||
+    value === 'motion'
+  );
+}
 
 type EvalCellDialogProps = {
   open: boolean;
@@ -65,6 +82,7 @@ export const EvalCellDialog: React.FC<EvalCellDialogProps> = ({
   const prompt = getVisualPrompt(frame);
   const motionPrompt = getMotionPrompt(frame);
   const script = getSceneScript(frame);
+  const [selectedTab, setSelectedTab] = useState<DialogTab>(initialTab);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -112,7 +130,7 @@ export const EvalCellDialog: React.FC<EvalCellDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[80vw]! max-h-[80vh] w-full h-full flex flex-col">
+      <DialogContent className="max-w-[calc(100vw-1rem)]! sm:max-w-[80vw]! max-h-[80vh] w-full h-full flex flex-col">
         <DialogHeader>
           <DialogTitle>
             {sequenceTitle} - Scene {sceneNumber}
@@ -123,10 +141,35 @@ export const EvalCellDialog: React.FC<EvalCellDialogProps> = ({
         </DialogHeader>
 
         <Tabs
-          defaultValue={initialTab}
+          value={selectedTab}
+          onValueChange={(value) => {
+            if (isDialogTab(value)) setSelectedTab(value);
+          }}
           className="w-full flex-1 flex flex-col min-h-0"
         >
-          <div className="flex justify-center mb-4">
+          {/* Mobile: Select dropdown */}
+          <div className="sm:hidden mb-4">
+            <Select
+              value={selectedTab}
+              onValueChange={(value) => {
+                if (isDialogTab(value)) setSelectedTab(value);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {hasTheatre && <SelectItem value="theatre">Theatre</SelectItem>}
+                <SelectItem value="script">Script</SelectItem>
+                <SelectItem value="prompts">Prompts</SelectItem>
+                <SelectItem value="images">Image</SelectItem>
+                <SelectItem value="motion">Motion</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Desktop: Tab buttons */}
+          <div className="hidden sm:flex justify-center mb-4">
             <TabsList
               onKeyDown={(e) => {
                 // Prevent tabs from handling arrow keys - we use them for cell navigation

@@ -6,7 +6,7 @@ import {
 import { cn } from '@/lib/utils';
 import type { Media, Video as VideoMedia } from '@videojs/core';
 import { createPlayer, Poster, useMedia } from '@videojs/react';
-import { Video, VideoSkin, videoFeatures } from '@videojs/react/video';
+import { MinimalVideoSkin, Video, videoFeatures } from '@videojs/react/video';
 import { useEffect, useRef } from 'react';
 
 // useMedia() returns the base Media capability set; the <Video> component
@@ -81,7 +81,7 @@ const VideoPlayerInner: React.FC<
   }, [media]);
 
   return (
-    <VideoSkin>
+    <MinimalVideoSkin>
       <Video
         src={src || undefined}
         playsInline
@@ -91,7 +91,7 @@ const VideoPlayerInner: React.FC<
         {chaptersUrl && <track kind="chapters" src={chaptersUrl} default />}
       </Video>
       {posterSrc && <Poster src={posterSrc} alt="Video thumbnail" />}
-    </VideoSkin>
+    </MinimalVideoSkin>
   );
 };
 

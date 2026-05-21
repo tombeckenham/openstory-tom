@@ -82,6 +82,64 @@ const countActiveFilters = (filters: FilterState): number => {
   return count;
 };
 
+const getSortFieldOptions = (criteria: SortCriteria[], index: number) => {
+  const usedFields = new Set(
+    criteria.filter((_, i) => i !== index).map((c) => c.field)
+  );
+  const currentField = criteria[index]?.field;
+  return SORT_FIELDS.filter(
+    (f) => !usedFields.has(f.value) || f.value === currentField
+  );
+};
+
+type FilterSelectOption = { value: string; label: string };
+
+type FilterSelectProps = {
+  id?: string;
+  label?: string;
+  value: string;
+  onValueChange: (value: string) => void;
+  options: FilterSelectOption[];
+  placeholder: string;
+  triggerClassName?: string;
+};
+
+const FilterSelect: React.FC<FilterSelectProps> = ({
+  id,
+  label,
+  value,
+  onValueChange,
+  options,
+  placeholder,
+  triggerClassName,
+}) => {
+  const select = (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger id={id} className={triggerClassName}>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  if (!label || !id) return select;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={id} className="text-xs text-muted-foreground">
+        {label}
+      </Label>
+      {select}
+    </div>
+  );
+};
+
 export const EvalToolbar: React.FC<EvalToolbarProps> = ({
   viewMode,
   onViewModeChange,
@@ -162,7 +220,7 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
   };
 
   const activeFilterCount = countActiveFilters(filters);
-  const hasActiveFilters = filters.search || activeFilterCount > 0;
+  const hasActiveFilters = Boolean(filters.search) || activeFilterCount > 0;
 
   const addSortCriteria = () => {
     if (sortCriteria.length >= 3) return;
@@ -255,7 +313,11 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
                 variant="outline"
                 size="lg"
                 className="h-11 flex-1 justify-center gap-2"
-                aria-label="Open filters"
+                aria-label={
+                  activeFilterCount > 0
+                    ? `Open filters, ${activeFilterCount} active`
+                    : 'Open filters'
+                }
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 Filters
@@ -273,103 +335,47 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
               align="start"
               className="flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-3"
             >
-              <div className="flex flex-col gap-1.5">
-                <Label
-                  htmlFor="mobile-analysis-model"
-                  className="text-xs text-muted-foreground"
-                >
-                  Analysis Model
-                </Label>
-                <Select
-                  value={filters.analysisModel || 'all'}
-                  onValueChange={handleAnalysisModelChange}
-                >
-                  <SelectTrigger id="mobile-analysis-model" className="h-11">
-                    <SelectValue placeholder="Analysis Model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {analysisModelOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <FilterSelect
+                id="mobile-analysis-model"
+                label="Analysis Model"
+                value={filters.analysisModel || 'all'}
+                onValueChange={handleAnalysisModelChange}
+                options={analysisModelOptions}
+                placeholder="Analysis Model"
+                triggerClassName="h-11"
+              />
 
-              <div className="flex flex-col gap-1.5">
-                <Label
-                  htmlFor="mobile-image-model"
-                  className="text-xs text-muted-foreground"
-                >
-                  Image Model
-                </Label>
-                <Select
-                  value={filters.imageModel || 'all'}
-                  onValueChange={handleImageModelChange}
-                >
-                  <SelectTrigger id="mobile-image-model" className="h-11">
-                    <SelectValue placeholder="Image Model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {imageModelOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <FilterSelect
+                id="mobile-image-model"
+                label="Image Model"
+                value={filters.imageModel || 'all'}
+                onValueChange={handleImageModelChange}
+                options={imageModelOptions}
+                placeholder="Image Model"
+                triggerClassName="h-11"
+              />
 
               {availableWorkflows.length > 0 && (
-                <div className="flex flex-col gap-1.5">
-                  <Label
-                    htmlFor="mobile-workflow"
-                    className="text-xs text-muted-foreground"
-                  >
-                    Workflow
-                  </Label>
-                  <Select
-                    value={filters.workflow || 'all'}
-                    onValueChange={handleWorkflowChange}
-                  >
-                    <SelectTrigger id="mobile-workflow" className="h-11">
-                      <SelectValue placeholder="Workflow" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {workflowOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <FilterSelect
+                  id="mobile-workflow"
+                  label="Workflow"
+                  value={filters.workflow || 'all'}
+                  onValueChange={handleWorkflowChange}
+                  options={workflowOptions}
+                  placeholder="Workflow"
+                  triggerClassName="h-11"
+                />
               )}
 
-              <div className="flex flex-col gap-1.5">
-                <Label
-                  htmlFor="mobile-aspect-ratio"
-                  className="text-xs text-muted-foreground"
-                >
-                  Aspect Ratio
-                </Label>
-                <Select
-                  value={filters.aspectRatio || 'all'}
-                  onValueChange={handleAspectRatioChange}
-                >
-                  <SelectTrigger id="mobile-aspect-ratio" className="h-11">
-                    <SelectValue placeholder="Aspect Ratio" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {aspectRatioOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <FilterSelect
+                id="mobile-aspect-ratio"
+                label="Aspect Ratio"
+                value={filters.aspectRatio || 'all'}
+                onValueChange={handleAspectRatioChange}
+                options={aspectRatioOptions}
+                placeholder="Aspect Ratio"
+                triggerClassName="h-11"
+              />
 
               <label
                 htmlFor="mobile-filter-has-merged-video"
@@ -454,7 +460,7 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {SORT_FIELDS.map((option) => (
+                  {getSortFieldOptions(sortCriteria, 0).map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
@@ -538,68 +544,36 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
             onChange={handleSearchChange}
             className="w-48"
           />
-          <Select
+          <FilterSelect
             value={filters.analysisModel || 'all'}
             onValueChange={handleAnalysisModelChange}
-          >
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="Analysis Model" />
-            </SelectTrigger>
-            <SelectContent>
-              {analysisModelOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
+            options={analysisModelOptions}
+            placeholder="Analysis Model"
+            triggerClassName="w-44"
+          />
+          <FilterSelect
             value={filters.imageModel || 'all'}
             onValueChange={handleImageModelChange}
-          >
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="Image Model" />
-            </SelectTrigger>
-            <SelectContent>
-              {imageModelOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            options={imageModelOptions}
+            placeholder="Image Model"
+            triggerClassName="w-44"
+          />
           {availableWorkflows.length > 0 && (
-            <Select
+            <FilterSelect
               value={filters.workflow || 'all'}
               onValueChange={handleWorkflowChange}
-            >
-              <SelectTrigger className="w-52">
-                <SelectValue placeholder="Workflow" />
-              </SelectTrigger>
-              <SelectContent>
-                {workflowOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              options={workflowOptions}
+              placeholder="Workflow"
+              triggerClassName="w-52"
+            />
           )}
-          <Select
+          <FilterSelect
             value={filters.aspectRatio || 'all'}
             onValueChange={handleAspectRatioChange}
-          >
-            <SelectTrigger className="w-36">
-              <SelectValue placeholder="Aspect Ratio" />
-            </SelectTrigger>
-            <SelectContent>
-              {aspectRatioOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            options={aspectRatioOptions}
+            placeholder="Aspect Ratio"
+            triggerClassName="w-36"
+          />
           <label
             htmlFor="filter-has-merged-video"
             className="flex items-center gap-2 text-sm cursor-pointer select-none"
@@ -657,12 +631,7 @@ export const EvalToolbar: React.FC<EvalToolbarProps> = ({
           <div className="flex items-center gap-2">
             <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
             {sortCriteria.map((criteria, index) => {
-              const usedFields = new Set(
-                sortCriteria.filter((_, i) => i !== index).map((c) => c.field)
-              );
-              const sortFieldOptions = SORT_FIELDS.filter(
-                (f) => !usedFields.has(f.value) || f.value === criteria.field
-              ).map((f) => ({ value: f.value, label: f.label }));
+              const sortFieldOptions = getSortFieldOptions(sortCriteria, index);
 
               return (
                 <Badge

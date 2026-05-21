@@ -13,13 +13,15 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { useLowBalanceWarning } from '@/hooks/use-low-balance-warning';
 import { Route as locationsRoute } from '@/routes/_protected/locations/index';
 import { Route as sequencesRoute } from '@/routes/_protected/sequences/index';
 import { Route as sequencesNewRoute } from '@/routes/_protected/sequences/new';
 import { Route as talentRoute } from '@/routes/_protected/talent/index';
-import { Link } from '@tanstack/react-router';
+import { Link, useRouterState } from '@tanstack/react-router';
+import { useEffect } from 'react';
 import { LifeBuoy, MapPin, Plus, Users, Video } from 'lucide-react';
 import { CreditBalancePill } from './credit-balance-pill';
 import { UserSidebarFooter } from './user-sidebar-footer';
@@ -32,6 +34,13 @@ const navLinks = [
 
 export function AppSidebar() {
   useLowBalanceWarning();
+
+  const { isMobile, setOpenMobile } = useSidebar();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  useEffect(() => {
+    if (isMobile) setOpenMobile(false);
+  }, [pathname, isMobile, setOpenMobile]);
 
   return (
     <Sidebar collapsible="icon">

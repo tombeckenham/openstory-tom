@@ -9,7 +9,14 @@ import {
 } from 'tiptap-markdown';
 import { cn } from '@/lib/utils';
 import * as React from 'react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import type { MentionOptions } from '@tiptap/extension-mention';
+import type { MentionItem } from '@/components/scenes/prompt-mention/mention-items';
+import { PromptMention } from './mention/mention-extension';
+
+type MentionConfigure = Partial<MentionOptions>;
+import { createMentionSuggestion } from './mention/mention-suggestion';
+import { tagifyMarkdown } from './mention/tagify';
 
 declare module '@tiptap/core' {
   interface Storage {
@@ -52,6 +59,14 @@ type MarkdownEditorProps = {
   'aria-label'?: string;
   'aria-invalid'?: boolean | 'true' | 'false';
   'data-testid'?: string;
+  /**
+   * When provided, enables @-mention autocomplete. Tags found in the incoming
+   * markdown (by canonical slug match against the items list) are rendered as
+   * coloured pills via the Mention extension. Pass `undefined` (default) on
+   * surfaces where mentions don't apply (e.g. the pre-analysis script editor,
+   * where no canonical tags exist yet).
+   */
+  mentionItems?: MentionItem[];
 };
 
 const containerBaseClasses =
@@ -80,11 +95,27 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   'aria-label': ariaLabel,
   'aria-invalid': ariaInvalid,
   'data-testid': dataTestId,
+  mentionItems,
 }) => {
   // useEditor captures props at init. Bag the live onKeyDown in a ref so the
   // handler reads the freshest callback without needing to recreate the editor.
   const onKeyDownRef = useRef(onKeyDown);
   onKeyDownRef.current = onKeyDown;
+
+  // The suggestion plugin fires on every `@` keystroke; the items it pulls
+  // must reflect the parent's latest list (it grows as the user adds cast /
+  // elements / locations to the sequence) even though the editor's extensions
+  // are captured once at init. A ref synced every render gives us that.
+  const mentionItemsRef = useRef<MentionItem[]>(mentionItems ?? []);
+  mentionItemsRef.current = mentionItems ?? [];
+  const hasMentions = mentionItems !== undefined;
+
+  // Signature changes when the set of available tags changes; drives the
+  // "re-pill on items load" effect below.
+  const mentionItemsKey = useMemo(
+    () => (mentionItems ?? []).map((it) => it.tag).join('|'),
+    [mentionItems]
+  );
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -94,7 +125,11 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       StarterKit.configure({ hardBreak: false }),
       HardBreakAsNewline,
       Markdown.configure({
-        html: false,
+        // `html: true` is required for inline mention spans (produced by
+        // `tagifyMarkdown`) to survive the markdown-it parse on `setContent`.
+        // Tiptap's schema enforces that only known nodes (paragraph, hardBreak,
+        // text, mention) survive the parse, so unrelated HTML can't leak in.
+        html: hasMentions,
         linkify: true,
         breaks: true,
         transformPastedText: true,
@@ -104,8 +139,24 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         placeholder: placeholder ?? '',
         emptyEditorClass: 'is-editor-empty',
       }),
+      // The Mention extension is generically typed for `MentionNodeAttrs`
+      // (id, label), but our `section` attr is added via `addAttributes` —
+      // structurally present, not visible in the configure() option types.
+      // The ProseMirror schema is the actual enforcer at runtime.
+      ...(hasMentions
+        ? [
+            PromptMention.configure({
+              // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+              suggestion: createMentionSuggestion(
+                () => mentionItemsRef.current
+              ) as MentionConfigure['suggestion'],
+            }),
+          ]
+        : []),
     ],
-    content: value,
+    content: hasMentions
+      ? tagifyMarkdown(value, mentionItemsRef.current).content
+      : value,
     editorProps: {
       attributes: {
         ...(id ? { id } : {}),
@@ -155,10 +206,8 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
 
   // Canonical Tiptap external-value sync (mirrors the Vue v-model example in
   // their docs): only setContent if the editor's current markdown differs
-  // from the incoming value. The comparison itself is the guard — when our
-  // onUpdate echoes the user's edit back into parent state, the round-trip
-  // matches and this no-ops. emitUpdate:false prevents an onUpdate from
-  // setContent retriggering this loop.
+  // from the incoming value. When mentions are on, we tagify the value first
+  // so bare slugs in the incoming string land as mention nodes.
   //
   // Defer the write to the next frame so a burst of value changes (LLM
   // streaming the script chunk-by-chunk) collapses to one setContent with
@@ -169,10 +218,30 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
     if (editor.storage.markdown.getMarkdown() === value) return;
     const rafId = requestAnimationFrame(() => {
       if (editor.storage.markdown.getMarkdown() === value) return;
-      editor.commands.setContent(value, { emitUpdate: false });
+      const content = hasMentions
+        ? tagifyMarkdown(value, mentionItemsRef.current).content
+        : value;
+      editor.commands.setContent(content, { emitUpdate: false });
     });
     return () => cancelAnimationFrame(rafId);
-  }, [editor, value]);
+  }, [editor, value, hasMentions]);
+
+  // When the items list changes (e.g. characters/elements load async after
+  // mount, or the user adds a new one to the sequence), re-tagify the current
+  // value so existing bare slugs in the prompt light up as pills. The
+  // value-sync effect above won't catch this on its own — the stored value
+  // hasn't changed, so its `getMarkdown() === value` guard returns true.
+  useEffect(() => {
+    if (!editor || !hasMentions) return;
+    const { content, matched } = tagifyMarkdown(value, mentionItemsRef.current);
+    if (!matched) return;
+    const rafId = requestAnimationFrame(() => {
+      editor.commands.setContent(content, { emitUpdate: false });
+    });
+    return () => cancelAnimationFrame(rafId);
+    // value intentionally omitted — the sibling effect handles value changes.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, mentionItemsKey, hasMentions]);
 
   // editable is captured at init; mirror prop changes through to the editor.
   useEffect(() => {

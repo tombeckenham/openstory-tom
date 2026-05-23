@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { buildMentionItems } from '@/components/scenes/prompt-mention/mention-items';
-import { PromptMentionTextarea } from '@/components/scenes/prompt-mention/prompt-mention-textarea';
+import { MarkdownEditor } from '@/components/text-editor/markdown-editor';
 import { useSequenceCharacters } from '@/hooks/use-sequence-characters';
 import { useSequenceElements } from '@/hooks/use-sequence-elements';
 import { useSequenceLocations } from '@/hooks/use-sequence-locations';
@@ -1015,6 +1015,7 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
           onSave={(payload) => saveScriptMutation.mutate(payload)}
           isCopied={copiedTab === 'script'}
           onCopy={(text) => void handleCopy(text, 'script')}
+          mentionItems={mentionItems}
         />
       </TabsContent>
 
@@ -1046,14 +1047,14 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
                 {(editedImagePrompt || imagePrompt || '').length} characters
               </span>
             </div>
-            <PromptMentionTextarea
+            <MarkdownEditor
               id="image-prompt-input"
               value={
                 isStreamingVisualPrompt
                   ? framePromptStream.visual.text
                   : editedImagePrompt || imagePrompt || ''
               }
-              onChange={(value) => setEditedImagePrompt(value)}
+              onValueChange={(value) => setEditedImagePrompt(value)}
               placeholder={
                 isStreamingVisualPrompt
                   ? 'Streaming prompt…'
@@ -1061,7 +1062,7 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
                     ? 'Prompt is being generated…'
                     : 'Enter image prompt… (type @ to insert elements, cast, locations)'
               }
-              className="min-h-[120px] resize-y"
+              className="min-h-[120px]"
               disabled={isGenerating || isStreamingVisualPrompt}
               mentionItems={mentionItems}
             />
@@ -1232,14 +1233,14 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
                 {(editedMotionPrompt || rawMotionPrompt).length} characters
               </span>
             </div>
-            <PromptMentionTextarea
+            <MarkdownEditor
               id="motion-prompt-input"
               value={
                 isStreamingMotionPrompt
                   ? framePromptStream.motion.text
                   : editedMotionPrompt || rawMotionPrompt
               }
-              onChange={(value) => setEditedMotionPrompt(value)}
+              onValueChange={(value) => setEditedMotionPrompt(value)}
               placeholder={
                 isStreamingMotionPrompt
                   ? 'Streaming prompt…'
@@ -1247,7 +1248,7 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
                     ? 'Prompt is being generated…'
                     : 'Enter motion prompt… (type @ to insert elements, cast, locations)'
               }
-              className="min-h-[120px] resize-y"
+              className="min-h-[120px]"
               disabled={
                 isGenerating || isGeneratingMotion || isStreamingMotionPrompt
               }

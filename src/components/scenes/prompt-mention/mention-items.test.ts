@@ -33,7 +33,7 @@ const noopLocation: MentionLocationInput = {
 };
 
 describe('buildMentionItems', () => {
-  it('produces tagged entries for elements, cast, locations', () => {
+  it('produces lowercase-kebab canonical tags for elements, cast, locations', () => {
     const items = buildMentionItems({
       characters: [noopCharacter],
       elements: [noopElement],
@@ -41,12 +41,51 @@ describe('buildMentionItems', () => {
     });
 
     const byId = Object.fromEntries(items.map((i) => [i.id, i]));
-    expect(byId['element:e1']?.tag).toBe('RED-HEX-LOGO');
+    // Element token `red-hex-logo` becomes kebab `red-hex-logo` (new
+    // canonical, matches the cast/location consistencyTag convention).
+    expect(byId['element:e1']?.tag).toBe('red-hex-logo');
     expect(byId['element:e1']?.section).toBe('elements');
     expect(byId['character:c1']?.tag).toBe('jack-denim-jacket');
     expect(byId['character:c1']?.section).toBe('cast');
     expect(byId['location:l1']?.tag).toBe('office-modern-steel');
     expect(byId['location:l1']?.section).toBe('locations');
+  });
+
+  it('kebab-cases legacy uppercase-with-spaces element tokens and keeps original as alias', () => {
+    const items = buildMentionItems({
+      characters: [],
+      elements: [
+        {
+          ...noopElement,
+          id: 'e2',
+          token: 'RED HEX LOGO',
+          consistencyTag: null,
+        },
+      ],
+      locations: [],
+    });
+    const item = items.find((i) => i.id === 'element:e2');
+    expect(item?.tag).toBe('red-hex-logo');
+    expect(item?.aliases).toEqual(['RED HEX LOGO']);
+  });
+
+  it('prefers element consistencyTag slug over deriving from token', () => {
+    const items = buildMentionItems({
+      characters: [],
+      elements: [
+        {
+          ...noopElement,
+          id: 'e3',
+          token: 'PEPSI_LOGO',
+          consistencyTag: 'pepsi-cola-brand-logo',
+        },
+      ],
+      locations: [],
+    });
+    const item = items.find((i) => i.id === 'element:e3');
+    expect(item?.tag).toBe('pepsi-cola-brand-logo');
+    // Token differs from canonical → kept as alias so old prompts pill.
+    expect(item?.aliases).toEqual(['PEPSI_LOGO']);
   });
 
   it('falls back to characterId / locationId when no consistencyTag slug', () => {
@@ -87,9 +126,27 @@ describe('filterMentionItems', () => {
     expect(filterMentionItems(items, '').length).toBe(items.length);
   });
 
-  it('matches on the element token (uppercased)', () => {
+  it('matches on the element kebab tag', () => {
     expect(filterMentionItems(items, 'red-hex').map((i) => i.id)).toContain(
       'element:e1'
     );
+  });
+
+  it('matches on the legacy uppercase-with-spaces element token via haystack', () => {
+    const legacyItems = buildMentionItems({
+      characters: [],
+      elements: [
+        {
+          ...noopElement,
+          id: 'e5',
+          token: 'RED HEX LOGO',
+          consistencyTag: null,
+        },
+      ],
+      locations: [],
+    });
+    expect(
+      filterMentionItems(legacyItems, 'RED HEX').map((i) => i.id)
+    ).toContain('element:e5');
   });
 });

@@ -1,3 +1,18 @@
+/**
+ * The whole mention feature only earns its keep if a slug inserted via the
+ * Tiptap mention dropdown round-trips through the markdown serializer and is
+ * then recognised by `extractContinuityFromPrompt` on save. The Mention
+ * extension serializes nodes as bare slugs (no `@`), so the on-disk form is
+ * `"<text> <slug> <text>"` — exactly what the parser already handles.
+ *
+ * This locks two halves:
+ *  1) `tagifyMarkdown` (the editor-load preprocessor) wraps known slugs into
+ *     mention spans whose `data-id` IS the canonical slug — i.e. what
+ *     getMarkdown() will write back.
+ *  2) The bare slug is recognised by `extractContinuityFromPrompt` for cast /
+ *     elements / locations.
+ */
+
 import { describe, expect, it } from 'bun:test';
 import {
   buildMentionItems,
@@ -5,7 +20,7 @@ import {
   type MentionElementInput,
   type MentionLocationInput,
 } from './mention-items';
-import { detectMentionTrigger, insertMention } from './mention-trigger';
+import { tagifyMarkdown } from '@/components/text-editor/mention/tagify';
 import { extractContinuityFromPrompt } from '@/lib/workflows/extract-continuity-from-prompt';
 import type { SequenceElementMinimal } from '@/lib/db/schema';
 
@@ -47,24 +62,29 @@ const baseExisting = {
   environmentTag: '',
 };
 
-function insertByTag(text: string, tag: string): string {
-  const seed = `${text}@`;
-  const trigger = detectMentionTrigger(seed, seed.length);
-  if (!trigger) throw new Error('expected @ trigger');
-  return insertMention(seed, trigger, seed.length, tag).text;
-}
-
-describe('mention insert → continuity extraction round-trip', () => {
+describe('mention round-trip: tagify → serialize → parse', () => {
   const items = buildMentionItems({
     characters: [character],
     elements: [element],
     locations: [location],
   });
 
-  it('inserted character tag is recognised by extractContinuityFromPrompt', () => {
-    const item = items.find((i) => i.section === 'cast');
-    if (!item) throw new Error('cast item missing');
-    const prompt = insertByTag('A wide shot featuring ', item.tag);
+  it('tagify wraps known slugs in mention spans carrying the canonical tag', () => {
+    const { content, matched } = tagifyMarkdown(
+      'A wide shot featuring jack-denim-jacket on screen',
+      items
+    );
+    expect(matched).toBe(true);
+    expect(content).toContain('data-type="mention"');
+    expect(content).toContain('data-id="jack-denim-jacket"');
+    expect(content).toContain('data-section="cast"');
+    // Display form keeps the @, but data-id IS the slug — getMarkdown()
+    // writes data-id back out and nothing else.
+    expect(content).toContain('@jack-denim-jacket');
+  });
+
+  it('serialized character slug is recognised by extractContinuityFromPrompt', () => {
+    const prompt = `A wide shot featuring ${character.consistencyTag?.split(':')[1]?.trim()} on screen`;
     const result = extractContinuityFromPrompt({
       promptText: prompt,
       characters: [character],
@@ -75,10 +95,8 @@ describe('mention insert → continuity extraction round-trip', () => {
     expect(result.characterTags).toEqual(['jack-denim-jacket']);
   });
 
-  it('inserted element tag is recognised by extractContinuityFromPrompt', () => {
-    const item = items.find((i) => i.section === 'elements');
-    if (!item) throw new Error('element item missing');
-    const prompt = insertByTag('Close-up of ', item.tag);
+  it('serialized element slug is recognised by extractContinuityFromPrompt', () => {
+    const prompt = `Close-up of ${element.token}`;
     const result = extractContinuityFromPrompt({
       promptText: prompt,
       characters: [],
@@ -89,10 +107,8 @@ describe('mention insert → continuity extraction round-trip', () => {
     expect(result.elementTags).toEqual(['RED-HEX-LOGO']);
   });
 
-  it('inserted location tag is recognised by extractContinuityFromPrompt', () => {
-    const item = items.find((i) => i.section === 'locations');
-    if (!item) throw new Error('location item missing');
-    const prompt = insertByTag('Establishing shot in ', item.tag);
+  it('serialized location slug is recognised by extractContinuityFromPrompt', () => {
+    const prompt = `Establishing shot in ${location.consistencyTag?.split(':')[1]?.trim()}`;
     const result = extractContinuityFromPrompt({
       promptText: prompt,
       characters: [],

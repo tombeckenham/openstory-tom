@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import type { MentionItem } from '@/components/scenes/prompt-mention/mention-items';
 import { MarkdownEditor } from '@/components/text-editor/markdown-editor';
 import { estimateSceneDurationFn } from '@/functions/ai';
 import { IMAGE_TO_VIDEO_MODELS, type ImageToVideoModel } from '@/lib/ai/models';
@@ -42,6 +43,8 @@ type SceneScriptTabProps = {
   onSave: (payload: SceneScriptTabSavePayload) => void;
   isCopied: boolean;
   onCopy: (text: string) => void;
+  /** Pills the script's bare slugs for elements/cast/locations. */
+  mentionItems?: MentionItem[];
 };
 
 export const SceneScriptTab: React.FC<SceneScriptTabProps> = ({
@@ -57,6 +60,7 @@ export const SceneScriptTab: React.FC<SceneScriptTabProps> = ({
   onSave,
   isCopied,
   onCopy,
+  mentionItems,
 }) => {
   const savedScript = scriptText ?? '';
   const currentScript = editedScript ?? savedScript;
@@ -146,6 +150,7 @@ export const SceneScriptTab: React.FC<SceneScriptTabProps> = ({
             placeholder="Enter the script text for this scene…"
             className="min-h-[180px] pr-10"
             disabled={!frame || isSaving}
+            mentionItems={mentionItems}
           />
           <Button
             size="icon"

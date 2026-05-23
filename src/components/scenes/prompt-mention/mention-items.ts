@@ -33,8 +33,16 @@ export type MentionItem = {
   label: string;
   /** Optional secondary line (e.g. character id, location id). */
   sublabel?: string;
-  /** Canonical tag inserted into the prompt. */
+  /** Canonical tag inserted into the prompt + emitted by the markdown serializer. */
   tag: string;
+  /**
+   * Additional patterns that should also pill to this item when found in
+   * existing prompt text. Used for legacy formats (e.g. elements stored as
+   * `RED HEX LOGO` uppercase-with-spaces) so old prompts still pill — saving
+   * the prompt re-serializes everything to the canonical `tag`, soft-migrating
+   * the storage format on edit.
+   */
+  aliases?: string[];
   /** Lowercase haystack for filtering. */
   haystack: string;
   thumbnailUrl?: string | null;
@@ -48,6 +56,20 @@ function consistencyTagSlug(raw: string | null | undefined): string | null {
   return slug.length > 0 ? slug : null;
 }
 
+/**
+ * Derive the new canonical kebab tag from a legacy uppercase-with-spaces or
+ * UPPERCASE_SNAKE_CASE token. `RED HEX LOGO` → `red-hex-logo`, `PEPSI_LOGO`
+ * → `pepsi-logo`. Keeps only `[a-z0-9-]` and trims edge separators.
+ */
+function elementKebabFromToken(token: string): string {
+  return token
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 export function buildMentionItems(args: {
   characters: MentionCharacterInput[];
   elements: MentionElementInput[];
@@ -56,14 +78,21 @@ export function buildMentionItems(args: {
   const items: MentionItem[] = [];
 
   for (const el of args.elements) {
-    const tag = el.token.toUpperCase();
+    // New convention: lowercase kebab. Prefer the vision-LLM consistencyTag
+    // when present (already a clean slug); otherwise derive from the token.
+    const consistencySlug = consistencyTagSlug(el.consistencyTag);
+    const tag = consistencySlug || elementKebabFromToken(el.token) || el.token;
+    // Legacy form (e.g. `RED HEX LOGO`) still appears in existing prompts —
+    // alias-match so old text auto-pills to the same item.
+    const aliases = el.token && el.token !== tag ? [el.token] : undefined;
     items.push({
       id: `element:${el.id}`,
       section: 'elements',
       label: tag,
       sublabel: el.description ?? undefined,
       tag,
-      haystack: [tag, el.description ?? '', el.consistencyTag ?? '']
+      ...(aliases ? { aliases } : {}),
+      haystack: [tag, el.token, el.description ?? '', el.consistencyTag ?? '']
         .join(' ')
         .toLowerCase(),
       thumbnailUrl: el.imageUrl,

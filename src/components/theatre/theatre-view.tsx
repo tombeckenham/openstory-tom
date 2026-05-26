@@ -41,7 +41,7 @@ export const TheatreView: React.FC<TheatreViewProps> = ({ sequence }) => {
       .map((f) => ({ orderIndex: f.orderIndex, videoUrl: f.videoUrl }));
   }, [frames]);
 
-  const shareUrl = sequenceExport.latestExportUrl ?? sequence.mergedVideoUrl;
+  const shareUrl = sequenceExport.latestExportUrl;
 
   const handleCopyShareUrl = useCallback(async () => {
     if (!shareUrl) {

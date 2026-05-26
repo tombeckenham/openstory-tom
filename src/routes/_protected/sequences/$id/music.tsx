@@ -1,5 +1,4 @@
 import { MusicView, MusicViewSkeleton } from '@/components/music/music-view';
-import { SequenceVariantCompareDialog } from '@/components/sequence/sequence-variant-compare-dialog';
 import { DivergentAlternateBanner } from '@/components/staleness/divergent-alternate-banner';
 import {
   getMusicPromptStalenessFn,
@@ -18,7 +17,7 @@ import type { SequenceMusicVariant } from '@/lib/db/schema';
 import { useGenerationStream } from '@/lib/realtime/use-generation-stream';
 import { useSequenceStaleDetected } from '@/lib/realtime/use-sequence-stale-detected';
 import { usePostHog } from '@posthog/react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { toast } from 'sonner';
@@ -70,17 +69,6 @@ function MusicPage() {
   const discardVariant = useDiscardSequenceMusicVariant();
   const undiscardVariant = useUndiscardSequenceMusicVariant();
 
-  const [compareVariant, setCompareVariant] =
-    useState<SequenceMusicVariant | null>(null);
-
-  useEffect(() => {
-    if (!compareVariant || !divergentMusicVariants) return;
-    const stillExists = divergentMusicVariants.some(
-      (v) => v.id === compareVariant.id
-    );
-    if (!stillExists) setCompareVariant(null);
-  }, [compareVariant, divergentMusicVariants]);
-
   const handleDiscardWithUndo = useCallback(
     (variant: SequenceMusicVariant) => {
       const restore = () => {
@@ -100,7 +88,6 @@ function MusicPage() {
         { sequenceId, variantId: variant.id },
         {
           onSuccess: () => {
-            setCompareVariant(null);
             toast('Alternate discarded', {
               action: { label: 'Undo', onClick: restore },
             });
@@ -123,7 +110,6 @@ function MusicPage() {
         { sequenceId, variantId: variant.id },
         {
           onSuccess: () => {
-            setCompareVariant(null);
             toast.success('Alternate promoted');
           },
           onError: (error) => {
@@ -191,7 +177,6 @@ function MusicPage() {
       variantId={latestDivergent.id}
       artifact="music"
       entityType="sequence"
-      onCompare={() => setCompareVariant(latestDivergent)}
       onPromote={() => handlePromote(latestDivergent)}
       onDiscard={() => handleDiscardWithUndo(latestDivergent)}
     />
@@ -253,21 +238,6 @@ function MusicPage() {
           isRegeneratingMusicPrompt={regenerateMusicPrompt.isPending}
         />
       </div>
-      {compareVariant && (
-        <SequenceVariantCompareDialog
-          kind="music"
-          open={true}
-          onOpenChange={(open) => {
-            if (!open) setCompareVariant(null);
-          }}
-          sequence={sequence}
-          variant={compareVariant}
-          onPromote={() => handlePromote(compareVariant)}
-          onDiscard={() => handleDiscardWithUndo(compareVariant)}
-          isPromoting={promoteVariant.isPending}
-          isDiscarding={discardVariant.isPending}
-        />
-      )}
     </div>
   );
 }

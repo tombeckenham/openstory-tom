@@ -12,7 +12,8 @@ type DivergentAlternateBannerProps = {
   variantId: string;
   artifact: StalenessArtifact;
   entityType: StalenessEntityType;
-  onCompare: () => void;
+  /** Render a Compare button (inline) / make the dot clickable (corner-dot). */
+  onCompare?: () => void;
   /** Inline-only: promote button is rendered only when this is provided. */
   onPromote?: () => void;
   /** Inline-only: discard button is rendered only when this is provided. */
@@ -89,9 +90,11 @@ export const DivergentAlternateBanner: React.FC<
         you had at the time.
       </AlertDescription>
       <div className="col-start-2 mt-2 flex flex-wrap items-center gap-2">
-        <Button type="button" size="sm" variant="outline" onClick={onCompare}>
-          Compare
-        </Button>
+        {onCompare && (
+          <Button type="button" size="sm" variant="outline" onClick={onCompare}>
+            Compare
+          </Button>
+        )}
         {onPromote && (
           <Button type="button" size="sm" onClick={onPromote}>
             Promote

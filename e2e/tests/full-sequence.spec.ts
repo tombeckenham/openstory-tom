@@ -325,12 +325,19 @@ SUPER:  CORAL.  OUT NOW.
         'sequence music'
       );
 
-      // 13. Merged video playback at /sequences/:id/theatre — TheatreView
-      //     renders <VideoPlayer src={mergedVideoUrl}> once
-      //     `mergedVideoStatus === 'completed' && mergedVideoUrl`
-      //     (src/components/theatre/theatre-view.tsx).
+      // 13. Live playback at /sequences/:id/theatre — TheatreView now uses
+      //     the mediabunny SequencePlayer which renders to a <canvas>, not a
+      //     <video>. The PlayerControls (and therefore the Play button) only
+      //     mount once SequencePlayerEngine.prepare() resolves, which means
+      //     every scene video + the music URL decoded successfully via
+      //     mediabunny's UrlSource. A visible Play button is a strong signal
+      //     that the underlying media is healthy.
+      //     (src/components/theatre/sequence-player.tsx)
       await page.goto(`/sequences/${sequenceId}/theatre`);
-      await expectPlayableMedia(page.locator('video').first(), 'merged video');
+      await expect(
+        page.getByRole('button', { name: 'Play' }),
+        'theatre: Play button visible (player initialized)'
+      ).toBeVisible({ timeout: t(60_000) });
 
       // 14. Thin DB sanity tail: a UI bug that silently hides a player
       //     mustn't make the test pass green. We've already proved every

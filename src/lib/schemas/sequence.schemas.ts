@@ -124,6 +124,7 @@ export const createSequenceSchema = createInsertSchema(sequences, {
           tempPath: z.string().min(1),
           tempPublicUrl: z.string().url(),
           filename: z.string().min(1),
+          token: z.string().min(1).max(100),
           description: z.string().nullable().optional(),
           consistencyTag: z.string().nullable().optional(),
         })

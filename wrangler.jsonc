@@ -21,13 +21,6 @@
       // per-serverFn timing/outcome. The CF-emitted "fetch OK" / "GET OK"
       // lines flooded the dashboard with empty headlines.
       "invocation_logs": false,
-      // PostHog destination. The destination must exist in the Cloudflare
-      // dashboard (Workers & Pages -> openstory -> Observability -> Logs ->
-      // Destinations -> PostHog). The schema expects an array of strings.
-      // Previews use 'posthog-openstory-stg' (patched in
-      // .github/workflows/deploy-cloudflare.yml). See
-      // https://developers.cloudflare.com/workers/observability/exporting-opentelemetry-data/posthog/
-      "destinations": ["posthog-openstory-prd"],
     },
     "traces": {
       "enabled": true,
@@ -35,6 +28,13 @@
       "head_sampling_rate": 1,
     },
   },
+  // PostHog log forwarder — receives every tail event from this Worker,
+  // transforms our LogTape JSON lines into proper OTLP log records, and POSTs
+  // them to PostHog's /i/v1/logs endpoint. The forwarder is its own Worker
+  // (workers/posthog-log-forwarder/) and must be deployed first. Previews are
+  // patched to use 'openstory-log-forwarder-stg' in deploy-cloudflare.yml.
+  // See workers/posthog-log-forwarder/README.md for setup.
+  "tail_consumers": [{ "service": "openstory-log-forwarder-prd" }],
   "d1_databases": [
     {
       "binding": "DB",

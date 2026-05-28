@@ -121,6 +121,8 @@
     "cf:dev": "BUILD_CLOUDFLARE=1 wrangler dev",
     "cf:preview": "BUILD_CLOUDFLARE=1 vite preview",
     "cf:deploy:prd": "bun --bun run cf:build && wrangler deploy",
+    "cf:deploy:forwarder:prd": "wrangler deploy --env prd --config workers/posthog-log-forwarder/wrangler.jsonc",
+    "cf:deploy:forwarder:stg": "wrangler deploy --env stg --config workers/posthog-log-forwarder/wrangler.jsonc",
     "knip": "knip"
   },
   "dependencies": {

@@ -75,6 +75,7 @@ function sceneReferencing(opts: {
   elementTags?: string[];
   script?: string;
   location?: string;
+  durationSeconds?: number;
 }): Scene {
   return {
     sceneId: 's1',
@@ -82,7 +83,7 @@ function sceneReferencing(opts: {
     originalScript: { extract: opts.script ?? '', dialogue: [] },
     metadata: {
       title: 'Test scene',
-      durationSeconds: 5,
+      durationSeconds: opts.durationSeconds ?? 5,
       location: opts.location ?? '',
       timeOfDay: '',
       storyBeat: '',
@@ -237,5 +238,52 @@ describe('narrowed hash stability (the user-reported bug)', () => {
       })
     );
     expect(after).not.toBe(before);
+  });
+
+  // Issue #767: motion-music-prompts-workflow snaps the duration mid-pipeline
+  // (e.g. 7 → 8 for a model that only supports {5, 10}) and overwrites
+  // `frame.metadata` after the visual prompt hash was already stored. The
+  // visual hash must NOT care about that downstream parameter — duration is
+  // hashed by `computeFrameVideoInputHash` where it actually matters.
+  it('changing metadata.durationSeconds does NOT change the visual hash', async () => {
+    const continuityTags = {
+      characterTags: ['alice'],
+      environmentTag: 'beach',
+      elementTags: ['LOGO'],
+    };
+    const before = await computeVisualPromptInputHash(
+      narrowFramePromptContext({
+        ...baseCtx,
+        scene: sceneReferencing({ ...continuityTags, durationSeconds: 7 }),
+      })
+    );
+    const after = await computeVisualPromptInputHash(
+      narrowFramePromptContext({
+        ...baseCtx,
+        scene: sceneReferencing({ ...continuityTags, durationSeconds: 8 }),
+      })
+    );
+    expect(after).toBe(before);
+  });
+
+  it('changing metadata.durationSeconds does NOT change the motion hash', async () => {
+    const continuityTags = {
+      characterTags: ['alice'],
+      environmentTag: 'beach',
+      elementTags: ['LOGO'],
+    };
+    const before = await computeMotionPromptInputHash(
+      narrowFramePromptContext({
+        ...baseCtx,
+        scene: sceneReferencing({ ...continuityTags, durationSeconds: 7 }),
+      })
+    );
+    const after = await computeMotionPromptInputHash(
+      narrowFramePromptContext({
+        ...baseCtx,
+        scene: sceneReferencing({ ...continuityTags, durationSeconds: 8 }),
+      })
+    );
+    expect(after).toBe(before);
   });
 });

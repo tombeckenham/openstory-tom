@@ -322,13 +322,23 @@ export type PromptSceneContextHashInput = {
 
 /**
  * Strip the LLM-output fields off a scene so the hash represents only the
- * pre-prompt input surface.
+ * pre-prompt input surface. `metadata.durationSeconds` is excluded too: it is
+ * a video-generation parameter (passed directly to the motion API and hashed
+ * by `computeFrameVideoInputHash`), not a prompt driver. Including it caused
+ * issue #767 — `motion-music-prompts-workflow` snaps the duration mid-
+ * pipeline, overwriting `frame.metadata` after the visual prompt hash was
+ * already stored, so every fresh sequence's visual prompt reported as stale.
  */
-function sceneInputContext(
-  scene: Scene
-): Omit<Scene, 'prompts' | 'continuity'> {
-  const { prompts: _prompts, continuity: _continuity, ...context } = scene;
-  return context;
+function sceneInputContext(scene: Scene) {
+  const {
+    prompts: _prompts,
+    continuity: _continuity,
+    metadata,
+    ...rest
+  } = scene;
+  if (!metadata) return rest;
+  const { durationSeconds: _duration, ...metadataWithoutDuration } = metadata;
+  return { ...rest, metadata: metadataWithoutDuration };
 }
 
 /**
@@ -361,7 +371,7 @@ function sortedBibles(input: PromptSceneContextHashInput) {
  * `*_prompt_input_hash` columns on `frames` / `sequences` so legacy rows
  * fall through that safe path until they're regenerated.
  */
-const PROMPT_INPUT_HASH_VERSION = 2;
+const PROMPT_INPUT_HASH_VERSION = 3;
 
 export function computeVisualPromptInputHash(
   input: PromptSceneContextHashInput

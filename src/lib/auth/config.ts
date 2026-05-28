@@ -20,6 +20,7 @@ import { passkey as passkeyPlugin } from '@better-auth/passkey';
 import { getLogger } from '@/lib/observability/logger';
 
 const logger = getLogger(['openstory', 'auth', 'config']);
+const betterAuthLogger = getLogger(['openstory', 'auth', 'better-auth']);
 
 // Singleton auth instance cache
 let _authInstance: ReturnType<typeof createAuth> | undefined;
@@ -32,6 +33,28 @@ function createAuth() {
   const runtimeEnv = getEnv();
 
   return betterAuth({
+    // Route Better Auth's own logs through LogTape so they land in the same
+    // sink as the rest of the app (PostHog via Cloudflare destination, with
+    // category `openstory.auth.better-auth`).
+    logger: {
+      level: 'warn',
+      log: (level, message, ...args) => {
+        const props = args.length > 0 ? { args } : {};
+        switch (level) {
+          case 'error':
+            betterAuthLogger.error(message, props);
+            break;
+          case 'warn':
+            betterAuthLogger.warn(message, props);
+            break;
+          case 'info':
+            betterAuthLogger.info(message, props);
+            break;
+          default:
+            betterAuthLogger.debug(message, props);
+        }
+      },
+    },
     database: drizzleAdapter(getDb(), {
       provider: 'sqlite',
       schema: {

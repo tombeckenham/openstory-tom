@@ -85,11 +85,18 @@ export type FrameContext = TeamContext & {
 // ============================================================================
 
 /**
- * Request logging middleware - logs server function name, duration, and outcome.
- * All other middleware chains from authMiddleware which chains from this,
- * so every server function gets logging automatically.
+ * Request logging middleware. Logs at:
+ *   - error: every serverFn failure (always)
+ *   - warn:  oversize request bodies (>6 MB) and slow successes (>2s)
+ *   - info:  successes that crossed the SLOW_THRESHOLD_MS (>500ms)
+ *   - debug: fast successes (kept silent at INFO+ to avoid drowning errors)
+ *
+ * Headlines are self-describing so they're readable in PostHog/Cloudflare
+ * Logs without expanding fields.
  */
 const SIZE_WARNING_BYTES = 6 * 1024 * 1024; // 6 MB
+const SLOW_THRESHOLD_MS = 500;
+const VERY_SLOW_THRESHOLD_MS = 2000;
 const serverFnLogger = getLogger(['openstory', 'serverFn']);
 
 export const loggerMiddleware = createMiddleware({ type: 'function' }).server(
@@ -98,27 +105,52 @@ export const loggerMiddleware = createMiddleware({ type: 'function' }).server(
     const request = getRequest();
     const contentLength = request.headers.get('content-length');
     const contentLengthNum = contentLength ? Number(contentLength) : undefined;
+    const fnName = serverFnMeta.name;
+    const method = request.method;
+    const path = new URL(request.url).pathname;
     const fnLogger = serverFnLogger.with({
-      fnName: serverFnMeta.name,
-      method: request.method,
-      path: new URL(request.url).pathname,
+      fnName,
+      method,
+      path,
       contentLength: contentLengthNum,
     });
 
     if (contentLengthNum && contentLengthNum > SIZE_WARNING_BYTES) {
-      fnLogger.warn('oversize request body');
+      fnLogger.warn('serverFn {fnName} oversize body {contentLength}b', {
+        fnName,
+        contentLength: contentLengthNum,
+      });
     }
 
     try {
       const result = await next();
-      fnLogger.info('serverFn ok', {
-        durationMs: Math.round(performance.now() - start),
-      });
+      const durationMs = Math.round(performance.now() - start);
+      if (durationMs >= VERY_SLOW_THRESHOLD_MS) {
+        fnLogger.warn('serverFn {fnName} very slow {durationMs}ms', {
+          fnName,
+          durationMs,
+        });
+      } else if (durationMs >= SLOW_THRESHOLD_MS) {
+        fnLogger.info('serverFn {fnName} slow {durationMs}ms', {
+          fnName,
+          durationMs,
+        });
+      } else {
+        fnLogger.debug('serverFn {fnName} ok {durationMs}ms', {
+          fnName,
+          durationMs,
+        });
+      }
       return result;
     } catch (error) {
-      fnLogger.error('serverFn failed', {
-        durationMs: Math.round(performance.now() - start),
-        err: toErrorPayload(error),
+      const durationMs = Math.round(performance.now() - start);
+      const err = toErrorPayload(error);
+      fnLogger.error('serverFn {fnName} failed: {errCode} {errMessage}', {
+        fnName,
+        durationMs,
+        errCode: err.code,
+        errMessage: err.message,
+        err,
       });
       throw error;
     }

@@ -16,7 +16,11 @@
       "enabled": true,
       "head_sampling_rate": 1,
       "persist": true,
-      "invocation_logs": true,
+      // Disabled: redundant with our LogTape middleware (see
+      // src/functions/middleware.ts loggerMiddleware) which already emits
+      // per-serverFn timing/outcome. The CF-emitted "fetch OK" / "GET OK"
+      // lines flooded the dashboard with empty headlines.
+      "invocation_logs": false,
       // PostHog destination. Create the destination in the Cloudflare
       // dashboard first (Workers & Pages -> openstory -> Observability ->
       // Logs -> Destinations -> PostHog) and paste its id below. See

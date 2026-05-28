@@ -169,6 +169,15 @@ jobs:
               { bucket_name: 'openstory-public-assets', binding: 'R2_PUBLIC_ASSETS_BUCKET', remote: true },
               { binding: 'R2_STORAGE_BUCKET', bucket_name: 'openstory-storage-stg' }
             ];
+            // Ship Worker logs to the staging PostHog project via Cloudflare
+            // Workers Observability's native PostHog destination. The
+            // destination must already exist in the CF dashboard with the
+            // id 'posthog-openstory-stg'. See PR #765 / issue #754.
+            obj.observability = obj.observability || {};
+            obj.observability.logs = {
+              ...(obj.observability.logs || {}),
+              destinations: [{ id: 'posthog-openstory-stg' }],
+            };
             // NOTE: triggers.crons retained on previews so the reconciler
             // sweep can be tested end-to-end. Each preview has its own
             // isolated D1, so the sweep operates on preview rows only. See

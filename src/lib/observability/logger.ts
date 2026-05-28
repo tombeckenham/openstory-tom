@@ -230,15 +230,23 @@ export { getLogger };
 
 const apiLoggerRoot = getLogger(['openstory', 'api']);
 
+const API_SLOW_THRESHOLD_MS = 500;
+const API_VERY_SLOW_THRESHOLD_MS = 2000;
+
 type ApiHandlerArgs = {
   request: Request;
   params: Record<string, string>;
 };
 
 /**
- * Wrap an API route handler with structured request logging. Emits one info
- * log on success and one error log on failure or non-2xx response. Replaces
- * the legacy `withApiLogging` helper.
+ * Wrap an API route handler with structured request logging. Logs at:
+ *   - error: non-2xx responses and thrown handlers (always)
+ *   - warn:  successful requests slower than 2s
+ *   - info:  successful requests slower than 500ms
+ *   - debug: fast successful requests (kept silent at INFO+ to avoid noise)
+ *
+ * Replaces the legacy `withApiLogging` helper. Headlines include
+ * method/path/status/duration so they're readable without expanding fields.
  */
 export function logApiRequest(
   routeName: string,
@@ -250,10 +258,11 @@ export function logApiRequest(
     const start = performance.now();
     const { request } = args;
     const contentLength = request.headers.get('content-length');
+    const method = request.method;
     const path = new URL(request.url).pathname;
     const baseCtx = {
       route: routeName,
-      method: request.method,
+      method,
       path,
       contentLength: contentLength ? Number(contentLength) : undefined,
     };
@@ -261,21 +270,38 @@ export function logApiRequest(
     try {
       const response = await handler(args);
       const durationMs = Math.round(performance.now() - start);
-      const isErr = response.status >= 400;
+      const status = response.status;
 
-      if (isErr) {
+      if (status >= 400) {
         const errorDetail = await parseErrorResponse(response);
-        logger.error('api error response', {
+        logger.error(
+          'api {method} {path} {status} ({errCode}) {durationMs}ms',
+          {
+            ...baseCtx,
+            durationMs,
+            status,
+            errCode: errorDetail.code,
+            errMessage: errorDetail.message,
+            err: errorDetail,
+          }
+        );
+      } else if (durationMs >= API_VERY_SLOW_THRESHOLD_MS) {
+        logger.warn('api {method} {path} {status} very slow {durationMs}ms', {
           ...baseCtx,
           durationMs,
-          status: response.status,
-          err: errorDetail,
+          status,
+        });
+      } else if (durationMs >= API_SLOW_THRESHOLD_MS) {
+        logger.info('api {method} {path} {status} slow {durationMs}ms', {
+          ...baseCtx,
+          durationMs,
+          status,
         });
       } else {
-        logger.info('api ok', {
+        logger.debug('api {method} {path} {status} {durationMs}ms', {
           ...baseCtx,
           durationMs,
-          status: response.status,
+          status,
         });
       }
 
@@ -283,9 +309,11 @@ export function logApiRequest(
     } catch (error) {
       const durationMs = Math.round(performance.now() - start);
       const handled = handleApiError(error);
-      logger.error('api threw', {
+      logger.error('api {method} {path} threw: {errCode} {errMessage}', {
         ...baseCtx,
         durationMs,
+        errCode: handled.code,
+        errMessage: handled.message,
         err: {
           code: handled.code,
           message: handled.message,

@@ -22,6 +22,10 @@
       "workerd": "./src/lib/storage/storage-cloudflare.ts",
       "default": "./src/lib/storage/storage-s3.ts"
     },
+    "#flush-scheduler": {
+      "workerd": "./src/lib/observability/flush-scheduler.cloudflare.ts",
+      "default": "./src/lib/observability/flush-scheduler.ts"
+    },
     "#actions/*": {
       "storybook": "./src/app/actions/*/index.mock.ts",
       "default": "./src/app/actions/*/index.ts"

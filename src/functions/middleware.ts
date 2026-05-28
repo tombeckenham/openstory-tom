@@ -22,7 +22,7 @@ import {
   type ScopedDb,
 } from '@/lib/db/scoped';
 import { NotFoundError } from '@/lib/errors';
-import { flushTracing } from '@/lib/observability/langfuse';
+import { scheduleFlushTracing } from '#flush-scheduler';
 import { getLogger, toErrorPayload } from '@/lib/observability/logger';
 import { withTraceContextAsync } from '@/lib/observability/tracer';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
@@ -338,7 +338,11 @@ export const tracingMiddleware = createMiddleware({ type: 'function' })
         try {
           return await next();
         } finally {
-          await flushTracing();
+          // Schedule (don't await) so the Langfuse OTLP POST doesn't add
+          // its 100-500ms to the user-visible request duration. On
+          // Workers this uses `waitUntil` to keep the isolate alive; in
+          // dev/test it falls back to awaiting. See issue #770.
+          await scheduleFlushTracing();
         }
       }
     );

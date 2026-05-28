@@ -4,7 +4,7 @@
  */
 
 import { configureFalProxyFromEnv } from '@/lib/ai/fal-config';
-import { flushTracing } from '@/lib/observability/langfuse';
+import { scheduleFlushTracing } from '#flush-scheduler';
 import { getLogger, logApiRequest } from '@/lib/observability/logger';
 import {
   initMemoryProfiler,
@@ -120,7 +120,9 @@ export const Route = createFileRoute('/api/workflows/$')({
           }
         }
 
-        await flushTracing();
+        // Schedule (don't await) so the Langfuse OTLP POST doesn't block
+        // the workflow's HTTP response back to QStash. See issue #770.
+        await scheduleFlushTracing();
         return response;
       }),
     },

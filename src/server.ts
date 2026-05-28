@@ -9,6 +9,10 @@ import './instrumentation';
 import handler from '@tanstack/react-start/server-entry';
 import { reconcileAllStuckJobs } from '@/lib/cron/reconcile-all';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'server']);
+
 // Bindings shape from wrangler.jsonc. Only declared so the scheduled() handler
 // has a real type for its env parameter (vs. the framework default of unknown).
 interface WorkerEnv {
@@ -26,7 +30,7 @@ const exportedHandler: ExportedHandler<WorkerEnv> = {
     // See src/lib/cron/reconcile-all.ts; cron schedule is in wrangler.jsonc.
     ctx.waitUntil(
       reconcileAllStuckJobs().catch((error) => {
-        console.error('[scheduled] reconcileAllStuckJobs failed:', error);
+        logger.error('reconcileAllStuckJobs failed:', { err: error });
       })
     );
   },

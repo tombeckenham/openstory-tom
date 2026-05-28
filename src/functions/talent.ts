@@ -28,6 +28,10 @@ import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 import { authWithTeamMiddleware } from './middleware';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'serverFn', 'talent']);
+
 const talentIdSchema = z.object({ talentId: ulidSchema });
 const sheetIdSchema = z.object({ sheetId: ulidSchema });
 const mediaIdSchema = z.object({ mediaId: ulidSchema });
@@ -146,11 +150,7 @@ export const createTalentFn = createServerFn({ method: 'POST' })
     void triggerWorkflow('/library-talent-sheet', workflowInput, {
       label: buildWorkflowLabel(newTalent.id),
     }).catch((error) => {
-      console.error(
-        '[createTalentFn]',
-        'Failed to trigger talent sheet workflow:',
-        error
-      );
+      logger.error('Failed to trigger talent sheet workflow:', { err: error });
     });
 
     return newTalent;

@@ -10,7 +10,11 @@ import { drizzle } from 'drizzle-orm/d1';
 import { getEnv } from '../env/cloudflare';
 import { relations } from './schema/relations';
 
-console.log('[db-d1] Loading client');
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'db', 'client-d1']);
+
+logger.info('Loading client');
 
 type Database = ReturnType<typeof buildDb>;
 

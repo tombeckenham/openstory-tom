@@ -12,6 +12,10 @@
 import { getWorkflowClient } from './client';
 import type { WorkflowRunState } from './status';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'reconcile']);
+
 export const STALE_THRESHOLD_MS = 5 * 60 * 1000;
 
 /**
@@ -49,10 +53,9 @@ export async function resolveRunState(
     if (state === 'RUN_SUCCESS') return 'completed';
     return null;
   } catch (error) {
-    console.error(
-      `[reconcile] Failed to check workflow ${runId}:`,
-      error instanceof Error ? error.message : error
-    );
+    logger.error(`Failed to check workflow ${runId}:`, {
+      data: error instanceof Error ? error.message : error,
+    });
     return null;
   }
 }

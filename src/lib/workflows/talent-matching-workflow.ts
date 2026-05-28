@@ -10,6 +10,10 @@ import type {
 } from '../workflow/types';
 import { durableLLMCall } from './llm-call-helper';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'talent-matching']);
+
 export const talentMatchingWorkflow = createScopedWorkflow<
   TalentMatchingWorkflowInput,
   TalentMatchingWorkflowOutput
@@ -76,17 +80,13 @@ export const talentMatchingWorkflow = createScopedWorkflow<
           // Ensure each talent is only cast once (but characters can have multiple talents
           // when there are more talents than characters)
           if (usedTalentIds.has(match.talentId)) {
-            console.warn(
-              `[TalentMatching] Skipping duplicate talent ${match.talentId}`
-            );
+            logger.warn(`Skipping duplicate talent ${match.talentId}`);
             continue;
           }
 
           const talent = talentList.find((t) => t.id === match.talentId);
           if (!talent) {
-            console.warn(
-              `[TalentMatching] Talent ${match.talentId} not found in list`
-            );
+            logger.warn(`Talent ${match.talentId} not found in list`);
             continue;
           }
 
@@ -94,9 +94,7 @@ export const talentMatchingWorkflow = createScopedWorkflow<
             (c) => c.characterId === match.characterId
           );
           if (!character) {
-            console.warn(
-              `[TalentMatching] Character ${match.characterId} not found in bible`
-            );
+            logger.warn(`Character ${match.characterId} not found in bible`);
             continue;
           }
 

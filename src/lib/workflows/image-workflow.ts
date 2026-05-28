@@ -22,6 +22,10 @@ import {
 } from './image-workflow-snapshot';
 import { shouldRecordUserEdit } from './user-edit-predicate';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'image']);
+
 type ImageWorkflowResult = {
   imageUrl: string;
   frameId?: string;
@@ -35,7 +39,7 @@ export const generateImageWorkflow = createScopedWorkflow<
   async (context, scopedDb) => {
     const input = context.requestPayload;
 
-    // Upstash swallows runStarted-middleware throws to console.error, so
+    // Upstash swallows runStarted-middleware throws to logger.error, so
     // payload-tamper detection only halts the run from inside `context.run`.
     if (input.sceneSnapshot) {
       await context.run('validate-snapshot', async () => {
@@ -62,10 +66,9 @@ export const generateImageWorkflow = createScopedWorkflow<
           );
         }
 
-        console.log(
-          '[ImageWorkflow]',
-          `Starting image generation for user ${input.userId}`
-        );
+        logger.info('[ImageWorkflow]', {
+          data: `Starting image generation for user ${input.userId}`,
+        });
 
         const model = input.model ?? DEFAULT_IMAGE_MODEL;
 
@@ -81,10 +84,9 @@ export const generateImageWorkflow = createScopedWorkflow<
           );
 
           if (!frame) {
-            console.log(
-              '[ImageWorkflow]',
-              `Frame ${input.frameId} was deleted, skipping`
-            );
+            logger.info('[ImageWorkflow]', {
+              data: `Frame ${input.frameId} was deleted, skipping`,
+            });
             return null;
           }
 
@@ -123,9 +125,9 @@ export const generateImageWorkflow = createScopedWorkflow<
                 }
               }
             } catch (err) {
-              console.warn(
-                `[ImageWorkflow] Could not compute upstream hash for user-edit on frame ${input.frameId}; recording with null hash`,
-                err
+              logger.warn(
+                `Could not compute upstream hash for user-edit on frame ${input.frameId}; recording with null hash`,
+                { err }
               );
             }
 
@@ -184,10 +186,9 @@ export const generateImageWorkflow = createScopedWorkflow<
     }
 
     const imageResult = await context.run('generate-image', async () => {
-      console.log(
-        '[ImageWorkflow]',
-        `Generating image ${input.frameId} with model ${generationParams.model}`
-      );
+      logger.info('[ImageWorkflow]', {
+        data: `Generating image ${input.frameId} with model ${generationParams.model}`,
+      });
       return generateImageWithProvider(generationParams, { scopedDb });
     });
 
@@ -196,8 +197,8 @@ export const generateImageWorkflow = createScopedWorkflow<
     if (imageCostMicros > 0 && teamId && !imageResult.metadata.usedOwnKey) {
       await context.run('deduct-credits', async () => {
         if (!(await scopedDb.billing.hasEnoughCredits(imageCostMicros))) {
-          console.warn(
-            `[ImageWorkflow] Insufficient credits for team ${teamId} (cost: $${microsToUsd(imageCostMicros).toFixed(4)}), skipping deduction`
+          logger.warn(
+            `Insufficient credits for team ${teamId} (cost: $${microsToUsd(imageCostMicros).toFixed(4)}), skipping deduction`
           );
           return;
         }
@@ -264,20 +265,20 @@ export const generateImageWorkflow = createScopedWorkflow<
         });
 
         if (outcome.status === 'frame-deleted') {
-          console.log(
-            '[ImageWorkflow]',
-            `Frame ${frameId} was deleted, skipping persist`
-          );
+          logger.info('[ImageWorkflow]', {
+            data: `Frame ${frameId} was deleted, skipping persist`,
+          });
           return null;
         }
 
         if (outcome.status === 'divergent' && snapshotHash) {
-          console.log(
-            '[ImageWorkflow]',
-            `Diverged frame ${frameId}: snapshot=${snapshotHash.slice(0, 8)} current=${currentHash?.slice(0, 8)}; routed alternate to frame_variants`
-          );
+          logger.info('[ImageWorkflow]', {
+            data: `Diverged frame ${frameId}: snapshot=${snapshotHash.slice(0, 8)} current=${currentHash?.slice(0, 8)}; routed alternate to frame_variants`,
+          });
         } else {
-          console.log('[ImageWorkflow]', `Uploaded to storage: ${upload.path}`);
+          logger.info('[ImageWorkflow]', {
+            data: `Uploaded to storage: ${upload.path}`,
+          });
         }
 
         return { imageUrl: outcome.imageUrl };
@@ -297,10 +298,9 @@ export const generateImageWorkflow = createScopedWorkflow<
         );
 
         if (!updatedFrame) {
-          console.log(
-            '[ImageWorkflow]',
-            `Frame ${frameId} was deleted, skipping preview update`
-          );
+          logger.info('[ImageWorkflow]', {
+            data: `Frame ${frameId} was deleted, skipping preview update`,
+          });
           return;
         }
 
@@ -349,18 +349,17 @@ export const generateImageWorkflow = createScopedWorkflow<
                 { frameId: input.frameId, status: 'failed', model }
               );
             } catch (emitError) {
-              console.error(
-                `[ImageWorkflow] Failed to emit failure event for sequence ${input.sequenceId} frame ${input.frameId}:`,
-                emitError
+              logger.error(
+                `Failed to emit failure event for sequence ${input.sequenceId} frame ${input.frameId}:`,
+                { err: emitError }
               );
             }
           }
         }
 
-        console.error(
-          '[ImageWorkflow]',
-          `Image generation failed for frame ${input.frameId}: ${error}`
-        );
+        logger.error('[ImageWorkflow]', {
+          data: `Image generation failed for frame ${input.frameId}: ${error}`,
+        });
       }
 
       return `Image generation failed for frame ${input.frameId}`;

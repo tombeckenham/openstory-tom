@@ -5,6 +5,10 @@
 
 import { getEnv } from '#env';
 import { Resend } from 'resend';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'services', 'email-service']);
+
 // @ts-ignore - resolved via package.json imports
 
 let _resend: Resend | undefined = undefined;
@@ -65,7 +69,7 @@ async function sendEmail({
 
   // Check if Resend is configured
   if (!resend) {
-    console.error('[Email] Resend not configured - missing RESEND_API_KEY');
+    logger.error('Resend not configured - missing RESEND_API_KEY');
     return {
       success: false,
       error: 'Email service not configured',
@@ -84,14 +88,14 @@ async function sendEmail({
     });
 
     if (error) {
-      console.error('[Email] Failed to send:', error);
+      logger.error('Failed to send:', { err: error });
       return { success: false, error: error.message };
     }
 
-    console.log('[Email] Sent successfully:', data.id);
+    logger.info('Sent successfully:', { data: data.id });
     return { success: true };
   } catch (error) {
-    console.error('[Email] Exception:', error);
+    logger.error('Exception:', { err: error });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to send email',

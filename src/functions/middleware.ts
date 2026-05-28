@@ -21,9 +21,9 @@ import {
   resolveUserTeam,
   type ScopedDb,
 } from '@/lib/db/scoped';
-import { NotFoundError, OpenStoryError } from '@/lib/errors';
+import { NotFoundError } from '@/lib/errors';
 import { flushTracing } from '@/lib/observability/langfuse';
-import { emitLog } from '@/lib/observability/structured-log';
+import { getLogger, toErrorPayload } from '@/lib/observability/logger';
 import { withTraceContextAsync } from '@/lib/observability/tracer';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
 import type { Frame, Sequence } from '@/types/database';
@@ -90,67 +90,35 @@ export type FrameContext = TeamContext & {
  * so every server function gets logging automatically.
  */
 const SIZE_WARNING_BYTES = 6 * 1024 * 1024; // 6 MB
+const serverFnLogger = getLogger(['openstory', 'serverFn']);
 
 export const loggerMiddleware = createMiddleware({ type: 'function' }).server(
   async ({ next, serverFnMeta }) => {
-    const fnName = serverFnMeta.name;
     const start = performance.now();
     const request = getRequest();
     const contentLength = request.headers.get('content-length');
     const contentLengthNum = contentLength ? Number(contentLength) : undefined;
-    const path = new URL(request.url).pathname;
+    const fnLogger = serverFnLogger.with({
+      fnName: serverFnMeta.name,
+      method: request.method,
+      path: new URL(request.url).pathname,
+      contentLength: contentLengthNum,
+    });
 
     if (contentLengthNum && contentLengthNum > SIZE_WARNING_BYTES) {
-      emitLog({
-        level: 'warn',
-        source: 'serverFn',
-        name: fnName,
-        method: request.method,
-        path,
-        durationMs: 0,
-        contentLength: contentLengthNum,
-        status: 'ok',
-      });
+      fnLogger.warn('oversize request body');
     }
 
     try {
       const result = await next();
-      const durationMs = Math.round(performance.now() - start);
-      emitLog({
-        level: 'info',
-        source: 'serverFn',
-        name: fnName,
-        method: request.method,
-        path,
-        durationMs,
-        contentLength: contentLengthNum,
-        status: 'ok',
+      fnLogger.info('serverFn ok', {
+        durationMs: Math.round(performance.now() - start),
       });
       return result;
     } catch (error) {
-      const durationMs = Math.round(performance.now() - start);
-      const errorLog =
-        error instanceof OpenStoryError
-          ? {
-              code: error.code,
-              message: error.message,
-              statusCode: error.statusCode,
-            }
-          : {
-              code: 'UNKNOWN',
-              message: error instanceof Error ? error.message : String(error),
-            };
-
-      emitLog({
-        level: 'error',
-        source: 'serverFn',
-        name: fnName,
-        method: request.method,
-        path,
-        durationMs,
-        contentLength: contentLengthNum,
-        status: 'error',
-        error: errorLog,
+      fnLogger.error('serverFn failed', {
+        durationMs: Math.round(performance.now() - start),
+        err: toErrorPayload(error),
       });
       throw error;
     }

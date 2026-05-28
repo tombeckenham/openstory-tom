@@ -38,6 +38,10 @@ import type {
 import { generateImageWorkflow } from './image-workflow';
 import { generateMotionWorkflow } from './motion-workflow';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'replace-element']);
+
 export type FrameResult =
   | { frameId: string; success: true; imageUrl: string }
   | { frameId: string; success: false; error: string };
@@ -107,7 +111,7 @@ export function settledToResult(
   if (settled.status === 'fulfilled') return settled.value;
   const message = rejectionReasonMessage(settled.reason);
   const id = frameId ?? 'unknown';
-  console.error('[ReplaceElementWorkflow] Per-frame promise rejected', {
+  logger.error('Per-frame promise rejected', {
     frameId: id,
     reason: settled.reason,
   });
@@ -147,10 +151,7 @@ async function safeEmit(
   try {
     await fn();
   } catch (e) {
-    console.error(
-      `[ReplaceElementWorkflow] emit ${label} for ${sequenceId} failed:`,
-      e
-    );
+    logger.error(`emit ${label} for ${sequenceId} failed:`, { err: e });
   }
 }
 
@@ -164,10 +165,9 @@ export const replaceElementWorkflow = createScopedWorkflow<
     let token = input.token;
     const label = buildWorkflowLabel(sequenceId);
 
-    console.log(
-      '[ReplaceElementWorkflow]',
-      `Starting replace for element ${token} (${elementId}) — ${affectedFrameIds.length} affected frames`
-    );
+    logger.info('[ReplaceElementWorkflow]', {
+      data: `Starting replace for element ${token} (${elementId}) — ${affectedFrameIds.length} affected frames`,
+    });
 
     // Fires before vision so subscribers see the full lifecycle even if
     // vision throws.
@@ -304,10 +304,9 @@ export const replaceElementWorkflow = createScopedWorkflow<
       }
     });
     if (skippedDeletedFrameIds.length > 0) {
-      console.warn(
-        '[ReplaceElementWorkflow]',
-        `Skipping ${skippedDeletedFrameIds.length} deleted frame(s): ${skippedDeletedFrameIds.join(', ')}`
-      );
+      logger.warn('[ReplaceElementWorkflow]', {
+        data: `Skipping ${skippedDeletedFrameIds.length} deleted frame(s): ${skippedDeletedFrameIds.join(', ')}`,
+      });
     }
 
     const editPrompt = buildEditPrompt({
@@ -386,10 +385,9 @@ export const replaceElementWorkflow = createScopedWorkflow<
             : isFailed
               ? 'failed'
               : 'no imageUrl';
-          console.error(
-            '[ReplaceElementWorkflow]',
-            `Image edit failed frame=${frame.id} reason=${reason}`
-          );
+          logger.error('[ReplaceElementWorkflow]', {
+            data: `Image edit failed frame=${frame.id} reason=${reason}`,
+          });
           return {
             frameId: frame.id,
             success: false,
@@ -435,10 +433,9 @@ export const replaceElementWorkflow = createScopedWorkflow<
     let videoSuccessCount = 0;
     let videoFailedCount = 0;
     if (framesNeedingVideoRegen.length > 0) {
-      console.log(
-        '[ReplaceElementWorkflow]',
-        `Regenerating video for ${framesNeedingVideoRegen.length} frame(s) tied to element ${token}`
-      );
+      logger.info('[ReplaceElementWorkflow]', {
+        data: `Regenerating video for ${framesNeedingVideoRegen.length} frame(s) tied to element ${token}`,
+      });
       const videoSettled = await Promise.allSettled(
         framesNeedingVideoRegen.map(async (frame) => {
           const newThumbnailUrl = successByFrameId.get(frame.id);
@@ -486,10 +483,9 @@ export const replaceElementWorkflow = createScopedWorkflow<
         } else {
           videoFailedCount += 1;
           if (settled.status === 'rejected') {
-            console.error(
-              '[ReplaceElementWorkflow] motion regen rejected:',
-              rejectionReasonMessage(settled.reason)
-            );
+            logger.error('motion regen rejected:', {
+              data: rejectionReasonMessage(settled.reason),
+            });
           }
         }
       }
@@ -511,10 +507,9 @@ export const replaceElementWorkflow = createScopedWorkflow<
       )
     );
 
-    console.log(
-      '[ReplaceElementWorkflow]',
-      `Completed: ${outcome.successCount} edited, ${outcome.failedCount} failed, ${skippedDeletedFrameIds.length} skipped-deleted, videos ${videoSuccessCount}/${videoFailedCount} for element ${token}`
-    );
+    logger.info('[ReplaceElementWorkflow]', {
+      data: `Completed: ${outcome.successCount} edited, ${outcome.failedCount} failed, ${skippedDeletedFrameIds.length} skipped-deleted, videos ${videoSuccessCount}/${videoFailedCount} for element ${token}`,
+    });
 
     return {
       elementId,
@@ -546,9 +541,9 @@ export const replaceElementWorkflow = createScopedWorkflow<
           );
         }
       } catch (e) {
-        console.error(
-          '[ReplaceElementWorkflow] Failed to read current element status; assuming vision in-flight:',
-          e
+        logger.error(
+          'Failed to read current element status; assuming vision in-flight:',
+          { err: e }
         );
       }
 
@@ -560,10 +555,7 @@ export const replaceElementWorkflow = createScopedWorkflow<
             error
           );
         } catch (e) {
-          console.error(
-            '[ReplaceElementWorkflow] Failed to persist vision-failed status:',
-            e
-          );
+          logger.error('Failed to persist vision-failed status:', { err: e });
         }
       }
 
@@ -574,10 +566,9 @@ export const replaceElementWorkflow = createScopedWorkflow<
         )
       );
 
-      console.error(
-        '[ReplaceElementWorkflow]',
-        `Replace failed for element ${input.token}: ${error}`
-      );
+      logger.error('[ReplaceElementWorkflow]', {
+        data: `Replace failed for element ${input.token}: ${error}`,
+      });
 
       return `Replace element failed for ${input.token}`;
     },

@@ -35,6 +35,10 @@ import { aspectRatioToImageSize } from '../constants/aspect-ratios';
 import { buildPreviewPrompt } from '../prompts/poster-prompt';
 import { triggerWorkflow } from '../workflow/client';
 import { buildWorkflowLabel } from '../workflow/labels';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'scene-split']);
+
 import {
   isOpenRouterAuthError,
   sanitizeFailResponse,
@@ -99,7 +103,7 @@ export const sceneSplitWorkflow = createScopedWorkflow<
         const openRouterApiKeyInfo =
           await scopedDb.apiKeys.resolveKey('openrouter');
 
-        console.log(`[LLM:${logName}] Starting streaming call`, {
+        logger.info(`[LLM:${logName}] Starting streaming call`, {
           model: modelId,
           keySource: openRouterApiKeyInfo.source,
           messageCount: messages.length,
@@ -134,14 +138,14 @@ export const sceneSplitWorkflow = createScopedWorkflow<
           const events = parser.feed(chunk.accumulated);
 
           if (chunkCount % 20 === 0) {
-            console.log(
+            logger.info(
               `[Stream:${logName}] chunk #${chunkCount} | ${finalText.length} chars | ${frameMapping.length} frames so far`
             );
           }
 
           for (const event of events) {
             if (event.type === 'title' && sequenceId) {
-              console.log(
+              logger.info(
                 `[Stream:${logName}] Title detected: "${event.title}" (chunk #${chunkCount})`
               );
               await scopedDb.sequences.updateTitle(sequenceId, event.title);
@@ -152,7 +156,7 @@ export const sceneSplitWorkflow = createScopedWorkflow<
             }
 
             if (event.type === 'characterBible' && sequenceId) {
-              console.log(
+              logger.info(
                 `[Stream:${logName}] Character bible detected (${event.bible.length} entries), advancing to phase 2`
               );
               await getGenerationChannel(sequenceId).emit(
@@ -165,7 +169,7 @@ export const sceneSplitWorkflow = createScopedWorkflow<
             }
 
             if (event.type === 'scene:updated') {
-              console.log(
+              logger.info(
                 // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
                 `[Stream:${logName}] Scene ${event.index + 1} title updated: "${event.scene.metadata?.title}" (chunk #${chunkCount})`
               );
@@ -202,7 +206,7 @@ export const sceneSplitWorkflow = createScopedWorkflow<
             }
 
             if (event.type === 'scene') {
-              console.log(
+              logger.info(
                 // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
                 `[Stream:${logName}] Scene ${event.index + 1} complete: "${event.scene.metadata?.title}" (chunk #${chunkCount}, ${finalText.length} chars)`
               );
@@ -236,7 +240,7 @@ export const sceneSplitWorkflow = createScopedWorkflow<
                   videoStatus: 'pending',
                 } satisfies NewFrame);
 
-                console.log(
+                logger.info(
                   `[Stream:${logName}] Frame created: ${frame.id} for scene "${event.scene.sceneId}"`
                 );
 
@@ -330,7 +334,7 @@ export const sceneSplitWorkflow = createScopedWorkflow<
           );
         }
         const parsed = parsedResult;
-        console.log(
+        logger.info(
           `[Stream:${logName}] Complete | ${chunkCount} chunks | ${parsed.scenes.length} scenes | ${finalText.length} chars`
         );
 
@@ -480,7 +484,7 @@ export const sceneSplitWorkflow = createScopedWorkflow<
     failureFunction: async ({ context, scopedDb, failResponse }) => {
       const { sequenceId } = context.requestPayload;
       const error = sanitizeFailResponse(failResponse);
-      console.error('[SceneSplitWorkflow] Failure:', error);
+      logger.error('Failure:', { err: error });
 
       let userMessage = 'Scene splitting failed';
       if (

@@ -24,6 +24,10 @@ import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
 import { uploadResponse } from '@/lib/storage/upload-response';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'character-bible']);
+
 import type {
   CharacterBibleWorkflowInput,
   TalentCharacterMatch,
@@ -228,10 +232,9 @@ export const characterBibleWorkflow = createScopedWorkflow<
   {
     failureFunction: async ({ failResponse }) => {
       const error = sanitizeFailResponse(failResponse);
-      console.error(
-        '[CharacterBibleWorkflow]',
-        `Character sheet generation failed: ${error}`
-      );
+      logger.error('[CharacterBibleWorkflow]', {
+        data: `Character sheet generation failed: ${error}`,
+      });
       return `Character sheet generation failed`;
     },
   }

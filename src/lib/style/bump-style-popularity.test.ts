@@ -1,12 +1,30 @@
-import { beforeEach, describe, expect, it, mock, spyOn } from 'bun:test';
+import { beforeEach, describe, expect, it, mock } from 'bun:test';
 
 const mockCapture = mock();
 const mockGetClient: ReturnType<
   typeof mock<() => { capture: typeof mockCapture } | null>
 > = mock(() => ({ capture: mockCapture }));
 
+const mockLoggerError = mock();
+const mockLoggerInfo = mock();
+const mockLoggerWarn = mock();
+const mockLoggerDebug = mock();
+const mockLoggerWith = mock(() => mockLoggerInstance);
+const mockLoggerInstance = {
+  info: mockLoggerInfo,
+  warn: mockLoggerWarn,
+  error: mockLoggerError,
+  debug: mockLoggerDebug,
+  with: mockLoggerWith,
+  getChild: () => mockLoggerInstance,
+};
+
 mock.module('@/lib/posthog-server', () => ({
   getPostHogClient: mockGetClient,
+}));
+
+mock.module('@/lib/observability/logger', () => ({
+  getLogger: () => mockLoggerInstance,
 }));
 
 const { bumpStylePopularity } = await import('./bump-style-popularity');
@@ -21,6 +39,7 @@ const baseArgs = {
 describe('bumpStylePopularity', () => {
   beforeEach(() => {
     mockCapture.mockClear();
+    mockLoggerError.mockClear();
     mockGetClient.mockReset();
     mockGetClient.mockImplementation(() => ({ capture: mockCapture }));
   });
@@ -64,32 +83,27 @@ describe('bumpStylePopularity', () => {
   it('does not throw or reject when incrementUsage rejects', async () => {
     const err = new Error('db down');
     const incrementUsage = mock(() => Promise.reject(err));
-    const errorSpy = spyOn(console, 'error').mockImplementation(() => {});
 
-    try {
-      // Synchronous call must not throw.
-      expect(() =>
-        bumpStylePopularity({
-          ...baseArgs,
-          scopedDb: { styles: { incrementUsage } },
-        })
-      ).not.toThrow();
+    // Synchronous call must not throw.
+    expect(() =>
+      bumpStylePopularity({
+        ...baseArgs,
+        scopedDb: { styles: { incrementUsage } },
+      })
+    ).not.toThrow();
 
-      // Let microtasks flush so the .catch handler runs.
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    // Let microtasks flush so the .catch handler runs.
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-      expect(errorSpy).toHaveBeenCalledWith(
-        '[styles] incrementUsage failed',
-        expect.objectContaining({
-          styleId: 'style_01',
-          teamId: 'team_01',
-          userId: 'user_01',
-          sequenceCount: 1,
-          err,
-        })
-      );
-    } finally {
-      errorSpy.mockRestore();
-    }
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      'incrementUsage failed',
+      expect.objectContaining({
+        styleId: 'style_01',
+        teamId: 'team_01',
+        userId: 'user_01',
+        sequenceCount: 1,
+        err,
+      })
+    );
   });
 });

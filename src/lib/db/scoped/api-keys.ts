@@ -14,6 +14,10 @@ import {
 } from '@/lib/crypto/api-key-encryption';
 import { type ApiKeyProvider, teamApiKeys } from '@/lib/db/schema';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'db', 'api-keys']);
+
 type ApiKeyInfo = {
   id: string;
   provider: ApiKeyProvider;
@@ -120,7 +124,7 @@ export function createApiKeysReadMethods(db: Database, teamId: string) {
 
     if (row.isInvalid) {
       const reason = row.invalidReason ?? 'Team API key marked invalid';
-      console.warn('[api-keys] Falling back to platform key', {
+      logger.warn('Falling back to platform key', {
         provider,
         teamId,
         reason,
@@ -143,7 +147,7 @@ export function createApiKeysReadMethods(db: Database, teamId: string) {
         err instanceof Error
           ? `Could not decrypt stored key: ${err.message}`
           : 'Could not decrypt stored key';
-      console.error('[api-keys] Decryption failed, marking key invalid', {
+      logger.error('Decryption failed, marking key invalid', {
         provider,
         teamId,
         error: err,

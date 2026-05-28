@@ -5,6 +5,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { locationLibraryKeys } from './use-location-library';
 import { libraryLocationKeys } from './use-sequence-locations';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'ui', 'use-location-sheets-realtime']);
+
 type SheetProgressEvent = {
   event: string;
   data: {
@@ -63,10 +67,7 @@ export function useLocationSheetsRealtime(locationIds: string[] = []) {
           }
         })
         .catch((err: Error) => {
-          console.error(
-            `[useLocationSheetsRealtime] Failed to fetch history for location:${id}:`,
-            err
-          );
+          logger.error(`Failed to fetch history for location:${id}:`, { err });
         });
     }
   }, [locationIds]);

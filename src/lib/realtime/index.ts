@@ -2,6 +2,10 @@ import { getRedis } from '#redis';
 import { Realtime } from '@upstash/realtime';
 import { z } from 'zod';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'realtime', 'index']);
+
 /**
  * Realtime event schema for generation progress streaming.
  *
@@ -368,8 +372,8 @@ export function getRealtime() {
  * bug at the call site.
  */
 function noopChannel(label: string): { emit: () => null } {
-  console.warn(
-    `[realtime] dropping ${label} emit: missing channel id — caller should guard on id presence before emitting`
+  logger.warn(
+    `dropping ${label} emit: missing channel id — caller should guard on id presence before emitting`
   );
   return { emit: () => null };
 }

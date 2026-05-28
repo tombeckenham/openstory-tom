@@ -35,6 +35,10 @@ import {
 } from './concatenated-video-source';
 import { decodeAudioTrack } from './decode-audio-track';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'sequence-player', 'export']);
+
 const MAX_TOTAL_DURATION_SECONDS = 5 * 60;
 const TARGET_SAMPLE_RATE = 48_000;
 const TARGET_CHANNELS = 2;
@@ -158,9 +162,9 @@ export async function exportSequence(
               });
             }
           } catch (err) {
-            console.warn(
+            logger.warn(
               `exportSequence: failed to decode embedded audio for scene ${entry.sceneIndex}`,
-              err
+              { err }
             );
           }
           onProgress?.({

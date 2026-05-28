@@ -17,6 +17,10 @@ import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 import { authWithTeamMiddleware } from './middleware';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'serverFn', 'location-library']);
+
 type ProcessedImage = { url: string; path: string };
 
 /**
@@ -146,11 +150,9 @@ export const createLibraryLocationFn = createServerFn({ method: 'POST' })
     void triggerWorkflow('/library-location-sheet', workflowInput, {
       label: buildWorkflowLabel(newLocation.id),
     }).catch((error) => {
-      console.error(
-        '[createLibraryLocationFn]',
-        'Failed to trigger location sheet workflow:',
-        error
-      );
+      logger.error('Failed to trigger location sheet workflow:', {
+        err: error,
+      });
     });
 
     return { ...newLocation, sequenceTitle: 'Library' as const };

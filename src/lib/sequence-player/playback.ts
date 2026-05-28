@@ -35,6 +35,10 @@ import {
 } from './concatenated-video-source';
 import { decodeAudioTrack } from './decode-audio-track';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'sequence-player', 'playback']);
+
 export type SequencePlayerOptions = {
   canvas: HTMLCanvasElement;
   scenes: SceneInput[];
@@ -169,9 +173,9 @@ export class SequencePlayerEngine {
         if (!buffer) continue;
         dialogueClips.push({ buffer, sceneOffsetSeconds });
       } catch (err) {
-        console.warn(
+        logger.warn(
           `SequencePlayerEngine: failed to decode embedded audio for scene ${sceneIndex}`,
-          err
+          { err }
         );
       }
     }

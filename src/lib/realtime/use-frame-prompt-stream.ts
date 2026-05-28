@@ -3,6 +3,10 @@ import { useCallback, useEffect, useReducer } from 'react';
 import { z } from 'zod';
 import { useRealtime } from './client';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'realtime', 'use-frame-prompt-stream']);
+
 export type FramePromptKind = 'visual' | 'motion';
 
 const historyPayloadSchema = z.object({
@@ -115,10 +119,9 @@ export function useFramePromptStream(
         for (const evt of events) {
           const result = historyPayloadSchema.safeParse(JSON.parse(evt.data));
           if (!result.success) {
-            console.error(
-              `[useFramePromptStream] Invalid history event "${evt.event}":`,
-              result.error
-            );
+            logger.error(`Invalid history event "${evt.event}":`, {
+              data: result.error,
+            });
             continue;
           }
           const parsed = result.data;
@@ -146,10 +149,9 @@ export function useFramePromptStream(
         }
       })
       .catch((error: Error) => {
-        console.error(
-          `[useFramePromptStream] Failed to fetch history for "${channelId}":`,
-          error
-        );
+        logger.error(`Failed to fetch history for "${channelId}":`, {
+          err: error,
+        });
       });
     return () => {
       cancelled = true;

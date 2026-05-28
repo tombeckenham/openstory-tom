@@ -18,6 +18,10 @@ import type { SpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { getPostHogClient } from '@/lib/posthog-server';
 import { endSpanSuccess, startGenAISpan, withTraceContext } from './tracer';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'observability', 'langfuse']);
+
 const processors: SpanProcessor[] = [];
 let initialized = false;
 
@@ -56,11 +60,11 @@ export function initTracing(): void {
         exportMode: 'batched',
       })
     );
-    console.log('[Tracing] Langfuse exporter enabled');
+    logger.info('Langfuse exporter enabled');
   }
 
   if (processors.length === 0) {
-    console.log('[Tracing] Disabled — no exporters configured');
+    logger.info('Disabled — no exporters configured');
     return;
   }
 
@@ -68,10 +72,10 @@ export function initTracing(): void {
     const provider = new BasicTracerProvider({ spanProcessors: processors });
     trace.setGlobalTracerProvider(provider);
   } catch (error) {
-    console.error('[Tracing] Failed to register provider:', error);
+    logger.error('Failed to register provider:', { err: error });
     return;
   }
-  console.log('[Tracing] Initialized with %d exporter(s)', processors.length);
+  logger.info('Initialized with %d exporter(s)', { data: processors.length });
 }
 
 /**

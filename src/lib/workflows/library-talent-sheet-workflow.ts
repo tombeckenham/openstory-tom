@@ -25,6 +25,10 @@ import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
 import { WorkflowValidationError } from '@/lib/workflow/errors';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'library-talent-sheet']);
+
 import type {
   LibraryTalentSheetWorkflowInput,
   LibraryTalentSheetWorkflowResult,
@@ -67,10 +71,9 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
         input.referenceImageUrls && input.referenceImageUrls.length > 0;
       const imageCount = input.referenceImageUrls?.length ?? 0;
 
-      console.log(
-        '[LibraryTalentSheetWorkflow]',
-        `Starting sheet generation for talent ${input.talentName}${hasReferenceImages ? ` with ${imageCount} reference images` : ' (no reference images - generating from name/description)'}`
-      );
+      logger.info('[LibraryTalentSheetWorkflow]', {
+        data: `Starting sheet generation for talent ${input.talentName}${hasReferenceImages ? ` with ${imageCount} reference images` : ' (no reference images - generating from name/description)'}`,
+      });
 
       // Emit generating status
       await getTalentChannel(input.talentId).emit('talent.sheet:progress', {
@@ -90,10 +93,9 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
         hasReferenceImages
       );
 
-      console.log(
-        '[LibraryTalentSheetWorkflow]',
-        `Generating sheet with model ${model}${hasReferenceImages ? ' (with reference images)' : ' (text-to-image only)'}`
-      );
+      logger.info('[LibraryTalentSheetWorkflow]', {
+        data: `Generating sheet with model ${model}${hasReferenceImages ? ' (with reference images)' : ' (text-to-image only)'}`,
+      });
 
       const generationParams: ImageGenerationParams = {
         model,
@@ -131,7 +133,9 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
 
     // Step 3: Upload to R2 storage
     const storageResult = await context.run('upload-to-storage', async () => {
-      console.log('[LibraryTalentSheetWorkflow]', `Uploading sheet to storage`);
+      logger.info('[LibraryTalentSheetWorkflow]', {
+        data: `Uploading sheet to storage`,
+      });
 
       // Fetch and stream directly to R2
       const response = await fetch(imageUrl);
@@ -169,10 +173,9 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
         kind: 'convergent' | 'divergent';
         sheet: Awaited<ReturnType<typeof scopedDb.talent.sheets.create>>;
       }> => {
-        console.log(
-          '[LibraryTalentSheetWorkflow]',
-          `Creating sheet record in database`
-        );
+        logger.info('[LibraryTalentSheetWorkflow]', {
+          data: `Creating sheet record in database`,
+        });
         // Compute divergence first so we can mark the talent_sheets row at
         // creation time. A divergent sheet must NOT be eligible to back-fill
         // the talent's primary identity in any UI fallback chain (e.g.
@@ -206,7 +209,7 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
           }));
 
         if (decision.kind === 'divergent') {
-          console.warn('[LibraryTalentSheetWorkflow] divergence detected', {
+          logger.warn('divergence detected', {
             talentId: input.talentId,
             snapshotInputHash: decision.snapshotInputHash,
             currentInputHash: decision.currentInputHash,
@@ -255,10 +258,9 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
           sheetId: sheet.id,
         });
       });
-      console.log(
-        '[LibraryTalentSheetWorkflow]',
-        `Diverged for ${input.talentName}; saved as variant`
-      );
+      logger.info('[LibraryTalentSheetWorkflow]', {
+        data: `Diverged for ${input.talentName}; saved as variant`,
+      });
       return {
         sheetId: sheet.id,
         sheetImageUrl: storageResult.url,
@@ -289,10 +291,9 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
           hasReferenceImages
         );
 
-        console.log(
-          '[LibraryTalentSheetWorkflow]',
-          `Generating headshot with model ${model}${hasReferenceImages ? ' (with reference images)' : ' (text-to-image only)'}`
-        );
+        logger.info('[LibraryTalentSheetWorkflow]', {
+          data: `Generating headshot with model ${model}${hasReferenceImages ? ' (with reference images)' : ' (text-to-image only)'}`,
+        });
 
         const generationParams: ImageGenerationParams = {
           model,
@@ -332,10 +333,9 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
     const headshotStorageResult = await context.run(
       'upload-headshot-to-storage',
       async () => {
-        console.log(
-          '[LibraryTalentSheetWorkflow]',
-          `Uploading headshot to storage`
-        );
+        logger.info('[LibraryTalentSheetWorkflow]', {
+          data: `Uploading headshot to storage`,
+        });
 
         // Fetch and stream directly to R2
         const response = await fetch(headshotUrl);
@@ -364,10 +364,9 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
 
     // Step 7: Update talent with headshot
     await context.run('update-talent-headshot', async () => {
-      console.log(
-        '[LibraryTalentSheetWorkflow]',
-        `Updating talent with headshot`
-      );
+      logger.info('[LibraryTalentSheetWorkflow]', {
+        data: `Updating talent with headshot`,
+      });
 
       await scopedDb.talent.update(input.talentId, {
         imageUrl: headshotStorageResult.url,
@@ -377,10 +376,9 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
 
     // Emit completed status
     await context.run('emit-completed', async () => {
-      console.log(
-        '[LibraryTalentSheetWorkflow]',
-        `Talent sheet workflow completed for ${input.talentName}`
-      );
+      logger.info('[LibraryTalentSheetWorkflow]', {
+        data: `Talent sheet workflow completed for ${input.talentName}`,
+      });
 
       await getTalentChannel(input.talentId).emit('talent.sheet:progress', {
         talentId: input.talentId,
@@ -404,10 +402,9 @@ export const libraryTalentSheetWorkflow = createScopedWorkflow<
       const input = context.requestPayload;
       const error = sanitizeFailResponse(failResponse);
 
-      console.error(
-        '[LibraryTalentSheetWorkflow]',
-        `Sheet generation failed for talent ${input.talentName}: ${error}`
-      );
+      logger.error('[LibraryTalentSheetWorkflow]', {
+        data: `Sheet generation failed for talent ${input.talentName}: ${error}`,
+      });
 
       // Emit failed status
       await getTalentChannel(input.talentId).emit('talent.sheet:progress', {

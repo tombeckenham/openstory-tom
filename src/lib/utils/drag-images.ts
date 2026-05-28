@@ -15,6 +15,10 @@
 
 import { toast } from 'sonner';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'utils', 'drag-images']);
+
 const FILENAME_FALLBACK = 'image';
 
 function extensionForMime(mime: string): string {
@@ -62,7 +66,7 @@ async function fetchAsImageFile(url: string): Promise<File | null> {
   try {
     const response = await fetch(url, { mode: 'cors', credentials: 'omit' });
     if (!response.ok) {
-      console.warn('[drag-images] fetch returned non-ok status', {
+      logger.warn('fetch returned non-ok status', {
         url,
         status: response.status,
       });
@@ -70,7 +74,7 @@ async function fetchAsImageFile(url: string): Promise<File | null> {
     }
     const blob = await response.blob();
     if (!blob.type.startsWith('image/')) {
-      console.warn('[drag-images] fetched resource is not an image', {
+      logger.warn('fetched resource is not an image', {
         url,
         type: blob.type,
       });
@@ -79,7 +83,7 @@ async function fetchAsImageFile(url: string): Promise<File | null> {
     const name = filenameFromUrl(url, blob.type);
     return new File([blob], name, { type: blob.type });
   } catch (err) {
-    console.warn('[drag-images] fetch failed (likely CORS)', { url, err });
+    logger.warn('fetch failed (likely CORS)', { url, err });
     return null;
   }
 }

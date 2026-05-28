@@ -22,6 +22,10 @@ import type {
   ShotVariantWorkflowInput,
 } from '@/lib/workflow/types';
 import { generateImageWorkflow } from './image-workflow';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'frame-images']);
+
 import {
   matchCharactersToScene,
   matchElementsToScene,
@@ -274,10 +278,9 @@ export const frameImagesWorkflow = createScopedWorkflow<
     failureFunction: async ({ context, failResponse }) => {
       const input = context.requestPayload;
       const error = sanitizeFailResponse(failResponse);
-      console.error(
-        '[FrameImagesWorkflow]',
-        `Frame image generation failed for sequence ${input.sequenceId}: ${error}`
-      );
+      logger.error('[FrameImagesWorkflow]', {
+        data: `Frame image generation failed for sequence ${input.sequenceId}: ${error}`,
+      });
       return `Frame image generation failed for sequence ${input.sequenceId}: ${error}`;
     },
     snapshot: {

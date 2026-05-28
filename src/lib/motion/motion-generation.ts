@@ -54,6 +54,10 @@ export type GenerateMotionOptions = {
 
 import { buildModelInput } from './build-model-input';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'motion', 'motion-generation']);
+
 /** Snap a requested duration to the nearest valid value for a model.
  *  Reads supported durations from the model's JSON Schema and snaps directly. */
 export function snapDuration(
@@ -97,7 +101,7 @@ export async function submitMotionJob(
     throw new Error('Truncated prompt is not a string');
   }
   // Log the submission details
-  console.log(`[Motion Service] Submitting job with model: ${modelConfig.id}`, {
+  logger.info(`Submitting job with model: ${modelConfig.id}`, {
     provider: modelConfig.provider,
     promptLength: optimisedPrompt.length,
     modelOptions,
@@ -121,7 +125,7 @@ export async function submitMotionJob(
   });
 
   // Log the job submission details
-  console.log(`[Motion Service] Job submitted: ${job.jobId}`);
+  logger.info(`Job submitted: ${job.jobId}`);
 
   return {
     jobId: job.jobId,

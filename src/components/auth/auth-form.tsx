@@ -19,6 +19,10 @@ import { usePostHog } from '@posthog/react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'ui', 'auth', 'auth-form']);
+
 type AuthFormProps = {
   emailEntered?: string;
   redirectTo?: string;
@@ -91,7 +95,7 @@ export function AuthForm({
         search: { email, redirectTo },
       });
     } catch (err) {
-      console.error('[AuthForm] Send OTP error:', err);
+      logger.error('Send OTP error:', { err });
       setError(err instanceof Error ? err.message : 'Failed to send code');
       setIsLoading(false);
     }
@@ -109,7 +113,7 @@ export function AuthForm({
         callbackURL: redirectTo,
       });
     } catch (err) {
-      console.error('[AuthForm] Google sign-in error:', err);
+      logger.error('Google sign-in error:', { err });
       setError(
         err instanceof Error ? err.message : 'Failed to sign in with Google'
       );

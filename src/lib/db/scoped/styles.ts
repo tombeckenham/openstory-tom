@@ -8,6 +8,10 @@ import type { Database } from '@/lib/db/client';
 import { styles } from '@/lib/db/schema';
 import type { NewStyle, Style } from '@/lib/db/schema';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'db', 'styles']);
+
 export type StylesListOptions = {
   orderBy?: 'popular' | 'sortOrder';
 };
@@ -93,7 +97,7 @@ export function createStylesMethods(
         .where(eq(styles.id, styleId))
         .returning({ id: styles.id });
       if (rows.length === 0) {
-        console.warn('[styles] incrementUsage matched zero rows', { styleId });
+        logger.warn('incrementUsage matched zero rows', { styleId });
       }
     },
   };

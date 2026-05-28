@@ -11,6 +11,10 @@
 import type { ScopedDb } from '@/lib/db/scoped';
 import { type Microdollars, microsToUsd, ZERO_MICROS } from './money';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'billing', 'workflow-deduction']);
+
 type WorkflowDeductionOpts = {
   /** Scoped DB context for the team. Skips deduction if undefined (e.g., anonymous workflows). */
   scopedDb: ScopedDb | undefined;
@@ -19,7 +23,7 @@ type WorkflowDeductionOpts = {
   usedOwnKey: boolean;
   description: string;
   metadata?: Record<string, unknown>;
-  /** Workflow name for the console.warn prefix (e.g., "VariantWorkflow") */
+  /** Workflow name for the logger.warn prefix (e.g., "VariantWorkflow") */
   workflowName?: string;
 };
 
@@ -40,12 +44,12 @@ export async function deductWorkflowCredits(
   const canAfford = await scopedDb.billing.hasEnoughCredits(opts.costMicros);
   if (!canAfford) {
     const prefix = opts.workflowName ? `[${opts.workflowName}]` : '[Workflow]';
-    console.warn(
+    logger.warn(
       `${prefix} Insufficient credits (cost: $${microsToUsd(opts.costMicros).toFixed(4)}), skipping deduction`
     );
     // Still attempt auto-top-up so balance can recover
     void scopedDb.billing.checkAutoTopUp().catch((err) => {
-      console.error('[AutoTopUp] Failed:', err);
+      logger.error('Failed:', { err });
     });
     return;
   }

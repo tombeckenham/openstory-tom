@@ -4,6 +4,10 @@ import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 import { authMiddleware } from './middleware';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'serverFn', 'realtime-history']);
+
 const channelInputSchema = z.object({ channel: z.string().min(1) });
 
 /**
@@ -33,9 +37,9 @@ export const getChannelHistoryFn = createServerFn({ method: 'GET' })
           },
         ];
       } catch {
-        console.error(
-          `[realtime-history] Failed to parse message ${msg.id} in channel "${data.channel}"`,
-          msg.data
+        logger.error(
+          `Failed to parse message ${msg.id} in channel "${data.channel}"`,
+          { data: msg.data }
         );
         return [];
       }

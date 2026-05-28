@@ -7,7 +7,11 @@ import { Database } from 'bun:sqlite';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { relations } from './schema/relations';
 
-console.log('[db-local] Loading client');
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'db', 'client-local']);
+
+logger.info('Loading client');
 
 const dbUrl = process.env.DATABASE_URL || 'file:local.db';
 const filename = dbUrl.startsWith('file:')

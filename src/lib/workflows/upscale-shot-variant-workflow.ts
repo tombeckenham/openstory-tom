@@ -17,6 +17,10 @@ import type {
 } from '@/lib/workflow/types';
 import { WorkflowValidationError } from '../workflow/errors';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'upscale-shot-variant']);
+
 const UPSCALE_PROMPT = `Upscale this image to a clean, high-resolution frame suitable for animation.
 
 RENDERING RULES
@@ -54,10 +58,9 @@ export const upscaleShotVariantWorkflow = createScopedWorkflow<
       throw new WorkflowValidationError('sequenceId and teamId are required');
     }
 
-    console.log(
-      '[UpscaleShotVariantWorkflow]',
-      `Starting upscale for frame ${frameId}`
-    );
+    logger.info('[UpscaleShotVariantWorkflow]', {
+      data: `Starting upscale for frame ${frameId}`,
+    });
 
     const upscaleResult = await context.run('upscale-image', async () => {
       await getGenerationChannel(sequenceId).emit('generation.image:progress', {
@@ -75,10 +78,9 @@ export const upscaleShotVariantWorkflow = createScopedWorkflow<
       );
 
       if (!frame) {
-        console.log(
-          '[UpscaleShotVariantWorkflow]',
-          `Frame ${frameId} was deleted, skipping workflow`
-        );
+        logger.info('[UpscaleShotVariantWorkflow]', {
+          data: `Frame ${frameId} was deleted, skipping workflow`,
+        });
         return null;
       }
 
@@ -170,10 +172,9 @@ export const upscaleShotVariantWorkflow = createScopedWorkflow<
       );
 
       if (!updatedFrame) {
-        console.log(
-          '[UpscaleShotVariantWorkflow]',
-          `Frame ${input.frameId} was deleted, skipping final update`
-        );
+        logger.info('[UpscaleShotVariantWorkflow]', {
+          data: `Frame ${input.frameId} was deleted, skipping final update`,
+        });
         return;
       }
 
@@ -186,10 +187,9 @@ export const upscaleShotVariantWorkflow = createScopedWorkflow<
         }
       );
 
-      console.log(
-        '[UpscaleShotVariantWorkflow]',
-        `Upscale completed for frame ${input.frameId}`
-      );
+      logger.info('[UpscaleShotVariantWorkflow]', {
+        data: `Upscale completed for frame ${input.frameId}`,
+      });
     });
 
     return {
@@ -202,10 +202,9 @@ export const upscaleShotVariantWorkflow = createScopedWorkflow<
       const input = context.requestPayload;
       const error = sanitizeFailResponse(failResponse);
 
-      console.error(
-        '[UpscaleShotVariantWorkflow]',
-        `Upscale failed for frame ${input.frameId}: ${error}`
-      );
+      logger.error('[UpscaleShotVariantWorkflow]', {
+        data: `Upscale failed for frame ${input.frameId}: ${error}`,
+      });
 
       if (input.frameId && input.teamId) {
         await scopedDb.frames.update(

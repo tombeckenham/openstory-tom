@@ -20,6 +20,10 @@ import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 import { authWithTeamMiddleware, sequenceAccessMiddleware } from './middleware';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'serverFn', 'sequence-elements']);
+
 /**
  * Sequence-element storage paths must live exactly under
  * `elements/<teamId>/`. `startsWith` alone accepts traversal artifacts like
@@ -396,10 +400,7 @@ export const replaceSequenceElementFn = createServerFn({ method: 'POST' })
           message
         );
       } catch (e) {
-        console.error(
-          '[replaceSequenceElementFn] persist failed status threw:',
-          e
-        );
+        logger.error('persist failed status threw:', { err: e });
       }
       try {
         await getGenerationChannel(context.sequence.id).emit(
@@ -407,7 +408,7 @@ export const replaceSequenceElementFn = createServerFn({ method: 'POST' })
           { elementId: data.elementId, error: message }
         );
       } catch (e) {
-        console.error('[replaceSequenceElementFn] emit :failed threw:', e);
+        logger.error('emit :failed threw:', { err: e });
       }
       throw err;
     }

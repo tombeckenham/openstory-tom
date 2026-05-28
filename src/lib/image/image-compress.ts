@@ -1,3 +1,6 @@
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'image', 'image-compress']);
 /**
  * Image Compression via Cloudflare Image Resizing
  *
@@ -34,8 +37,8 @@ export async function ensureImageUnderLimit(
 
   const originalSizeBytes = contentLength ? Number(contentLength) : 0;
 
-  console.log(
-    `[ImageCompress] Image is ${(originalSizeBytes / 1024 / 1024).toFixed(1)}MB, using Cloudflare Image Resizing to compress under ${(maxBytes / 1024 / 1024).toFixed(1)}MB limit`
+  logger.info(
+    `Image is ${(originalSizeBytes / 1024 / 1024).toFixed(1)}MB, using Cloudflare Image Resizing to compress under ${(maxBytes / 1024 / 1024).toFixed(1)}MB limit`
   );
 
   // Construct a Cloudflare Image Resizing URL.

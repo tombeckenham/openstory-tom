@@ -10,6 +10,10 @@ import { musicDesignResultSchema } from '../ai/response-schemas';
 import { reinforceInstrumentalTags } from '../prompts/music-prompt';
 import { durableLLMCall } from './llm-call-helper';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'music-prompt']);
+
 export const generateMusicPromptWorflow = createScopedWorkflow<
   MusicPromptWorkflowInput,
   MusicPromptWorkflowResult
@@ -96,16 +100,15 @@ export const generateMusicPromptWorflow = createScopedWorkflow<
             { status: 'failed' }
           );
         } catch (emitError) {
-          console.error(
-            `[MusicWorkflow] Failed to emit generation.audio:progress for sequence ${input.sequenceId}:`,
-            emitError
+          logger.error(
+            `Failed to emit generation.audio:progress for sequence ${input.sequenceId}:`,
+            { err: emitError }
           );
         }
       }
-      console.error(
-        '[MusicWorkflow]',
-        `Music generation failed for sequence ${input.sequenceId}: ${error}`
-      );
+      logger.error('[MusicWorkflow]', {
+        data: `Music generation failed for sequence ${input.sequenceId}: ${error}`,
+      });
       return `Music generation failed for sequence ${input.sequenceId}`;
     },
   }

@@ -24,6 +24,10 @@ import {
 } from './sheet-snapshots';
 import type { CharacterSheetWorkflowInput } from '@/lib/workflow/types';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'recast-character']);
+
 export const recastCharacterWorkflow =
   createScopedWorkflow<RecastCharacterWorkflowInput>(
     async (context, scopedDb) => {
@@ -37,10 +41,9 @@ export const recastCharacterWorkflow =
       const sheetBody = await context.run(
         'build-character-sheet-snapshot',
         async (): Promise<CharacterSheetWorkflowInput> => {
-          console.log(
-            '[RecastCharacterWorkflow]',
-            `Starting recast for ${input.characterName} with ${input.affectedFrameIds.length} affected frames`
-          );
+          logger.info('[RecastCharacterWorkflow]', {
+            data: `Starting recast for ${input.characterName} with ${input.affectedFrameIds.length} affected frames`,
+          });
           const talentSheetInputHash = await resolveTalentSheetHash(
             scopedDb,
             input.characterDbId
@@ -197,10 +200,9 @@ export const recastCharacterWorkflow =
           }
         );
 
-        console.error(
-          '[RecastCharacterWorkflow]',
-          `Recast failed for ${input.characterName}: ${error}`
-        );
+        logger.error('[RecastCharacterWorkflow]', {
+          data: `Recast failed for ${input.characterName}: ${error}`,
+        });
 
         return `Recast failed for ${input.characterName}`;
       },

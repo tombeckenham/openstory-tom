@@ -10,6 +10,14 @@ import type { ElementVisionWorkflowInput } from '@/lib/workflow/types';
 import { z } from 'zod';
 import { deriveTokenFromFilename } from './derive-token';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger([
+  'openstory',
+  'sequence-elements',
+  'promote-temp-elements',
+]);
+
 const tempUploadSchema = z.object({
   tempPath: z.string().min(1),
   tempPublicUrl: z.string().url(),
@@ -67,10 +75,7 @@ export async function promoteTempElements(params: {
   for (const upload of uploads) {
     const tempPrefix = `elements/${teamId}/temp/`;
     if (!upload.tempPath.startsWith(tempPrefix)) {
-      console.warn(
-        '[promoteTempElements] Skipping non-temp path:',
-        upload.tempPath
-      );
+      logger.warn('Skipping non-temp path:', { data: upload.tempPath });
       continue;
     }
 

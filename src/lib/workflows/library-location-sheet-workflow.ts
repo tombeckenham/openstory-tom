@@ -25,6 +25,10 @@ import { getLocationChannel } from '@/lib/realtime';
 import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'library-location-sheet']);
+
 import type {
   LibraryLocationSheetWorkflowInput,
   LibraryLocationSheetWorkflowResult,
@@ -52,10 +56,9 @@ export const libraryLocationSheetWorkflow = createScopedWorkflow<
     const generationParams: ImageGenerationParams = await context.run(
       'build-prompt',
       async () => {
-        console.log(
-          '[LibraryLocationSheetWorkflow]',
-          `Starting sheet generation for location ${input.locationName} with ${input.referenceImageUrls.length} reference images`
-        );
+        logger.info('[LibraryLocationSheetWorkflow]', {
+          data: `Starting sheet generation for location ${input.locationName} with ${input.referenceImageUrls.length} reference images`,
+        });
 
         const { prompt, referenceUrls } = buildLibraryLocationSheetPrompt(
           input.locationName,
@@ -80,10 +83,9 @@ export const libraryLocationSheetWorkflow = createScopedWorkflow<
 
     // Step 2: Generate the location sheet image
     const imageResult = await context.run('generate-sheet-image', async () => {
-      console.log(
-        '[LibraryLocationSheetWorkflow]',
-        `Generating 3x3 grid sheet for ${input.locationName} with model ${generationParams.model}`
-      );
+      logger.info('[LibraryLocationSheetWorkflow]', {
+        data: `Generating 3x3 grid sheet for ${input.locationName} with model ${generationParams.model}`,
+      });
 
       return await generateImageWithProvider(generationParams, { scopedDb });
     });
@@ -111,10 +113,9 @@ export const libraryLocationSheetWorkflow = createScopedWorkflow<
         throw new Error('No image URL returned from generation');
       }
 
-      console.log(
-        '[LibraryLocationSheetWorkflow]',
-        `Uploading sheet to storage for ${input.locationName}`
-      );
+      logger.info('[LibraryLocationSheetWorkflow]', {
+        data: `Uploading sheet to storage for ${input.locationName}`,
+      });
 
       // Fetch and stream directly to R2
       const response = await fetch(imageUrl);
@@ -143,10 +144,9 @@ export const libraryLocationSheetWorkflow = createScopedWorkflow<
 
     // Step 4: Update database with the generated sheet
     await context.run('update-database', async () => {
-      console.log(
-        '[LibraryLocationSheetWorkflow]',
-        `Updating database for ${input.locationName}`
-      );
+      logger.info('[LibraryLocationSheetWorkflow]', {
+        data: `Updating database for ${input.locationName}`,
+      });
 
       await scopedDb.locations.updateReference(
         input.locationDbId,
@@ -167,10 +167,9 @@ export const libraryLocationSheetWorkflow = createScopedWorkflow<
           hasReferenceImages
         );
 
-        console.log(
-          '[LibraryLocationSheetWorkflow]',
-          `Generating preview establishing shot for ${input.locationName}`
-        );
+        logger.info('[LibraryLocationSheetWorkflow]', {
+          data: `Generating preview establishing shot for ${input.locationName}`,
+        });
 
         const previewParams: ImageGenerationParams = {
           model,
@@ -209,10 +208,9 @@ export const libraryLocationSheetWorkflow = createScopedWorkflow<
     const previewStorageResult = await context.run(
       'upload-preview-to-storage',
       async () => {
-        console.log(
-          '[LibraryLocationSheetWorkflow]',
-          `Uploading preview to storage for ${input.locationName}`
-        );
+        logger.info('[LibraryLocationSheetWorkflow]', {
+          data: `Uploading preview to storage for ${input.locationName}`,
+        });
 
         const response = await fetch(previewUrl);
         if (!response.ok) {
@@ -239,10 +237,9 @@ export const libraryLocationSheetWorkflow = createScopedWorkflow<
 
     // Step 7: Update location with preview as the referenceImageUrl
     await context.run('update-location-preview', async () => {
-      console.log(
-        '[LibraryLocationSheetWorkflow]',
-        `Updating location with preview image`
-      );
+      logger.info('[LibraryLocationSheetWorkflow]', {
+        data: `Updating location with preview image`,
+      });
 
       await scopedDb.locations.updateReference(
         input.locationDbId,
@@ -253,10 +250,9 @@ export const libraryLocationSheetWorkflow = createScopedWorkflow<
 
     // Emit completed status
     await context.run('emit-completed', async () => {
-      console.log(
-        '[LibraryLocationSheetWorkflow]',
-        `Library location sheet workflow completed for ${input.locationName}`
-      );
+      logger.info('[LibraryLocationSheetWorkflow]', {
+        data: `Library location sheet workflow completed for ${input.locationName}`,
+      });
 
       await getLocationChannel(input.locationDbId).emit(
         'location.sheet:progress',
@@ -283,10 +279,9 @@ export const libraryLocationSheetWorkflow = createScopedWorkflow<
       const input = context.requestPayload;
       const error = sanitizeFailResponse(failResponse);
 
-      console.error(
-        '[LibraryLocationSheetWorkflow]',
-        `Sheet generation failed for location ${input.locationName}: ${error}`
-      );
+      logger.error('[LibraryLocationSheetWorkflow]', {
+        data: `Sheet generation failed for location ${input.locationName}: ${error}`,
+      });
 
       await getLocationChannel(input.locationDbId).emit(
         'location.sheet:progress',

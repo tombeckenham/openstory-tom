@@ -22,6 +22,10 @@ import type { ScopedDb } from '@/lib/db/scoped';
 import { generateImage } from '@tanstack/ai';
 import { falImage } from '@tanstack/ai-fal';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'image', 'image-generation']);
+
 export type ImageGenerationParams = {
   model: TextToImageModel;
   prompt: string;
@@ -102,8 +106,8 @@ function truncatePromptForModel(
   const maxLength = IMAGE_MODELS[model].maxPromptLength;
   if (prompt.length <= maxLength) return prompt;
 
-  console.warn(
-    `[Image Generation] Prompt truncated from ${prompt.length} to ${maxLength} chars for ${model}`
+  logger.warn(
+    `Prompt truncated from ${prompt.length} to ${maxLength} chars for ${model}`
   );
   return prompt.slice(0, maxLength - 3) + '...';
 }
@@ -173,9 +177,8 @@ async function generateImageInternal(
 
   const adapter = createFalAdapter(endpoint, falApiKeyInfo.key);
 
-  console.log(
-    '[Image Generation] generateImage request',
-    JSON.stringify(
+  logger.info('generateImage request', {
+    data: JSON.stringify(
       {
         model: params.model,
         endpoint,
@@ -186,8 +189,8 @@ async function generateImageInternal(
       },
       null,
       2
-    )
-  );
+    ),
+  });
 
   const result = await generateImage({
     adapter,
@@ -196,9 +199,8 @@ async function generateImageInternal(
     debug: true,
   });
 
-  console.log(
-    '[Image Generation] generateImage response',
-    JSON.stringify(
+  logger.info('generateImage response', {
+    data: JSON.stringify(
       {
         model: params.model,
         endpoint,
@@ -206,8 +208,8 @@ async function generateImageInternal(
       },
       null,
       2
-    )
-  );
+    ),
+  });
 
   const imageUrls = result.images
     .map((img) => img.url)

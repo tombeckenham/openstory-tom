@@ -17,6 +17,13 @@
       "head_sampling_rate": 1,
       "persist": true,
       "invocation_logs": true,
+      // PostHog destination. Create the destination in the Cloudflare
+      // dashboard first (Workers & Pages -> openstory -> Observability ->
+      // Logs -> Destinations -> PostHog) and paste its id below. See
+      // https://developers.cloudflare.com/workers/observability/exporting-opentelemetry-data/posthog/
+      "destinations": [
+        // { "id": "posthog-prd" },
+      ],
     },
     "traces": {
       "enabled": true,

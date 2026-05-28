@@ -28,6 +28,10 @@ import { endSpanSuccess, startGenAISpan } from '@/lib/observability/tracer';
 import { WorkflowNonRetryableError } from '@upstash/workflow';
 import { shouldRecordUserEdit } from './user-edit-predicate';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'motion']);
+
 /** Each batch polls in a tight loop for ~30s, then checkpoints for durability */
 const POLL_BATCH_DURATION_MS = 30_000;
 const POLL_INTERVAL_MS = 3_000;
@@ -91,8 +95,8 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
       if (cost > 0 && !usedOwnKey) {
         const canAfford = await scopedDb.billing.hasEnoughCredits(cost);
         if (!canAfford) {
-          console.warn(
-            `[MotionWorkflow] Insufficient credits for team ${input.teamId} (cost: $${microsToUsd(cost).toFixed(4)}), skipping deduction`
+          logger.warn(
+            `Insufficient credits for team ${input.teamId} (cost: $${microsToUsd(cost).toFixed(4)}), skipping deduction`
           );
 
           // Throw an error so the workflow fails
@@ -121,9 +125,7 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
         );
 
         if (!frame) {
-          console.log(
-            `[MotionWorkflow] Frame ${input.frameId} was deleted, skipping workflow`
-          );
+          logger.info(`Frame ${input.frameId} was deleted, skipping workflow`);
           return { frameDeleted: true };
         }
 
@@ -160,9 +162,9 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
               }
             }
           } catch (err) {
-            console.warn(
-              `[MotionWorkflow] Could not compute upstream hash for user-edit on frame ${input.frameId}; recording with null hash`,
-              err
+            logger.warn(
+              `Could not compute upstream hash for user-edit on frame ${input.frameId}; recording with null hash`,
+              { err }
             );
           }
 
@@ -183,9 +185,9 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
             { frameId: input.frameId, status: 'generating' }
           );
         } catch (emitError) {
-          console.error(
-            `[MotionWorkflow] Failed to emit generation.video:progress for frame ${input.frameId}:`,
-            emitError
+          logger.error(
+            `Failed to emit generation.video:progress for frame ${input.frameId}:`,
+            { err: emitError }
           );
         }
         return { frameDeleted: false };
@@ -211,8 +213,8 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
         return input.imageUrl;
       }
 
-      console.log(
-        `[MotionWorkflow] Image ${(compressed.originalSizeBytes / 1024 / 1024).toFixed(1)}MB exceeds limit, using Cloudflare Image Resizing`
+      logger.info(
+        `Image ${(compressed.originalSizeBytes / 1024 / 1024).toFixed(1)}MB exceeds limit, using Cloudflare Image Resizing`
       );
 
       return compressed.url;
@@ -282,14 +284,14 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
 
           if (pollResult.progress !== undefined) {
             // Log the progress
-            console.log(`[MotionWorkflow] Progress: ${pollResult.progress}%`);
+            logger.info(`Progress: ${pollResult.progress}%`);
           }
 
           // If the job is completed, check the video URL and return the result
           // If the video URL is not returned, throw an error and stop the workflow without retrying
           if (pollResult.status === 'completed') {
             if (pollResult.url) {
-              console.log(`[MotionWorkflow] Generation completed`);
+              logger.info(`Generation completed`);
               return pollResult;
             } else {
               throw new WorkflowNonRetryableError(
@@ -407,9 +409,7 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
         );
 
         if (!updatedFrame) {
-          console.log(
-            `[MotionWorkflow] Frame ${frameId} was deleted, skipping final update`
-          );
+          logger.info(`Frame ${frameId} was deleted, skipping final update`);
           return;
         }
 
@@ -419,9 +419,9 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
             { frameId, status: 'completed', videoUrl: storageResult.url }
           );
         } catch (emitError) {
-          console.error(
-            `[MotionWorkflow] Failed to emit generation.video:progress for frame ${frameId}:`,
-            emitError
+          logger.error(
+            `Failed to emit generation.video:progress for frame ${frameId}:`,
+            { err: emitError }
           );
         }
       });
@@ -452,15 +452,15 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
             { frameId: input.frameId, status: 'failed' }
           );
         } catch (emitError) {
-          console.error(
-            `[MotionWorkflow] Failed to emit generation.video:progress for frame ${input.frameId}:`,
-            emitError
+          logger.error(
+            `Failed to emit generation.video:progress for frame ${input.frameId}:`,
+            { err: emitError }
           );
         }
       }
 
-      console.error(
-        `[MotionWorkflow] Motion generation failed for frame ${input.frameId}: ${error}`
+      logger.error(
+        `Motion generation failed for frame ${input.frameId}: ${error}`
       );
 
       return `Motion generation failed for frame ${input.frameId}`;

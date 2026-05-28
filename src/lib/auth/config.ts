@@ -17,6 +17,10 @@ import { teamMembers, teams } from '@/lib/db/schema';
 import { sendOtpEmail } from '@/lib/services/email-service';
 import { passkey as passkeyPlugin } from '@better-auth/passkey';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'auth', 'config']);
+
 // Singleton auth instance cache
 let _authInstance: ReturnType<typeof createAuth> | undefined;
 
@@ -87,13 +91,13 @@ function createAuth() {
         expiresIn: 300, // 5 minutes
         async sendVerificationOTP({ email, otp, type }) {
           if (type === 'sign-in') {
-            console.log('[BetterAuth] Sending sign-in OTP', { email });
+            logger.info('Sending sign-in OTP', { email });
             const result = await sendOtpEmail(email, otp);
             if (!result.success) {
-              console.error('[BetterAuth] Failed to send OTP:', result.error);
+              logger.error('Failed to send OTP:', { data: result.error });
               throw new Error('Failed to send verification code');
             }
-            console.log('[BetterAuth] OTP sent successfully');
+            logger.info('OTP sent successfully');
           }
         },
       }),

@@ -15,6 +15,10 @@ import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 import { authWithTeamMiddleware, sequenceAccessMiddleware } from './middleware';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'serverFn', 'sequence-variants']);
+
 const variantInputSchema = z.object({
   sequenceId: ulidSchema,
   variantId: ulidSchema,
@@ -104,10 +108,7 @@ export const promoteSequenceMusicVariantFn = createServerFn({ method: 'POST' })
         }
       );
     } catch (error) {
-      console.error(
-        '[promoteSequenceMusicVariantFn] realtime emit failed',
-        error
-      );
+      logger.error('realtime emit failed', { err: error });
     }
 
     return { sequence: updatedSequence, variantId: variant.id };

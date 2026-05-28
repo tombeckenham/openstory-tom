@@ -17,6 +17,10 @@ import {
 import { getFramePromptChannel, getGenerationChannel } from '../realtime';
 import { durableStreamingLLMCall } from './llm-call-helper';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'visual-prompt-scene']);
+
 export const visualPromptSceneWorkflow = createScopedWorkflow<
   VisualPromptSceneWorkflowInput,
   { sceneId: string } & VisualPromptWithContinuity
@@ -163,7 +167,7 @@ export const visualPromptSceneWorkflow = createScopedWorkflow<
   {
     failureFunction: async ({ context, failStatus, failResponse }) => {
       const error = sanitizeFailResponse(failResponse);
-      console.error('[VisualPromptWorkflow] Failed', {
+      logger.error('Failed', {
         workflowRunId: context.workflowRunId,
         failStatus,
         failResponse: error,
@@ -180,7 +184,7 @@ export const visualPromptSceneWorkflow = createScopedWorkflow<
           );
         }
       } catch (emitErr) {
-        console.warn('[VisualPromptWorkflow] failed to emit failure', emitErr);
+        logger.warn('failed to emit failure', { err: emitErr });
       }
       return `Visual prompt generation failed: ${error}`;
     },

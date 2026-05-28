@@ -19,6 +19,10 @@ import type {
 import { generateMotionWorkflow } from './motion-workflow';
 import { generateMusicWorkflow } from './music-workflow';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'motion-batch']);
+
 export const motionBatchWorkflow =
   createScopedWorkflow<BatchMotionMusicWorkflowInput>(
     async (context) => {
@@ -104,16 +108,14 @@ export const motionBatchWorkflow =
               { message: error }
             );
           } catch (emitError) {
-            console.error(
-              `[MotionBatchWorkflow] Failed to emit generation.failed for sequence ${input.sequenceId}:`,
-              emitError
+            logger.error(
+              `Failed to emit generation.failed for sequence ${input.sequenceId}:`,
+              { err: emitError }
             );
           }
         }
 
-        console.error(
-          `[MotionBatchWorkflow] Failed for sequence ${input.sequenceId}: ${error}`
-        );
+        logger.error(`Failed for sequence ${input.sequenceId}: ${error}`);
 
         return `Batch motion+music failed for sequence ${input.sequenceId}`;
       },

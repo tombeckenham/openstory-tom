@@ -38,6 +38,10 @@ import { and, count, desc, eq, sql } from 'drizzle-orm';
 import { generateId } from '../id';
 import { giftTokenRedemptions, giftTokens } from '../schema';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'db', 'billing']);
+
 function mapBatchSource(
   type: TransactionType,
   metadata?: Record<string, unknown>
@@ -341,7 +345,7 @@ export function createBillingMethods(
     }
 
     void maybeAutoTopUp(micros(updated.balance)).catch((err) => {
-      console.error('[AutoTopUp] Failed:', err);
+      logger.error('Failed:', { err });
     });
 
     return {
@@ -432,8 +436,8 @@ export function createBillingMethods(
     if (recentAutoTopUp) {
       const elapsed = Date.now() - recentAutoTopUp.createdAt.getTime();
       if (elapsed < AUTO_TOPUP_COOLDOWN_MS) {
-        console.log(
-          `[AutoTopUp] Cooldown active for team ${teamId}, skipping (${Math.round(elapsed / 1000)}s ago)`
+        logger.info(
+          `Cooldown active for team ${teamId}, skipping (${Math.round(elapsed / 1000)}s ago)`
         );
         return;
       }

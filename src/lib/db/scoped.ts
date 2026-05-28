@@ -57,6 +57,10 @@ import {
 } from '@/lib/db/scoped/team-management';
 import { and, eq, sql } from 'drizzle-orm';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'db', 'scoped']);
+
 export type {
   GiftTokenStatus,
   GiftTokenWithStatus,
@@ -215,7 +219,7 @@ export async function ensureUserAndTeam(authUser: {
       },
     };
   } catch (error) {
-    console.error('[ensureUserAndTeam] Error:', error);
+    logger.error('Error:', { err: error });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unexpected error',

@@ -12,6 +12,10 @@ import { getStripeOrThrow } from '@/lib/billing/stripe';
 import { getPostHogClient } from '@/lib/posthog-server';
 import { createFileRoute } from '@tanstack/react-router';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'api', 'billing', 'webhook']);
+
 export const Route = createFileRoute('/api/billing/webhook')({
   server: {
     middleware: [stripeWebhookMiddleware],
@@ -43,7 +47,7 @@ export const Route = createFileRoute('/api/billing/webhook')({
               const amountUsd = parseFloat(session.metadata?.amountUsd ?? '');
 
               if (isNaN(amountUsd)) {
-                console.error('[Webhook] Invalid metadata:', session.metadata);
+                logger.error('Invalid metadata:', { data: session.metadata });
                 break;
               }
 
@@ -86,7 +90,7 @@ export const Route = createFileRoute('/api/billing/webhook')({
                   }
                 }
               } catch (err) {
-                console.error('[Webhook] Failed to fetch receipt URL:', err);
+                logger.error('Failed to fetch receipt URL:', { err });
               }
 
               // Add credits (unique stripeSessionId prevents duplicates)
@@ -101,15 +105,11 @@ export const Route = createFileRoute('/api/billing/webhook')({
               });
 
               if (!result) {
-                console.log(
-                  `[Webhook] Duplicate session ${session.id}, skipping`
-                );
+                logger.info(`Duplicate session ${session.id}, skipping`);
                 break;
               }
 
-              console.log(
-                `[Webhook] Added $${amountUsd} credits to team ${teamId}`
-              );
+              logger.info(`Added $${amountUsd} credits to team ${teamId}`);
 
               if (teamId) {
                 const posthog = getPostHogClient();
@@ -131,8 +131,8 @@ export const Route = createFileRoute('/api/billing/webhook')({
               const paymentIntent = event.data.object;
               // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
               if (paymentIntent.metadata?.type === 'auto_top_up') {
-                console.log(
-                  `[Webhook] Auto-top-up payment succeeded for team ${paymentIntent.metadata.teamId}`
+                logger.info(
+                  `Auto-top-up payment succeeded for team ${paymentIntent.metadata.teamId}`
                 );
               }
               break;
@@ -145,7 +145,7 @@ export const Route = createFileRoute('/api/billing/webhook')({
 
           return Response.json({ received: true }, { status: 200 });
         } catch (error) {
-          console.error('[POST /api/billing/webhook] Error:', error);
+          logger.error('Error:', { err: error });
           return Response.json(
             { error: 'Webhook handler failed' },
             { status: 400 }

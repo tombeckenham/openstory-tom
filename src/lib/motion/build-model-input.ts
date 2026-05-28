@@ -11,6 +11,10 @@ import type { IMAGE_TO_VIDEO_MODELS, ImageToVideoModel } from '@/lib/ai/models';
 import type { z } from 'zod';
 import { MOTION_TRANSFORMS } from './endpoint-map';
 import type { GenerateMotionOptions } from './motion-generation';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'motion', 'build-model-input']);
+
 /** Intentional deviations from API defaults */
 const QUALITY_OVERRIDES: Partial<
   Record<ImageToVideoModel, Record<string, unknown>>
@@ -60,12 +64,14 @@ export function buildModelInput<T extends ImageToVideoModel>(
       : '';
   const truncated = outputPrompt.length < options.prompt.length;
 
-  console.log(
-    `[buildModelInput] model=${modelKey} inputLen=${options.prompt.length} outputLen=${outputPrompt.length} truncated=${truncated}`
+  logger.info(
+    `model=${modelKey} inputLen=${options.prompt.length} outputLen=${outputPrompt.length} truncated=${truncated}`
   );
   if (truncated) {
-    console.log(`[buildModelInput] INPUT prompt:\n${options.prompt}`);
-    console.log(`[buildModelInput] OUTPUT prompt:\n${outputPrompt}`);
+    logger.info(`INPUT prompt:
+${options.prompt}`);
+    logger.info(`OUTPUT prompt:
+${outputPrompt}`);
   }
 
   return result;

@@ -5,6 +5,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'realtime', 'use-stale-detected']);
+
 const TOAST_DEBOUNCE_MS = 5_000;
 
 /**
@@ -101,7 +105,7 @@ export function useStaleDetected(sequenceId: string | undefined) {
   useEffect(() => {
     if (!sequenceId) return;
     if (status === 'error') {
-      console.error('[useStaleDetected] realtime channel error', {
+      logger.error('realtime channel error', {
         sequenceId,
       });
     }

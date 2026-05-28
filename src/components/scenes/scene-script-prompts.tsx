@@ -62,6 +62,10 @@ import { SceneLocationTab } from './scene-location-tab';
 import { SceneScriptTab } from './scene-script-tab';
 import { VariantSelector } from './variant-selector';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'ui', 'scenes', 'scene-script-prompts']);
+
 export type TabValue =
   | 'script'
   | 'image-prompt'
@@ -519,7 +523,7 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
         5000
       );
     } catch (error) {
-      console.error('Failed to shorten prompt:', error);
+      logger.error('Failed to shorten prompt:', { err: error });
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to shorten prompt';
       setShortenStatus({ loading: false, error: errorMessage, success: null });

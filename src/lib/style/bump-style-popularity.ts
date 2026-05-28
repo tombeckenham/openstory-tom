@@ -1,5 +1,9 @@
 import { getPostHogClient } from '@/lib/posthog-server';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'style', 'bump-style-popularity']);
+
 type ScopedDbLike = {
   styles: { incrementUsage: (id: string) => Promise<void> };
 };
@@ -18,7 +22,7 @@ export type BumpStylePopularityArgs = {
  */
 export function bumpStylePopularity(args: BumpStylePopularityArgs) {
   void args.scopedDb.styles.incrementUsage(args.styleId).catch((err) => {
-    console.error('[styles] incrementUsage failed', {
+    logger.error('incrementUsage failed', {
       styleId: args.styleId,
       teamId: args.teamId,
       userId: args.userId,

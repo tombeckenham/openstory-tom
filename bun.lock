@@ -15,6 +15,8 @@
         "@langfuse/client": "^5.3.0",
         "@langfuse/otel": "^5.3.0",
         "@libsql/client": "^0.17.3",
+        "@logtape/logtape": "^2.1.1",
+        "@logtape/redaction": "^2.1.1",
         "@opentelemetry/api": "^1.9.1",
         "@opentelemetry/sdk-trace-base": "^2.7.1",
         "@posthog/ai": "^7.18.6",
@@ -97,6 +99,7 @@
         "@cloudflare/vite-plugin": "^1.37.0",
         "@copilotkit/aimock": "^1.24.1",
         "@faker-js/faker": "^10.4.0",
+        "@logtape/pretty": "^2.1.1",
         "@storybook/addon-a11y": "^10.4.0",
         "@storybook/addon-docs": "^10.4.0",
         "@storybook/addon-onboarding": "^10.4.0",
@@ -555,6 +558,12 @@
     "@libsql/linux-x64-musl": ["@libsql/linux-x64-musl@0.5.29", "", { "os": "linux", "cpu": "x64" }, "sha512-gquqwA/39tH4pFl+J9n3SOMSymjX+6kZ3kWgY3b94nXFTwac9bnFNMffIomgvlFaC4ArVqMnOZD3nuJ3H3VO1w=="],
 
     "@libsql/win32-x64-msvc": ["@libsql/win32-x64-msvc@0.5.29", "", { "os": "win32", "cpu": "x64" }, "sha512-4/0CvEdhi6+KjMxMaVbFM2n2Z44escBRoEYpR+gZg64DdetzGnYm8mcNLcoySaDJZNaBd6wz5DNdgRmcI4hXcg=="],
+
+    "@logtape/logtape": ["@logtape/logtape@2.1.1", "", {}, "sha512-aULbCqUQGerfOsZ3CMvcKtueKzmdchluXYUd3bIHKmOIS93fx1ko0+hyRQ4flloGZ8EiyRPydZXiy8n1J/eAQA=="],
+
+    "@logtape/pretty": ["@logtape/pretty@2.1.1", "", { "peerDependencies": { "@logtape/logtape": "^2.1.1" } }, "sha512-lSscfaNpYxfvwA5ydbrSVHlw6Wc5L5/JxpI6po9FT/4PMjsdoNAMbsN9ejBaH2yP3jf2ARi4GdivOw7YDJHAxA=="],
+
+    "@logtape/redaction": ["@logtape/redaction@2.1.1", "", { "peerDependencies": { "@logtape/logtape": "^2.1.1" } }, "sha512-t+uqqJaIcBjbhjHvADIwwZXtSEapf/DkHeXzAU+F/RgUKpN7OCQmiQg20IBptd5GZYjChM/ZW0wrJrK5LHDQ0w=="],
 
     "@mdx-js/react": ["@mdx-js/react@3.1.1", "", { "dependencies": { "@types/mdx": "^2.0.0" }, "peerDependencies": { "@types/react": ">=16", "react": ">=16" } }, "sha512-f++rKLQgUVYDAtECQ6fn/is15GkEH9+nZPM3MS0RcxVqoTfawHvDlSCH7JbMhAM6uJ32v3eXLvLmLvjGu7PTQw=="],
 

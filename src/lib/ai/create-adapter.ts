@@ -7,6 +7,10 @@ import { getEnv } from '#env';
 import type { TextModel } from '@/lib/ai/models';
 import { createOpenRouterText, openRouterText } from '@tanstack/ai-openrouter';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'ai', 'create-adapter']);
+
 let loggedRetryMode = false;
 
 export function createAdapter(model: TextModel, apiKey?: string) {
@@ -29,10 +33,8 @@ export function createAdapter(model: TextModel, apiKey?: string) {
 
   if (!loggedRetryMode) {
     loggedRetryMode = true;
-    console.log(
-      `[adapter] retry=${isRecording ? 'disabled' : 'sdk-default'} timeout=${
-        isRecording ? '600000ms' : 'sdk-default'
-      } E2E_RECORD=${env.E2E_RECORD ?? '<unset>'}`
+    logger.info(
+      `retry=${isRecording ? 'disabled' : 'sdk-default'} timeout=${isRecording ? '600000ms' : 'sdk-default'} E2E_RECORD=${env.E2E_RECORD ?? '<unset>'}`
     );
   }
 

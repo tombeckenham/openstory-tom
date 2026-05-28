@@ -7,6 +7,10 @@ import { ulidSchema } from '@/lib/schemas/id.schemas';
 
 import { authWithTeamMiddleware } from './middleware';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'serverFn', 'talent-sheet-variants']);
+
 const variantInputSchema = z.object({
   variantId: ulidSchema,
 });
@@ -94,10 +98,7 @@ export const promoteTalentSheetVariantFn = createServerFn({ method: 'POST' })
         sheetImageUrl: variant.url,
       });
     } catch (error) {
-      console.error(
-        '[promoteTalentSheetVariantFn] realtime emit failed',
-        error
-      );
+      logger.error('realtime emit failed', { err: error });
     }
 
     return {

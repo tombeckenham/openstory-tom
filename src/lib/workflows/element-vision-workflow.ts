@@ -8,6 +8,10 @@
 import { describeElementImage } from '@/lib/ai/element-vision';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'element-vision']);
+
 import type {
   ElementVisionWorkflowInput,
   ElementVisionWorkflowResult,
@@ -90,7 +94,7 @@ export const elementVisionWorkflow = createScopedWorkflow<
     failureFunction: async ({ context, scopedDb, failResponse }) => {
       const { elementId } = context.requestPayload;
       const error = sanitizeFailResponse(failResponse);
-      console.error('[ElementVisionWorkflow] Failed:', error);
+      logger.error('Failed:', { err: error });
       try {
         await scopedDb.sequenceElements.updateVisionStatus(
           elementId,
@@ -98,7 +102,7 @@ export const elementVisionWorkflow = createScopedWorkflow<
           error
         );
       } catch (e) {
-        console.error('[ElementVisionWorkflow] Failed to persist error:', e);
+        logger.error('Failed to persist error:', { err: e });
       }
       return `Element vision failed: ${error}`;
     },

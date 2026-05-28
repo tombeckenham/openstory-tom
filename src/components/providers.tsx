@@ -1,11 +1,14 @@
 import { PostHogIdentify } from '@/components/observability/posthog-identify';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { configureLogging } from '@/lib/observability/logger';
 import { PostHogProvider } from '@posthog/react';
 import type { QueryClient } from '@tanstack/react-query';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RealtimeProvider } from '@upstash/realtime/client';
 import { lazy, type FC } from 'react';
+
+configureLogging();
 
 // Wrap the entire lazy() in import.meta.env.DEV so Vite dead-code-eliminates
 // the dynamic imports before rollup tries to resolve them. This prevents

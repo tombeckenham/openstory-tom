@@ -4,8 +4,8 @@
  */
 
 import { configureFalProxyFromEnv } from '@/lib/ai/fal-config';
-import { withApiLogging } from '@/lib/observability/api-logger';
 import { flushTracing } from '@/lib/observability/langfuse';
+import { getLogger, logApiRequest } from '@/lib/observability/logger';
 import {
   initMemoryProfiler,
   recordMemorySample,
@@ -89,10 +89,12 @@ function getHandler() {
   return _handler;
 }
 
+const workflowsApiLogger = getLogger(['openstory', 'api', 'workflows']);
+
 export const Route = createFileRoute('/api/workflows/$')({
   server: {
     handlers: {
-      POST: withApiLogging('workflows', async ({ request }) => {
+      POST: logApiRequest('workflows', async ({ request }) => {
         const workflowName =
           new URL(request.url).pathname.split('/api/workflows/')[1] ??
           'unknown';
@@ -104,15 +106,17 @@ export const Route = createFileRoute('/api/workflows/$')({
           try {
             const cloned = response.clone();
             const body = await cloned.text();
-            console.error(
-              `[Workflow:${workflowName}] ${response.status} error:`,
-              body
-            );
+            workflowsApiLogger.error('workflow returned error', {
+              workflowName,
+              status: response.status,
+              body,
+            });
           } catch (error) {
-            console.error(
-              `[Workflow:${workflowName}] ${response.status} error:`,
-              error
-            );
+            workflowsApiLogger.error('workflow error body unreadable', {
+              workflowName,
+              status: response.status,
+              err: error instanceof Error ? error.message : String(error),
+            });
           }
         }
 

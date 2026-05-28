@@ -29,6 +29,10 @@ import type {
   ShotVariantWorkflowInput,
 } from '@/lib/workflow/types';
 import { generateImageWorkflow } from './image-workflow';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'regenerate-frames']);
+
 import {
   buildConvergentWrites,
   buildDivergentWrites,
@@ -62,7 +66,7 @@ export const regenerateFramesWorkflow = createScopedWorkflow<
     }
 
     // Validate the snapshot hash inside the workflow body. Upstash swallows
-    // runStarted-middleware throws to console.error, so the only place a
+    // runStarted-middleware throws to logger.error, so the only place a
     // tampered payload actually halts the run is inside `context.run`, where
     // the throw propagates to QStash and triggers the failureFunction.
     await context.run('validate-snapshot', async () => {
@@ -135,10 +139,9 @@ export const regenerateFramesWorkflow = createScopedWorkflow<
             : isFailed
               ? 'failed'
               : 'no imageUrl';
-          console.error(
-            '[RegenerateFramesWorkflow]',
-            `Image generation failed frame=${snapshot.frameId} reason=${reason}`
-          );
+          logger.error('[RegenerateFramesWorkflow]', {
+            data: `Image generation failed frame=${snapshot.frameId} reason=${reason}`,
+          });
           return {
             frameId: snapshot.frameId,
             success: false,
@@ -307,10 +310,9 @@ export const regenerateFramesWorkflow = createScopedWorkflow<
               divergedVariantId: divergentVariant.id,
             });
 
-            console.log(
-              '[RegenerateFramesWorkflow]',
-              `Diverged frame ${result.frameId}: snapshot=${snapshot.snapshotInputHash.slice(0, 8)} current=${currentSnapshot.snapshotInputHash.slice(0, 8)}`
-            );
+            logger.info('[RegenerateFramesWorkflow]', {
+              data: `Diverged frame ${result.frameId}: snapshot=${snapshot.snapshotInputHash.slice(0, 8)} current=${currentSnapshot.snapshotInputHash.slice(0, 8)}`,
+            });
 
             return { kind: 'divergent' };
           }
@@ -326,15 +328,13 @@ export const regenerateFramesWorkflow = createScopedWorkflow<
 
       reconcileOutcomes.set(result.frameId, outcome);
       if (outcome.kind === 'failed') {
-        console.error(
-          '[RegenerateFramesWorkflow]',
-          `Reconcile failed for frame ${result.frameId}: ${outcome.error}`
-        );
+        logger.error('[RegenerateFramesWorkflow]', {
+          data: `Reconcile failed for frame ${result.frameId}: ${outcome.error}`,
+        });
       } else if (outcome.kind === 'skipped-deleted') {
-        console.warn(
-          '[RegenerateFramesWorkflow]',
-          `Frame ${result.frameId} deleted mid-flight; skipping reconciliation`
-        );
+        logger.warn('[RegenerateFramesWorkflow]', {
+          data: `Frame ${result.frameId} deleted mid-flight; skipping reconciliation`,
+        });
       }
     }
 
@@ -438,10 +438,9 @@ export const regenerateFramesWorkflow = createScopedWorkflow<
       });
     });
 
-    console.log(
-      '[RegenerateFramesWorkflow]',
-      `Completed: ${successCount} success, ${failedFrames.length} failed, ${divergedFrameIds.length} diverged, ${skippedDeletedFrameIds.length} skipped-deleted`
-    );
+    logger.info('[RegenerateFramesWorkflow]', {
+      data: `Completed: ${successCount} success, ${failedFrames.length} failed, ${divergedFrameIds.length} diverged, ${skippedDeletedFrameIds.length} skipped-deleted`,
+    });
 
     return {
       totalFrames: snapshots.length,
@@ -465,10 +464,9 @@ export const regenerateFramesWorkflow = createScopedWorkflow<
         });
       }
 
-      console.error(
-        '[RegenerateFramesWorkflow]',
-        `Frame regeneration failed: ${error}`
-      );
+      logger.error('[RegenerateFramesWorkflow]', {
+        data: `Frame regeneration failed: ${error}`,
+      });
 
       return `Frame regeneration failed: ${error}`;
     },

@@ -9,6 +9,10 @@ import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
 import type { MusicWorkflowInput } from '@/lib/workflow/types';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'music']);
+
 export const generateMusicWorkflow = createScopedWorkflow<MusicWorkflowInput>(
   async (context, scopedDb) => {
     const input = context.requestPayload;
@@ -73,8 +77,8 @@ export const generateMusicWorkflow = createScopedWorkflow<MusicWorkflowInput>(
         const canAfford =
           await scopedDb.billing.hasEnoughCredits(musicCostMicros);
         if (!canAfford) {
-          console.warn(
-            `[MusicWorkflow] Insufficient credits for team ${teamId} (cost: $${microsToUsd(musicCostMicros).toFixed(4)}), skipping deduction`
+          logger.warn(
+            `Insufficient credits for team ${teamId} (cost: $${microsToUsd(musicCostMicros).toFixed(4)}), skipping deduction`
           );
           return;
         }
@@ -164,8 +168,8 @@ export const generateMusicWorkflow = createScopedWorkflow<MusicWorkflowInput>(
             divergedVariantId,
           });
         });
-        console.log(
-          `[MusicWorkflow] Diverged music result for sequence ${sequenceId}; preserved as alternate (variant=${divergedVariantId})`
+        logger.info(
+          `Diverged music result for sequence ${sequenceId}; preserved as alternate (variant=${divergedVariantId})`
         );
       } else {
         await context.run('update-sequence-music', async () => {
@@ -210,16 +214,15 @@ export const generateMusicWorkflow = createScopedWorkflow<MusicWorkflowInput>(
             { status: 'failed' }
           );
         } catch (emitError) {
-          console.error(
-            `[MusicWorkflow] Failed to emit failure event for sequence ${input.sequenceId}:`,
-            emitError
+          logger.error(
+            `Failed to emit failure event for sequence ${input.sequenceId}:`,
+            { err: emitError }
           );
         }
       }
-      console.error(
-        '[MusicWorkflow]',
-        `Music generation failed for sequence ${input.sequenceId}: ${error}`
-      );
+      logger.error('[MusicWorkflow]', {
+        data: `Music generation failed for sequence ${input.sequenceId}: ${error}`,
+      });
       return `Music generation failed for sequence ${input.sequenceId}`;
     },
   }

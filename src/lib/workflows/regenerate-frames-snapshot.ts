@@ -34,6 +34,14 @@ import type {
 } from '@/lib/workflow/types';
 import { matchCharactersToScene } from './scene-matching';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger([
+  'openstory',
+  'workflow',
+  'regenerate-frames-snapshot',
+]);
+
 /** Drop nulls and sort so order-insensitive comparisons match. */
 function collectSortedHashes(
   hashes: Array<string | null | undefined>
@@ -86,8 +94,8 @@ export async function buildRegenerateFrameSnapshot(params: {
   // should invalidate location-dependent frames is observable.
   const locationSheetHashes: string[] = [];
   if (frameLocations.length > 0) {
-    console.warn(
-      `[RegenerateFramesSnapshot] Frame ${frame.id} matched ${frameLocations.length} location(s) but locationSheetHashes is omitted from the snapshot hash — location recasts will not invalidate this frame until sequence_locations.input_hash lands`
+    logger.warn(
+      `Frame ${frame.id} matched ${frameLocations.length} location(s) but locationSheetHashes is omitted from the snapshot hash — location recasts will not invalidate this frame until sequence_locations.input_hash lands`
     );
   }
 

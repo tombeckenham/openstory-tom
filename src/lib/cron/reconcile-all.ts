@@ -27,6 +27,10 @@ import {
 import { resolveRunState, STALE_THRESHOLD_MS } from '@/lib/workflow/reconcile';
 import { and, eq, lt } from 'drizzle-orm';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'cron', 'reconcile-all']);
+
 const BLIND_FAIL_THRESHOLD_MS = 30 * 60 * 1000;
 const MAX_ROWS_PER_PASS = 100;
 
@@ -69,10 +73,9 @@ export async function reconcileAllStuckJobs(): Promise<ReconcileCounts> {
     try {
       counts[name] = await run();
     } catch (error) {
-      console.error(
-        `[reconcile-all] ${name} pass failed:`,
-        error instanceof Error ? error.message : error
-      );
+      logger.error(`${name} pass failed:`, {
+        data: error instanceof Error ? error.message : error,
+      });
       counts[name] = PASS_ERRORED;
     }
   }
@@ -85,14 +88,13 @@ export async function reconcileAllStuckJobs(): Promise<ReconcileCounts> {
     .reduce((sum, n) => sum + n, 0);
 
   if (failedPasses.length === passes.length) {
-    console.error('[reconcile-all] ALL passes failed', counts);
+    logger.error('ALL passes failed', { counts });
   } else if (failedPasses.length > 0) {
-    console.warn('[reconcile-all] partial failure', { failedPasses, counts });
+    logger.warn('partial failure', { failedPasses, counts });
   } else if (totalReconciled > 0) {
-    console.log(
-      `[reconcile-all] sweep complete: ${totalReconciled} row(s) reconciled`,
-      counts
-    );
+    logger.info(`sweep complete: ${totalReconciled} row(s) reconciled`, {
+      counts,
+    });
   }
 
   return counts;

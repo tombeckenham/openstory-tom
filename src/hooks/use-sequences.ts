@@ -13,6 +13,10 @@ import {
 import type { Sequence } from '@/types/database';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'ui', 'use-sequences']);
+
 // Query keys
 export const sequenceKeys = {
   all: ['sequences'] as const,
@@ -99,7 +103,9 @@ export function useCreateSequence() {
       queryClient
         .invalidateQueries({ queryKey: sequenceKeys.lists() })
         .catch((error) => {
-          console.error('Error invalidating sequences list on success:', error);
+          logger.error('Error invalidating sequences list on success:', {
+            err: error,
+          });
         });
     },
   });
@@ -127,7 +133,9 @@ export function useUpdateSequence() {
       queryClient
         .invalidateQueries({ queryKey: sequenceKeys.lists() })
         .catch((error) => {
-          console.error('Error invalidating sequences list on success:', error);
+          logger.error('Error invalidating sequences list on success:', {
+            err: error,
+          });
         });
     },
   });

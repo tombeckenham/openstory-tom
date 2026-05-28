@@ -26,6 +26,10 @@ import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
 import type { StoryboardWorkflowInput } from '@/lib/workflow/types';
 import { analyzeScriptWorkflow } from '@/lib/workflows/analyze-script-workflow';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'storyboard']);
+
 export const generateStoryboardWorkflow =
   createScopedWorkflow<StoryboardWorkflowInput>(async (context, scopedDb) => {
     const input = context.requestPayload;
@@ -48,7 +52,7 @@ export const generateStoryboardWorkflow =
       imageModel,
       videoModel,
     } = await context.run('verify-clear-and-start-processing', async () => {
-      console.log('[StoryboardWorkflow] Input received:', {
+      logger.info('Input received:', {
         sequenceId: input.sequenceId,
         teamId: input.teamId,
         userId: input.userId,
@@ -122,7 +126,7 @@ export const generateStoryboardWorkflow =
           );
         }
       } catch (error) {
-        console.warn('[StoryboardWorkflow] Poster generation failed:', error);
+        logger.warn('Poster generation failed:', { err: error });
       }
     });
 

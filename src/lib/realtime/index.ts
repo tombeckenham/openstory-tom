@@ -138,13 +138,6 @@ export const realtimeSchema = {
       audioUrl: z.string().optional(),
     }),
 
-    // Merge progress (video stitching + audio-video muxing)
-    'merge:progress': z.object({
-      step: z.enum(['video', 'audio-video']),
-      status: z.enum(['merging', 'completed', 'failed']),
-      mergedVideoUrl: z.string().optional(),
-    }),
-
     // Character sheet generation progress (during recasting)
     'character-sheet:progress': z.object({
       characterId: z.string(),
@@ -294,14 +287,13 @@ export const realtimeSchema = {
         snapshotInputHash: z.string(),
         divergedVariantId: z.string(),
       }),
-      // Sequence-level divergent artifacts: the merged video or music track
-      // diverged from the live primary. `entityId` is the sequenceId; the
-      // divergent row sits in `sequence_video_variants` /
+      // Sequence-level divergent music: the music track diverged from the
+      // live primary. `entityId` is the sequenceId; the divergent row sits in
       // `sequence_music_variants`.
       z.object({
         entityType: z.literal('sequence'),
         entityId: z.string(),
-        artifact: z.enum(['merged-video', 'music']),
+        artifact: z.literal('music'),
         snapshotInputHash: z.string(),
         divergedVariantId: z.string(),
       }),

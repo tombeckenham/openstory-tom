@@ -12,7 +12,7 @@ import { getCreatorIdentity } from './creator-identity';
 
 type EvalSequenceMetadataProps = {
   sequence: SequenceWithFrames;
-  divergence?: { hasVideo: boolean; hasMusic: boolean };
+  divergence?: { hasMusic: boolean };
 };
 
 export const EvalSequenceMetadata: React.FC<EvalSequenceMetadataProps> = ({
@@ -21,14 +21,9 @@ export const EvalSequenceMetadata: React.FC<EvalSequenceMetadataProps> = ({
 }) => {
   const ratioData = getAspectRatioData(sequence.aspectRatio);
   const imageModel = getImageModelById(sequence.imageModel);
-  const dotTitle =
-    divergence?.hasVideo && divergence.hasMusic
-      ? 'Alternate merged video and music available — click to compare'
-      : divergence?.hasVideo
-        ? 'Alternate merged video available — click to compare'
-        : divergence?.hasMusic
-          ? 'Alternate music track available — click to compare'
-          : null;
+  const dotTitle = divergence?.hasMusic
+    ? 'Alternate music track available — click to compare'
+    : null;
 
   return (
     <div className="relative h-full border-r border-b p-3 flex flex-col gap-2 overflow-y-auto">
@@ -123,7 +118,6 @@ const SequenceErrors: React.FC<{ sequence: SequenceWithFrames }> = ({
   let errorCount = 0;
 
   if (sequence.status === 'failed') errorCount++;
-  if (sequence.mergedVideoError) errorCount++;
   if (sequence.musicError) errorCount++;
 
   errorCount += sequence.frames.filter(

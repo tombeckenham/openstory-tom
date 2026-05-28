@@ -1,31 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   discardSequenceMusicVariantFn,
-  discardSequenceVideoVariantFn,
   getDivergentSequenceMusicVariantsFn,
-  getDivergentSequenceVideoVariantsFn,
   getTeamDivergentSequenceVariantsFn,
   promoteSequenceMusicVariantFn,
-  promoteSequenceVideoVariantFn,
   undiscardSequenceMusicVariantFn,
-  undiscardSequenceVideoVariantFn,
 } from '@/functions/sequence-variants';
 import { sequenceKeys } from '@/hooks/use-sequences';
-import type {
-  SequenceMusicVariant,
-  SequenceVideoVariant,
-} from '@/lib/db/schema';
+import type { SequenceMusicVariant } from '@/lib/db/schema';
 import type { Sequence } from '@/types/database';
 
 /**
- * Query-key factory for sequence-level variants. The strings here match the
- * ones the realtime `query-cache-updater` invalidates on
+ * Query-key factory for sequence-level music variants. The strings here match
+ * the ones the realtime `query-cache-updater` invalidates on
  * `generation.stale:detected` events with `entityType: 'sequence'`.
  */
 export const sequenceVariantKeys = {
   all: ['sequence-variants'] as const,
-  divergentVideo: (sequenceId: string) =>
-    ['sequence-divergent-video', sequenceId] as const,
   divergentMusic: (sequenceId: string) =>
     ['sequence-divergent-music', sequenceId] as const,
   divergentByTeam: (teamId?: string) =>
@@ -33,26 +24,6 @@ export const sequenceVariantKeys = {
 };
 
 // ── Read hooks ─────────────────────────────────────────────────────────────
-
-/**
- * Live divergent merged-video alternates for a sequence (not discarded).
- * The corner-dot indicator and inline banner both consume this list.
- */
-export function useSequenceDivergentVideoVariants(
-  sequenceId?: string,
-  options?: { refetchInterval?: number | false }
-) {
-  return useQuery<SequenceVideoVariant[]>({
-    queryKey: sequenceVariantKeys.divergentVideo(sequenceId ?? ''),
-    queryFn: async () => {
-      if (!sequenceId) throw new Error('sequenceId is required');
-      return getDivergentSequenceVideoVariantsFn({ data: { sequenceId } });
-    },
-    enabled: !!sequenceId,
-    staleTime: 30_000,
-    refetchInterval: options?.refetchInterval ?? false,
-  });
-}
 
 export function useSequenceDivergentMusicVariants(
   sequenceId?: string,
@@ -72,14 +43,12 @@ export function useSequenceDivergentMusicVariants(
 
 /**
  * Aggregate read for the team's sequences-list dashboard. Returns one row per
- * sequence that has at least one live divergent alternate, with separate
- * flags for video vs music. The `enabled` arg should be true once the team
- * dashboard has loaded; the server function uses the user's default team.
+ * sequence that has at least one live divergent music alternate. The `enabled`
+ * arg should be true once the team dashboard has loaded; the server function
+ * uses the user's default team.
  */
 export function useTeamDivergentSequenceVariants(enabled = true) {
-  return useQuery<
-    Array<{ sequenceId: string; hasVideo: boolean; hasMusic: boolean }>
-  >({
+  return useQuery<Array<{ sequenceId: string; hasMusic: boolean }>>({
     queryKey: sequenceVariantKeys.divergentByTeam(),
     queryFn: () => getTeamDivergentSequenceVariantsFn(),
     enabled,
@@ -87,75 +56,9 @@ export function useTeamDivergentSequenceVariants(enabled = true) {
   });
 }
 
-// ── Mutations: video ────────────────────────────────────────────────────────
+// ── Mutations: music ────────────────────────────────────────────────────────
 
 type VariantMutationInput = { sequenceId: string; variantId: string };
-
-export function usePromoteSequenceVideoVariant() {
-  const queryClient = useQueryClient();
-  return useMutation<
-    { sequence: Sequence; variantId: string },
-    Error,
-    VariantMutationInput
-  >({
-    mutationFn: async (input) => promoteSequenceVideoVariantFn({ data: input }),
-    onSuccess: async ({ sequence }, { sequenceId }) => {
-      queryClient.setQueryData(sequenceKeys.detail(sequenceId), sequence);
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: sequenceVariantKeys.divergentVideo(sequenceId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: sequenceKeys.detail(sequenceId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: sequenceVariantKeys.divergentByTeam(),
-        }),
-      ]);
-    },
-  });
-}
-
-export function useDiscardSequenceVideoVariant() {
-  const queryClient = useQueryClient();
-  return useMutation<
-    { variantId: string; discardedAt: Date },
-    Error,
-    VariantMutationInput
-  >({
-    mutationFn: async (input) => discardSequenceVideoVariantFn({ data: input }),
-    onSuccess: async (_, { sequenceId }) => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: sequenceVariantKeys.divergentVideo(sequenceId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: sequenceVariantKeys.divergentByTeam(),
-        }),
-      ]);
-    },
-  });
-}
-
-export function useUndiscardSequenceVideoVariant() {
-  const queryClient = useQueryClient();
-  return useMutation<{ variantId: string }, Error, VariantMutationInput>({
-    mutationFn: async (input) =>
-      undiscardSequenceVideoVariantFn({ data: input }),
-    onSuccess: async (_, { sequenceId }) => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: sequenceVariantKeys.divergentVideo(sequenceId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: sequenceVariantKeys.divergentByTeam(),
-        }),
-      ]);
-    },
-  });
-}
-
-// ── Mutations: music ────────────────────────────────────────────────────────
 
 export function usePromoteSequenceMusicVariant() {
   const queryClient = useQueryClient();

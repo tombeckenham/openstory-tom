@@ -28,7 +28,7 @@ type EvalSequencesMobileProps = {
   sequences: SequenceWithFrames[];
   viewMode: ViewMode;
   framesLoadingMap: Record<string, boolean>;
-  divergenceMap?: Map<string, { hasVideo: boolean; hasMusic: boolean }>;
+  divergenceMap?: Map<string, { hasMusic: boolean }>;
   onLoadMore?: () => void;
   hasMore?: boolean;
 };
@@ -92,7 +92,7 @@ type MobileReelRowProps = {
   sequenceCount: number;
   viewMode: ViewMode;
   framesLoading: boolean;
-  divergence?: { hasVideo: boolean; hasMusic: boolean };
+  divergence?: { hasMusic: boolean };
   openDialog: OpenDialogState;
   onOpenDialogChange: (state: OpenDialogState) => void;
   onNavigateToCell: (sequenceIndex: number, sceneIndex: number) => void;
@@ -115,7 +115,7 @@ const MobileReelRow: React.FC<MobileReelRowProps> = ({
     ? (STRIP_HEIGHT * ratioData.width) / ratioData.height
     : STRIP_HEIGHT;
   const frameCount = sequence.frames.length;
-  const hasVariants = Boolean(divergence?.hasVideo || divergence?.hasMusic);
+  const hasVariants = Boolean(divergence?.hasMusic);
 
   return (
     <div className="flex flex-col gap-2 p-3">

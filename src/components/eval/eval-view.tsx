@@ -116,10 +116,9 @@ export const EvalView: React.FC<EvalViewProps> = ({ initialUserFilter }) => {
     !supportMode && sequences.length > 0
   );
   const divergenceMap = useMemo(() => {
-    const map = new Map<string, { hasVideo: boolean; hasMusic: boolean }>();
+    const map = new Map<string, { hasMusic: boolean }>();
     for (const row of divergentByTeam ?? []) {
       map.set(row.sequenceId, {
-        hasVideo: row.hasVideo,
         hasMusic: row.hasMusic,
       });
     }

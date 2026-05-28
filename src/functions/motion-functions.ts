@@ -13,7 +13,7 @@ import {
   safeImageToVideoModel,
 } from '@/lib/ai/models';
 import { estimateVideoCost } from '@/lib/billing/cost-estimation';
-import { multiplyMicros, usdToMicros } from '@/lib/billing/money';
+import { multiplyMicros } from '@/lib/billing/money';
 import { requireCredits } from '@/lib/billing/preflight';
 import { resolveFrameDuration } from '@/lib/motion/resolve-frame-duration';
 import { snapDuration } from '@/lib/motion/motion-generation';
@@ -21,14 +21,10 @@ import { generateMotionSchema } from '@/lib/schemas/frame.schemas';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
 import { triggerWorkflow } from '@/lib/workflow/client';
 import { buildWorkflowLabel } from '@/lib/workflow/labels';
-import type {
-  BatchMotionMusicWorkflowInput,
-  MergeVideoWorkflowInput,
-} from '@/lib/workflow/types';
+import type { BatchMotionMusicWorkflowInput } from '@/lib/workflow/types';
 
 import { resolveMotionPrompt } from '@/lib/motion/resolve-motion-prompt';
 import { rescanContinuityFromPrompt } from '@/lib/scenes/rescan-continuity-from-prompt';
-import { buildMergeVideoSourcesFromFrames } from '@/lib/workflows/sequence-snapshots';
 
 import { frameAccessMiddleware, sequenceAccessMiddleware } from './middleware';
 
@@ -262,56 +258,4 @@ export const batchGenerateMotionFn = createServerFn({ method: 'POST' })
       workflowRunId,
       includeMusic,
     };
-  });
-
-// -- Trigger Merge Video -------------------------------------------------
-
-const mergeVideoInputSchema = z.object({
-  sequenceId: ulidSchema,
-});
-
-export const triggerMergeVideoFn = createServerFn({ method: 'POST' })
-  .middleware([sequenceAccessMiddleware])
-  .inputValidator(zodValidator(mergeVideoInputSchema))
-  .handler(async ({ context }) => {
-    const { sequence, teamId, user } = context;
-
-    const frames = await context.scopedDb.frames.listBySequence(sequence.id);
-
-    if (frames.length === 0) {
-      throw new Error('No frames found in sequence');
-    }
-
-    const incompleteCount = frames.filter(
-      (f) => f.videoStatus !== 'completed' || !f.videoUrl
-    ).length;
-
-    if (incompleteCount > 0) {
-      throw new Error(
-        `${incompleteCount} frame(s) do not have completed videos`
-      );
-    }
-
-    await requireCredits(context.scopedDb, usdToMicros(0.01), {
-      errorMessage: 'Insufficient credits for video merge',
-    });
-
-    const sorted = [...frames].sort((a, b) => a.orderIndex - b.orderIndex);
-    const { videoUrls, sourceFrameVideoHashes } =
-      buildMergeVideoSourcesFromFrames(sorted);
-
-    const workflowInput: MergeVideoWorkflowInput = {
-      userId: user.id,
-      teamId,
-      sequenceId: sequence.id,
-      videoUrls,
-      sourceFrameVideoHashes,
-    };
-
-    const workflowRunId = await triggerWorkflow('/merge-video', workflowInput, {
-      deduplicationId: `merge-${sequence.id}-${Date.now()}`,
-      label: buildWorkflowLabel(sequence.id),
-    });
-
-    return { workflowRunId, sequenceId: sequence.id };
   });

@@ -2,7 +2,6 @@ import { MusicModelSelector } from '@/components/model/music-model-selector';
 import { PromptHistorySheet } from '@/components/prompts/prompt-history-sheet';
 import { StalenessIndicator } from '@/components/staleness/staleness-indicator';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,7 +16,6 @@ import type { Sequence } from '@/types/database';
 import {
   AlertCircle,
   AlertTriangle,
-  Film,
   History,
   Loader2,
   Music,
@@ -32,18 +30,11 @@ type GenerateMusicArgs = {
   duration?: number;
 };
 
-type MergeVideoAndMusicArgs = {
-  /** When `false`, restitch frame videos but skip the music mux. */
-  includeMusic: boolean;
-};
-
 type MusicViewProps = {
   sequence: Sequence;
   videoDuration?: number;
   onGenerateMusic: (args?: GenerateMusicArgs) => void;
   isGeneratingMusic: boolean;
-  onMergeVideoAndMusic: (args: MergeVideoAndMusicArgs) => void;
-  isMergingVideoAndMusic: boolean;
   /** Banner rendered above the audio player while `musicStatus === 'completed'`. */
   divergentBanner?: React.ReactNode;
   isMusicPromptStale?: boolean;
@@ -142,8 +133,6 @@ export const MusicView: React.FC<MusicViewProps> = ({
   videoDuration,
   onGenerateMusic,
   isGeneratingMusic,
-  onMergeVideoAndMusic,
-  isMergingVideoAndMusic,
   divergentBanner,
   isMusicPromptStale,
   onRegenerateMusicPrompt,
@@ -166,7 +155,6 @@ export const MusicView: React.FC<MusicViewProps> = ({
     () => videoDuration
   );
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [includeMusicInMerge, setIncludeMusicInMerge] = useState(true);
 
   // Resync the textarea when the source-of-truth musicPrompt changes from
   // outside (regenerate, restore, realtime update). Without this, a successful
@@ -233,9 +221,6 @@ export const MusicView: React.FC<MusicViewProps> = ({
   }
 
   if (musicStatus === 'completed' && musicUrl) {
-    const isMerging =
-      isMergingVideoAndMusic || sequence.mergedVideoStatus === 'merging';
-
     return (
       <StatusPanel
         icon={<Volume2 className="h-10 w-10 text-muted-foreground" />}
@@ -261,21 +246,6 @@ export const MusicView: React.FC<MusicViewProps> = ({
         <ReadOnlyField label="Prompt" value={musicPrompt ?? 'Missing prompt'} />
         <ReadOnlyField label="Tags" value={musicTags ?? 'Missing tags'} />
 
-        <label
-          htmlFor="merge-include-music"
-          className="flex items-center gap-2 self-center text-sm text-muted-foreground"
-        >
-          <Checkbox
-            id="merge-include-music"
-            checked={includeMusicInMerge}
-            onCheckedChange={(checked) =>
-              setIncludeMusicInMerge(checked === true)
-            }
-            disabled={isMerging}
-          />
-          <span>Include music in merged video</span>
-        </label>
-
         <div className="flex justify-center gap-3">
           {historyButton}
           <LoadingButton
@@ -285,16 +255,6 @@ export const MusicView: React.FC<MusicViewProps> = ({
             loadingText="Regenerating…"
           >
             Regenerate Music
-          </LoadingButton>
-          <LoadingButton
-            onClick={() =>
-              onMergeVideoAndMusic({ includeMusic: includeMusicInMerge })
-            }
-            isLoading={isMerging}
-            loadingText="Merging…"
-          >
-            <Film className="mr-2 h-4 w-4" />
-            Merge with Video
           </LoadingButton>
         </div>
         {historySheet}

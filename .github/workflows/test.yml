@@ -58,10 +58,10 @@ jobs:
         run: bun install
 
       - name: Build worker for E2E
-        run: bun run build
+        # build:e2e bakes in VITE_APP_URL=http://localhost:3001 and
+        # VITE_DISABLE_DEVTOOLS=true at build time (Vite inlines VITE_* envs).
+        run: bun run build:e2e
         env:
-          VITE_APP_URL: http://localhost:3001
-          VITE_DISABLE_DEVTOOLS: 'true'
           VITE_R2_PUBLIC_ASSETS_DOMAIN: ${{ vars.VITE_R2_PUBLIC_ASSETS_DOMAIN }}
 
       - name: Upload dist artifact

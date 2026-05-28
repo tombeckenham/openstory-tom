@@ -256,24 +256,21 @@ export async function getTestCharacter(characterId: string): Promise<{
 }
 
 /**
- * Get sequence-level music + merged-video status. Music is generated once
- * per sequence (not per frame — see src/lib/workflows/music-workflow.ts:133
- * TODO), and merging composes the muxed video, so the full pipeline is
- * "done" when `mergedVideoStatus === 'completed'`.
+ * Get sequence-level music status. Music is generated once per sequence
+ * (not per frame — see src/lib/workflows/music-workflow.ts:133 TODO).
+ * Per-frame video completion is checked via getTestSequenceFrames; final
+ * composition is now client-side via Mediabunny, so no merged-video row
+ * is written.
  */
 export async function getTestSequenceStatus(sequenceId: string): Promise<{
   musicStatus: string | null;
   musicUrl: string | null;
-  mergedVideoStatus: string | null;
-  mergedVideoUrl: string | null;
 } | null> {
   const row = await testDb.query.sequences.findFirst({
     where: { id: sequenceId },
     columns: {
       musicStatus: true,
       musicUrl: true,
-      mergedVideoStatus: true,
-      mergedVideoUrl: true,
     },
   });
   return row ?? null;

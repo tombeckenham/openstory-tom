@@ -342,13 +342,10 @@ SUPER:  CORAL.  OUT NOW.
       // 14. Thin DB sanity tail: a UI bug that silently hides a player
       //     mustn't make the test pass green. We've already proved every
       //     resource decodes above, so the URL-presence asserts are
-      //     belt-and-braces only.
+      //     belt-and-braces only. The "merged video" concept is gone —
+      //     final composition happens client-side via Mediabunny.
       const finalStatus = await getTestSequenceStatus(sequenceId);
       expect(finalStatus?.musicUrl, 'sequence missing music url').toBeTruthy();
-      expect(
-        finalStatus?.mergedVideoUrl,
-        'sequence missing merged video url'
-      ).toBeTruthy();
       const finalFrames = await getTestSequenceFrames(sequenceId);
       for (const frame of finalFrames) {
         expect(frame.videoUrl, `frame ${frame.id} missing video`).toBeTruthy();

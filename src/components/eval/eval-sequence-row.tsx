@@ -24,7 +24,7 @@ type EvalSequenceRowProps = {
   maxSceneCount: number;
   sequenceIndex: number;
   framesLoading: boolean;
-  divergence?: { hasVideo: boolean; hasMusic: boolean };
+  divergence?: { hasMusic: boolean };
   openDialog: OpenDialogState;
   onOpenDialogChange: (state: OpenDialogState) => void;
   onNavigateToCell: (sequenceIndex: number, sceneIndex: number) => void;

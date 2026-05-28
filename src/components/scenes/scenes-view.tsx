@@ -165,14 +165,13 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
     null
   );
 
-  // Poll sequence while a motion batch is in flight so mergedVideoStatus stays
+  // Poll sequence while a motion batch is in flight so per-frame statuses stay
   // fresh. The refetchInterval fn reads from the query cache each tick to
   // avoid a circular dependency between sequence state and the poll condition.
   const { data: sequence } = useSequence(sequenceId, {
     refetchInterval: (query) => {
       const seq = query.state.data;
       if (!seq) return false;
-      if (seq.mergedVideoStatus === 'merging') return 2000;
       const cachedFrames = queryClient.getQueryData<Frame[]>(
         frameKeys.list(sequenceId)
       );
@@ -452,8 +451,7 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
   const motionBannerState = useMemo(() => {
     if (!frames || !sequence) return null;
     const anyGenerating = frames.some((f) => f.videoStatus === 'generating');
-    const merging = sequence.mergedVideoStatus === 'merging';
-    if (!anyGenerating && !merging) return null;
+    if (!anyGenerating) return null;
     const generatingTimes = frames
       .filter((f) => f.videoStatus === 'generating')
       .map((f) => f.updatedAt.getTime());

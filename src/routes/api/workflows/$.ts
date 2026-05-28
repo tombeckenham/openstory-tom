@@ -22,8 +22,6 @@ import { libraryTalentSheetWorkflow } from '@/lib/workflows/library-talent-sheet
 import { locationBibleWorkflow } from '@/lib/workflows/location-bible-workflow';
 import { locationMatchingWorkflow } from '@/lib/workflows/location-matching-workflow';
 import { locationSheetWorkflow } from '@/lib/workflows/location-sheet-workflow';
-import { mergeAudioVideoWorkflow } from '@/lib/workflows/merge-audio-video-workflow';
-import { mergeVideoWorkflow } from '@/lib/workflows/merge-video-workflow';
 import { motionBatchWorkflow } from '@/lib/workflows/motion-batch-workflow';
 import { motionMusicPromptsWorkflow } from '@/lib/workflows/motion-music-prompts-workflow';
 import { motionPromptSceneWorkflow } from '@/lib/workflows/motion-prompt-scene-workflow';
@@ -65,8 +63,6 @@ function getHandler() {
         'location-matching': locationMatchingWorkflow,
         'location-sheet-from-bible': locationBibleWorkflow,
         'location-sheet': locationSheetWorkflow,
-        'merge-audio-video': mergeAudioVideoWorkflow,
-        'merge-video': mergeVideoWorkflow,
         'motion-music-prompts': motionMusicPromptsWorkflow,
         'motion-prompt-scene': motionPromptSceneWorkflow,
         'motion-prompts': motionPromptWorkflow,

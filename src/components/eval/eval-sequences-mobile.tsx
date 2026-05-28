@@ -28,7 +28,7 @@ type EvalSequencesMobileProps = {
   sequences: SequenceWithFrames[];
   viewMode: ViewMode;
   framesLoadingMap: Record<string, boolean>;
-  divergenceMap?: Map<string, { hasVideo: boolean; hasMusic: boolean }>;
+  divergenceMap?: Map<string, { hasMusic: boolean }>;
   onLoadMore?: () => void;
   hasMore?: boolean;
 };
@@ -92,7 +92,7 @@ type MobileReelRowProps = {
   sequenceCount: number;
   viewMode: ViewMode;
   framesLoading: boolean;
-  divergence?: { hasVideo: boolean; hasMusic: boolean };
+  divergence?: { hasMusic: boolean };
   openDialog: OpenDialogState;
   onOpenDialogChange: (state: OpenDialogState) => void;
   onNavigateToCell: (sequenceIndex: number, sceneIndex: number) => void;
@@ -115,7 +115,7 @@ const MobileReelRow: React.FC<MobileReelRowProps> = ({
     ? (STRIP_HEIGHT * ratioData.width) / ratioData.height
     : STRIP_HEIGHT;
   const frameCount = sequence.frames.length;
-  const hasVariants = Boolean(divergence?.hasVideo || divergence?.hasMusic);
+  const hasVariants = Boolean(divergence?.hasMusic);
 
   return (
     <div className="flex flex-col gap-2 p-3">
@@ -161,7 +161,7 @@ const MobileReelRow: React.FC<MobileReelRowProps> = ({
           className="flex gap-2 pl-3"
           style={{ height: STRIP_HEIGHT, minWidth: 'min-content' }}
         >
-          <MergedVideoCell
+          <SequencePosterCell
             sequence={sequence}
             width={cellWidth}
             height={STRIP_HEIGHT}
@@ -258,13 +258,13 @@ const CreatorIdentity: React.FC<{ sequence: SequenceWithFrames }> = ({
   );
 };
 
-type MergedVideoCellProps = {
+type SequencePosterCellProps = {
   sequence: SequenceWithFrames;
   width: number;
   height: number;
 };
 
-const MergedVideoCell: React.FC<MergedVideoCellProps> = ({
+const SequencePosterCell: React.FC<SequencePosterCellProps> = ({
   sequence,
   width,
   height,

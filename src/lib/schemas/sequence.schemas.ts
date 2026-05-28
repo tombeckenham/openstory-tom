@@ -49,12 +49,6 @@ export const createSequenceSchema = createInsertSchema(sequences, {
     imageModel: true, // Omit - will use imageModel field in extend
     videoModel: true, // Omit - will use videoModel field in extend
     workflow: true, // Omit - set by workflow, not user
-    // Merged video fields - managed by workflow, not user input
-    mergedVideoUrl: true,
-    mergedVideoPath: true,
-    mergedVideoStatus: true,
-    mergedVideoGeneratedAt: true,
-    mergedVideoError: true,
     // Music fields - managed by workflow, not user input
     musicUrl: true,
     musicPath: true,
@@ -64,6 +58,12 @@ export const createSequenceSchema = createInsertSchema(sequences, {
     musicModel: true,
     musicPrompt: true,
     musicTags: true,
+    // Merged-video columns linger until #759 drops them; never accept from user.
+    mergedVideoUrl: true,
+    mergedVideoPath: true,
+    mergedVideoStatus: true,
+    mergedVideoGeneratedAt: true,
+    mergedVideoError: true,
   })
   .extend({
     // Accept array of models for multi-model sequence creation
@@ -160,12 +160,6 @@ export const updateSequenceSchema = createUpdateSchema(sequences, {
   createdBy: true,
   updatedBy: true,
   workflow: true, // Set by workflow, not user
-  // Merged video fields - managed by workflow, not user input
-  mergedVideoUrl: true,
-  mergedVideoPath: true,
-  mergedVideoStatus: true,
-  mergedVideoGeneratedAt: true,
-  mergedVideoError: true,
   // Music fields - managed by workflow, not user input
   musicUrl: true,
   musicPath: true,
@@ -175,6 +169,12 @@ export const updateSequenceSchema = createUpdateSchema(sequences, {
   musicModel: true,
   musicPrompt: true,
   musicTags: true,
+  // Merged-video columns linger until #759 drops them; never accept from user.
+  mergedVideoUrl: true,
+  mergedVideoPath: true,
+  mergedVideoStatus: true,
+  mergedVideoGeneratedAt: true,
+  mergedVideoError: true,
 });
 
 export type CreateSequenceInput = z.infer<typeof createSequenceSchema>;

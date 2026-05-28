@@ -18,7 +18,7 @@ type EvalMatrixProps = {
   sequences: SequenceWithFrames[];
   viewMode: ViewMode;
   framesLoadingMap: Record<string, boolean>;
-  divergenceMap?: Map<string, { hasVideo: boolean; hasMusic: boolean }>;
+  divergenceMap?: Map<string, { hasMusic: boolean }>;
   onLoadMore?: () => void;
   hasMore?: boolean;
 };

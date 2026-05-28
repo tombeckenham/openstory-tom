@@ -4,7 +4,7 @@ import {
   getMusicPromptStalenessFn,
   regenerateMusicPromptFn,
 } from '@/functions/prompt-variants';
-import { generateMusicFn, mergeVideoAndMusicFn } from '@/functions/sequences';
+import { generateMusicFn } from '@/functions/sequences';
 import { useFramesBySequence } from '@/hooks/use-frames';
 import { useSequence, sequenceKeys } from '@/hooks/use-sequences';
 import {
@@ -31,12 +31,7 @@ export const Route = createFileRoute('/_protected/sequences/$id/music')({
 function MusicPage() {
   const { id: sequenceId } = Route.useParams();
 
-  const { data: sequence, isLoading } = useSequence(sequenceId, {
-    refetchInterval: (query) => {
-      if (query.state.data?.mergedVideoStatus === 'merging') return 2000;
-      return false;
-    },
-  });
+  const { data: sequence, isLoading } = useSequence(sequenceId);
   const { data: frames } = useFramesBySequence(sequenceId, {
     refetchInterval: false,
   });
@@ -153,23 +148,6 @@ function MusicPage() {
     },
   });
 
-  const mergeVideoAndMusic = useMutation({
-    mutationFn: (args: { includeMusic: boolean }) =>
-      mergeVideoAndMusicFn({
-        data: { sequenceId, includeMusic: args.includeMusic },
-      }),
-    onMutate: (args) => {
-      queryClient.setQueryData<Sequence>(
-        sequenceKeys.detail(sequenceId),
-        (old) => (old ? { ...old, mergedVideoStatus: 'merging' as const } : old)
-      );
-      posthog.capture('merged_video_generation_started', {
-        sequence_id: sequenceId,
-        include_music: args.includeMusic,
-      });
-    },
-  });
-
   const latestDivergent = divergentMusicVariants?.[0];
 
   const divergentBanner = latestDivergent ? (
@@ -230,8 +208,6 @@ function MusicPage() {
           videoDuration={videoDuration}
           onGenerateMusic={(args) => generateMusic.mutate(args)}
           isGeneratingMusic={generateMusic.isPending}
-          onMergeVideoAndMusic={(args) => mergeVideoAndMusic.mutate(args)}
-          isMergingVideoAndMusic={mergeVideoAndMusic.isPending}
           divergentBanner={divergentBanner}
           isMusicPromptStale={musicPromptStaleness?.musicPrompt === 'stale'}
           onRegenerateMusicPrompt={() => regenerateMusicPrompt.mutate()}

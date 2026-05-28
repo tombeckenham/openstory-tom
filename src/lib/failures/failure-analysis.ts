@@ -10,7 +10,6 @@ export type FailureCategory =
   | 'image'
   | 'motion'
   | 'music'
-  | 'merge'
   | 'motion-prompts'
   | 'music-prompt';
 
@@ -76,8 +75,6 @@ function buildHeadline(
       parts.push('music generation failed');
     } else if (group.category === 'music-prompt') {
       parts.push('music prompt generation failed');
-    } else if (group.category === 'merge') {
-      parts.push('video merge failed');
     }
   }
 
@@ -178,16 +175,6 @@ export function analyzeFailures(
         frames: [],
       });
     }
-  }
-
-  // Failed merge
-  if (sequence.mergedVideoStatus === 'failed') {
-    groups.push({
-      category: 'merge',
-      label: 'Video merge failed',
-      frames: [],
-      error: sequence.mergedVideoError,
-    });
   }
 
   // Mixed case: retryable failures + missing prompts → full retry wins

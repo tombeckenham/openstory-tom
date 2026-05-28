@@ -22,7 +22,6 @@ import {
   frames,
   frameVariants,
   sequenceElements,
-  sequenceVideoVariants,
   sequences,
 } from '@/lib/db/schema';
 import { resolveRunState, STALE_THRESHOLD_MS } from '@/lib/workflow/reconcile';
@@ -62,9 +61,7 @@ export async function reconcileAllStuckJobs(): Promise<ReconcileCounts> {
       'frame_variants.shot_variant',
       () => reconcileFrameVariantsPass(db, 'shotVariant'),
     ],
-    ['sequence_video_variants', () => reconcileSequenceVideoVariantsPass(db)],
     ['sequences.music', () => blindFailPass(db, 'sequencesMusic')],
-    ['sequences.merged_video', () => blindFailPass(db, 'sequencesMergedVideo')],
     ['sequence_elements.vision', () => blindFailPass(db, 'sequenceElements')],
   ];
 
@@ -217,42 +214,7 @@ async function reconcileFrameVariantsPass(
   return updated;
 }
 
-async function reconcileSequenceVideoVariantsPass(
-  db: Database
-): Promise<number> {
-  const staleCutoff = new Date(Date.now() - STALE_THRESHOLD_MS);
-
-  const stuck = await db
-    .select({
-      id: sequenceVideoVariants.id,
-      runId: sequenceVideoVariants.workflowRunId,
-    })
-    .from(sequenceVideoVariants)
-    .where(
-      and(
-        eq(sequenceVideoVariants.status, 'merging'),
-        lt(sequenceVideoVariants.updatedAt, staleCutoff)
-      )
-    )
-    .limit(MAX_ROWS_PER_PASS);
-
-  let updated = 0;
-  for (const row of stuck) {
-    const next = await resolveRunState(row.runId ?? '');
-    if (next === null) continue;
-    await db
-      .update(sequenceVideoVariants)
-      .set({ status: next })
-      .where(eq(sequenceVideoVariants.id, row.id));
-    updated++;
-  }
-  return updated;
-}
-
-type BlindFailPipeline =
-  | 'sequencesMusic'
-  | 'sequencesMergedVideo'
-  | 'sequenceElements';
+type BlindFailPipeline = 'sequencesMusic' | 'sequenceElements';
 
 /**
  * Tables without a workflow_run_id column: we can't ask QStash what happened.
@@ -261,7 +223,7 @@ type BlindFailPipeline =
  * Why 30min vs the 5min QStash-verified threshold: with no run id we can't
  * distinguish a slow-but-alive run from a dead one, so we wait long enough
  * that any reasonable workflow would have completed (the slowest current
- * workflows — large merged videos and music gen — finish well under 30min).
+ * workflows — music gen and element vision — finish well under 30min).
  * Note we can only flip to 'failed' here, never 'completed' — without a run
  * id, success requires the workflow's own update step to have persisted, and
  * if that didn't happen the artifact URL won't be there either.
@@ -279,20 +241,6 @@ async function blindFailPass(
       .where(
         and(
           eq(sequences.musicStatus, 'generating'),
-          lt(sequences.updatedAt, staleCutoff)
-        )
-      )
-      .returning({ id: sequences.id });
-    return result.length;
-  }
-
-  if (pipeline === 'sequencesMergedVideo') {
-    const result = await db
-      .update(sequences)
-      .set({ mergedVideoStatus: 'failed' })
-      .where(
-        and(
-          eq(sequences.mergedVideoStatus, 'merging'),
           lt(sequences.updatedAt, staleCutoff)
         )
       )

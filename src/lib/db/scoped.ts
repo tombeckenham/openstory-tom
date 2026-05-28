@@ -63,10 +63,7 @@ export type {
   UserActivityRow,
 } from '@/lib/db/scoped/admin';
 
-export type {
-  MergedVideoFieldsUpdate,
-  MusicFieldsUpdate,
-} from '@/lib/db/scoped/sequences';
+export type { MusicFieldsUpdate } from '@/lib/db/scoped/sequences';
 
 /**
  * Resolve a user's default team (highest-role team).

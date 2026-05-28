@@ -292,19 +292,12 @@ export function updateQueryCacheFromEvent(
           break;
 
         case 'sequence': {
-          // Sequence-level merged-video or music diverged into
-          // `sequence_video_variants` / `sequence_music_variants`. Refresh the
-          // matching divergent-list query so the inline banner appears, plus
-          // the sequence detail (its `mergedVideoStatus`/`musicStatus` may
-          // have just settled back to 'completed').
+          // Sequence-level music diverged into `sequence_music_variants`.
+          // Refresh the divergent-list query so the inline banner appears,
+          // plus the sequence detail (its `musicStatus` may have just settled
+          // back to 'completed').
           const artifact = getString(data, 'artifact');
-          if (artifact === 'merged-video') {
-            debouncedInvalidate(
-              queryClient,
-              ['sequence-divergent-video', sequenceId],
-              `sequence-divergent-video:${sequenceId}`
-            );
-          } else if (artifact === 'music') {
+          if (artifact === 'music') {
             debouncedInvalidate(
               queryClient,
               ['sequence-divergent-music', sequenceId],

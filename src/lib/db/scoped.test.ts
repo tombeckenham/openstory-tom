@@ -25,9 +25,7 @@ const mockSequencesUpdateMusicPrompt = mock();
 const mockSequencesUpdateWorkflow = mock();
 const mockUpdateStatus = mock();
 const mockUpdateMusicFields = mock();
-const mockUpdateMergedVideoFields = mock();
 const mockGetMusicStatus = mock();
-const mockGetMergedVideoStatus = mock();
 
 mock.module('@/lib/db/scoped/sequences', () => ({
   createSequencesReadMethods: mock(() => ({
@@ -52,15 +50,12 @@ mock.module('@/lib/db/scoped/sequences', () => ({
   createSequenceReadMethods: mock((_db: unknown, sequenceId: string) => ({
     sequenceId,
     getMusicStatus: mockGetMusicStatus,
-    getMergedVideoStatus: mockGetMergedVideoStatus,
   })),
   createSequenceMethods: mock((_db: unknown, sequenceId: string) => ({
     sequenceId,
     updateStatus: mockUpdateStatus,
     updateMusicFields: mockUpdateMusicFields,
-    updateMergedVideoFields: mockUpdateMergedVideoFields,
     getMusicStatus: mockGetMusicStatus,
-    getMergedVideoStatus: mockGetMergedVideoStatus,
   })),
 }));
 
@@ -317,9 +312,7 @@ describe('createScopedDb', () => {
       mockSequencesGetWithFrames,
       mockUpdateStatus,
       mockUpdateMusicFields,
-      mockUpdateMergedVideoFields,
       mockGetMusicStatus,
-      mockGetMergedVideoStatus,
       mockSequencesUpdate,
       mockSequencesDelete,
       mockSequencesGetForUser,
@@ -479,36 +472,12 @@ describe('createScopedDb', () => {
       expect(mockUpdateMusicFields).toHaveBeenCalledWith(fields);
     });
 
-    it('updateMergedVideoFields() delegates to sub-module', async () => {
-      const fields = {
-        mergedVideoStatus: 'merging' as const,
-        mergedVideoError: null,
-      };
-      const db = createScopedDb(TEAM_ID, USER_ID);
-      await db.sequence('seq_01').updateMergedVideoFields(fields);
-
-      expect(mockUpdateMergedVideoFields).toHaveBeenCalledWith(fields);
-    });
-
     it('getMusicStatus() delegates to sub-module', async () => {
       const sentinel = { musicStatus: 'completed', musicUrl: 'url' };
       mockGetMusicStatus.mockResolvedValue(sentinel);
 
       const db = createScopedDb(TEAM_ID, USER_ID);
       const result = await db.sequence('seq_01').getMusicStatus();
-
-      expect(result).toEqual(sentinel);
-    });
-
-    it('getMergedVideoStatus() delegates to sub-module', async () => {
-      const sentinel = {
-        mergedVideoStatus: 'completed',
-        mergedVideoUrl: 'url',
-      };
-      mockGetMergedVideoStatus.mockResolvedValue(sentinel);
-
-      const db = createScopedDb(TEAM_ID, USER_ID);
-      const result = await db.sequence('seq_01').getMergedVideoStatus();
 
       expect(result).toEqual(sentinel);
     });

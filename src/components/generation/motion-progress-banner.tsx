@@ -29,8 +29,6 @@ type Phase = {
 };
 
 const MUSIC_BUDGET_SECONDS = 30;
-const MERGE_VIDEO_BUDGET_SECONDS = 30;
-const MERGE_AUDIO_VIDEO_BUDGET_SECONDS = 30;
 
 // Fal.ai queues frames with limited concurrency — observed ~2x overhead
 // vs model estimate (e.g. 9 frames × 15s model = 135s, actual ~300s).
@@ -75,7 +73,7 @@ function derivePhases(
     ? Math.max(motionBudget, MUSIC_BUDGET_SECONDS)
     : motionBudget;
 
-  const phases: Phase[] = [
+  return [
     {
       key: 'motion-music',
       name: includeMusic
@@ -89,36 +87,6 @@ function derivePhases(
         : 'Animating each scene with camera movement and motion effects.',
     },
   ];
-
-  if (frames.length > 1) {
-    const mergeDone =
-      sequence.mergedVideoStatus === 'completed' && motionMusicComplete;
-    const mergeActive =
-      sequence.mergedVideoStatus === 'merging' ||
-      (motionMusicComplete && !mergeDone);
-    const mergeStatus: Phase['status'] = mergeDone
-      ? 'completed'
-      : mergeActive
-        ? 'active'
-        : 'pending';
-
-    const mergeBudget = includeMusic
-      ? MERGE_VIDEO_BUDGET_SECONDS + MERGE_AUDIO_VIDEO_BUDGET_SECONDS
-      : MERGE_VIDEO_BUDGET_SECONDS;
-
-    phases.push({
-      key: 'merge',
-      name: 'Merging video\u2026',
-      shortName: 'Merge',
-      status: mergeStatus,
-      budgetSeconds: mergeBudget,
-      description: includeMusic
-        ? 'Stitching scenes and audio together into the final video.'
-        : 'Stitching all scenes together into the final video.',
-    });
-  }
-
-  return phases;
 }
 
 export const MotionProgressBanner: React.FC<MotionProgressBannerProps> = ({

@@ -87,6 +87,8 @@
     "db:check-migrations": "bun scripts/check-migrations.ts",
     "db:check-migrations:all": "bun scripts/check-migrations.ts --all",
     "db:setup:local": "bun run db:migrate:local && bun run db:seed:local",
+    "db:fork:local": "bun scripts/db-worktree.ts --fork",
+    "db:promote:local": "bun scripts/db-worktree.ts --promote",
     "memory:profile": "bun scripts/memory-profile.ts",
     "memory:watch": "bun scripts/memory-profile.ts --watch",
     "memory:clear": "bun scripts/memory-profile.ts --clear",

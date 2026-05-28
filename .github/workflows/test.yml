@@ -109,6 +109,11 @@ jobs:
         env:
           E2E_TEST: 'true'
           E2E_BUILT: 'true'
+          # Activates wrangler.jsonc [env.test] block for both vite dev
+          # (via @cloudflare/vite-plugin) and wrangler dev. Same flag set
+          # in playwright.config.ts envPrefix; duplicated here for explicit
+          # visibility at the CI layer.
+          CLOUDFLARE_ENV: test
           BETTER_AUTH_URL: http://localhost:3001
           # QStash - local Docker service
           QSTASH_TOKEN: eyJVc2VySUQiOiJkZWZhdWx0VXNlciIsIlBhc3N3b3JkIjoiZGVmYXVsdFBhc3N3b3JkIn0=
@@ -211,6 +216,9 @@ jobs:
           E2E_TEST: 'true'
           E2E_BUILT: 'true'
           E2E_FULL_PIPELINE: 'true'
+          # Activates wrangler.jsonc [env.test] block. Mirrors
+          # playwright.config.ts envPrefix; explicit here for visibility.
+          CLOUDFLARE_ENV: test
           BETTER_AUTH_URL: http://localhost:3001
           # QStash - local Docker service started above
           QSTASH_TOKEN: eyJVc2VySUQiOiJkZWZhdWx0VXNlciIsIlBhc3N3b3JkIjoiZGVmYXVsdFBhc3N3b3JkIn0=

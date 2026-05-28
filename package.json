@@ -107,7 +107,7 @@
     "doppler:push:stg": "doppler secrets upload -p openstory --config=stg .env.staging",
     "cf:typegen": "wrangler types",
     "cf:dev": "wrangler dev",
-    "cf:deploy:prd": "bun run cf:typegen && bun run build && wrangler deploy",
+    "cf:deploy:prd": "bun run cf:typegen && bun run build && wrangler deploy --env=production",
     "cf:deploy:forwarder:prd": "wrangler deploy --env prd --config workers/posthog-log-forwarder/wrangler.jsonc",
     "cf:deploy:forwarder:stg": "wrangler deploy --env stg --config workers/posthog-log-forwarder/wrangler.jsonc",
     "knip": "knip"

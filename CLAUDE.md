@@ -225,15 +225,25 @@ bun db:migrate   # Apply migrations to local.db
 - **ULID** primary keys (not UUID).
 - **Typed JSONB:** `frame.metadata` typed as `Scene`.
 
-### `@cloudflare/vite-plugin` remoteBindings footgun — READ BEFORE TOUCHING wrangler.jsonc OR vite.config.ts
+### wrangler.jsonc env layout + `@cloudflare/vite-plugin` remoteBindings footgun — READ BEFORE TOUCHING EITHER
 
-The plugin defaults `remoteBindings: true`. That means every binding in `wrangler.jsonc` (including `DB`) routes to **real production Cloudflare** when local credentials are present — `bun dev` writes go straight to prod D1, prod R2, etc. No warning, no prompt.
+**The footgun.** `@cloudflare/vite-plugin` defaults `remoteBindings: true`. With Cloudflare credentials present, that auto-routes bindings to real Cloudflare — `bun dev` writes can land in prod D1 / prod R2. We've been bitten by this already (Better Auth verification rows leaking to `openstory-prd` D1 mid-#755).
 
-We opt out at the plugin level (`remoteBindings: false` in `vite.config.ts`'s `cloudflare()` call) and opt individual R2 bindings back in via `"remote": true` in `wrangler.jsonc`. **D1 must never be marked `remote: true`** — local dev uses Wrangler-managed Miniflare D1 at `.wrangler/state/v3/d1/`.
+**The structure.** `wrangler.jsonc` separates dev from prod via env blocks:
 
-**Local guardrail:** `bun dev` prints a wrangler-bindings banner on startup showing each binding's `local` / `REMOTE` status. If `DB` ever shows REMOTE, kill the server and fix the config before any write lands in prod.
+- **default** (no env) — used by `bun dev` / `vite dev`. D1 binding has a **placeholder** `database_id: "dev-local-d1"` so even if cf-plugin promotes it remote, it 404s against Cloudflare rather than silently writing to prod. R2 buckets are `remote: true` (real R2) so public-CDN reads via `R2_PUBLIC_STORAGE_DOMAIN` resolve.
+- **`[env.production]`** — real prod D1 (`database_id: d6a35f64-...`). Production deploys MUST use `wrangler deploy --env=production` (already wired in `cf:deploy:prd`).
+- **`[env.test]`** — Playwright e2e. Local Miniflare D1 (`database_id: "openstory-test-local"`), real staging R2. Activated via `CLOUDFLARE_ENV=test` (set in `playwright.config.ts` envPrefix and CI workflow env block) for `vite dev`, or `wrangler dev --env=test` for the built-server path.
 
-If you need to swap in real prod D1 for a one-off (e.g., reproducing a prod bug), add `"remote": true` to the D1 binding temporarily, restart `bun dev`, and remove it the moment you're done. **Never commit `remote: true` on D1.**
+**Rules:**
+
+- Never add `"remote": true` to a D1 binding. The placeholder-id strategy is the safety net.
+- Production deploys go through `bun cf:deploy:prd` which passes `--env=production`. Don't bypass with raw `wrangler deploy` — that hits the default block (placeholder D1) and fails.
+- PR-preview deploys patch the default block at runtime in `.github/workflows/deploy-cloudflare.yml` and deploy without `--env`. Each PR gets its own real D1 named `openstory-pr-<n>`.
+
+**Local guardrail:** `bun dev` prints a wrangler-bindings banner on startup showing each binding's `local` / `REMOTE` status. If `DB` ever shows REMOTE, kill the server immediately and fix the config before any write lands in prod.
+
+**Reproducing a prod bug locally:** temporarily set the default D1's `database_id` to the real prod value, restart `bun dev`, and revert when done. **Never commit a real prod D1 id into the default block.**
 
 ### D1 / Turso table-rebuild trap — READ BEFORE CHANGING SCHEMA
 

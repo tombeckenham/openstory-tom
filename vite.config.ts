@@ -61,7 +61,17 @@ export default defineConfig({
     isDev && devtools(),
     reflectMetadataPolyfill(),
     tailwindcss(),
-    cloudflare({ viteEnvironment: { name: 'ssr' } }),
+    cloudflare({
+      viteEnvironment: { name: 'ssr' },
+      // remoteBindings defaults to TRUE in @cloudflare/vite-plugin — i.e. every
+      // binding routes to real Cloudflare when credentials are present. That
+      // would silently send local dev's D1 writes (Better Auth verifications,
+      // sessions, every user query) to the production database. Opt out at the
+      // plugin level; opt individual bindings back in via `remote: true` in
+      // wrangler.jsonc (currently just R2_PUBLIC_ASSETS_BUCKET +
+      // R2_STORAGE_BUCKET so public-CDN reads resolve).
+      remoteBindings: false,
+    }),
     tanstackStart({
       srcDirectory: 'src',
       router: {

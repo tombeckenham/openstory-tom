@@ -81,12 +81,16 @@ export default defineConfig({
     const fullPipeline = process.env.PLAYWRIGHT_FULL_PIPELINE === 'true';
     const envPrefix = [
       'E2E_TEST=true',
-      // CLOUDFLARE_ENV activates wrangler.jsonc's [env.test] block in both
-      // `vite dev` (via @cloudflare/vite-plugin) and `wrangler dev` — required
-      // so the worker binds against `openstory-test` D1 (Miniflare local) and
-      // the test R2 buckets, matching what `bun test:e2e:setup` migrates and
-      // seeds via getPlatformProxy({ environment: 'test' }).
-      'CLOUDFLARE_ENV=test',
+      // CLOUDFLARE_ENV activates wrangler.jsonc's [env.test] block under
+      // `vite dev` (via @cloudflare/vite-plugin) — the source wrangler.jsonc
+      // has nested env blocks the plugin needs to be told to pick.
+      // NOT set for the built path: `build:e2e` was already run with
+      // CLOUDFLARE_ENV=test, so the cf-plugin baked the [env.test] bindings
+      // into the top level of dist/server/wrangler.json — no nested env
+      // block exists there for `wrangler dev` to find, and setting
+      // CLOUDFLARE_ENV=test would trigger a "no environment named test"
+      // warning at startup.
+      ...(useBuiltServer ? [] : ['CLOUDFLARE_ENV=test']),
       ...(fullPipeline
         ? ['E2E_FULL_PIPELINE=true', 'FAL_PROXY_URL=http://localhost:4010/fal']
         : []),

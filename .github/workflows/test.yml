@@ -114,6 +114,12 @@ jobs:
           # in playwright.config.ts envPrefix; duplicated here for explicit
           # visibility at the CI layer.
           CLOUDFLARE_ENV: test
+          # wrangler dev (built e2e path) needs CF auth to start the
+          # remote-proxy session for R2 bindings flagged `remote: true` in
+          # the built dist/server/wrangler.json. Replay mode never actually
+          # calls the R2 binding, but wrangler validates auth at startup.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           BETTER_AUTH_URL: http://localhost:3001
           # QStash - local Docker service
           QSTASH_TOKEN: eyJVc2VySUQiOiJkZWZhdWx0VXNlciIsIlBhc3N3b3JkIjoiZGVmYXVsdFBhc3N3b3JkIn0=
@@ -219,6 +225,10 @@ jobs:
           # Activates wrangler.jsonc [env.test] block. Mirrors
           # playwright.config.ts envPrefix; explicit here for visibility.
           CLOUDFLARE_ENV: test
+          # wrangler dev needs CF auth at startup for remote-flagged R2
+          # bindings — see e2e job above for rationale.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           BETTER_AUTH_URL: http://localhost:3001
           # QStash - local Docker service started above
           QSTASH_TOKEN: eyJVc2VySUQiOiJkZWZhdWx0VXNlciIsIlBhc3N3b3JkIjoiZGVmYXVsdFBhc3N3b3JkIn0=

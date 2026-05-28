@@ -49,7 +49,7 @@
     "stripe:dev": "source .env.local 2>/dev/null; [ -z \"${STRIPE_SECRET_KEY}\" ] && echo 'Skipping Stripe (no STRIPE_SECRET_KEY)' && exit 0; stripe listen --forward-to localhost:3000/api/billing/webhook --api-key=${STRIPE_SECRET_KEY}",
     "qstash:dev": "docker run -p 8080:8080 public.ecr.aws/upstash/qstash:latest qstash dev",
     "build": "vite build",
-    "build:e2e": "VITE_APP_URL=http://localhost:3001 VITE_DISABLE_DEVTOOLS=true vite build",
+    "build:e2e": "CLOUDFLARE_ENV=test VITE_APP_URL=http://localhost:3001 VITE_DISABLE_DEVTOOLS=true vite build",
     "preview": "VITE_APP_URL=http://localhost:8787 vite build && VITE_APP_URL=http://localhost:8787 wrangler dev",
     "lint": "bunx oxlint --type-aware",
     "lint:fix": "bunx oxlint --type-aware --fix",

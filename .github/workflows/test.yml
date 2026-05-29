@@ -157,6 +157,20 @@ jobs:
           # Mirror at project root for the non-built (vite dev) path.
           cp dist/server/.dev.vars .dev.vars
 
+      - name: Prepare .wrangler/deploy/config.json for built e2e (vite preview + CF plugin)
+        # When E2E_BUILT=true we run `vite preview` against the pre-built
+        # Workers output (dist/server). The @cloudflare/vite-plugin in preview
+        # mode expects the internal wrangler deploy config that is normally
+        # written by `wrangler deploy --dry-run`.
+        # Without this file the preview server fails with the exact ENOENT
+        # seen in CI:
+        #   .wrangler/deploy/config.json
+        run: |
+          npx wrangler deploy \
+            --config dist/server/wrangler.json \
+            --dry-run \
+            --outdir /tmp/wrangler-dry-run
+
       - name: Run E2E tests
         run: bun run test:e2e
         env:

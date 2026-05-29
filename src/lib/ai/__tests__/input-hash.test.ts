@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 import type {
   CharacterBibleEntry,
   LocationBibleEntry,
@@ -16,7 +16,6 @@ import {
   computeMotionPromptInputHash,
   computeMusicPromptInputHash,
   computeSequenceMusicInputHash,
-  computeSequenceVideoInputHash,
   computeTalentSheetInputHash,
   computeVisualPromptInputHash,
   type CharacterSheetHashInput,
@@ -771,75 +770,6 @@ describe('prompt input hashes', () => {
       },
     });
     expect(motionUpstream).toBe(motionEnriched);
-  });
-});
-
-describe('computeSequenceVideoInputHash', () => {
-  const base = {
-    sourceFrameVideos: [
-      { kind: 'variantHash' as const, hash: 'hash-a' },
-      { kind: 'variantHash' as const, hash: 'hash-b' },
-      { kind: 'variantHash' as const, hash: 'hash-c' },
-    ],
-    targetFps: 24,
-    resolution: { width: 1920, height: 1080 },
-  };
-
-  it('is order-sensitive for source frames', async () => {
-    const a = await computeSequenceVideoInputHash(base);
-    const swapped = await computeSequenceVideoInputHash({
-      ...base,
-      sourceFrameVideos: [
-        { kind: 'variantHash' as const, hash: 'hash-b' },
-        { kind: 'variantHash' as const, hash: 'hash-a' },
-        { kind: 'variantHash' as const, hash: 'hash-c' },
-      ],
-    });
-    expect(a).not.toBe(swapped);
-  });
-
-  it('reacts to fps and resolution changes', async () => {
-    const a = await computeSequenceVideoInputHash(base);
-    const fps = await computeSequenceVideoInputHash({ ...base, targetFps: 30 });
-    const res = await computeSequenceVideoInputHash({
-      ...base,
-      resolution: { width: 1280, height: 720 },
-    });
-    expect(new Set([a, fps, res]).size).toBe(3);
-  });
-
-  it('treats null fps and null resolution as distinct from set values', async () => {
-    const withVals = await computeSequenceVideoInputHash(base);
-    const noFps = await computeSequenceVideoInputHash({
-      ...base,
-      targetFps: null,
-    });
-    expect(withVals).not.toBe(noFps);
-  });
-
-  it('distinguishes variantHash kind from url kind for the same string', async () => {
-    const asHash = await computeSequenceVideoInputHash({
-      ...base,
-      sourceFrameVideos: [{ kind: 'variantHash', hash: 'abc' }],
-    });
-    const asUrl = await computeSequenceVideoInputHash({
-      ...base,
-      sourceFrameVideos: [{ kind: 'url', url: 'abc' }],
-    });
-    expect(asHash).not.toBe(asUrl);
-  });
-
-  it('trims leading/trailing whitespace on source frame entries', async () => {
-    const trimmed = await computeSequenceVideoInputHash(base);
-    const padded = await computeSequenceVideoInputHash({
-      ...base,
-      sourceFrameVideos: [
-        { kind: 'variantHash' as const, hash: '  hash-a  ' },
-        { kind: 'variantHash' as const, hash: '\thash-b\n' },
-        { kind: 'variantHash' as const, hash: 'hash-c ' },
-      ],
-    });
-    expect(padded).toBe(trimmed);
   });
 });
 

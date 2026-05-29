@@ -24,16 +24,19 @@ import {
 } from './sheet-snapshots';
 import type { LocationSheetWorkflowInput } from '@/lib/workflow/types';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'recast-location']);
+
 export const recastLocationWorkflow =
   createScopedWorkflow<RecastLocationWorkflowInput>(
     async (context, scopedDb) => {
       const input = context.requestPayload;
       const label = buildWorkflowLabel(input.sequenceId);
 
-      console.log(
-        '[RecastLocationWorkflow]',
-        `Starting recast for ${input.locationName} with ${input.affectedFrameIds.length} affected frames`
-      );
+      logger.info('[RecastLocationWorkflow]', {
+        data: `Starting recast for ${input.locationName} with ${input.affectedFrameIds.length} affected frames`,
+      });
 
       // Step 1: Generate new location reference image with library reference.
       // Inline the upstream library-location's reference_input_hash so the
@@ -82,10 +85,9 @@ export const recastLocationWorkflow =
         );
       }
 
-      console.log(
-        '[RecastLocationWorkflow]',
-        `Location reference generated for ${input.locationName}, regenerating ${input.affectedFrameIds.length} frames`
-      );
+      logger.info('[RecastLocationWorkflow]', {
+        data: `Location reference generated for ${input.locationName}, regenerating ${input.affectedFrameIds.length} frames`,
+      });
 
       // Step 2: Regenerate frames if there are any affected
       let framesRegenerated = 0;
@@ -180,10 +182,9 @@ export const recastLocationWorkflow =
         framesRegenerated = regenerateResult?.successCount ?? 0;
         // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
         framesFailed = regenerateResult?.failedFrames?.length ?? 0;
-        console.log(
-          '[RecastLocationWorkflow]',
-          `Regenerated ${framesRegenerated} frames for ${input.locationName}`
-        );
+        logger.info('[RecastLocationWorkflow]', {
+          data: `Regenerated ${framesRegenerated} frames for ${input.locationName}`,
+        });
       }
 
       return {
@@ -205,10 +206,9 @@ export const recastLocationWorkflow =
           }
         );
 
-        console.error(
-          '[RecastLocationWorkflow]',
-          `Recast failed for ${input.locationName}: ${error}`
-        );
+        logger.error('[RecastLocationWorkflow]', {
+          data: `Recast failed for ${input.locationName}: ${error}`,
+        });
 
         return `Recast failed for ${input.locationName}`;
       },

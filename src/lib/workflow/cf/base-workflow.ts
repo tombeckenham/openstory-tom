@@ -34,6 +34,9 @@ import {
   type WorkflowStep,
 } from 'cloudflare:workers';
 import { NonRetryableError } from 'cloudflare:workflows';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'cf', 'base']);
 
 /**
  * Read the `_parent` notify hint a parent workflow injects via
@@ -111,7 +114,9 @@ export abstract class OpenStoryWorkflowEntrypoint<
       return result;
     } catch (error) {
       const sanitized = sanitizeFailResponse(error);
-      console.error(`[${this.constructor.name}] Failure:`, sanitized);
+      logger.error(`[${this.constructor.name}] Failure:`, {
+        sanitized,
+      });
 
       if (this.onFailure) {
         // Wrap in step.do so cleanup retries on its own merits and doesn't
@@ -121,9 +126,11 @@ export abstract class OpenStoryWorkflowEntrypoint<
           try {
             await this.onFailure?.({ event, error: sanitized, scopedDb });
           } catch (cleanupError) {
-            console.error(
+            logger.error(
               `[${this.constructor.name}] onFailure handler itself failed:`,
-              cleanupError
+              {
+                err: cleanupError,
+              }
             );
             // Swallow the cleanup error — the original error is what we
             // want to surface as the instance's terminal state.

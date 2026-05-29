@@ -49,12 +49,6 @@ export const createSequenceSchema = createInsertSchema(sequences, {
     imageModel: true, // Omit - will use imageModel field in extend
     videoModel: true, // Omit - will use videoModel field in extend
     workflow: true, // Omit - set by workflow, not user
-    // Merged video fields - managed by workflow, not user input
-    mergedVideoUrl: true,
-    mergedVideoPath: true,
-    mergedVideoStatus: true,
-    mergedVideoGeneratedAt: true,
-    mergedVideoError: true,
     // Music fields - managed by workflow, not user input
     musicUrl: true,
     musicPath: true,
@@ -124,6 +118,7 @@ export const createSequenceSchema = createInsertSchema(sequences, {
           tempPath: z.string().min(1),
           tempPublicUrl: z.string().url(),
           filename: z.string().min(1),
+          token: z.string().min(1).max(100),
           description: z.string().nullable().optional(),
           consistencyTag: z.string().nullable().optional(),
         })
@@ -159,12 +154,6 @@ export const updateSequenceSchema = createUpdateSchema(sequences, {
   createdBy: true,
   updatedBy: true,
   workflow: true, // Set by workflow, not user
-  // Merged video fields - managed by workflow, not user input
-  mergedVideoUrl: true,
-  mergedVideoPath: true,
-  mergedVideoStatus: true,
-  mergedVideoGeneratedAt: true,
-  mergedVideoError: true,
   // Music fields - managed by workflow, not user input
   musicUrl: true,
   musicPath: true,

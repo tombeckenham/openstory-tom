@@ -26,6 +26,10 @@ import { buildLocationSheetPrompt } from '@/lib/prompts/location-prompt';
 import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'location-bible']);
+
 import type {
   LibraryLocationMatch,
   LocationBibleWorkflowInput,
@@ -218,10 +222,9 @@ export const locationBibleWorkflow = createScopedWorkflow<
     failureFunction: async ({ failResponse }) => {
       const error = sanitizeFailResponse(failResponse);
 
-      console.error(
-        '[LocationBibleWorkflow]',
-        `Location reference generation failed: ${error}`
-      );
+      logger.error('[LocationBibleWorkflow]', {
+        data: `Location reference generation failed: ${error}`,
+      });
 
       return `Location bible generation failed`;
     },

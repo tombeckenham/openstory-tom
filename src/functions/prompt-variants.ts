@@ -31,6 +31,10 @@ import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 import { frameAccessMiddleware, sequenceAccessMiddleware } from './middleware';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'serverFn', 'prompt-variants']);
+
 const promptTypeSchema = z.enum(FRAME_PROMPT_TYPES);
 
 /**
@@ -380,10 +384,7 @@ export const getMusicPromptStalenessFn = createServerFn({ method: 'GET' })
     } catch (error) {
       // Hash uncomputable (e.g., scene metadata missing a required field).
       // Surface as untracked so the UI doesn't lie about freshness.
-      console.warn(
-        `[getMusicPromptStalenessFn] uncomputable for sequence ${sequence.id}:`,
-        error
-      );
+      logger.warn(`uncomputable for sequence ${sequence.id}:`, { err: error });
       return { musicPrompt: 'untracked' as const };
     }
   });
@@ -437,9 +438,7 @@ export const getDivergentVariantPromptDiffFn = createServerFn({
       // Hash chain broken — the prompt that produced this variant has been
       // pruned or never recorded. Log so operations notices history loss
       // instead of silently rendering an empty diff dialog.
-      console.warn(
-        `[getDivergentVariantPromptDiffFn] no candidate prompt matched ${variant.id}`
-      );
+      logger.warn(`no candidate prompt matched ${variant.id}`);
       return null;
     }
 

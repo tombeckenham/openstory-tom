@@ -33,6 +33,9 @@ import type {
 } from '@/lib/workflow/types';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
 import { NonRetryableError } from 'cloudflare:workflows';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'visual-prompt']);
 
 // NOTE: `VISUAL_PROMPT_WORKFLOW` is not yet declared on `CloudflareEnv` —
 // the parent binding gets wired into `src/lib/workflow/cf/types.ts` and
@@ -152,10 +155,11 @@ export class VisualPromptWorkflow extends OpenStoryWorkflowEntrypoint<VisualProm
         for (const [index, outcome] of settled.entries()) {
           const scene = scenes[index];
           if (outcome.status === 'rejected') {
-            console.error(
-              '[VisualPromptWorkflow:cf]',
-              `Child visual-prompt-scene failed for scene ${scene?.sceneId ?? `index ${index}`}:`,
-              outcome.reason
+            logger.error(
+              `[VisualPromptWorkflow:cf] Child visual-prompt-scene failed for scene ${scene?.sceneId ?? `index ${index}`}:`,
+              {
+                err: outcome.reason,
+              }
             );
             if (scene) failedSceneIds.push(scene.sceneId);
             continue;
@@ -209,9 +213,8 @@ export class VisualPromptWorkflow extends OpenStoryWorkflowEntrypoint<VisualProm
     error: string;
     scopedDb: ScopedDb;
   }): void {
-    console.error(
-      '[VisualPromptWorkflow:cf]',
-      `Visual prompt generation failed: ${error}`
+    logger.error(
+      `[VisualPromptWorkflow:cf] Visual prompt generation failed: ${error}`
     );
   }
 }

@@ -15,13 +15,14 @@
 import type { CloudflareEnv, WorkflowEngine } from '@/lib/workflow/cf/types';
 import { buildInstanceId } from '@/lib/workflow/cf/instance-id';
 import { getEngineForWorkflow } from '@/lib/workflow/cf/engine-registry';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'cf', 'trigger-bindings']);
 
 const TRIGGER_TO_BINDING: Record<string, keyof CloudflareEnv> = {
   image: 'IMAGE_WORKFLOW',
   'element-vision': 'ELEMENT_VISION_WORKFLOW',
   music: 'MUSIC_WORKFLOW',
-  'merge-audio-video': 'MERGE_AUDIO_VIDEO_WORKFLOW',
-  'merge-video': 'MERGE_VIDEO_WORKFLOW',
   motion: 'MOTION_WORKFLOW',
   'motion-batch': 'MOTION_BATCH_WORKFLOW',
   'character-sheet': 'CHARACTER_SHEET_WORKFLOW',
@@ -90,7 +91,7 @@ export function resolveEngineForTrigger(
   if (!binding) {
     // Registry says CF but no binding registered — fall back so the system
     // stays available; log loudly so it's obvious in production.
-    console.warn(
+    logger.warn(
       `[triggerWorkflow] engine=cloudflare for '${triggerPath}' but no binding map entry found; falling back to qstash`
     );
     return { engine: 'qstash', binding: null };

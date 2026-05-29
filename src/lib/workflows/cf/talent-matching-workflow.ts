@@ -33,6 +33,9 @@ import type {
   TalentMatchingWorkflowOutput,
 } from '@/lib/workflow/types';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'talent-matching']);
 
 export class TalentMatchingWorkflow extends OpenStoryWorkflowEntrypoint<TalentMatchingWorkflowInput> {
   protected override async runImpl(
@@ -97,7 +100,7 @@ export class TalentMatchingWorkflow extends OpenStoryWorkflowEntrypoint<TalentMa
           // Ensure each talent is only cast once (but characters can have multiple talents
           // when there are more talents than characters)
           if (usedTalentIds.has(match.talentId)) {
-            console.warn(
+            logger.warn(
               `[TalentMatchingWorkflow:cf] Skipping duplicate talent ${match.talentId}`
             );
             continue;
@@ -105,7 +108,7 @@ export class TalentMatchingWorkflow extends OpenStoryWorkflowEntrypoint<TalentMa
 
           const talent = talentList.find((t) => t.id === match.talentId);
           if (!talent) {
-            console.warn(
+            logger.warn(
               `[TalentMatchingWorkflow:cf] Talent ${match.talentId} not found in list`
             );
             continue;
@@ -115,7 +118,7 @@ export class TalentMatchingWorkflow extends OpenStoryWorkflowEntrypoint<TalentMa
             (c) => c.characterId === match.characterId
           );
           if (!character) {
-            console.warn(
+            logger.warn(
               `[TalentMatchingWorkflow:cf] Character ${match.characterId} not found in bible`
             );
             continue;

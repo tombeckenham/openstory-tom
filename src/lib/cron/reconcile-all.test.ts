@@ -10,19 +10,17 @@
  * wrong column on the update, missing pass isolation).
  */
 
-import { beforeEach, describe, expect, mock, test } from 'bun:test';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import {
   frameVariants,
   frames,
   sequenceElements,
-  sequenceVideoVariants,
   sequences,
 } from '@/lib/db/schema';
 
 type SchemaTable =
   | typeof frames
   | typeof frameVariants
-  | typeof sequenceVideoVariants
   | typeof sequences
   | typeof sequenceElements;
 type SetPayload = Record<string, Date | string>;
@@ -76,10 +74,10 @@ const dbMock = {
   }),
 };
 
-mock.module('#db-client', () => ({ getDb: () => dbMock }));
+vi.doMock('#db-client', () => ({ getDb: () => dbMock }));
 
 // QStash stub: "still running" — verified passes are no-ops unless overridden.
-mock.module('@/lib/workflow/client', () => ({
+vi.doMock('@/lib/workflow/client', () => ({
   getWorkflowClient: () => ({
     logs: async () => ({ runs: [{ workflowState: 'RUN_STARTED' }] }),
   }),
@@ -107,19 +105,6 @@ describe('reconcileAllStuckJobs — blind-fail passes', () => {
     expect(musicUpdate?.payload.musicStatus).toBe('failed');
     expect(musicUpdate?.returning).toBe(true);
     expect(counts['sequences.music']).toBe(1);
-  });
-
-  test('sequences.merged_video writes mergedVideoStatus=failed', async () => {
-    blindFailReturning = [{ id: 'seq_2' }, { id: 'seq_3' }];
-    const { reconcileAllStuckJobs } = await import('./reconcile-all');
-
-    await reconcileAllStuckJobs();
-
-    const mvUpdate = updateCalls.find(
-      (c) => c.table === sequences && 'mergedVideoStatus' in c.payload
-    );
-    expect(mvUpdate).toBeDefined();
-    expect(mvUpdate?.payload.mergedVideoStatus).toBe('failed');
   });
 
   test('sequence_elements.vision writes visionStatus=failed', async () => {
@@ -166,8 +151,8 @@ describe('reconcileAllStuckJobs — QStash-verified passes', () => {
   test('caps stuck-row selection at MAX_ROWS_PER_PASS (100) per verified pass', async () => {
     const { reconcileAllStuckJobs } = await import('./reconcile-all');
     await reconcileAllStuckJobs();
-    // 7 verified passes: 4 frames + 2 frame_variants + 1 sequence_video_variants.
-    expect(limitArgs.filter((n) => n === 100)).toHaveLength(7);
+    // 6 verified passes: 4 frames + 2 frame_variants.
+    expect(limitArgs.filter((n) => n === 100)).toHaveLength(6);
   });
 
   test('RUN_STARTED from QStash → no per-row update on verified tables', async () => {
@@ -176,11 +161,7 @@ describe('reconcileAllStuckJobs — QStash-verified passes', () => {
 
     await reconcileAllStuckJobs();
 
-    const verifiedTables: SchemaTable[] = [
-      frames,
-      frameVariants,
-      sequenceVideoVariants,
-    ];
+    const verifiedTables: SchemaTable[] = [frames, frameVariants];
     const verifiedUpdates = updateCalls.filter((c) =>
       verifiedTables.includes(c.table)
     );

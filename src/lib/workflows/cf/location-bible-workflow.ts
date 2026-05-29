@@ -41,6 +41,9 @@ import type {
 } from '@/lib/workflow/types';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
 import { NonRetryableError } from 'cloudflare:workflows';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'location-bible']);
 
 export class LocationBibleWorkflow extends OpenStoryWorkflowEntrypoint<LocationBibleWorkflowInput> {
   protected override async runImpl(
@@ -225,9 +228,8 @@ export class LocationBibleWorkflow extends OpenStoryWorkflowEntrypoint<LocationB
             : rejectionReason !== undefined
               ? String(rejectionReason)
               : 'unknown';
-        console.warn(
-          '[LocationBibleWorkflow:cf]',
-          `Child location-sheet for ${location.locationId} did not complete: ${reason}`
+        logger.warn(
+          `[LocationBibleWorkflow:cf] Child location-sheet for ${location.locationId} did not complete: ${reason}`
         );
 
         return {
@@ -245,9 +247,8 @@ export class LocationBibleWorkflow extends OpenStoryWorkflowEntrypoint<LocationB
       }
     );
 
-    console.log(
-      '[LocationBibleWorkflow:cf]',
-      `Location bible completed for sequence ${sequenceId}: ${seqLocations.length} locations processed`
+    logger.info(
+      `[LocationBibleWorkflow:cf] Location bible completed for sequence ${sequenceId}: ${seqLocations.length} locations processed`
     );
 
     return seqLocations;
@@ -264,9 +265,8 @@ export class LocationBibleWorkflow extends OpenStoryWorkflowEntrypoint<LocationB
     // message — no DB writes (the inserted `sequence_locations` rows stay in
     // `generating` and each child's own `onFailure` writes per-row failure).
     // Mirror that behaviour exactly: log and let the base class rethrow.
-    console.error(
-      '[LocationBibleWorkflow:cf]',
-      `Location reference generation failed: ${error}`
+    logger.error(
+      `[LocationBibleWorkflow:cf] Location reference generation failed: ${error}`
     );
   }
 }

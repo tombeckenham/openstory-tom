@@ -49,6 +49,9 @@ import {
   computeLocationSheetHashCurrent,
   computeLocationSheetHashFromDto,
 } from '@/lib/workflows/sheet-snapshots';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'location-sheet']);
 
 export class LocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<LocationSheetWorkflowInput> {
   protected override async runImpl(
@@ -96,9 +99,8 @@ export class LocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<LocationS
         const hasLibraryLocation = !!(
           input.referenceImageUrl || input.libraryLocationDescription
         );
-        console.log(
-          '[LocationSheetWorkflow:cf]',
-          `Starting reference generation for location ${input.locationName}${hasLibraryLocation ? ' with library location reference' : ''}`
+        logger.info(
+          `[LocationSheetWorkflow:cf] Starting reference generation for location ${input.locationName}${hasLibraryLocation ? ' with library location reference' : ''}`
         );
 
         // Build library location overrides if data is provided
@@ -133,9 +135,8 @@ export class LocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<LocationS
 
     // Step 2: Generate the location reference image
     const imageResult = await step.do('generate-reference-image', async () => {
-      console.log(
-        '[LocationSheetWorkflow:cf]',
-        `Generating reference for ${input.locationName} with model ${generationParams.model}`
+      logger.info(
+        `[LocationSheetWorkflow:cf] Generating reference for ${input.locationName} with model ${generationParams.model}`
       );
 
       return await generateImageWithProvider(generationParams, { scopedDb });
@@ -178,9 +179,8 @@ export class LocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<LocationS
           throw new Error('No image URL returned from generation');
         }
 
-        console.log(
-          '[LocationSheetWorkflow:cf]',
-          `Uploading reference to storage for ${input.locationName}`
+        logger.info(
+          `[LocationSheetWorkflow:cf] Uploading reference to storage for ${input.locationName}`
         );
 
         // Fetch and stream directly to R2
@@ -219,9 +219,8 @@ export class LocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<LocationS
       const reconcileOutcome = await step.do(
         'reconcile-database',
         async (): Promise<{ kind: 'convergent' } | { kind: 'divergent' }> => {
-          console.log(
-            '[LocationSheetWorkflow:cf]',
-            `Updating database for ${input.locationName}`
+          logger.info(
+            `[LocationSheetWorkflow:cf] Updating database for ${input.locationName}`
           );
 
           const currentInputHash = snapshotInputHash
@@ -234,7 +233,7 @@ export class LocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<LocationS
           );
 
           if (decision.kind === 'divergent') {
-            console.warn('[LocationSheetWorkflow:cf] divergence detected', {
+            logger.warn('[LocationSheetWorkflow:cf] divergence detected', {
               locationDbId,
               snapshotInputHash: decision.snapshotInputHash,
               currentInputHash: decision.currentInputHash,
@@ -291,9 +290,8 @@ export class LocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<LocationS
             }
           );
         });
-        console.log(
-          '[LocationSheetWorkflow:cf]',
-          `Diverged for ${input.locationName}; saved as variant`
+        logger.info(
+          `[LocationSheetWorkflow:cf] Diverged for ${input.locationName}; saved as variant`
         );
         return {
           referenceImageUrl,
@@ -317,9 +315,8 @@ export class LocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<LocationS
       }
     });
 
-    console.log(
-      '[LocationSheetWorkflow:cf]',
-      `Location reference workflow completed for ${input.locationName}`
+    logger.info(
+      `[LocationSheetWorkflow:cf] Location reference workflow completed for ${input.locationName}`
     );
 
     const result: LocationSheetWorkflowResult = {
@@ -362,16 +359,17 @@ export class LocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<LocationS
             }
           );
         } catch (emitError) {
-          console.error(
+          logger.error(
             `[LocationSheetWorkflow:cf] Failed to emit failure event for sequence ${input.sequenceId} location ${input.locationDbId}:`,
-            emitError
+            {
+              err: emitError,
+            }
           );
         }
       }
 
-      console.error(
-        '[LocationSheetWorkflow:cf]',
-        `Reference generation failed for location ${input.locationName}: ${error}`
+      logger.error(
+        `[LocationSheetWorkflow:cf] Reference generation failed for location ${input.locationName}: ${error}`
       );
     }
   }

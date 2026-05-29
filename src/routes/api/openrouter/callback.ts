@@ -10,6 +10,10 @@ import { authWithTeamRequestMiddleware } from '@/functions/middleware';
 import { completeOpenRouterOAuth } from '@/functions/openrouter-oauth-callback';
 import { createFileRoute } from '@tanstack/react-router';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'api', 'openrouter', 'callback']);
+
 function redirectResponse(path: string): Response {
   return new Response(null, {
     status: 302,
@@ -38,7 +42,7 @@ export const Route = createFileRoute('/api/openrouter/callback')({
             '/settings/api-keys?success=openrouter_connected'
           );
         } catch (error) {
-          console.error('[OpenRouter OAuth] Callback error:', error);
+          logger.error('Callback error:', { err: error });
           return redirectResponse(
             '/settings/api-keys?error=openrouter_oauth_failed'
           );

@@ -1,5 +1,4 @@
 import { moveFile, getSignedUploadUrl } from '#storage';
-import { getEnv } from '#env';
 import { requireTeamAdminAccess } from '@/lib/auth/action-utils';
 import { generateId } from '@/lib/db/id';
 import type { LibraryLocation } from '@/lib/db/schema';
@@ -17,6 +16,10 @@ import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 import { authWithTeamMiddleware } from './middleware';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'serverFn', 'location-library']);
+
 type ProcessedImage = { url: string; path: string };
 
 /**
@@ -28,14 +31,6 @@ async function processReferenceImages(
   teamId: string
 ): Promise<ProcessedImage[]> {
   const results: ProcessedImage[] = [];
-
-  if (getEnv().E2E_TEST === 'true') {
-    for (const tempUrl of tempUrls) {
-      const mediaId = generateId();
-      results.push({ url: tempUrl, path: `e2e-mock/${mediaId}` });
-    }
-    return results;
-  }
 
   for (const tempUrl of tempUrls) {
     const tempPathMatch = tempUrl.match(/\/locations\/(.+)$/);
@@ -146,11 +141,9 @@ export const createLibraryLocationFn = createServerFn({ method: 'POST' })
     void triggerWorkflow('/library-location-sheet', workflowInput, {
       label: buildWorkflowLabel(newLocation.id),
     }).catch((error) => {
-      console.error(
-        '[createLibraryLocationFn]',
-        'Failed to trigger location sheet workflow:',
-        error
-      );
+      logger.error('Failed to trigger location sheet workflow:', {
+        err: error,
+      });
     });
 
     return { ...newLocation, sequenceTitle: 'Library' as const };

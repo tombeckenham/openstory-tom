@@ -36,6 +36,10 @@ import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 import { authWithTeamMiddleware, frameAccessMiddleware } from './middleware';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'serverFn', 'ai']);
+
 const promptShorteningRateLimiter = new RateLimiter(10, 60_000);
 const sceneDurationEstimationRateLimiter = new RateLimiter(20, 60_000);
 
@@ -283,7 +287,7 @@ export const enhanceScriptStreamFn = createServerFn({ method: 'POST' })
     const deduct = await prepareBilling(context.scopedDb, 'Script enhancement');
 
     if (checkForInjectionAttempts(data.script)) {
-      console.warn('Script enhancement: Potential injection attempt detected');
+      logger.warn('Script enhancement: Potential injection attempt detected');
     }
 
     const sanitized = sanitizeScriptContent(data.script);

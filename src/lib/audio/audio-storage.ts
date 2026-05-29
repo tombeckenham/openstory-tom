@@ -11,6 +11,10 @@ import {
 } from '@/lib/utils/file';
 import { generateId } from '@/lib/db/id';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'audio', 'audio-storage']);
+
 type UploadAudioOptions = {
   audioUrl: string;
   teamId: string;
@@ -88,7 +92,7 @@ export async function uploadAudioToStorage(
       ? `teams/${teamId}/sequences/${sequenceId}/frames/${frameId}/${filename}`
       : `teams/${teamId}/sequences/${sequenceId}/music/${filename}`;
 
-    console.log(`[Audio Storage] Generated filename: ${filename}`, {
+    logger.info(`Generated filename: ${filename}`, {
       ulid,
       frameId,
       storagePath,
@@ -112,7 +116,7 @@ export async function uploadAudioToStorage(
       path: storagePath,
     };
   } catch (error) {
-    console.error('[Audio Storage] Upload failed:', error);
+    logger.error('Upload failed:', { err: error });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to upload audio',

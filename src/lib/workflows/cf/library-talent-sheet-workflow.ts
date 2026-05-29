@@ -53,6 +53,9 @@ import {
   saveDivergentTalentSheet,
 } from '@/lib/workflows/sheet-divergence';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'library-talent-sheet']);
 
 export class LibraryTalentSheetWorkflow extends OpenStoryWorkflowEntrypoint<LibraryTalentSheetWorkflowInput> {
   protected override async runImpl(
@@ -91,9 +94,8 @@ export class LibraryTalentSheetWorkflow extends OpenStoryWorkflowEntrypoint<Libr
         input.referenceImageUrls && input.referenceImageUrls.length > 0;
       const imageCount = input.referenceImageUrls?.length ?? 0;
 
-      console.log(
-        '[LibraryTalentSheetWorkflow:cf]',
-        `Starting sheet generation for talent ${input.talentName}${hasReferenceImages ? ` with ${imageCount} reference images` : ' (no reference images - generating from name/description)'}`
+      logger.info(
+        `[LibraryTalentSheetWorkflow:cf] Starting sheet generation for talent ${input.talentName}${hasReferenceImages ? ` with ${imageCount} reference images` : ' (no reference images - generating from name/description)'}`
       );
 
       // Emit generating status
@@ -114,9 +116,8 @@ export class LibraryTalentSheetWorkflow extends OpenStoryWorkflowEntrypoint<Libr
         hasReferenceImages
       );
 
-      console.log(
-        '[LibraryTalentSheetWorkflow:cf]',
-        `Generating sheet with model ${model}${hasReferenceImages ? ' (with reference images)' : ' (text-to-image only)'}`
+      logger.info(
+        `[LibraryTalentSheetWorkflow:cf] Generating sheet with model ${model}${hasReferenceImages ? ' (with reference images)' : ' (text-to-image only)'}`
       );
 
       const generationParams: ImageGenerationParams = {
@@ -155,10 +156,7 @@ export class LibraryTalentSheetWorkflow extends OpenStoryWorkflowEntrypoint<Libr
 
     // Step 3: Upload to R2 storage
     const storageResult = await step.do('upload-to-storage', async () => {
-      console.log(
-        '[LibraryTalentSheetWorkflow:cf]',
-        `Uploading sheet to storage`
-      );
+      logger.info(`[LibraryTalentSheetWorkflow:cf] Uploading sheet to storage`);
 
       // Fetch and stream directly to R2
       const response = await fetch(imageUrl);
@@ -196,9 +194,8 @@ export class LibraryTalentSheetWorkflow extends OpenStoryWorkflowEntrypoint<Libr
         kind: 'convergent' | 'divergent';
         sheet: Awaited<ReturnType<typeof scopedDb.talent.sheets.create>>;
       }> => {
-        console.log(
-          '[LibraryTalentSheetWorkflow:cf]',
-          `Creating sheet record in database`
+        logger.info(
+          `[LibraryTalentSheetWorkflow:cf] Creating sheet record in database`
         );
         // Compute divergence first so we can mark the talent_sheets row at
         // creation time. A divergent sheet must NOT be eligible to back-fill
@@ -234,7 +231,7 @@ export class LibraryTalentSheetWorkflow extends OpenStoryWorkflowEntrypoint<Libr
           }));
 
         if (decision.kind === 'divergent') {
-          console.warn('[LibraryTalentSheetWorkflow:cf] divergence detected', {
+          logger.warn('[LibraryTalentSheetWorkflow:cf] divergence detected', {
             talentId: input.talentId,
             snapshotInputHash: decision.snapshotInputHash,
             currentInputHash: decision.currentInputHash,
@@ -283,9 +280,8 @@ export class LibraryTalentSheetWorkflow extends OpenStoryWorkflowEntrypoint<Libr
           sheetId: sheet.id,
         });
       });
-      console.log(
-        '[LibraryTalentSheetWorkflow:cf]',
-        `Diverged for ${input.talentName}; saved as variant`
+      logger.info(
+        `[LibraryTalentSheetWorkflow:cf] Diverged for ${input.talentName}; saved as variant`
       );
       return {
         sheetId: sheet.id,
@@ -317,9 +313,8 @@ export class LibraryTalentSheetWorkflow extends OpenStoryWorkflowEntrypoint<Libr
           hasReferenceImages
         );
 
-        console.log(
-          '[LibraryTalentSheetWorkflow:cf]',
-          `Generating headshot with model ${model}${hasReferenceImages ? ' (with reference images)' : ' (text-to-image only)'}`
+        logger.info(
+          `[LibraryTalentSheetWorkflow:cf] Generating headshot with model ${model}${hasReferenceImages ? ' (with reference images)' : ' (text-to-image only)'}`
         );
 
         const generationParams: ImageGenerationParams = {
@@ -360,9 +355,8 @@ export class LibraryTalentSheetWorkflow extends OpenStoryWorkflowEntrypoint<Libr
     const headshotStorageResult = await step.do(
       'upload-headshot-to-storage',
       async () => {
-        console.log(
-          '[LibraryTalentSheetWorkflow:cf]',
-          `Uploading headshot to storage`
+        logger.info(
+          `[LibraryTalentSheetWorkflow:cf] Uploading headshot to storage`
         );
 
         // Fetch and stream directly to R2
@@ -392,9 +386,8 @@ export class LibraryTalentSheetWorkflow extends OpenStoryWorkflowEntrypoint<Libr
 
     // Step 7: Update talent with headshot
     await step.do('update-talent-headshot', async () => {
-      console.log(
-        '[LibraryTalentSheetWorkflow:cf]',
-        `Updating talent with headshot`
+      logger.info(
+        `[LibraryTalentSheetWorkflow:cf] Updating talent with headshot`
       );
 
       await scopedDb.talent.update(input.talentId, {
@@ -405,9 +398,8 @@ export class LibraryTalentSheetWorkflow extends OpenStoryWorkflowEntrypoint<Libr
 
     // Emit completed status
     await step.do('emit-completed', async () => {
-      console.log(
-        '[LibraryTalentSheetWorkflow:cf]',
-        `Talent sheet workflow completed for ${input.talentName}`
+      logger.info(
+        `[LibraryTalentSheetWorkflow:cf] Talent sheet workflow completed for ${input.talentName}`
       );
 
       await getTalentChannel(input.talentId).emit('talent.sheet:progress', {
@@ -438,9 +430,8 @@ export class LibraryTalentSheetWorkflow extends OpenStoryWorkflowEntrypoint<Libr
   }): Promise<void> {
     const input = event.payload;
 
-    console.error(
-      '[LibraryTalentSheetWorkflow:cf]',
-      `Sheet generation failed for talent ${input.talentName}: ${error}`
+    logger.error(
+      `[LibraryTalentSheetWorkflow:cf] Sheet generation failed for talent ${input.talentName}: ${error}`
     );
 
     // Emit failed status

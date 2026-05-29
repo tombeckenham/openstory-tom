@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { analyzeFailures } from './failure-analysis';
 import type { Frame } from '@/lib/db/schema/frames';
 import type { Sequence } from '@/lib/db/schema/sequences';
@@ -70,11 +70,6 @@ function makeSequence(overrides: Partial<Sequence> = {}): Sequence {
     imageModel: 'nano_banana_2',
     videoModel: 'wan_i2v',
     workflow: null,
-    mergedVideoUrl: null,
-    mergedVideoPath: null,
-    mergedVideoStatus: 'pending',
-    mergedVideoGeneratedAt: null,
-    mergedVideoError: null,
     musicUrl: null,
     musicPath: null,
     musicStatus: 'pending',
@@ -180,22 +175,6 @@ describe('analyzeFailures', () => {
     expect(musicGroup).toBeDefined();
     expect(musicGroup?.error).toBe('Audio model error');
     expect(result.headline).toContain('music generation failed');
-  });
-
-  test('merge failure', () => {
-    const frames = [makeFrame()];
-    const sequence = makeSequence({
-      status: 'failed',
-      mergedVideoStatus: 'failed',
-      mergedVideoError: 'FFmpeg error',
-    });
-
-    const result = analyzeFailures(frames, sequence);
-
-    expect(result.hasFailed).toBe(true);
-    const mergeGroup = result.groups.find((g) => g.category === 'merge');
-    expect(mergeGroup).toBeDefined();
-    expect(mergeGroup?.error).toBe('FFmpeg error');
   });
 
   test('mixed failures (image + motion)', () => {

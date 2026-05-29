@@ -22,6 +22,10 @@ import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
 import { WorkflowValidationError } from '@/lib/workflow/errors';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'character-sheet']);
+
 import type {
   CharacterSheetWorkflowInput,
   CharacterSheetWorkflowResult,
@@ -43,7 +47,7 @@ export const characterSheetWorkflow = createScopedWorkflow<
     const input = context.requestPayload;
 
     // Validate snapshot hash inside the workflow body. Upstash swallows
-    // runStarted-middleware throws to console.error; the only place a
+    // runStarted-middleware throws to logger.error; the only place a
     // tampered payload halts the run is inside `context.run`.
     await context.run('validate-snapshot', async () => {
       if (context.snapshot) {
@@ -74,10 +78,9 @@ export const characterSheetWorkflow = createScopedWorkflow<
         }
 
         const hasTalent = !!(input.talentMetadata || input.talentDescription);
-        console.log(
-          '[CharacterSheetWorkflow]',
-          `Starting sheet generation for character ${input.characterName}${hasTalent ? ' with talent appearance' : ''}`
-        );
+        logger.info('[CharacterSheetWorkflow]', {
+          data: `Starting sheet generation for character ${input.characterName}${hasTalent ? ' with talent appearance' : ''}`,
+        });
 
         // Build talent overrides if talent data is provided (for casting)
         const talentOverrides = hasTalent
@@ -112,10 +115,9 @@ export const characterSheetWorkflow = createScopedWorkflow<
 
     // Step 2: Generate the character sheet image
     const imageResult = await context.run('generate-sheet-image', async () => {
-      console.log(
-        '[CharacterSheetWorkflow]',
-        `Generating sheet for ${input.characterName} with model ${generationParams.model}`
-      );
+      logger.info('[CharacterSheetWorkflow]', {
+        data: `Generating sheet for ${input.characterName} with model ${generationParams.model}`,
+      });
 
       return await generateImageWithProvider(generationParams, { scopedDb });
     });
@@ -156,10 +158,9 @@ export const characterSheetWorkflow = createScopedWorkflow<
           throw new Error('No image URL returned from generation');
         }
 
-        console.log(
-          '[CharacterSheetWorkflow]',
-          `Uploading sheet to storage for ${input.characterName}`
-        );
+        logger.info('[CharacterSheetWorkflow]', {
+          data: `Uploading sheet to storage for ${input.characterName}`,
+        });
 
         // Fetch and stream directly to R2
         const response = await fetch(imageUrl);
@@ -196,10 +197,9 @@ export const characterSheetWorkflow = createScopedWorkflow<
       const reconcileOutcome = await context.run(
         'reconcile-database',
         async (): Promise<{ kind: 'convergent' } | { kind: 'divergent' }> => {
-          console.log(
-            '[CharacterSheetWorkflow]',
-            `Updating database for ${input.characterName}`
-          );
+          logger.info('[CharacterSheetWorkflow]', {
+            data: `Updating database for ${input.characterName}`,
+          });
 
           const decision = decideSheetDivergence(
             snapshot?.snapshotInputHash,
@@ -207,7 +207,7 @@ export const characterSheetWorkflow = createScopedWorkflow<
           );
 
           if (decision.kind === 'divergent') {
-            console.warn('[CharacterSheetWorkflow] divergence detected', {
+            logger.warn('divergence detected', {
               characterDbId: input.characterDbId,
               snapshotInputHash: decision.snapshotInputHash,
               currentInputHash: decision.currentInputHash,
@@ -261,10 +261,9 @@ export const characterSheetWorkflow = createScopedWorkflow<
             }
           );
         });
-        console.log(
-          '[CharacterSheetWorkflow]',
-          `Diverged for ${input.characterName}; saved as variant`
-        );
+        logger.info('[CharacterSheetWorkflow]', {
+          data: `Diverged for ${input.characterName}; saved as variant`,
+        });
         return {
           sheetImageUrl,
           sheetImagePath,
@@ -319,10 +318,9 @@ export const characterSheetWorkflow = createScopedWorkflow<
           );
         }
 
-        console.error(
-          '[CharacterSheetWorkflow]',
-          `Sheet generation failed for character ${input.characterName}: ${error}`
-        );
+        logger.error('[CharacterSheetWorkflow]', {
+          data: `Sheet generation failed for character ${input.characterName}: ${error}`,
+        });
       }
 
       return `Character sheet generation failed for ${input.characterName}`;

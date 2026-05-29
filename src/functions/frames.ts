@@ -20,6 +20,10 @@ import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 import { frameAccessMiddleware, sequenceAccessMiddleware } from './middleware';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'serverFn', 'frames']);
+
 const frameIdInputSchema = z.object({
   sequenceId: ulidSchema,
   frameId: ulidSchema,
@@ -198,7 +202,7 @@ export const promoteVariantFn = createServerFn({ method: 'POST' })
         });
       }
     } catch (error) {
-      console.error('[promoteVariantFn] realtime emit failed', error);
+      logger.error('realtime emit failed', { err: error });
     }
 
     return { frame: updatedFrame, variantId: variant.id };
@@ -348,9 +352,9 @@ export const updateFrameFn = createServerFn({ method: 'POST' })
                 await computeVisualPromptInputHash(ctx);
             }
           } catch (err) {
-            console.warn(
-              `[updateFrameFn] Could not bootstrap visual hash for frame ${frameId}; staleness will remain untracked for this prompt`,
-              err
+            logger.warn(
+              `Could not bootstrap visual hash for frame ${frameId}; staleness will remain untracked for this prompt`,
+              { err }
             );
           }
         }
@@ -376,9 +380,9 @@ export const updateFrameFn = createServerFn({ method: 'POST' })
                 await computeMotionPromptInputHash(ctx);
             }
           } catch (err) {
-            console.warn(
-              `[updateFrameFn] Could not bootstrap motion hash for frame ${frameId}; staleness will remain untracked for this prompt`,
-              err
+            logger.warn(
+              `Could not bootstrap motion hash for frame ${frameId}; staleness will remain untracked for this prompt`,
+              { err }
             );
           }
         }
@@ -431,8 +435,8 @@ export const updateFrameFn = createServerFn({ method: 'POST' })
               seq.script.slice(targetStart + targetLength),
           });
         } else {
-          console.warn(
-            `[updateFrameFn] Parent script walk could not locate frame ${frameId} for sequence ${sequenceId}; skipping parent script sync`
+          logger.warn(
+            `Parent script walk could not locate frame ${frameId} for sequence ${sequenceId}; skipping parent script sync`
           );
         }
       }
@@ -610,10 +614,9 @@ export const getFrameStalenessFn = createServerFn({ method: 'GET' })
         } catch (error) {
           // Context unavailable (e.g., style deleted mid-flight). Stay
           // 'untracked' — fail-open as 'fresh' would silently lie to the user.
-          console.warn(
-            `[getFrameStalenessFn] visual staleness uncomputable for frame ${frame.id}:`,
-            error
-          );
+          logger.warn(`visual staleness uncomputable for frame ${frame.id}:`, {
+            err: error,
+          });
         }
       }
     }
@@ -643,10 +646,9 @@ export const getFrameStalenessFn = createServerFn({ method: 'GET' })
           const liveHash = await computeMotionPromptInputHash(ctx);
           motionPrompt = liveHash !== referenceHash ? 'stale' : 'fresh';
         } catch (error) {
-          console.warn(
-            `[getFrameStalenessFn] motion staleness uncomputable for frame ${frame.id}:`,
-            error
-          );
+          logger.warn(`motion staleness uncomputable for frame ${frame.id}:`, {
+            err: error,
+          });
         }
       }
     }

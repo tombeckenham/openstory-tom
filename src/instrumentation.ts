@@ -11,6 +11,8 @@
 
 import { initAIEventBridge } from '@/lib/observability/ai-event-bridge';
 import { initTracing } from '@/lib/observability/langfuse';
+import { configureLogging } from '@/lib/observability/logger';
 
+configureLogging();
 initTracing();
 initAIEventBridge();

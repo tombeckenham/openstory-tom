@@ -43,6 +43,10 @@ import { sceneSplitWorkflow } from './scene-split-workflow';
 import { talentMatchingWorkflow } from './talent-matching-workflow';
 import { visualPromptWorkflow } from './visual-prompt-workflow';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'analyze-script']);
+
 export const analyzeScriptWorkflow = createScopedWorkflow<
   AnalyzeScriptWorkflowInput,
   Scene[]
@@ -422,7 +426,7 @@ export const analyzeScriptWorkflow = createScopedWorkflow<
         });
       });
 
-      // Phase 5: single orchestrator for motion + optional music + merge
+      // Phase 5: single orchestrator for motion + optional music
       const motionBatchResult = await context.invoke('motion-batch', {
         workflow: motionBatchWorkflow,
         label,
@@ -469,7 +473,7 @@ export const analyzeScriptWorkflow = createScopedWorkflow<
       if (!sequenceId) return;
 
       const error = sanitizeFailResponse(failResponse);
-      console.error('[AnalyzeScriptWorkflow] Failure:', error);
+      logger.error('Failure:', { err: error });
 
       let userMessage = error;
       if (

@@ -7,9 +7,13 @@ import { getEnv } from '#env';
 import { createClient } from '@libsql/client/http';
 import { drizzle } from 'drizzle-orm/libsql';
 import { relations } from './schema/relations';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'db', 'client-http']);
+
 // @ts-ignore - resolved via package.json imports
 
-console.log('[db-http] Loading client');
+logger.info('Loading client');
 
 type Database = ReturnType<typeof buildDb>;
 

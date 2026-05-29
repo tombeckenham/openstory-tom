@@ -21,6 +21,10 @@ import {
 } from '@/lib/constants/aspect-ratios';
 import { useCallback, useEffect, useState } from 'react';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'ui', 'use-generation-settings']);
+
 const STORAGE_KEY = 'openstory:generation-settings:v2';
 
 type GenerationSettings = {
@@ -93,9 +97,7 @@ function loadSettings(): GenerationSettings {
       !('imageModel' in parsed) ||
       !('motionModel' in parsed)
     ) {
-      console.warn(
-        '[useGenerationSettings] Invalid settings structure, using defaults'
-      );
+      logger.warn('Invalid settings structure, using defaults');
       return DEFAULT_SETTINGS;
     }
 
@@ -156,10 +158,7 @@ function loadSettings(): GenerationSettings {
       autoGenerateMusic,
     };
   } catch (error) {
-    console.warn(
-      '[useGenerationSettings] Failed to load settings from localStorage:',
-      error
-    );
+    logger.warn('Failed to load settings from localStorage:', { err: error });
     return DEFAULT_SETTINGS;
   }
 }
@@ -175,10 +174,7 @@ function saveSettings(settings: GenerationSettings): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   } catch (error) {
-    console.warn(
-      '[useGenerationSettings] Failed to save settings to localStorage:',
-      error
-    );
+    logger.warn('Failed to save settings to localStorage:', { err: error });
   }
 }
 

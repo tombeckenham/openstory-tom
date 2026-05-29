@@ -10,6 +10,10 @@ import { getRequest } from '@tanstack/react-start/server';
 import { Client as QStashClient } from '@upstash/qstash';
 import { Client as WorkflowClient } from '@upstash/workflow';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'client']);
+
 function getVercelBypassHeaders(): Record<string, string> | undefined {
   const secret = getEnv().VERCEL_AUTOMATION_BYPASS_SECRET;
   if (!secret) return undefined;
@@ -77,14 +81,12 @@ export async function triggerWorkflow<
     retryDelay?: string;
   }
 ): Promise<string> {
-  console.log('[TriggerWorkflow]', { url: urlPath, body, options });
+  logger.info('[TriggerWorkflow]', { url: urlPath, body, options });
 
   const env = getEnv();
   if (env.E2E_TEST === 'true' && env.E2E_FULL_PIPELINE !== 'true') {
     const mockId = options?.deduplicationId ?? `mock-${Date.now()}`;
-    console.log(
-      `[E2E] Skipping workflow trigger: ${urlPath} (mock ID: ${mockId})`
-    );
+    logger.info(`Skipping workflow trigger: ${urlPath} (mock ID: ${mockId})`);
     return mockId;
   }
 
@@ -99,7 +101,7 @@ export async function triggerWorkflow<
       env: cfEnv,
       deduplicationId: options?.deduplicationId,
     });
-    console.log('[TriggerWorkflow] CF Response:', result);
+    logger.info('[TriggerWorkflow] CF Response', { result });
     return result.workflowRunId;
   }
 
@@ -119,6 +121,6 @@ export async function triggerWorkflow<
     retryDelay: options?.retryDelay,
   });
 
-  console.log('[TriggerWorkflow] Response:', response);
+  logger.info('Response:', { response });
   return response.workflowRunId;
 }

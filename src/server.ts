@@ -9,14 +9,16 @@ import './instrumentation';
 import handler from '@tanstack/react-start/server-entry';
 import { reconcileAllStuckJobs } from '@/lib/cron/reconcile-all';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'server']);
+
 // Re-export Cloudflare Workflow entrypoint classes so the Worker bundle
 // includes them. Each must have a matching entry in `wrangler.jsonc` under
 // `workflows[]`. See docs/investigations/cloudflare-workflows-poc.md.
 export { ImageWorkflow } from '@/lib/workflows/cf/image-workflow';
 export { ElementVisionWorkflow } from '@/lib/workflows/cf/element-vision-workflow';
 export { MusicWorkflow } from '@/lib/workflows/cf/music-workflow';
-export { MergeAudioVideoWorkflow } from '@/lib/workflows/cf/merge-audio-video-workflow';
-export { MergeVideoWorkflow } from '@/lib/workflows/cf/merge-video-workflow';
 export { MotionWorkflow } from '@/lib/workflows/cf/motion-workflow';
 export { MotionBatchWorkflow } from '@/lib/workflows/cf/motion-batch-workflow';
 export { CharacterSheetWorkflow } from '@/lib/workflows/cf/character-sheet-workflow';
@@ -61,7 +63,7 @@ const exportedHandler: ExportedHandler<WorkerEnv> = {
     // See src/lib/cron/reconcile-all.ts; cron schedule is in wrangler.jsonc.
     ctx.waitUntil(
       reconcileAllStuckJobs().catch((error) => {
-        console.error('[scheduled] reconcileAllStuckJobs failed:', error);
+        logger.error('reconcileAllStuckJobs failed:', { err: error });
       })
     );
   },

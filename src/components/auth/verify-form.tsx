@@ -23,6 +23,10 @@ import { usePostHog } from '@posthog/react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useState, useTransition } from 'react';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'ui', 'auth', 'verify-form']);
+
 type VerifyFormProps = {
   email: string;
   redirectTo?: string;
@@ -61,7 +65,7 @@ export function VerifyForm({
 
           await navigate({ to: redirectTo });
         } catch (err) {
-          console.error('[VerifyForm] Verify OTP error:', err);
+          logger.error('Verify OTP error:', { err });
           setError(err instanceof Error ? err.message : 'Verification failed');
         }
       });
@@ -100,7 +104,7 @@ export function VerifyForm({
         setSuccess('New code sent!');
         setOtp('');
       } catch (err) {
-        console.error('[VerifyForm] Resend OTP error:', err);
+        logger.error('Resend OTP error:', { err });
         setError(err instanceof Error ? err.message : 'Failed to resend code');
       }
     });

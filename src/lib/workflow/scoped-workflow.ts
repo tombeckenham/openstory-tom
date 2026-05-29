@@ -61,7 +61,7 @@ export type SnapshotContext = {
   /**
    * Recomputes the hash from the inlined DTO and throws if it does not match
    * `snapshotInputHash`. Workflows must call this from inside `context.run`
-   * — Upstash swallows runStarted-middleware throws to `console.error` without
+   * — Upstash swallows runStarted-middleware throws to `logger.error` without
    * re-raising, so middleware-only validation cannot halt a tampered run.
    */
   validate: () => Promise<void>;
@@ -127,7 +127,7 @@ export function createScopedWorkflow<
   const middlewares: WorkflowMiddleware<T, TResult>[] = [teamIdValidation];
 
   // No snapshot-validation middleware: Upstash routes middleware throws to
-  // console.error without re-raising, so a runStarted-only check cannot halt
+  // logger.error without re-raising, so a runStarted-only check cannot halt
   // a tampered run. Validation happens inside the workflow body via
   // `context.snapshot.validate()` wrapped in `context.run`, where the throw
   // propagates to QStash and triggers the failureFunction.

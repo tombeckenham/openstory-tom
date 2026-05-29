@@ -27,14 +27,6 @@ const SEQUENCE_STATUSES = [
 ] as const;
 export type SequenceStatus = (typeof SEQUENCE_STATUSES)[number];
 
-const MERGED_VIDEO_STATUSES = [
-  'pending',
-  'merging',
-  'completed',
-  'failed',
-] as const;
-export type MergedVideoStatus = (typeof MERGED_VIDEO_STATUSES)[number];
-
 const MUSIC_STATUSES = [
   'pending',
   'generating',
@@ -87,15 +79,6 @@ export const sequences = snakeCase.table(
     imageModel: text({ length: 100 }).default(DEFAULT_IMAGE_MODEL).notNull(),
     videoModel: text({ length: 100 }).default(DEFAULT_VIDEO_MODEL).notNull(),
     workflow: text({ length: 100 }),
-
-    // Merged video fields (final stitched video from all frames)
-    mergedVideoUrl: text(),
-    mergedVideoPath: text(),
-    mergedVideoStatus: text().$type<MergedVideoStatus>().default('pending'),
-    mergedVideoGeneratedAt: integer({
-      mode: 'timestamp',
-    }),
-    mergedVideoError: text(),
 
     // Music track fields (sequence-level background music)
     musicUrl: text(),

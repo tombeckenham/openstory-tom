@@ -18,6 +18,10 @@ import { chat, convertSchemaToJsonSchema } from '@tanstack/ai';
 import type { WorkflowContext } from '@upstash/workflow';
 import { z } from 'zod';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'llm-call-helper']);
+
 export type DurableLLMCallConfig<TSchema extends z.ZodType> = {
   name: string;
   phase: { number: number; name: string };
@@ -109,7 +113,7 @@ export async function durableLLMCall<TInput, TSchema extends z.ZodType>(
         })();
     const adapter = createAdapter(modelId, openRouterApiKeyInfo.key);
 
-    console.log(`[LLM:${logName}] Starting call`, {
+    logger.info(`[LLM:${logName}] Starting call`, {
       model: modelId,
       keySource: openRouterApiKeyInfo.source,
       messageCount: messages.length,
@@ -178,7 +182,7 @@ export async function durableLLMCall<TInput, TSchema extends z.ZodType>(
         debug: false,
       });
 
-      console.log(`[LLM:${logName}] Call succeeded`);
+      logger.info(`[LLM:${logName}] Call succeeded`);
       return JSON.parse(text);
     } finally {
       clearTimeout(timeout);
@@ -269,7 +273,7 @@ export async function durableStreamingLLMCall<
         })();
     const adapter = createAdapter(modelId, openRouterApiKeyInfo.key);
 
-    console.log(`[LLM:${logName}] Starting streaming call`, {
+    logger.info(`[LLM:${logName}] Starting streaming call`, {
       model: modelId,
       keySource: openRouterApiKeyInfo.source,
       messageCount: messages.length,
@@ -372,7 +376,7 @@ export async function durableStreamingLLMCall<
         }
       }
       await flushDelta();
-      console.log(`[LLM:${logName}] Streaming call succeeded`);
+      logger.info(`[LLM:${logName}] Streaming call succeeded`);
       return JSON.parse(accumulated);
     } finally {
       clearTimeout(timeout);

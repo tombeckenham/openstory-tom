@@ -30,6 +30,9 @@
 
 import type { CloudflareEnv } from '@/lib/workflow/cf/types';
 import type { WorkflowSleepDuration, WorkflowStep } from 'cloudflare:workers';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'cf', 'await-child']);
 
 const DEFAULT_TIMEOUT: WorkflowSleepDuration = '30 minutes';
 
@@ -163,9 +166,11 @@ export async function notifyParentOfFailure(
       payload: { status: 'failed', error } satisfies ChildOutcome<never>,
     });
   } catch (notifyError) {
-    console.error(
+    logger.error(
       `[notifyParentOfFailure] could not deliver failure event to ${hint.parentInstanceId}:`,
-      notifyError
+      {
+        err: notifyError,
+      }
     );
   }
 }

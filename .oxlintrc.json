@@ -26,6 +26,7 @@
     "typescript/no-misused-promises": "error",
     "typescript/await-thenable": "error",
     "typescript/no-unnecessary-condition": "warn",
+    "eslint/no-console": "error",
     "unicorn/prefer-optional-catch-binding": "error",
     "react/rules-of-hooks": "error",
     "no-restricted-imports": [
@@ -50,13 +51,20 @@
       "files": ["*.test.ts", "*.spec.ts", "*.gen.ts", "*.stories.tsx"],
       "rules": {
         "typescript/no-explicit-any": "warn",
-        "typescript/no-floating-promises": "off"
+        "typescript/no-floating-promises": "off",
+        "eslint/no-console": "off"
       }
     },
     {
-      "files": ["e2e/**/*.ts"],
+      "files": [
+        "scripts/**/*.ts",
+        "e2e/**/*.ts",
+        "src/lib/observability/logger.ts",
+        "src/lib/mocks/**/*.ts"
+      ],
       "rules": {
-        "react/rules-of-hooks": "off"
+        "react/rules-of-hooks": "off",
+        "eslint/no-console": "off"
       }
     },
     {
@@ -68,7 +76,8 @@
         "**/workflow/scoped-workflow.ts",
         "**/workflow/cf/base-workflow.ts",
         "**/cron/reconcile-all.ts",
-        "**/openrouter/callback.ts"
+        "**/openrouter/callback.ts",
+        "**/lib/test/seed.ts"
       ],
       "rules": {
         "no-restricted-imports": "off"

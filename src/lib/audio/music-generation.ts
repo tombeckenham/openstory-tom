@@ -19,6 +19,10 @@ import { generateAudio } from '@tanstack/ai';
 import { falAudio } from '@tanstack/ai-fal';
 import { z } from 'zod';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'audio', 'music-generation']);
+
 export const generateMusicOptionsSchema = z.object({
   prompt: z.string().min(1),
   tags: z.string().optional(),
@@ -186,14 +190,11 @@ async function callFalAudio(
   const billedDuration =
     shape.duration ?? clampDuration(options.duration, modelConfig);
 
-  console.log(
-    `[Music Service] Generating music with model: ${modelConfig.id}`,
-    {
-      provider: modelConfig.provider,
-      promptLength: shape.prompt.length,
-      duration: shape.duration ?? '(fixed by model)',
-    }
-  );
+  logger.info(`Generating music with model: ${modelConfig.id}`, {
+    provider: modelConfig.provider,
+    promptLength: shape.prompt.length,
+    duration: shape.duration ?? '(fixed by model)',
+  });
 
   const falApiKeyInfo = options.scopedDb
     ? await options.scopedDb.apiKeys.resolveKey('fal')
@@ -209,7 +210,7 @@ async function callFalAudio(
   });
 
   if (!result.audio.url) {
-    console.error('[Music Service] No audio URL in result:', result);
+    logger.error('No audio URL in result:', { result });
     throw new Error('No audio URL returned from music generation');
   }
 

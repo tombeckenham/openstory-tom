@@ -20,22 +20,17 @@ import {
 } from '@/lib/motion/motion-generation';
 import { uploadVideoToStorage } from '@/lib/motion/video-storage';
 import { getGenerationChannel } from '@/lib/realtime';
-import { triggerWorkflow } from '@/lib/workflow/client';
-import { buildWorkflowLabel } from '@/lib/workflow/labels';
 import { WorkflowValidationError } from '@/lib/workflow/errors';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
-import type {
-  MergeVideoWorkflowInput,
-  MotionWorkflowInput,
-} from '@/lib/workflow/types';
+import type { MotionWorkflowInput } from '@/lib/workflow/types';
 import { endSpanSuccess, startGenAISpan } from '@/lib/observability/tracer';
 import { WorkflowNonRetryableError } from '@upstash/workflow';
-import {
-  buildMergeVideoSourcesFromFrames,
-  computeSequenceVideoHashFromDto,
-} from './sequence-snapshots';
 import { shouldRecordUserEdit } from './user-edit-predicate';
+
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'motion']);
 
 /** Each batch polls in a tight loop for ~30s, then checkpoints for durability */
 const POLL_BATCH_DURATION_MS = 30_000;
@@ -100,8 +95,8 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
       if (cost > 0 && !usedOwnKey) {
         const canAfford = await scopedDb.billing.hasEnoughCredits(cost);
         if (!canAfford) {
-          console.warn(
-            `[MotionWorkflow] Insufficient credits for team ${input.teamId} (cost: $${microsToUsd(cost).toFixed(4)}), skipping deduction`
+          logger.warn(
+            `Insufficient credits for team ${input.teamId} (cost: $${microsToUsd(cost).toFixed(4)}), skipping deduction`
           );
 
           // Throw an error so the workflow fails
@@ -130,9 +125,7 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
         );
 
         if (!frame) {
-          console.log(
-            `[MotionWorkflow] Frame ${input.frameId} was deleted, skipping workflow`
-          );
+          logger.info(`Frame ${input.frameId} was deleted, skipping workflow`);
           return { frameDeleted: true };
         }
 
@@ -169,9 +162,9 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
               }
             }
           } catch (err) {
-            console.warn(
-              `[MotionWorkflow] Could not compute upstream hash for user-edit on frame ${input.frameId}; recording with null hash`,
-              err
+            logger.warn(
+              `Could not compute upstream hash for user-edit on frame ${input.frameId}; recording with null hash`,
+              { err }
             );
           }
 
@@ -192,9 +185,9 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
             { frameId: input.frameId, status: 'generating' }
           );
         } catch (emitError) {
-          console.error(
-            `[MotionWorkflow] Failed to emit generation.video:progress for frame ${input.frameId}:`,
-            emitError
+          logger.error(
+            `Failed to emit generation.video:progress for frame ${input.frameId}:`,
+            { err: emitError }
           );
         }
         return { frameDeleted: false };
@@ -220,8 +213,8 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
         return input.imageUrl;
       }
 
-      console.log(
-        `[MotionWorkflow] Image ${(compressed.originalSizeBytes / 1024 / 1024).toFixed(1)}MB exceeds limit, using Cloudflare Image Resizing`
+      logger.info(
+        `Image ${(compressed.originalSizeBytes / 1024 / 1024).toFixed(1)}MB exceeds limit, using Cloudflare Image Resizing`
       );
 
       return compressed.url;
@@ -291,14 +284,14 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
 
           if (pollResult.progress !== undefined) {
             // Log the progress
-            console.log(`[MotionWorkflow] Progress: ${pollResult.progress}%`);
+            logger.info(`Progress: ${pollResult.progress}%`);
           }
 
           // If the job is completed, check the video URL and return the result
           // If the video URL is not returned, throw an error and stop the workflow without retrying
           if (pollResult.status === 'completed') {
             if (pollResult.url) {
-              console.log(`[MotionWorkflow] Generation completed`);
+              logger.info(`Generation completed`);
               return pollResult;
             } else {
               throw new WorkflowNonRetryableError(
@@ -416,9 +409,7 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
         );
 
         if (!updatedFrame) {
-          console.log(
-            `[MotionWorkflow] Frame ${frameId} was deleted, skipping final update`
-          );
+          logger.info(`Frame ${frameId} was deleted, skipping final update`);
           return;
         }
 
@@ -428,56 +419,11 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
             { frameId, status: 'completed', videoUrl: storageResult.url }
           );
         } catch (emitError) {
-          console.error(
-            `[MotionWorkflow] Failed to emit generation.video:progress for frame ${frameId}:`,
-            emitError
+          logger.error(
+            `Failed to emit generation.video:progress for frame ${frameId}:`,
+            { err: emitError }
           );
         }
-      });
-
-      // Step 6: Opt-in merge auto-trigger for callers that fan out motion
-      // without their own subsequent merge invocation (e.g. smart-retry's
-      // motion-retry path). N parallel motion workflows can each reach this
-      // step near-simultaneously after the last frame lands; the content-
-      // derived dedup ID makes QStash collapse the duplicates into a single
-      // workflowRunId. Regenerating any frame's video changes the hash and
-      // re-arms a fresh merge. See issue #690.
-      await context.run('check-merge-trigger', async () => {
-        if (!input.triggerMergeOnComplete) return;
-        if (!input.sequenceId || !input.teamId || !input.userId) return;
-
-        const allFrames = await scopedDb.frames.listBySequence(
-          input.sequenceId
-        );
-        if (allFrames.length === 0) return;
-        if (!allFrames.every((f) => f.videoStatus === 'completed')) return;
-
-        const sorted = [...allFrames].sort(
-          (a, b) => a.orderIndex - b.orderIndex
-        );
-        const { videoUrls, sourceFrameVideoHashes } =
-          buildMergeVideoSourcesFromFrames(sorted);
-
-        if (videoUrls.length !== allFrames.length) return;
-
-        console.log(
-          `[MotionWorkflow] All ${allFrames.length} frames complete, triggering merge workflow`
-        );
-
-        const mergeInput: MergeVideoWorkflowInput = {
-          userId: input.userId,
-          teamId: input.teamId,
-          sequenceId: input.sequenceId,
-          videoUrls,
-          sourceFrameVideoHashes,
-        };
-
-        const inputHash = await computeSequenceVideoHashFromDto(mergeInput);
-
-        await triggerWorkflow('/merge-video', mergeInput, {
-          deduplicationId: `merge-${input.sequenceId}-${inputHash.slice(0, 16)}`,
-          label: buildWorkflowLabel(input.sequenceId),
-        });
       });
     }
 
@@ -506,15 +452,15 @@ export const generateMotionWorkflow = createScopedWorkflow<MotionWorkflowInput>(
             { frameId: input.frameId, status: 'failed' }
           );
         } catch (emitError) {
-          console.error(
-            `[MotionWorkflow] Failed to emit generation.video:progress for frame ${input.frameId}:`,
-            emitError
+          logger.error(
+            `Failed to emit generation.video:progress for frame ${input.frameId}:`,
+            { err: emitError }
           );
         }
       }
 
-      console.error(
-        `[MotionWorkflow] Motion generation failed for frame ${input.frameId}: ${error}`
+      logger.error(
+        `Motion generation failed for frame ${input.frameId}: ${error}`
       );
 
       return `Motion generation failed for frame ${input.frameId}`;

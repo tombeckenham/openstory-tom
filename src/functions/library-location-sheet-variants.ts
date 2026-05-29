@@ -7,6 +7,14 @@ import { ulidSchema } from '@/lib/schemas/id.schemas';
 
 import { authWithTeamMiddleware } from './middleware';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger([
+  'openstory',
+  'serverFn',
+  'library-location-sheet-variants',
+]);
+
 const variantInputSchema = z.object({
   variantId: ulidSchema,
 });
@@ -75,10 +83,7 @@ export const promoteLibraryLocationSheetVariantFn = createServerFn({
         }
       );
     } catch (error) {
-      console.error(
-        '[promoteLibraryLocationSheetVariantFn] realtime emit failed',
-        error
-      );
+      logger.error('realtime emit failed', { err: error });
     }
 
     return { variantId: variant.id, locationId: variant.parentId };

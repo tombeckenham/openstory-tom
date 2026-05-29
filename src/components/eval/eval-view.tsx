@@ -50,7 +50,6 @@ export type FilterState = {
   analysisModel: string | null;
   imageModel: string | null;
   aspectRatio: AspectRatio | null;
-  hasMergedVideo: boolean;
 };
 
 export type SortCriteria = {
@@ -65,7 +64,6 @@ const defaultFilters: FilterState = {
   analysisModel: null,
   imageModel: null,
   aspectRatio: null,
-  hasMergedVideo: false,
 };
 
 type EvalViewProps = {
@@ -118,10 +116,9 @@ export const EvalView: React.FC<EvalViewProps> = ({ initialUserFilter }) => {
     !supportMode && sequences.length > 0
   );
   const divergenceMap = useMemo(() => {
-    const map = new Map<string, { hasVideo: boolean; hasMusic: boolean }>();
+    const map = new Map<string, { hasMusic: boolean }>();
     for (const row of divergentByTeam ?? []) {
       map.set(row.sequenceId, {
-        hasVideo: row.hasVideo,
         hasMusic: row.hasMusic,
       });
     }
@@ -293,10 +290,6 @@ function applyFiltersAndSort(
 
   if (filters.aspectRatio) {
     result = result.filter((s) => s.aspectRatio === filters.aspectRatio);
-  }
-
-  if (filters.hasMergedVideo) {
-    result = result.filter((s) => Boolean(s.mergedVideoUrl));
   }
 
   // Apply multi-criteria sort

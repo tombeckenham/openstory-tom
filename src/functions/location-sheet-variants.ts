@@ -7,6 +7,10 @@ import { ulidSchema } from '@/lib/schemas/id.schemas';
 
 import { sequenceAccessMiddleware } from './middleware';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'serverFn', 'location-sheet-variants']);
+
 const variantInputSchema = z.object({
   sequenceId: ulidSchema,
   variantId: ulidSchema,
@@ -78,10 +82,7 @@ export const promoteSequenceLocationSheetVariantFn = createServerFn({
         }
       );
     } catch (error) {
-      console.error(
-        '[promoteSequenceLocationSheetVariantFn] realtime emit failed',
-        error
-      );
+      logger.error('realtime emit failed', { err: error });
     }
 
     return { variantId: variant.id, locationId: variant.parentId };

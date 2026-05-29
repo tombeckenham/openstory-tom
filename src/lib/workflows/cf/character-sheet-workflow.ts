@@ -49,6 +49,9 @@ import {
   computeCharacterSheetHashFromDto,
 } from '@/lib/workflows/sheet-snapshots';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'character-sheet']);
 
 export class CharacterSheetWorkflow extends OpenStoryWorkflowEntrypoint<CharacterSheetWorkflowInput> {
   protected override async runImpl(
@@ -96,9 +99,8 @@ export class CharacterSheetWorkflow extends OpenStoryWorkflowEntrypoint<Characte
         }
 
         const hasTalent = !!(input.talentMetadata || input.talentDescription);
-        console.log(
-          '[CharacterSheetWorkflow:cf]',
-          `Starting sheet generation for character ${input.characterName}${hasTalent ? ' with talent appearance' : ''}`
+        logger.info(
+          `[CharacterSheetWorkflow:cf] Starting sheet generation for character ${input.characterName}${hasTalent ? ' with talent appearance' : ''}`
         );
 
         // Build talent overrides if talent data is provided (for casting)
@@ -134,9 +136,8 @@ export class CharacterSheetWorkflow extends OpenStoryWorkflowEntrypoint<Characte
 
     // Step 2: Generate the character sheet image
     const imageResult = await step.do('generate-sheet-image', async () => {
-      console.log(
-        '[CharacterSheetWorkflow:cf]',
-        `Generating sheet for ${input.characterName} with model ${generationParams.model}`
+      logger.info(
+        `[CharacterSheetWorkflow:cf] Generating sheet for ${input.characterName} with model ${generationParams.model}`
       );
 
       return await generateImageWithProvider(generationParams, { scopedDb });
@@ -178,9 +179,8 @@ export class CharacterSheetWorkflow extends OpenStoryWorkflowEntrypoint<Characte
           throw new Error('No image URL returned from generation');
         }
 
-        console.log(
-          '[CharacterSheetWorkflow:cf]',
-          `Uploading sheet to storage for ${input.characterName}`
+        logger.info(
+          `[CharacterSheetWorkflow:cf] Uploading sheet to storage for ${input.characterName}`
         );
 
         // Fetch and stream directly to R2
@@ -218,9 +218,8 @@ export class CharacterSheetWorkflow extends OpenStoryWorkflowEntrypoint<Characte
       const reconcileOutcome = await step.do(
         'reconcile-database',
         async (): Promise<{ kind: 'convergent' } | { kind: 'divergent' }> => {
-          console.log(
-            '[CharacterSheetWorkflow:cf]',
-            `Updating database for ${input.characterName}`
+          logger.info(
+            `[CharacterSheetWorkflow:cf] Updating database for ${input.characterName}`
           );
 
           const currentHash = snapshotInputHash
@@ -233,7 +232,7 @@ export class CharacterSheetWorkflow extends OpenStoryWorkflowEntrypoint<Characte
           );
 
           if (decision.kind === 'divergent') {
-            console.warn('[CharacterSheetWorkflow:cf] divergence detected', {
+            logger.warn('[CharacterSheetWorkflow:cf] divergence detected', {
               characterDbId: input.characterDbId,
               snapshotInputHash: decision.snapshotInputHash,
               currentInputHash: decision.currentInputHash,
@@ -287,9 +286,8 @@ export class CharacterSheetWorkflow extends OpenStoryWorkflowEntrypoint<Characte
             }
           );
         });
-        console.log(
-          '[CharacterSheetWorkflow:cf]',
-          `Diverged for ${input.characterName}; saved as variant`
+        logger.info(
+          `[CharacterSheetWorkflow:cf] Diverged for ${input.characterName}; saved as variant`
         );
         return {
           sheetImageUrl,
@@ -352,9 +350,8 @@ export class CharacterSheetWorkflow extends OpenStoryWorkflowEntrypoint<Characte
         );
       }
 
-      console.error(
-        '[CharacterSheetWorkflow:cf]',
-        `Sheet generation failed for character ${input.characterName}: ${error}`
+      logger.error(
+        `[CharacterSheetWorkflow:cf] Sheet generation failed for character ${input.characterName}: ${error}`
       );
     }
   }

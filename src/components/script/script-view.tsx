@@ -516,6 +516,7 @@ export const ScriptView: FC<{
                 tempPath: el.tempPath,
                 tempPublicUrl: el.tempPublicUrl,
                 filename: el.filename,
+                token: el.token,
                 description: el.description,
                 consistencyTag: el.consistencyTag,
               }))

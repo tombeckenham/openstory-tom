@@ -1,11 +1,10 @@
 import { MusicView, MusicViewSkeleton } from '@/components/music/music-view';
-import { SequenceVariantCompareDialog } from '@/components/sequence/sequence-variant-compare-dialog';
 import { DivergentAlternateBanner } from '@/components/staleness/divergent-alternate-banner';
 import {
   getMusicPromptStalenessFn,
   regenerateMusicPromptFn,
 } from '@/functions/prompt-variants';
-import { generateMusicFn, mergeVideoAndMusicFn } from '@/functions/sequences';
+import { generateMusicFn } from '@/functions/sequences';
 import { useFramesBySequence } from '@/hooks/use-frames';
 import { useSequence, sequenceKeys } from '@/hooks/use-sequences';
 import {
@@ -18,7 +17,7 @@ import type { SequenceMusicVariant } from '@/lib/db/schema';
 import { useGenerationStream } from '@/lib/realtime/use-generation-stream';
 import { useSequenceStaleDetected } from '@/lib/realtime/use-sequence-stale-detected';
 import { usePostHog } from '@posthog/react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { toast } from 'sonner';
@@ -32,12 +31,7 @@ export const Route = createFileRoute('/_protected/sequences/$id/music')({
 function MusicPage() {
   const { id: sequenceId } = Route.useParams();
 
-  const { data: sequence, isLoading } = useSequence(sequenceId, {
-    refetchInterval: (query) => {
-      if (query.state.data?.mergedVideoStatus === 'merging') return 2000;
-      return false;
-    },
-  });
+  const { data: sequence, isLoading } = useSequence(sequenceId);
   const { data: frames } = useFramesBySequence(sequenceId, {
     refetchInterval: false,
   });
@@ -70,17 +64,6 @@ function MusicPage() {
   const discardVariant = useDiscardSequenceMusicVariant();
   const undiscardVariant = useUndiscardSequenceMusicVariant();
 
-  const [compareVariant, setCompareVariant] =
-    useState<SequenceMusicVariant | null>(null);
-
-  useEffect(() => {
-    if (!compareVariant || !divergentMusicVariants) return;
-    const stillExists = divergentMusicVariants.some(
-      (v) => v.id === compareVariant.id
-    );
-    if (!stillExists) setCompareVariant(null);
-  }, [compareVariant, divergentMusicVariants]);
-
   const handleDiscardWithUndo = useCallback(
     (variant: SequenceMusicVariant) => {
       const restore = () => {
@@ -100,7 +83,6 @@ function MusicPage() {
         { sequenceId, variantId: variant.id },
         {
           onSuccess: () => {
-            setCompareVariant(null);
             toast('Alternate discarded', {
               action: { label: 'Undo', onClick: restore },
             });
@@ -123,7 +105,6 @@ function MusicPage() {
         { sequenceId, variantId: variant.id },
         {
           onSuccess: () => {
-            setCompareVariant(null);
             toast.success('Alternate promoted');
           },
           onError: (error) => {
@@ -167,23 +148,6 @@ function MusicPage() {
     },
   });
 
-  const mergeVideoAndMusic = useMutation({
-    mutationFn: (args: { includeMusic: boolean }) =>
-      mergeVideoAndMusicFn({
-        data: { sequenceId, includeMusic: args.includeMusic },
-      }),
-    onMutate: (args) => {
-      queryClient.setQueryData<Sequence>(
-        sequenceKeys.detail(sequenceId),
-        (old) => (old ? { ...old, mergedVideoStatus: 'merging' as const } : old)
-      );
-      posthog.capture('merged_video_generation_started', {
-        sequence_id: sequenceId,
-        include_music: args.includeMusic,
-      });
-    },
-  });
-
   const latestDivergent = divergentMusicVariants?.[0];
 
   const divergentBanner = latestDivergent ? (
@@ -191,7 +155,6 @@ function MusicPage() {
       variantId={latestDivergent.id}
       artifact="music"
       entityType="sequence"
-      onCompare={() => setCompareVariant(latestDivergent)}
       onPromote={() => handlePromote(latestDivergent)}
       onDiscard={() => handleDiscardWithUndo(latestDivergent)}
     />
@@ -245,29 +208,12 @@ function MusicPage() {
           videoDuration={videoDuration}
           onGenerateMusic={(args) => generateMusic.mutate(args)}
           isGeneratingMusic={generateMusic.isPending}
-          onMergeVideoAndMusic={(args) => mergeVideoAndMusic.mutate(args)}
-          isMergingVideoAndMusic={mergeVideoAndMusic.isPending}
           divergentBanner={divergentBanner}
           isMusicPromptStale={musicPromptStaleness?.musicPrompt === 'stale'}
           onRegenerateMusicPrompt={() => regenerateMusicPrompt.mutate()}
           isRegeneratingMusicPrompt={regenerateMusicPrompt.isPending}
         />
       </div>
-      {compareVariant && (
-        <SequenceVariantCompareDialog
-          kind="music"
-          open={true}
-          onOpenChange={(open) => {
-            if (!open) setCompareVariant(null);
-          }}
-          sequence={sequence}
-          variant={compareVariant}
-          onPromote={() => handlePromote(compareVariant)}
-          onDiscard={() => handleDiscardWithUndo(compareVariant)}
-          isPromoting={promoteVariant.isPending}
-          isDiscarding={discardVariant.isPending}
-        />
-      )}
     </div>
   );
 }

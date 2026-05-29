@@ -4,8 +4,8 @@
  */
 
 import { configureFalProxyFromEnv } from '@/lib/ai/fal-config';
-import { withApiLogging } from '@/lib/observability/api-logger';
-import { flushTracing } from '@/lib/observability/langfuse';
+import { scheduleFlushTracing } from '#flush-scheduler';
+import { getLogger, logApiRequest } from '@/lib/observability/logger';
 import {
   initMemoryProfiler,
   recordMemorySample,
@@ -22,8 +22,6 @@ import { libraryTalentSheetWorkflow } from '@/lib/workflows/library-talent-sheet
 import { locationBibleWorkflow } from '@/lib/workflows/location-bible-workflow';
 import { locationMatchingWorkflow } from '@/lib/workflows/location-matching-workflow';
 import { locationSheetWorkflow } from '@/lib/workflows/location-sheet-workflow';
-import { mergeAudioVideoWorkflow } from '@/lib/workflows/merge-audio-video-workflow';
-import { mergeVideoWorkflow } from '@/lib/workflows/merge-video-workflow';
 import { motionBatchWorkflow } from '@/lib/workflows/motion-batch-workflow';
 import { motionMusicPromptsWorkflow } from '@/lib/workflows/motion-music-prompts-workflow';
 import { motionPromptSceneWorkflow } from '@/lib/workflows/motion-prompt-scene-workflow';
@@ -65,8 +63,6 @@ function getHandler() {
         'location-matching': locationMatchingWorkflow,
         'location-sheet-from-bible': locationBibleWorkflow,
         'location-sheet': locationSheetWorkflow,
-        'merge-audio-video': mergeAudioVideoWorkflow,
-        'merge-video': mergeVideoWorkflow,
         'motion-music-prompts': motionMusicPromptsWorkflow,
         'motion-prompt-scene': motionPromptSceneWorkflow,
         'motion-prompts': motionPromptWorkflow,
@@ -93,10 +89,12 @@ function getHandler() {
   return _handler;
 }
 
+const workflowsApiLogger = getLogger(['openstory', 'api', 'workflows']);
+
 export const Route = createFileRoute('/api/workflows/$')({
   server: {
     handlers: {
-      POST: withApiLogging('workflows', async ({ request }) => {
+      POST: logApiRequest('workflows', async ({ request }) => {
         const workflowName =
           new URL(request.url).pathname.split('/api/workflows/')[1] ??
           'unknown';
@@ -108,19 +106,23 @@ export const Route = createFileRoute('/api/workflows/$')({
           try {
             const cloned = response.clone();
             const body = await cloned.text();
-            console.error(
-              `[Workflow:${workflowName}] ${response.status} error:`,
-              body
-            );
+            workflowsApiLogger.error('workflow returned error', {
+              workflowName,
+              status: response.status,
+              body,
+            });
           } catch (error) {
-            console.error(
-              `[Workflow:${workflowName}] ${response.status} error:`,
-              error
-            );
+            workflowsApiLogger.error('workflow error body unreadable', {
+              workflowName,
+              status: response.status,
+              err: error instanceof Error ? error.message : String(error),
+            });
           }
         }
 
-        await flushTracing();
+        // Schedule (don't await) so the Langfuse OTLP POST doesn't block
+        // the workflow's HTTP response back to QStash. See issue #770.
+        await scheduleFlushTracing();
         return response;
       }),
     },

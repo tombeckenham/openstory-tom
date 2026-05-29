@@ -14,6 +14,10 @@ import { z } from 'zod';
 
 import type { MotionJSONSchema } from './endpoint-map';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'motion', 'motion-transform']);
+
 // ---------------------------------------------------------------------------
 // JSON Schema readers
 // ---------------------------------------------------------------------------
@@ -106,8 +110,8 @@ function truncatePrompt(prompt: string, maxLength: number): string {
   }
   if (!result) return prompt.slice(0, maxLength - 3) + '...';
 
-  console.warn(
-    `[Motion] Prompt truncated from ${prompt.length} to ${result.length} chars`
+  logger.warn(
+    `Prompt truncated from ${prompt.length} to ${result.length} chars`
   );
   return result;
 }

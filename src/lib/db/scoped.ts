@@ -23,6 +23,7 @@ import { createCharacterSheetVariantsMethods } from '@/lib/db/scoped/character-s
 import { createFramePromptVariantsMethods } from '@/lib/db/scoped/frame-prompt-variants';
 import { createFrameVariantsMethods } from '@/lib/db/scoped/frame-variants';
 import { createLocationSheetVariantsMethods } from '@/lib/db/scoped/location-sheet-variants';
+import { createSequenceExportsMethods } from '@/lib/db/scoped/sequence-exports';
 import { createSequenceVariantsMethods } from '@/lib/db/scoped/sequence-variants';
 import { createTalentSheetVariantsMethods } from '@/lib/db/scoped/talent-sheet-variants';
 import { createFramesMethods } from '@/lib/db/scoped/frames';
@@ -56,16 +57,17 @@ import {
 } from '@/lib/db/scoped/team-management';
 import { and, eq, sql } from 'drizzle-orm';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'db', 'scoped']);
+
 export type {
   GiftTokenStatus,
   GiftTokenWithStatus,
   UserActivityRow,
 } from '@/lib/db/scoped/admin';
 
-export type {
-  MergedVideoFieldsUpdate,
-  MusicFieldsUpdate,
-} from '@/lib/db/scoped/sequences';
+export type { MusicFieldsUpdate } from '@/lib/db/scoped/sequences';
 
 /**
  * Resolve a user's default team (highest-role team).
@@ -217,7 +219,7 @@ export async function ensureUserAndTeam(authUser: {
       },
     };
   } catch (error) {
-    console.error('[ensureUserAndTeam] Error:', error);
+    logger.error('Error:', { err: error });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unexpected error',
@@ -252,6 +254,7 @@ export function createScopedDb(teamId: string, userId: string) {
     talentSheetVariants: createTalentSheetVariantsMethods(db),
     sequenceMusicPromptVariants: createSequenceMusicPromptVariantsMethods(db),
     sequenceVariants: createSequenceVariantsMethods(db),
+    sequenceExports: createSequenceExportsMethods(db),
 
     characters: createCharactersMethods(db),
     sequenceLocations: createSequenceLocationsMethods(db),
@@ -292,6 +295,7 @@ export function createReadOnlyScopedDb(teamId: string) {
     talentSheetVariants: createTalentSheetVariantsMethods(db),
     sequenceMusicPromptVariants: createSequenceMusicPromptVariantsMethods(db),
     sequenceVariants: createSequenceVariantsMethods(db),
+    sequenceExports: createSequenceExportsMethods(db),
 
     characters: createCharactersMethods(db),
     sequenceLocations: createSequenceLocationsMethods(db),

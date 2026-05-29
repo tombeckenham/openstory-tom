@@ -1,4 +1,3 @@
-import { getEnv } from '#env';
 import { moveFile } from '#storage';
 import type { ScopedDb } from '@/lib/db/scoped';
 import { generateId } from '@/lib/db/id';
@@ -9,6 +8,14 @@ import { buildWorkflowLabel } from '@/lib/workflow/labels';
 import type { ElementVisionWorkflowInput } from '@/lib/workflow/types';
 import { z } from 'zod';
 import { deriveTokenFromFilename } from './derive-token';
+
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger([
+  'openstory',
+  'sequence-elements',
+  'promote-temp-elements',
+]);
 
 const tempUploadSchema = z.object({
   tempPath: z.string().min(1),
@@ -67,10 +74,7 @@ export async function promoteTempElements(params: {
   for (const upload of uploads) {
     const tempPrefix = `elements/${teamId}/temp/`;
     if (!upload.tempPath.startsWith(tempPrefix)) {
-      console.warn(
-        '[promoteTempElements] Skipping non-temp path:',
-        upload.tempPath
-      );
+      logger.warn('Skipping non-temp path:', { data: upload.tempPath });
       continue;
     }
 
@@ -80,18 +84,13 @@ export async function promoteTempElements(params: {
     const permanentRelative = `${teamId}/${sequenceId}/${newId}.${ext}`;
     const permanentPath = `elements/${permanentRelative}`;
 
-    if (getEnv().E2E_TEST !== 'true') {
-      await moveFile(
-        STORAGE_BUCKETS.ELEMENTS,
-        relativeTempPath,
-        permanentRelative
-      );
-    }
+    await moveFile(
+      STORAGE_BUCKETS.ELEMENTS,
+      relativeTempPath,
+      permanentRelative
+    );
 
-    const publicUrl =
-      getEnv().E2E_TEST === 'true'
-        ? upload.tempPublicUrl
-        : getPublicUrl(STORAGE_BUCKETS.ELEMENTS, permanentRelative);
+    const publicUrl = getPublicUrl(STORAGE_BUCKETS.ELEMENTS, permanentRelative);
 
     const rawToken =
       upload.token && upload.token.length > 0

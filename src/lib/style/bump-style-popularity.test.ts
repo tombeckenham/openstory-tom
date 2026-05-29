@@ -1,12 +1,32 @@
-import { beforeEach, describe, expect, it, mock, spyOn } from 'bun:test';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockCapture = mock();
-const mockGetClient: ReturnType<
-  typeof mock<() => { capture: typeof mockCapture } | null>
-> = mock(() => ({ capture: mockCapture }));
+const mockCapture = vi.fn();
+const mockGetClient = vi.fn<() => { capture: typeof mockCapture } | null>(
+  () => ({
+    capture: mockCapture,
+  })
+);
 
-mock.module('@/lib/posthog-server', () => ({
+const mockLoggerError = vi.fn();
+const mockLoggerInfo = vi.fn();
+const mockLoggerWarn = vi.fn();
+const mockLoggerDebug = vi.fn();
+const mockLoggerWith = vi.fn(() => mockLoggerInstance);
+const mockLoggerInstance = {
+  info: mockLoggerInfo,
+  warn: mockLoggerWarn,
+  error: mockLoggerError,
+  debug: mockLoggerDebug,
+  with: mockLoggerWith,
+  getChild: () => mockLoggerInstance,
+};
+
+vi.doMock('@/lib/posthog-server', () => ({
   getPostHogClient: mockGetClient,
+}));
+
+vi.doMock('@/lib/observability/logger', () => ({
+  getLogger: () => mockLoggerInstance,
 }));
 
 const { bumpStylePopularity } = await import('./bump-style-popularity');
@@ -21,12 +41,13 @@ const baseArgs = {
 describe('bumpStylePopularity', () => {
   beforeEach(() => {
     mockCapture.mockClear();
+    mockLoggerError.mockClear();
     mockGetClient.mockReset();
     mockGetClient.mockImplementation(() => ({ capture: mockCapture }));
   });
 
   it('calls incrementUsage exactly once with the styleId', () => {
-    const incrementUsage = mock(() => Promise.resolve());
+    const incrementUsage = vi.fn(() => Promise.resolve());
     bumpStylePopularity({
       ...baseArgs,
       scopedDb: { styles: { incrementUsage } },
@@ -38,7 +59,7 @@ describe('bumpStylePopularity', () => {
   it('captures style_selected exactly once when posthog is configured', () => {
     bumpStylePopularity({
       ...baseArgs,
-      scopedDb: { styles: { incrementUsage: mock(() => Promise.resolve()) } },
+      scopedDb: { styles: { incrementUsage: vi.fn(() => Promise.resolve()) } },
     });
     expect(mockCapture).toHaveBeenCalledTimes(1);
     expect(mockCapture).toHaveBeenCalledWith({
@@ -56,40 +77,35 @@ describe('bumpStylePopularity', () => {
     mockGetClient.mockReturnValueOnce(null);
     bumpStylePopularity({
       ...baseArgs,
-      scopedDb: { styles: { incrementUsage: mock(() => Promise.resolve()) } },
+      scopedDb: { styles: { incrementUsage: vi.fn(() => Promise.resolve()) } },
     });
     expect(mockCapture).not.toHaveBeenCalled();
   });
 
   it('does not throw or reject when incrementUsage rejects', async () => {
     const err = new Error('db down');
-    const incrementUsage = mock(() => Promise.reject(err));
-    const errorSpy = spyOn(console, 'error').mockImplementation(() => {});
+    const incrementUsage = vi.fn(() => Promise.reject(err));
 
-    try {
-      // Synchronous call must not throw.
-      expect(() =>
-        bumpStylePopularity({
-          ...baseArgs,
-          scopedDb: { styles: { incrementUsage } },
-        })
-      ).not.toThrow();
+    // Synchronous call must not throw.
+    expect(() =>
+      bumpStylePopularity({
+        ...baseArgs,
+        scopedDb: { styles: { incrementUsage } },
+      })
+    ).not.toThrow();
 
-      // Let microtasks flush so the .catch handler runs.
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    // Let microtasks flush so the .catch handler runs.
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-      expect(errorSpy).toHaveBeenCalledWith(
-        '[styles] incrementUsage failed',
-        expect.objectContaining({
-          styleId: 'style_01',
-          teamId: 'team_01',
-          userId: 'user_01',
-          sequenceCount: 1,
-          err,
-        })
-      );
-    } finally {
-      errorSpy.mockRestore();
-    }
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      'incrementUsage failed',
+      expect.objectContaining({
+        styleId: 'style_01',
+        teamId: 'team_01',
+        userId: 'user_01',
+        sequenceCount: 1,
+        err,
+      })
+    );
   });
 });

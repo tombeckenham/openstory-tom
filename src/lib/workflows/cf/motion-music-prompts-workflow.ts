@@ -41,6 +41,9 @@ import type {
 import { buildMusicSceneSummaries } from '@/lib/workflows/music-scene-summaries';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
 import { NonRetryableError } from 'cloudflare:workflows';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'motion-music-prompts']);
 
 type MotionPromptsResult = { sceneId: string; motionPrompt: MotionPrompt }[];
 
@@ -200,9 +203,8 @@ export class MotionMusicPromptsWorkflow extends OpenStoryWorkflowEntrypoint<Moti
     error: string;
     scopedDb: ScopedDb;
   }): void {
-    console.error(
-      '[MotionMusicPromptsWorkflow:cf]',
-      `Motion/music prompt generation failed: ${error}`
+    logger.error(
+      `[MotionMusicPromptsWorkflow:cf] Motion/music prompt generation failed: ${error}`
     );
   }
 }

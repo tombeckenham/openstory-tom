@@ -22,6 +22,10 @@ import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
 import { WorkflowValidationError } from '@/lib/workflow/errors';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'location-sheet']);
+
 import type {
   LocationSheetWorkflowInput,
   LocationSheetWorkflowResult,
@@ -73,10 +77,9 @@ export const locationSheetWorkflow = createScopedWorkflow<
         const hasLibraryLocation = !!(
           input.referenceImageUrl || input.libraryLocationDescription
         );
-        console.log(
-          '[LocationSheetWorkflow]',
-          `Starting reference generation for location ${input.locationName}${hasLibraryLocation ? ' with library location reference' : ''}`
-        );
+        logger.info('[LocationSheetWorkflow]', {
+          data: `Starting reference generation for location ${input.locationName}${hasLibraryLocation ? ' with library location reference' : ''}`,
+        });
 
         // Build library location overrides if data is provided
         const libraryOverrides = hasLibraryLocation
@@ -112,10 +115,9 @@ export const locationSheetWorkflow = createScopedWorkflow<
     const imageResult = await context.run(
       'generate-reference-image',
       async () => {
-        console.log(
-          '[LocationSheetWorkflow]',
-          `Generating reference for ${input.locationName} with model ${generationParams.model}`
-        );
+        logger.info('[LocationSheetWorkflow]', {
+          data: `Generating reference for ${input.locationName} with model ${generationParams.model}`,
+        });
 
         return await generateImageWithProvider(generationParams, { scopedDb });
       }
@@ -157,10 +159,9 @@ export const locationSheetWorkflow = createScopedWorkflow<
           throw new Error('No image URL returned from generation');
         }
 
-        console.log(
-          '[LocationSheetWorkflow]',
-          `Uploading reference to storage for ${input.locationName}`
-        );
+        logger.info('[LocationSheetWorkflow]', {
+          data: `Uploading reference to storage for ${input.locationName}`,
+        });
 
         // Fetch and stream directly to R2
         const response = await fetch(imageUrl);
@@ -198,10 +199,9 @@ export const locationSheetWorkflow = createScopedWorkflow<
       const reconcileOutcome = await context.run(
         'reconcile-database',
         async (): Promise<{ kind: 'convergent' } | { kind: 'divergent' }> => {
-          console.log(
-            '[LocationSheetWorkflow]',
-            `Updating database for ${input.locationName}`
-          );
+          logger.info('[LocationSheetWorkflow]', {
+            data: `Updating database for ${input.locationName}`,
+          });
 
           const decision = decideSheetDivergence(
             snapshot?.snapshotInputHash,
@@ -209,7 +209,7 @@ export const locationSheetWorkflow = createScopedWorkflow<
           );
 
           if (decision.kind === 'divergent') {
-            console.warn('[LocationSheetWorkflow] divergence detected', {
+            logger.warn('divergence detected', {
               locationDbId,
               snapshotInputHash: decision.snapshotInputHash,
               currentInputHash: decision.currentInputHash,
@@ -266,10 +266,9 @@ export const locationSheetWorkflow = createScopedWorkflow<
             }
           );
         });
-        console.log(
-          '[LocationSheetWorkflow]',
-          `Diverged for ${input.locationName}; saved as variant`
-        );
+        logger.info('[LocationSheetWorkflow]', {
+          data: `Diverged for ${input.locationName}; saved as variant`,
+        });
         return {
           referenceImageUrl,
           referenceImagePath,
@@ -292,10 +291,9 @@ export const locationSheetWorkflow = createScopedWorkflow<
       }
     });
 
-    console.log(
-      '[LocationSheetWorkflow]',
-      `Location reference workflow completed for ${input.locationName}`
-    );
+    logger.info('[LocationSheetWorkflow]', {
+      data: `Location reference workflow completed for ${input.locationName}`,
+    });
 
     const result: LocationSheetWorkflowResult = {
       referenceImageUrl,
@@ -330,10 +328,9 @@ export const locationSheetWorkflow = createScopedWorkflow<
           );
         }
 
-        console.error(
-          '[LocationSheetWorkflow]',
-          `Reference generation failed for location ${input.locationName}: ${error}`
-        );
+        logger.error('[LocationSheetWorkflow]', {
+          data: `Reference generation failed for location ${input.locationName}: ${error}`,
+        });
       }
 
       return `Location reference generation failed for ${input.locationName}`;

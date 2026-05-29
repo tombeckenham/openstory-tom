@@ -33,6 +33,9 @@ import type {
   LocationMatchingWorkflowOutput,
 } from '@/lib/workflow/types';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'location-matching']);
 
 type LocationMatchEntry = {
   libraryLocationId: string;
@@ -148,9 +151,8 @@ export class LocationMatchingWorkflow extends OpenStoryWorkflowEntrypoint<Locati
       }
     );
 
-    console.log(
-      '[LocationMatchingWorkflow:cf]',
-      `Resolved ${libraryLocationMatches.length} library location match(es) for sequence ${sequenceId ?? '(none)'}`
+    logger.info(
+      `[LocationMatchingWorkflow:cf] Resolved ${libraryLocationMatches.length} library location match(es) for sequence ${sequenceId ?? '(none)'}`
     );
 
     return {
@@ -167,9 +169,8 @@ export class LocationMatchingWorkflow extends OpenStoryWorkflowEntrypoint<Locati
     scopedDb: ScopedDb;
   }): Promise<void> {
     const input = event.payload;
-    console.error(
-      '[LocationMatchingWorkflow:cf]',
-      `Location matching failed for sequence ${input.sequenceId ?? '(none)'}: ${error}`
+    logger.error(
+      `[LocationMatchingWorkflow:cf] Location matching failed for sequence ${input.sequenceId ?? '(none)'}: ${error}`
     );
   }
 }

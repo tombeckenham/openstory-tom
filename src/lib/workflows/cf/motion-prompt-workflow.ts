@@ -40,6 +40,9 @@ import type {
 } from '@/lib/workflow/types';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
 import { NonRetryableError } from 'cloudflare:workflows';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'motion-prompt']);
 
 type MotionPromptSceneWorkflowResult = {
   sceneId: string;
@@ -170,7 +173,7 @@ export class MotionPromptWorkflow extends OpenStoryWorkflowEntrypoint<MotionProm
     // Mirror QStash's `failureFunction`, which returned a static string and
     // performed no DB writes — per-scene failures already surface via the
     // child workflow's own onFailure (e.g. framePrompt.failed emits).
-    console.error('[MotionPromptWorkflow:cf] Motion prompt generation failed', {
+    logger.error('[MotionPromptWorkflow:cf] Motion prompt generation failed', {
       error,
     });
   }

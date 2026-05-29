@@ -3,6 +3,10 @@ import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'realtime', 'use-sheet-stale-detected']);
+
 const TOAST_DEBOUNCE_MS = 5_000;
 
 export function formatSheetStaleToastMessage(count: number): string {
@@ -116,7 +120,7 @@ export function useSheetStaleDetected({
   useEffect(() => {
     if (!channelId) return;
     if (status === 'error') {
-      console.error('[useSheetStaleDetected] realtime channel error', {
+      logger.error('realtime channel error', {
         channelId,
       });
       if (errorToastShownForRef.current !== channelId) {

@@ -6,6 +6,10 @@
  */
 
 import { z } from 'zod';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'ai', 'response-schemas']);
+
 import {
   characterBibleEntrySchema,
   continuitySchema,
@@ -156,8 +160,8 @@ export const motionPromptGenerationResultSchema = z.object({
               motion: z
                 .preprocess((val) => {
                   if (Array.isArray(val) && val.length > 0) {
-                    console.warn(
-                      '[MotionPrompts] AI returned motion as array, using first element'
+                    logger.warn(
+                      'AI returned motion as array, using first element'
                     );
                     return val[0];
                   }

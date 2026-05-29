@@ -10,7 +10,7 @@ export function getPostHogClient(): PostHog | null {
 
     if (!projectToken) {
       // Gracefully return null if PostHog is not configured
-      // console.warn('PostHog is not configured');
+      // logger.warn('PostHog is not configured');
       return null;
     }
     posthogClient = new PostHog(projectToken, {

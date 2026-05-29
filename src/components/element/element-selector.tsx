@@ -44,6 +44,10 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'ui', 'element', 'element-selector']);
+
 export type ElementSelectorHandle = {
   addFiles: (files: File[]) => void;
   open: () => void;
@@ -270,7 +274,7 @@ export const ElementSelector: React.FC<ElementSelectorProps> = (props) => {
           } catch (err) {
             const message =
               err instanceof Error ? err.message : 'Upload failed';
-            console.error('[ElementSelector] Upload failed', {
+            logger.error('Upload failed', {
               filename: file.name,
               error: err,
             });

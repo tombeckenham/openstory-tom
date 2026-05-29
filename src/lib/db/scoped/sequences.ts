@@ -10,11 +10,7 @@ import {
 import type { Database } from '@/lib/db/client';
 import { sequences } from '@/lib/db/schema';
 import type { Frame, NewSequence, Sequence, Style } from '@/lib/db/schema';
-import type {
-  MergedVideoStatus,
-  MusicStatus,
-  SequenceStatus,
-} from '@/lib/db/schema/sequences';
+import type { MusicStatus, SequenceStatus } from '@/lib/db/schema/sequences';
 import { ValidationError } from '@/lib/errors';
 import { and, desc, eq, not } from 'drizzle-orm';
 
@@ -25,14 +21,6 @@ export type MusicFieldsUpdate = {
   musicUrl?: string;
   musicPath?: string;
   musicGeneratedAt?: Date;
-};
-
-export type MergedVideoFieldsUpdate = {
-  mergedVideoStatus?: MergedVideoStatus;
-  mergedVideoError?: string | null;
-  mergedVideoUrl?: string | null;
-  mergedVideoPath?: string | null;
-  mergedVideoGeneratedAt?: Date;
 };
 
 type SequenceWithFrames = Sequence & {
@@ -237,17 +225,6 @@ export function createSequenceReadMethods(db: Database, sequenceId: string) {
         .where(eq(sequences.id, sequenceId));
       return row;
     },
-
-    getMergedVideoStatus: async () => {
-      const [row] = await db
-        .select({
-          mergedVideoStatus: sequences.mergedVideoStatus,
-          mergedVideoUrl: sequences.mergedVideoUrl,
-        })
-        .from(sequences)
-        .where(eq(sequences.id, sequenceId));
-      return row;
-    },
   };
 }
 
@@ -263,13 +240,6 @@ export function createSequenceMethods(db: Database, sequenceId: string) {
     },
 
     updateMusicFields: async (fields: MusicFieldsUpdate) => {
-      await db
-        .update(sequences)
-        .set({ ...fields, updatedAt: new Date() })
-        .where(eq(sequences.id, sequenceId));
-    },
-
-    updateMergedVideoFields: async (fields: MergedVideoFieldsUpdate) => {
       await db
         .update(sequences)
         .set({ ...fields, updatedAt: new Date() })

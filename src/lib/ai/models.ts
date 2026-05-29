@@ -8,6 +8,10 @@ import type { AspectRatio } from '@/lib/constants/aspect-ratios';
 import { MOTION_INPUT_SCHEMAS } from '@/lib/motion/endpoint-map';
 import { z } from 'zod';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'ai', 'models']);
+
 // ============================================================================
 // Text (Chat/LLM) Models — OpenRouter
 // ============================================================================
@@ -318,8 +322,8 @@ export function safeTextToImageModel(
 ): TextToImageModel {
   if (!value || !isValidTextToImageModel(value)) {
     if (value) {
-      console.warn(
-        `[models] Invalid TextToImageModel "${value}", using fallback "${fallback}"`
+      logger.warn(
+        `Invalid TextToImageModel "${value}", using fallback "${fallback}"`
       );
     }
     return fallback;
@@ -340,8 +344,8 @@ export function safeImageToVideoModel(
 ): ImageToVideoModel {
   if (!value || !isValidImageToVideoModel(value)) {
     if (value) {
-      console.warn(
-        `[models] Invalid ImageToVideoModel "${value}", using fallback "${fallback}"`
+      logger.warn(
+        `Invalid ImageToVideoModel "${value}", using fallback "${fallback}"`
       );
     }
     return fallback;
@@ -508,8 +512,8 @@ export function safeAudioModel(
 ): AudioModel {
   if (!value || !isValidAudioModel(value)) {
     if (value) {
-      console.warn(
-        `[models] Invalid AudioModel "${value}", using fallback "${fallback}"`
+      logger.warn(
+        `Invalid AudioModel "${value}", using fallback "${fallback}"`
       );
     }
     return fallback;

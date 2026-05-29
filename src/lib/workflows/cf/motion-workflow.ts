@@ -35,21 +35,15 @@ import {
 import { uploadVideoToStorage } from '@/lib/motion/video-storage';
 import { endSpanSuccess, startGenAISpan } from '@/lib/observability/tracer';
 import { getGenerationChannel } from '@/lib/realtime';
-import { triggerWorkflow } from '@/lib/workflow/client';
 import { OpenStoryWorkflowEntrypoint } from '@/lib/workflow/cf/base-workflow';
 import { WorkflowValidationError } from '@/lib/workflow/errors';
-import { buildWorkflowLabel } from '@/lib/workflow/labels';
-import type {
-  MergeVideoWorkflowInput,
-  MotionWorkflowInput,
-} from '@/lib/workflow/types';
-import {
-  buildMergeVideoSourcesFromFrames,
-  computeSequenceVideoHashFromDto,
-} from '@/lib/workflows/sequence-snapshots';
+import type { MotionWorkflowInput } from '@/lib/workflow/types';
 import { shouldRecordUserEdit } from '@/lib/workflows/user-edit-predicate';
 import { NonRetryableError } from 'cloudflare:workflows';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'motion']);
 
 /** Each batch polls in a tight loop for ~30s, then checkpoints for durability */
 const POLL_BATCH_DURATION_MS = 30_000;
@@ -122,7 +116,7 @@ export class MotionWorkflow extends OpenStoryWorkflowEntrypoint<MotionWorkflowIn
       if (cost > 0 && !usedOwnKey) {
         const canAfford = await scopedDb.billing.hasEnoughCredits(cost);
         if (!canAfford) {
-          console.warn(
+          logger.warn(
             `[MotionWorkflow:cf] Insufficient credits for team ${input.teamId} (cost: $${microsToUsd(cost).toFixed(4)}), skipping deduction`
           );
           throw new NonRetryableError(
@@ -150,7 +144,7 @@ export class MotionWorkflow extends OpenStoryWorkflowEntrypoint<MotionWorkflowIn
         );
 
         if (!frame) {
-          console.log(
+          logger.info(
             `[MotionWorkflow:cf] Frame ${input.frameId} was deleted, skipping workflow`
           );
           return { frameDeleted: true };
@@ -186,9 +180,11 @@ export class MotionWorkflow extends OpenStoryWorkflowEntrypoint<MotionWorkflowIn
               }
             }
           } catch (err) {
-            console.warn(
+            logger.warn(
               `[MotionWorkflow:cf] Could not compute upstream hash for user-edit on frame ${input.frameId}; recording with null hash`,
-              err
+              {
+                err,
+              }
             );
           }
 
@@ -209,9 +205,11 @@ export class MotionWorkflow extends OpenStoryWorkflowEntrypoint<MotionWorkflowIn
             { frameId: input.frameId, status: 'generating' }
           );
         } catch (emitError) {
-          console.error(
+          logger.error(
             `[MotionWorkflow:cf] Failed to emit generation.video:progress for frame ${input.frameId}:`,
-            emitError
+            {
+              err: emitError,
+            }
           );
         }
         return { frameDeleted: false };
@@ -237,7 +235,7 @@ export class MotionWorkflow extends OpenStoryWorkflowEntrypoint<MotionWorkflowIn
         return input.imageUrl;
       }
 
-      console.log(
+      logger.info(
         `[MotionWorkflow:cf] Image ${(compressed.originalSizeBytes / 1024 / 1024).toFixed(1)}MB exceeds limit, using Cloudflare Image Resizing`
       );
 
@@ -306,14 +304,14 @@ export class MotionWorkflow extends OpenStoryWorkflowEntrypoint<MotionWorkflowIn
           });
 
           if (pollResult.progress !== undefined) {
-            console.log(
+            logger.info(
               `[MotionWorkflow:cf] Progress: ${pollResult.progress}%`
             );
           }
 
           if (pollResult.status === 'completed') {
             if (pollResult.url) {
-              console.log(`[MotionWorkflow:cf] Generation completed`);
+              logger.info(`[MotionWorkflow:cf] Generation completed`);
               return pollResult;
             } else {
               throw new NonRetryableError(
@@ -430,7 +428,7 @@ export class MotionWorkflow extends OpenStoryWorkflowEntrypoint<MotionWorkflowIn
         );
 
         if (!updatedFrame) {
-          console.log(
+          logger.info(
             `[MotionWorkflow:cf] Frame ${frameId} was deleted, skipping final update`
           );
           return;
@@ -442,56 +440,13 @@ export class MotionWorkflow extends OpenStoryWorkflowEntrypoint<MotionWorkflowIn
             { frameId, status: 'completed', videoUrl: storageResult.url }
           );
         } catch (emitError) {
-          console.error(
+          logger.error(
             `[MotionWorkflow:cf] Failed to emit generation.video:progress for frame ${frameId}:`,
-            emitError
+            {
+              err: emitError,
+            }
           );
         }
-      });
-
-      // Step 6: Opt-in merge auto-trigger for callers that fan out motion
-      // without their own subsequent merge invocation (e.g. smart-retry's
-      // motion-retry path). N parallel motion workflows can each reach this
-      // step near-simultaneously after the last frame lands; the content-
-      // derived dedup ID makes QStash collapse the duplicates into a single
-      // workflowRunId. Regenerating any frame's video changes the hash and
-      // re-arms a fresh merge. See issue #690.
-      await step.do('check-merge-trigger', async () => {
-        if (!input.triggerMergeOnComplete) return;
-        if (!input.sequenceId || !input.teamId || !input.userId) return;
-
-        const allFrames = await scopedDb.frames.listBySequence(
-          input.sequenceId
-        );
-        if (allFrames.length === 0) return;
-        if (!allFrames.every((f) => f.videoStatus === 'completed')) return;
-
-        const sorted = [...allFrames].sort(
-          (a, b) => a.orderIndex - b.orderIndex
-        );
-        const { videoUrls, sourceFrameVideoHashes } =
-          buildMergeVideoSourcesFromFrames(sorted);
-
-        if (videoUrls.length !== allFrames.length) return;
-
-        console.log(
-          `[MotionWorkflow:cf] All ${allFrames.length} frames complete, triggering merge workflow`
-        );
-
-        const mergeInput: MergeVideoWorkflowInput = {
-          userId: input.userId,
-          teamId: input.teamId,
-          sequenceId: input.sequenceId,
-          videoUrls,
-          sourceFrameVideoHashes,
-        };
-
-        const inputHash = await computeSequenceVideoHashFromDto(mergeInput);
-
-        await triggerWorkflow('/merge-video', mergeInput, {
-          deduplicationId: `merge-${input.sequenceId}-${inputHash.slice(0, 16)}`,
-          label: buildWorkflowLabel(input.sequenceId),
-        });
       });
     }
 
@@ -528,14 +483,16 @@ export class MotionWorkflow extends OpenStoryWorkflowEntrypoint<MotionWorkflowIn
           { frameId: input.frameId, status: 'failed' }
         );
       } catch (emitError) {
-        console.error(
+        logger.error(
           `[MotionWorkflow:cf] Failed to emit generation.video:progress for frame ${input.frameId}:`,
-          emitError
+          {
+            err: emitError,
+          }
         );
       }
     }
 
-    console.error(
+    logger.error(
       `[MotionWorkflow:cf] Motion generation failed for frame ${input.frameId}: ${error}`
     );
   }

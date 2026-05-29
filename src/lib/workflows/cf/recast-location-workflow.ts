@@ -50,6 +50,9 @@ import {
 } from '@/lib/workflows/sheet-snapshots';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
 import { NonRetryableError } from 'cloudflare:workflows';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'recast-location']);
 
 type RecastLocationWorkflowResult = {
   referenceImageUrl: string;
@@ -170,9 +173,8 @@ export class RecastLocationWorkflow extends OpenStoryWorkflowEntrypoint<RecastLo
   ): Promise<RecastLocationWorkflowResult> {
     const input = event.payload;
 
-    console.log(
-      '[RecastLocationWorkflow:cf]',
-      `Starting recast for ${input.locationName} with ${input.affectedFrameIds.length} affected frames`
+    logger.info(
+      `[RecastLocationWorkflow:cf] Starting recast for ${input.locationName} with ${input.affectedFrameIds.length} affected frames`
     );
 
     // Step 1: Generate new location reference image with library reference.
@@ -237,9 +239,8 @@ export class RecastLocationWorkflow extends OpenStoryWorkflowEntrypoint<RecastLo
       );
     }
 
-    console.log(
-      '[RecastLocationWorkflow:cf]',
-      `Location reference generated for ${input.locationName}, regenerating ${input.affectedFrameIds.length} frames`
+    logger.info(
+      `[RecastLocationWorkflow:cf] Location reference generated for ${input.locationName}, regenerating ${input.affectedFrameIds.length} frames`
     );
 
     // Step 2: Regenerate affected frames via Pattern 3 spawn.
@@ -252,9 +253,8 @@ export class RecastLocationWorkflow extends OpenStoryWorkflowEntrypoint<RecastLo
     );
 
     if (input.affectedFrameIds.length > 0) {
-      console.log(
-        '[RecastLocationWorkflow:cf]',
-        `Regenerated ${framesRegenerated} frames for ${input.locationName}`
+      logger.info(
+        `[RecastLocationWorkflow:cf] Regenerated ${framesRegenerated} frames for ${input.locationName}`
       );
     }
 
@@ -283,9 +283,8 @@ export class RecastLocationWorkflow extends OpenStoryWorkflowEntrypoint<RecastLo
       }
     );
 
-    console.error(
-      '[RecastLocationWorkflow:cf]',
-      `Recast failed for ${input.locationName}: ${error}`
+    logger.error(
+      `[RecastLocationWorkflow:cf] Recast failed for ${input.locationName}: ${error}`
     );
   }
 }

@@ -21,9 +21,9 @@ import {
   resolveUserTeam,
   type ScopedDb,
 } from '@/lib/db/scoped';
-import { NotFoundError, OpenStoryError } from '@/lib/errors';
-import { flushTracing } from '@/lib/observability/langfuse';
-import { emitLog } from '@/lib/observability/structured-log';
+import { NotFoundError } from '@/lib/errors';
+import { scheduleFlushTracing } from '#flush-scheduler';
+import { getLogger, toErrorPayload } from '@/lib/observability/logger';
 import { withTraceContextAsync } from '@/lib/observability/tracer';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
 import type { Frame, Sequence } from '@/types/database';
@@ -85,72 +85,72 @@ export type FrameContext = TeamContext & {
 // ============================================================================
 
 /**
- * Request logging middleware - logs server function name, duration, and outcome.
- * All other middleware chains from authMiddleware which chains from this,
- * so every server function gets logging automatically.
+ * Request logging middleware. Logs at:
+ *   - error: every serverFn failure (always)
+ *   - warn:  oversize request bodies (>6 MB) and slow successes (>2s)
+ *   - info:  successes that crossed the SLOW_THRESHOLD_MS (>500ms)
+ *   - debug: fast successes (kept silent at INFO+ to avoid drowning errors)
+ *
+ * Headlines are self-describing so they're readable in PostHog/Cloudflare
+ * Logs without expanding fields.
  */
 const SIZE_WARNING_BYTES = 6 * 1024 * 1024; // 6 MB
+const SLOW_THRESHOLD_MS = 500;
+const VERY_SLOW_THRESHOLD_MS = 2000;
+const serverFnLogger = getLogger(['openstory', 'serverFn']);
 
 export const loggerMiddleware = createMiddleware({ type: 'function' }).server(
   async ({ next, serverFnMeta }) => {
-    const fnName = serverFnMeta.name;
     const start = performance.now();
     const request = getRequest();
     const contentLength = request.headers.get('content-length');
     const contentLengthNum = contentLength ? Number(contentLength) : undefined;
+    const fnName = serverFnMeta.name;
+    const method = request.method;
     const path = new URL(request.url).pathname;
+    const fnLogger = serverFnLogger.with({
+      fnName,
+      method,
+      path,
+      contentLength: contentLengthNum,
+    });
 
     if (contentLengthNum && contentLengthNum > SIZE_WARNING_BYTES) {
-      emitLog({
-        level: 'warn',
-        source: 'serverFn',
-        name: fnName,
-        method: request.method,
-        path,
-        durationMs: 0,
+      fnLogger.warn('serverFn {fnName} oversize body {contentLength}b', {
+        fnName,
         contentLength: contentLengthNum,
-        status: 'ok',
       });
     }
 
     try {
       const result = await next();
       const durationMs = Math.round(performance.now() - start);
-      emitLog({
-        level: 'info',
-        source: 'serverFn',
-        name: fnName,
-        method: request.method,
-        path,
-        durationMs,
-        contentLength: contentLengthNum,
-        status: 'ok',
-      });
+      if (durationMs >= VERY_SLOW_THRESHOLD_MS) {
+        fnLogger.warn('serverFn {fnName} very slow {durationMs}ms', {
+          fnName,
+          durationMs,
+        });
+      } else if (durationMs >= SLOW_THRESHOLD_MS) {
+        fnLogger.info('serverFn {fnName} slow {durationMs}ms', {
+          fnName,
+          durationMs,
+        });
+      } else {
+        fnLogger.debug('serverFn {fnName} ok {durationMs}ms', {
+          fnName,
+          durationMs,
+        });
+      }
       return result;
     } catch (error) {
       const durationMs = Math.round(performance.now() - start);
-      const errorLog =
-        error instanceof OpenStoryError
-          ? {
-              code: error.code,
-              message: error.message,
-              statusCode: error.statusCode,
-            }
-          : {
-              code: 'UNKNOWN',
-              message: error instanceof Error ? error.message : String(error),
-            };
-
-      emitLog({
-        level: 'error',
-        source: 'serverFn',
-        name: fnName,
-        method: request.method,
-        path,
+      const err = toErrorPayload(error);
+      fnLogger.error('serverFn {fnName} failed: {errCode} {errMessage}', {
+        fnName,
         durationMs,
-        contentLength: contentLengthNum,
-        status: 'error',
-        error: errorLog,
+        errCode: err.code,
+        errMessage: err.message,
+        err,
       });
       throw error;
     }
@@ -338,7 +338,11 @@ export const tracingMiddleware = createMiddleware({ type: 'function' })
         try {
           return await next();
         } finally {
-          await flushTracing();
+          // Schedule (don't await) so the Langfuse OTLP POST doesn't add
+          // its 100-500ms to the user-visible request duration. On
+          // Workers this uses `waitUntil` to keep the isolate alive; in
+          // dev/test it falls back to awaiting. See issue #770.
+          await scheduleFlushTracing();
         }
       }
     );

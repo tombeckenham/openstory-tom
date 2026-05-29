@@ -27,7 +27,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { buildInstanceId } from '@/lib/workflow/cf/instance-id';
 
 const WRANGLER_PATH = 'wrangler.jsonc';
@@ -160,7 +160,6 @@ describe('Pattern 3 childIds are CF-valid after sanitization', () => {
     'image:seq-123:frame-7',
     'image:seq-123:frame-7:nano_banana_2',
     'motion:seq-123:frame-7',
-    'merge-audio-video:seq-123:variant-abc:music-def',
     'analyze-script:01KS23834FEGDBN8074VVPR3Q8',
     'character-sheet:recast:01KS23',
     'regenerate-frames:character:01KS23',

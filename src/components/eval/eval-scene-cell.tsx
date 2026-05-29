@@ -47,8 +47,6 @@ type EvalSceneCellProps = {
   sequenceTitle: string;
   aspectRatio: AspectRatio;
   framesLoading?: boolean;
-  mergedVideoUrl?: string | null;
-  mergedVideoPoster?: string | null;
   dialogOpen: boolean;
   dialogInitialTab?: DialogTab;
   onDialogOpenChange: (open: boolean) => void;
@@ -65,8 +63,6 @@ export const EvalSceneCell: React.FC<EvalSceneCellProps> = ({
   sequenceTitle,
   aspectRatio,
   framesLoading = false,
-  mergedVideoUrl,
-  mergedVideoPoster,
   dialogOpen,
   dialogInitialTab,
   onDialogOpenChange,
@@ -143,8 +139,6 @@ export const EvalSceneCell: React.FC<EvalSceneCellProps> = ({
           sequenceTitle={sequenceTitle}
           aspectRatio={aspectRatio}
           initialTab={initialTab}
-          mergedVideoUrl={mergedVideoUrl}
-          mergedVideoPoster={mergedVideoPoster}
           onNavigateLeft={onNavigateLeft}
           onNavigateRight={onNavigateRight}
           onNavigateUp={onNavigateUp}
@@ -185,8 +179,6 @@ export const EvalSceneCell: React.FC<EvalSceneCellProps> = ({
           sequenceTitle={sequenceTitle}
           aspectRatio={aspectRatio}
           initialTab={initialTab}
-          mergedVideoUrl={mergedVideoUrl}
-          mergedVideoPoster={mergedVideoPoster}
           onNavigateLeft={onNavigateLeft}
           onNavigateRight={onNavigateRight}
           onNavigateUp={onNavigateUp}
@@ -233,8 +225,6 @@ export const EvalSceneCell: React.FC<EvalSceneCellProps> = ({
               sequenceTitle={sequenceTitle}
               aspectRatio={aspectRatio}
               initialTab={initialTab}
-              mergedVideoUrl={mergedVideoUrl}
-              mergedVideoPoster={mergedVideoPoster}
               onNavigateLeft={onNavigateLeft}
               onNavigateRight={onNavigateRight}
               onNavigateUp={onNavigateUp}
@@ -288,8 +278,6 @@ export const EvalSceneCell: React.FC<EvalSceneCellProps> = ({
           sequenceTitle={sequenceTitle}
           aspectRatio={aspectRatio}
           initialTab={initialTab}
-          mergedVideoUrl={mergedVideoUrl}
-          mergedVideoPoster={mergedVideoPoster}
           onNavigateLeft={onNavigateLeft}
           onNavigateRight={onNavigateRight}
           onNavigateUp={onNavigateUp}
@@ -337,8 +325,6 @@ export const EvalSceneCell: React.FC<EvalSceneCellProps> = ({
         sequenceTitle={sequenceTitle}
         aspectRatio={aspectRatio}
         initialTab={initialTab}
-        mergedVideoUrl={mergedVideoUrl}
-        mergedVideoPoster={mergedVideoPoster}
         onNavigateLeft={onNavigateLeft}
         onNavigateRight={onNavigateRight}
         onNavigateUp={onNavigateUp}

@@ -9,6 +9,10 @@ import type { StyleConfig } from '@/lib/db/schema/libraries';
 import { getPrompt } from '@/lib/prompts';
 import { z } from 'zod';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'ai', 'script-enhancer']);
+
 export const enhanceElementSchema = z.object({
   token: z.string().min(1),
   description: z.string().nullable().optional(),
@@ -144,7 +148,7 @@ export async function enhanceScript(
   const validatedOptions = EnhanceScriptOptionsSchema.parse(options);
 
   if (checkForInjectionAttempts(validatedOptions.originalScript)) {
-    console.warn('Script enhancement: Potential injection attempt detected');
+    logger.warn('Script enhancement: Potential injection attempt detected');
   }
 
   const openRouterKey = options.openRouterApiKey ?? getEnv().OPENROUTER_KEY;

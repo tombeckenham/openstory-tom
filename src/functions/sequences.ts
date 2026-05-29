@@ -13,7 +13,6 @@ import {
 import { resolveImageModels } from '@/lib/ai/resolve-image-models';
 import { requireTeamMemberAccess } from '@/lib/auth/action-utils';
 import { estimateStoryboardCost } from '@/lib/billing/cost-estimation';
-import { usdToMicros } from '@/lib/billing/money';
 import { requireCredits } from '@/lib/billing/preflight';
 import { DEFAULT_ASPECT_RATIO } from '@/lib/constants/aspect-ratios';
 import type { Frame } from '@/lib/db/schema';
@@ -25,7 +24,6 @@ import {
 import { triggerWorkflow } from '@/lib/workflow/client';
 import { buildWorkflowLabel } from '@/lib/workflow/labels';
 import type {
-  MergeVideoWorkflowInput,
   MusicSceneSummary,
   MusicWorkflowInput,
   StoryboardWorkflowInput,
@@ -499,75 +497,6 @@ export const generateMusicFn = createServerFn({ method: 'POST' })
     await triggerWorkflow('/music', musicInput, {
       label: buildWorkflowLabel(sequence.id),
     });
-
-    return { success: true };
-  });
-
-/**
- * Re-merge all frame videos, then auto-chain to audio mux.
- * The merge-video workflow triggers merge-audio-video when music is ready.
- */
-export const mergeVideoAndMusicFn = createServerFn({ method: 'POST' })
-  .middleware([sequenceAccessMiddleware])
-  .inputValidator(
-    zodValidator(
-      z.object({
-        sequenceId: ulidSchema,
-        /** When `false`, restitch frame videos without muxing the generated
-         *  music track. Default `true` preserves the legacy behavior. */
-        includeMusic: z.boolean().optional(),
-      })
-    )
-  )
-  .handler(async ({ data, context }) => {
-    const { sequence, user, teamId } = context;
-    const includeMusic = data.includeMusic !== false;
-
-    if (includeMusic && !sequence.musicUrl) {
-      throw new Error('Music must be generated before merging');
-    }
-
-    const frames = await context.scopedDb.frames.listBySequence(sequence.id);
-
-    if (frames.length === 0) {
-      throw new Error('No frames found in sequence');
-    }
-
-    const incompleteCount = frames.filter(
-      (f) => f.videoStatus !== 'completed' || !f.videoUrl
-    ).length;
-
-    if (incompleteCount > 0) {
-      throw new Error(
-        `${incompleteCount} frame(s) do not have completed videos`
-      );
-    }
-
-    await requireCredits(context.scopedDb, usdToMicros(0.01), {
-      errorMessage: 'Insufficient credits for video merge',
-    });
-
-    await context.scopedDb.sequence(sequence.id).updateMergedVideoFields({
-      mergedVideoStatus: 'merging',
-      mergedVideoError: null,
-    });
-
-    const videoUrls = frames
-      .sort((a, b) => a.orderIndex - b.orderIndex)
-      .map((f) => f.videoUrl)
-      .filter((url): url is string => Boolean(url));
-
-    await triggerWorkflow(
-      '/merge-video',
-      {
-        userId: user.id,
-        teamId,
-        sequenceId: sequence.id,
-        videoUrls,
-        skipAudioMux: !includeMusic,
-      } satisfies MergeVideoWorkflowInput,
-      { label: buildWorkflowLabel(sequence.id) }
-    );
 
     return { success: true };
   });

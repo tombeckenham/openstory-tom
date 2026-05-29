@@ -2,7 +2,6 @@
  * Type definitions for QStash Workflows
  */
 
-import type { SequenceVideoFrameSource } from '@/lib/ai/input-hash';
 import type {
   AUDIO_MODELS,
   IMAGE_MODELS,
@@ -202,15 +201,6 @@ export interface MotionWorkflowInput extends SequenceWorkflowContext {
    * the workflow appends a `user-edit` variant row.
    */
   userEditedPrompt?: boolean;
-  /**
-   * When `true`, the workflow's final step checks whether *all* sequence
-   * frames now have completed videos and, if so, triggers `/merge-video`.
-   * Only callers that fan out motion without their own subsequent merge
-   * invocation (e.g. `smart-retry`'s motion-retry path) should set this.
-   * The batch orchestrator (`motionBatchWorkflow`) invokes merge itself and
-   * leaves this unset to avoid redundant triggers.
-   */
-  triggerMergeOnComplete?: boolean;
 }
 
 /**
@@ -521,39 +511,6 @@ export interface LibraryTalentSheetWorkflowResult {
 }
 
 /**
- * Merge video workflow input
- * Stitches all frame videos into a single merged video
- */
-export interface MergeVideoWorkflowInput extends SequenceWorkflowContext {
-  /** Ordered list of video URLs to merge */
-  videoUrls: string[];
-  /**
-   * Ordered list of source frame video identities for input-hashing,
-   * parallel to `videoUrls`. Each entry is `{ kind: 'variantHash', hash }`
-   * when the source frame's video has an `input_hash` (cascades upstream
-   * staleness), or `{ kind: 'url', url }` for legacy frames without one.
-   * Frozen at trigger time; the workflow re-resolves the live hashes for
-   * within-run drift detection.
-   */
-  sourceFrameVideoHashes?: SequenceVideoFrameSource[];
-  /** Target FPS for output (1-60, defaults to lowest of inputs) */
-  targetFps?: number;
-  /** Target resolution (512-2048 per dimension) */
-  resolution?: { width: number; height: number };
-  /**
-   * When `true`, skip the chained merge-audio-video workflow even if a music
-   * variant exists. Used by the music tab's "Merge with Video" CTA when the
-   * user has unchecked "Include music".
-   */
-  skipAudioMux?: boolean;
-}
-
-export interface MergeVideoWorkflowResult {
-  mergedVideoUrl: string;
-  mergedVideoPath: string | null;
-}
-
-/**
  * Location sheet generation workflow input
  */
 export interface LocationSheetWorkflowInput extends SequenceWorkflowContext {
@@ -745,28 +702,6 @@ export interface MusicWorkflowInput extends SequenceWorkflowContext {
 export interface MusicWorkflowResult {
   audioUrl: string;
   duration?: number;
-}
-
-/**
- * Merge audio+video workflow input
- * Muxes a music track onto the merged video to produce the final output.
- *
- * The final video is a function of `(merged_video_variant, music_variant)`.
- * The variant ids identify which row in `sequence_video_variants` /
- * `sequence_music_variants` was used; the workflow resolves the source urls
- * by id (`getVideoById` / `getMusicById`) so the input cannot drift from the
- * stored variant.
- */
-export interface MergeAudioVideoWorkflowInput extends SequenceWorkflowContext {
-  /** Source merged-video variant id (from `sequence_video_variants`). */
-  mergedVideoVariantId: string;
-  /** Source music variant id (from `sequence_music_variants`). */
-  musicVariantId: string;
-}
-
-export interface MergeAudioVideoWorkflowResult {
-  mergedVideoUrl: string;
-  mergedVideoPath: string | null;
 }
 
 /**

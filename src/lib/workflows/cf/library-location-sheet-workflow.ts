@@ -40,6 +40,9 @@ import type {
   LibraryLocationSheetWorkflowResult,
 } from '@/lib/workflow/types';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'library-location-sheet']);
 
 export class LibraryLocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<LibraryLocationSheetWorkflowInput> {
   protected override async runImpl(
@@ -64,9 +67,8 @@ export class LibraryLocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<Li
     const generationParams: ImageGenerationParams = await step.do(
       'build-prompt',
       async () => {
-        console.log(
-          '[LibraryLocationSheetWorkflow:cf]',
-          `Starting sheet generation for location ${input.locationName} with ${input.referenceImageUrls.length} reference images`
+        logger.info(
+          `[LibraryLocationSheetWorkflow:cf] Starting sheet generation for location ${input.locationName} with ${input.referenceImageUrls.length} reference images`
         );
 
         const { prompt, referenceUrls } = buildLibraryLocationSheetPrompt(
@@ -92,9 +94,8 @@ export class LibraryLocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<Li
 
     // Step 2: Generate the location sheet image
     const imageResult = await step.do('generate-sheet-image', async () => {
-      console.log(
-        '[LibraryLocationSheetWorkflow:cf]',
-        `Generating 3x3 grid sheet for ${input.locationName} with model ${generationParams.model}`
+      logger.info(
+        `[LibraryLocationSheetWorkflow:cf] Generating 3x3 grid sheet for ${input.locationName} with model ${generationParams.model}`
       );
 
       return generateImageWithProvider(generationParams, { scopedDb });
@@ -123,9 +124,8 @@ export class LibraryLocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<Li
         throw new Error('No image URL returned from generation');
       }
 
-      console.log(
-        '[LibraryLocationSheetWorkflow:cf]',
-        `Uploading sheet to storage for ${input.locationName}`
+      logger.info(
+        `[LibraryLocationSheetWorkflow:cf] Uploading sheet to storage for ${input.locationName}`
       );
 
       // Fetch and stream directly to R2
@@ -155,9 +155,8 @@ export class LibraryLocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<Li
 
     // Step 4: Update database with the generated sheet
     await step.do('update-database', async () => {
-      console.log(
-        '[LibraryLocationSheetWorkflow:cf]',
-        `Updating database for ${input.locationName}`
+      logger.info(
+        `[LibraryLocationSheetWorkflow:cf] Updating database for ${input.locationName}`
       );
 
       await scopedDb.locations.updateReference(
@@ -177,9 +176,8 @@ export class LibraryLocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<Li
         hasReferenceImages
       );
 
-      console.log(
-        '[LibraryLocationSheetWorkflow:cf]',
-        `Generating preview establishing shot for ${input.locationName}`
+      logger.info(
+        `[LibraryLocationSheetWorkflow:cf] Generating preview establishing shot for ${input.locationName}`
       );
 
       const previewParams: ImageGenerationParams = {
@@ -218,9 +216,8 @@ export class LibraryLocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<Li
     const previewStorageResult = await step.do(
       'upload-preview-to-storage',
       async () => {
-        console.log(
-          '[LibraryLocationSheetWorkflow:cf]',
-          `Uploading preview to storage for ${input.locationName}`
+        logger.info(
+          `[LibraryLocationSheetWorkflow:cf] Uploading preview to storage for ${input.locationName}`
         );
 
         const response = await fetch(previewUrl);
@@ -248,9 +245,8 @@ export class LibraryLocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<Li
 
     // Step 7: Update location with preview as the referenceImageUrl
     await step.do('update-location-preview', async () => {
-      console.log(
-        '[LibraryLocationSheetWorkflow:cf]',
-        `Updating location with preview image`
+      logger.info(
+        `[LibraryLocationSheetWorkflow:cf] Updating location with preview image`
       );
 
       await scopedDb.locations.updateReference(
@@ -262,9 +258,8 @@ export class LibraryLocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<Li
 
     // Emit completed status
     await step.do('emit-completed', async () => {
-      console.log(
-        '[LibraryLocationSheetWorkflow:cf]',
-        `Library location sheet workflow completed for ${input.locationName}`
+      logger.info(
+        `[LibraryLocationSheetWorkflow:cf] Library location sheet workflow completed for ${input.locationName}`
       );
 
       await getLocationChannel(input.locationDbId).emit(
@@ -298,9 +293,8 @@ export class LibraryLocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<Li
   }): Promise<void> {
     const input = event.payload;
 
-    console.error(
-      '[LibraryLocationSheetWorkflow:cf]',
-      `Sheet generation failed for location ${input.locationName}: ${error}`
+    logger.error(
+      `[LibraryLocationSheetWorkflow:cf] Sheet generation failed for location ${input.locationName}: ${error}`
     );
 
     try {
@@ -313,9 +307,11 @@ export class LibraryLocationSheetWorkflow extends OpenStoryWorkflowEntrypoint<Li
         }
       );
     } catch (emitError) {
-      console.error(
+      logger.error(
         `[LibraryLocationSheetWorkflow:cf] Failed to emit failure event for location ${input.locationDbId}:`,
-        emitError
+        {
+          err: emitError,
+        }
       );
     }
   }

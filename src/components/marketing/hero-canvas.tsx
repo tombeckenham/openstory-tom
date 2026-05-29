@@ -7,6 +7,10 @@
 
 import { useEffect, useRef } from 'react';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'ui', 'marketing', 'hero-canvas']);
+
 const VERT_SRC =
   'attribute vec2 a_pos;void main(){gl_Position=vec4(a_pos,0,1);}';
 
@@ -248,7 +252,9 @@ function compileShader(
   gl.shaderSource(s, src);
   gl.compileShader(s);
   if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-    console.error(gl.getShaderInfoLog(s));
+    logger.error('shader compile failed', {
+      info: gl.getShaderInfoLog(s) ?? 'unknown',
+    });
   }
   return s;
 }
@@ -311,7 +317,9 @@ export function HeroCanvas() {
     gl.attachShader(prog, fs);
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-      console.error(gl.getProgramInfoLog(prog));
+      logger.error('program link failed', {
+        info: gl.getProgramInfoLog(prog) ?? 'unknown',
+      });
       return;
     }
     gl.useProgram(prog);

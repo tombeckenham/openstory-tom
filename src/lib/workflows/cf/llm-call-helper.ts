@@ -29,6 +29,9 @@ import { chat, convertSchemaToJsonSchema } from '@tanstack/ai';
 import type { WorkflowStep } from 'cloudflare:workers';
 import { NonRetryableError } from 'cloudflare:workflows';
 import type { z } from 'zod';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'llm-call-helper']);
 
 export type DurableLLMCallConfig<TSchema extends z.ZodType> = {
   name: string;
@@ -114,7 +117,7 @@ export async function durableLLMCallCf<TSchema extends z.ZodType>(
       config.promptVariables
     );
 
-    console.log(`[LLM:${logName}:cf] Starting call`, {
+    logger.info(`[LLM:${logName}:cf] Starting call`, {
       model: modelId,
       keySource: openRouterApiKeyInfo.source,
       messageCount: messages.length,
@@ -174,7 +177,7 @@ export async function durableLLMCallCf<TSchema extends z.ZodType>(
         },
         debug: false,
       });
-      console.log(`[LLM:${logName}:cf] Call succeeded`);
+      logger.info(`[LLM:${logName}:cf] Call succeeded`);
       // Return as JSON string — round-trips through step.do without hitting
       // CF's Rpc.Serializable constraint on the Zod-inferred shape.
       return text;
@@ -263,7 +266,7 @@ export async function durableStreamingLLMCallCf<TSchema extends z.ZodType>(
         config.promptVariables
       );
 
-      console.log(`[LLM:${logName}:cf] Starting streaming call`, {
+      logger.info(`[LLM:${logName}:cf] Starting streaming call`, {
         model: modelId,
         keySource: openRouterApiKeyInfo.source,
         messageCount: messages.length,
@@ -365,7 +368,7 @@ export async function durableStreamingLLMCallCf<TSchema extends z.ZodType>(
           }
         }
         await flushDelta();
-        console.log(`[LLM:${logName}:cf] Streaming call succeeded`);
+        logger.info(`[LLM:${logName}:cf] Streaming call succeeded`);
         return accumulated;
       } finally {
         clearTimeout(timeout);

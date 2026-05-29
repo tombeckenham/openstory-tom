@@ -21,6 +21,10 @@ import { getGenerationChannel } from '@/lib/realtime';
 import { WorkflowValidationError } from '@/lib/workflow/errors';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import { createScopedWorkflow } from '@/lib/workflow/scoped-workflow';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'shot-variant']);
+
 import type {
   ShotVariantWorkflowInput,
   ShotVariantWorkflowResult,
@@ -44,10 +48,9 @@ export const generateShotVariantWorkflow = createScopedWorkflow<
           );
         }
 
-        console.log(
-          '[ShotVariantWorkflow]',
-          `Starting variant image generation workflow for user ${input.userId}`
-        );
+        logger.info('[ShotVariantWorkflow]', {
+          data: `Starting variant image generation workflow for user ${input.userId}`,
+        });
 
         const model = input.model || DEFAULT_IMAGE_MODEL;
         const gridConfig = input.aspectRatio
@@ -68,10 +71,9 @@ export const generateShotVariantWorkflow = createScopedWorkflow<
           );
 
           if (!frame) {
-            console.log(
-              '[ShotVariantWorkflow]',
-              `Frame ${input.frameId} was deleted, skipping workflow`
-            );
+            logger.info('[ShotVariantWorkflow]', {
+              data: `Frame ${input.frameId} was deleted, skipping workflow`,
+            });
             return null; // Signal to skip
           }
 
@@ -146,10 +148,9 @@ export const generateShotVariantWorkflow = createScopedWorkflow<
 
     // Step 2: Generate image
     const imageResult = await context.run('generate-image', async () => {
-      console.log(
-        '[ShotVariantWorkflow]',
-        `Generating variant image ${input.frameId} with model ${generationParams.model}`
-      );
+      logger.info('[ShotVariantWorkflow]', {
+        data: `Generating variant image ${input.frameId} with model ${generationParams.model}`,
+      });
 
       return await generateImageWithProvider(generationParams, { scopedDb });
     });
@@ -212,10 +213,9 @@ export const generateShotVariantWorkflow = createScopedWorkflow<
         );
 
         if (!updatedFrame) {
-          console.log(
-            '[ShotVariantWorkflow]',
-            `Frame ${input.frameId} was deleted, skipping final update`
-          );
+          logger.info('[ShotVariantWorkflow]', {
+            data: `Frame ${input.frameId} was deleted, skipping final update`,
+          });
           return { url: result.url, path: result.path };
         }
 
@@ -242,10 +242,9 @@ export const generateShotVariantWorkflow = createScopedWorkflow<
           }
         );
 
-        console.log(
-          '[ShotVariantWorkflow]',
-          `Image uploaded to storage: ${result.path}`
-        );
+        logger.info('[ShotVariantWorkflow]', {
+          data: `Image uploaded to storage: ${result.path}`,
+        });
         return { url: result.url, path: result.path };
       });
     }
@@ -299,10 +298,9 @@ export const generateShotVariantWorkflow = createScopedWorkflow<
           }
         }
 
-        console.error(
-          '[ShotVariantWorkflow]',
-          `Image generation failed for frame ${input.frameId}: ${error}`
-        );
+        logger.error('[ShotVariantWorkflow]', {
+          data: `Image generation failed for frame ${input.frameId}: ${error}`,
+        });
       }
 
       return `Image generation failed for frame ${input.frameId}`;

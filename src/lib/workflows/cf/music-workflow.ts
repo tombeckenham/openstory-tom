@@ -30,6 +30,9 @@ import type {
   MusicWorkflowResult,
 } from '@/lib/workflow/types';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'music']);
 
 export class MusicWorkflow extends OpenStoryWorkflowEntrypoint<MusicWorkflowInput> {
   protected override async runImpl(
@@ -99,7 +102,7 @@ export class MusicWorkflow extends OpenStoryWorkflowEntrypoint<MusicWorkflowInpu
         const canAfford =
           await scopedDb.billing.hasEnoughCredits(musicCostMicros);
         if (!canAfford) {
-          console.warn(
+          logger.warn(
             `[MusicWorkflow:cf] Insufficient credits for team ${teamId} (cost: $${microsToUsd(musicCostMicros).toFixed(4)}), skipping deduction`
           );
           return;
@@ -190,7 +193,7 @@ export class MusicWorkflow extends OpenStoryWorkflowEntrypoint<MusicWorkflowInpu
             divergedVariantId,
           });
         });
-        console.log(
+        logger.info(
           `[MusicWorkflow:cf] Diverged music result for sequence ${sequenceId}; preserved as alternate (variant=${divergedVariantId})`
         );
       } else {
@@ -243,15 +246,16 @@ export class MusicWorkflow extends OpenStoryWorkflowEntrypoint<MusicWorkflowInpu
           { status: 'failed' }
         );
       } catch (emitError) {
-        console.error(
+        logger.error(
           `[MusicWorkflow:cf] Failed to emit failure event for sequence ${input.sequenceId}:`,
-          emitError
+          {
+            err: emitError,
+          }
         );
       }
     }
-    console.error(
-      '[MusicWorkflow:cf]',
-      `Music generation failed for sequence ${input.sequenceId}: ${error}`
+    logger.error(
+      `[MusicWorkflow:cf] Music generation failed for sequence ${input.sequenceId}: ${error}`
     );
   }
 }

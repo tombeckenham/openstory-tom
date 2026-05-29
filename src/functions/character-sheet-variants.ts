@@ -7,6 +7,10 @@ import { ulidSchema } from '@/lib/schemas/id.schemas';
 
 import { sequenceAccessMiddleware } from './middleware';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'serverFn', 'character-sheet-variants']);
+
 const variantInputSchema = z.object({
   sequenceId: ulidSchema,
   variantId: ulidSchema,
@@ -83,10 +87,7 @@ export const promoteCharacterSheetVariantFn = createServerFn({ method: 'POST' })
         }
       );
     } catch (error) {
-      console.error(
-        '[promoteCharacterSheetVariantFn] realtime emit failed',
-        error
-      );
+      logger.error('realtime emit failed', { err: error });
     }
 
     return { variantId: variant.id, characterId: variant.characterId };

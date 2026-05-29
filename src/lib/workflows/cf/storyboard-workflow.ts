@@ -53,6 +53,9 @@ import type {
 } from '@/lib/workflow/types';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
 import { NonRetryableError } from 'cloudflare:workflows';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'storyboard']);
 
 export class StoryboardWorkflow extends OpenStoryWorkflowEntrypoint<StoryboardWorkflowInput> {
   protected override async runImpl(
@@ -79,7 +82,7 @@ export class StoryboardWorkflow extends OpenStoryWorkflowEntrypoint<StoryboardWo
       imageModel,
       videoModel,
     } = await step.do('verify-clear-and-start-processing', async () => {
-      console.log('[StoryboardWorkflow:cf] Input received:', {
+      logger.info('[StoryboardWorkflow:cf] Input received:', {
         sequenceId: input.sequenceId,
         teamId: input.teamId,
         userId: input.userId,
@@ -155,10 +158,9 @@ export class StoryboardWorkflow extends OpenStoryWorkflowEntrypoint<StoryboardWo
           );
         }
       } catch (error) {
-        console.warn(
-          '[StoryboardWorkflow:cf] Poster generation failed:',
-          error
-        );
+        logger.warn('[StoryboardWorkflow:cf] Poster generation failed:', {
+          err: error,
+        });
       }
     });
 
@@ -228,9 +230,8 @@ export class StoryboardWorkflow extends OpenStoryWorkflowEntrypoint<StoryboardWo
     // a log-only mirror so failures still surface in CF instance status +
     // logs without taking on parity surface area that the QStash side never
     // had.
-    console.error(
-      '[StoryboardWorkflow:cf]',
-      `Storyboard generation failed: ${error}`
+    logger.error(
+      `[StoryboardWorkflow:cf] Storyboard generation failed: ${error}`
     );
   }
 }

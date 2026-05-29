@@ -32,6 +32,9 @@ import { OpenStoryWorkflowEntrypoint } from '@/lib/workflow/cf/base-workflow';
 import type { MotionPromptSceneWorkflowInput } from '@/lib/workflow/types';
 import { durableStreamingLLMCallCf } from '@/lib/workflows/cf/llm-call-helper';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'motion-prompt-scene']);
 
 type MotionPromptSceneWorkflowResult = {
   sceneId: string;
@@ -76,7 +79,7 @@ export class MotionPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Motio
       aspectRatio,
     };
 
-    console.log(
+    logger.info(
       `[MotionPromptSceneWorkflow:cf] Generating motion prompt for scene ${scene.sceneId}`
     );
 
@@ -184,7 +187,7 @@ export class MotionPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Motio
     error: string;
     scopedDb: ScopedDb;
   }): Promise<void> {
-    console.error('[MotionPromptSceneWorkflow:cf] Failed', { error });
+    logger.error('[MotionPromptSceneWorkflow:cf] Failed', { error });
     try {
       const payload = event.payload;
       if (payload.emitStreaming && payload.frameId) {
@@ -194,10 +197,9 @@ export class MotionPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Motio
         );
       }
     } catch (emitErr) {
-      console.warn(
-        '[MotionPromptSceneWorkflow:cf] failed to emit failure',
-        emitErr
-      );
+      logger.warn('[MotionPromptSceneWorkflow:cf] failed to emit failure', {
+        err: emitErr,
+      });
     }
   }
 }

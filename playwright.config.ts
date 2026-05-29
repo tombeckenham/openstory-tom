@@ -81,6 +81,10 @@ export default defineConfig({
     const useBuiltServer = process.env.E2E_BUILT === 'true';
     const envPrefix = [
       'E2E_TEST=true',
+      // CLOUDFLARE_ENV activates wrangler.jsonc's [env.test] block under both
+      // `vite dev` and `vite preview` (both go through @cloudflare/vite-plugin
+      // which reads the source wrangler.jsonc with its nested env blocks).
+      'CLOUDFLARE_ENV=test',
       ...(fullPipeline
         ? [
             'E2E_FULL_PIPELINE=true',
@@ -98,38 +102,38 @@ export default defineConfig({
       // fixture writes for the same prompt.
       ...(process.env.E2E_RECORD === '1' ? ['E2E_RECORD=1'] : []),
       'PORT=3001',
-      // Hermetic Nitro path reads sqlite via DATABASE_URL. CF path reads via
-      // the D1 binding, but the env var is harmless there.
-      'DATABASE_URL=file:test.db',
       'VITE_APP_URL=http://localhost:3001',
       'OPENROUTER_BASE_URL=http://localhost:4010',
       'VITE_DISABLE_DEVTOOLS=true',
     ].join(' ');
 
-    // Four webServer shapes, picked by (fullPipeline, useBuiltServer):
-    //   (false, false) Hermetic dev:   `bun dev:e2e`   — Vite dev, Nitro
-    //   (false, true)  Hermetic built: `bun start`     — built Nitro
-    //   (true, false)  CF dev:         `bun dev:e2e:cf` — Vite dev, CF plugin
-    //   (true, true)   CF built:       `bun start:e2e:cf` — wrangler dev
-    //                                   against the prebuilt CF artifact
-    const command = fullPipeline
-      ? useBuiltServer
-        ? `${envPrefix} bun start:e2e:cf`
-        : `${envPrefix} bun dev:e2e:cf`
-      : useBuiltServer
-        ? `${envPrefix} bun start`
-        : `${envPrefix} bun dev:e2e`;
-
+    // The dev server runs the app inside Workerd via @cloudflare/vite-plugin,
+    // matching production at the runtime layer. E2E_BUILT=true switches to
+    // `vite preview` against a production-built worker — CI uses this to
+    // catch bundling regressions; local keeps `vite dev` for HMR.
+    //
+    // Both paths read bindings from wrangler.jsonc [env.test]: an isolated
+    // D1 (openstory-test) and isolated R2 buckets backed by Miniflare local
+    // state in .wrangler/state/.
+    //
+    // Why `vite preview` (not `wrangler dev`)? Both serve a built worker,
+    // but `wrangler dev` spawns a *separate* Node + Workerd process with its
+    // own Miniflare. Historically, e2e fixtures also spawned Miniflare via
+    // getPlatformProxy for direct D1 access, causing SQLITE_BUSY lock races
+    // on the shared .wrangler D1 SQLite under parallel workers. All direct DB
+    // access from playwright fixtures has been migrated to the guarded
+    // /api/test/* routes (which execute inside the single in-process Miniflare
+    // of the vite server). The comment above is retained for history; the
+    // lock risk from fixtures is now eliminated. `vite preview` still provides
+    // consistent built-server testing.
     return {
-      command,
-      // Wait for an HTTP response, not just the TCP port. wrangler dev binds
-      // :3001 before the worker module has finished loading, so a port-based
-      // wait races: tests fire `page.goto` against a listener that hasn't
-      // wired up its handler yet and the browser sees net::ERR_ABORTED.
-      // `/` is the marketing homepage — fully static, returns 200 in both
-      // Nitro-built and CF-built modes.
-      url: 'http://localhost:3001/',
-      reuseExistingServer: !useBuiltServer && !fullPipeline,
+      command: useBuiltServer
+        ? `${envPrefix} vite preview --port=3001`
+        : `${envPrefix} vite dev --port=3001`,
+      // Wait for the TCP port, not an HTTP 2xx — SSR errors should surface to
+      // the individual specs via `page.goto()` rather than fail server boot.
+      port: 3001,
+      reuseExistingServer: !useBuiltServer,
       timeout: 300_000,
       stdout: 'pipe',
       stderr: 'pipe',

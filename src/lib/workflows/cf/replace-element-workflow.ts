@@ -49,6 +49,9 @@ import type {
 } from '@/lib/workflow/types';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
 import { NonRetryableError } from 'cloudflare:workflows';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'replace-element']);
 
 // `REPLACE_ELEMENT_WORKFLOW` is declared on `CloudflareEnv` (see
 // `src/lib/workflow/cf/types.ts`) and wired through `wrangler.jsonc` in the
@@ -163,9 +166,11 @@ async function safeEmit(
   try {
     await fn();
   } catch (e) {
-    console.error(
+    logger.error(
       `[ReplaceElementWorkflow:cf] emit ${label} for ${sequenceId} failed:`,
-      e
+      {
+        e,
+      }
     );
   }
 }
@@ -180,9 +185,8 @@ export class ReplaceElementWorkflow extends OpenStoryWorkflowEntrypoint<ReplaceE
     const { sequenceId, elementId, affectedFrameIds, newImageUrl } = input;
     let token = input.token;
 
-    console.log(
-      '[ReplaceElementWorkflow:cf]',
-      `Starting replace for element ${token} (${elementId}) — ${affectedFrameIds.length} affected frames`
+    logger.info(
+      `[ReplaceElementWorkflow:cf] Starting replace for element ${token} (${elementId}) — ${affectedFrameIds.length} affected frames`
     );
 
     // Fires before vision so subscribers see the full lifecycle even if
@@ -321,9 +325,8 @@ export class ReplaceElementWorkflow extends OpenStoryWorkflowEntrypoint<ReplaceE
       }
     });
     if (skippedDeletedFrameIds.length > 0) {
-      console.warn(
-        '[ReplaceElementWorkflow:cf]',
-        `Skipping ${skippedDeletedFrameIds.length} deleted frame(s): ${skippedDeletedFrameIds.join(', ')}`
+      logger.warn(
+        `[ReplaceElementWorkflow:cf] Skipping ${skippedDeletedFrameIds.length} deleted frame(s): ${skippedDeletedFrameIds.join(', ')}`
       );
     }
 
@@ -412,9 +415,8 @@ export class ReplaceElementWorkflow extends OpenStoryWorkflowEntrypoint<ReplaceE
           });
 
           if (!childResult.imageUrl) {
-            console.error(
-              '[ReplaceElementWorkflow:cf]',
-              `Image edit returned empty url frame=${frame.id}`
+            logger.error(
+              `[ReplaceElementWorkflow:cf] Image edit returned empty url frame=${frame.id}`
             );
             return {
               frameId: frame.id,
@@ -430,9 +432,8 @@ export class ReplaceElementWorkflow extends OpenStoryWorkflowEntrypoint<ReplaceE
           };
         } catch (e) {
           const reason = rejectionReasonMessage(e);
-          console.error(
-            '[ReplaceElementWorkflow:cf]',
-            `Image edit failed frame=${frame.id} reason=${reason}`
+          logger.error(
+            `[ReplaceElementWorkflow:cf] Image edit failed frame=${frame.id} reason=${reason}`
           );
           return {
             frameId: frame.id,
@@ -449,7 +450,7 @@ export class ReplaceElementWorkflow extends OpenStoryWorkflowEntrypoint<ReplaceE
       if (s.status === 'fulfilled') return s.value;
       const id = liveFrames[i]?.id ?? 'unknown';
       const message = rejectionReasonMessage(s.reason);
-      console.error('[ReplaceElementWorkflow:cf] Per-frame promise rejected', {
+      logger.error('[ReplaceElementWorkflow:cf] Per-frame promise rejected', {
         frameId: id,
         reason: s.reason,
       });
@@ -482,9 +483,8 @@ export class ReplaceElementWorkflow extends OpenStoryWorkflowEntrypoint<ReplaceE
     let videoSuccessCount = 0;
     let videoFailedCount = 0;
     if (framesNeedingVideoRegen.length > 0) {
-      console.log(
-        '[ReplaceElementWorkflow:cf]',
-        `Regenerating video for ${framesNeedingVideoRegen.length} frame(s) tied to element ${token}`
+      logger.info(
+        `[ReplaceElementWorkflow:cf] Regenerating video for ${framesNeedingVideoRegen.length} frame(s) tied to element ${token}`
       );
 
       const motionChildBinding = this.env.MOTION_WORKFLOW;
@@ -537,10 +537,9 @@ export class ReplaceElementWorkflow extends OpenStoryWorkflowEntrypoint<ReplaceE
             );
             return { frameId: frame.id, success: true };
           } catch (e) {
-            console.error(
-              '[ReplaceElementWorkflow:cf] motion child failed:',
-              rejectionReasonMessage(e)
-            );
+            logger.error('[ReplaceElementWorkflow:cf] motion child failed:', {
+              err: rejectionReasonMessage(e),
+            });
             return { frameId: frame.id, success: false };
           }
         }
@@ -556,10 +555,9 @@ export class ReplaceElementWorkflow extends OpenStoryWorkflowEntrypoint<ReplaceE
         } else {
           videoFailedCount += 1;
           if (settledMotion.status === 'rejected') {
-            console.error(
-              '[ReplaceElementWorkflow:cf] motion regen rejected:',
-              rejectionReasonMessage(settledMotion.reason)
-            );
+            logger.error('[ReplaceElementWorkflow:cf] motion regen rejected:', {
+              err: rejectionReasonMessage(settledMotion.reason),
+            });
           }
         }
       }
@@ -581,9 +579,8 @@ export class ReplaceElementWorkflow extends OpenStoryWorkflowEntrypoint<ReplaceE
       )
     );
 
-    console.log(
-      '[ReplaceElementWorkflow:cf]',
-      `Completed: ${outcome.successCount} edited, ${outcome.failedCount} failed, ${skippedDeletedFrameIds.length} skipped-deleted, videos ${videoSuccessCount}/${videoFailedCount} for element ${token}`
+    logger.info(
+      `[ReplaceElementWorkflow:cf] Completed: ${outcome.successCount} edited, ${outcome.failedCount} failed, ${skippedDeletedFrameIds.length} skipped-deleted, videos ${videoSuccessCount}/${videoFailedCount} for element ${token}`
     );
 
     return {
@@ -619,9 +616,11 @@ export class ReplaceElementWorkflow extends OpenStoryWorkflowEntrypoint<ReplaceE
         shouldDowngrade = shouldDowngradeVisionOnFailure(current.visionStatus);
       }
     } catch (e) {
-      console.error(
+      logger.error(
         '[ReplaceElementWorkflow:cf] Failed to read current element status; assuming vision in-flight:',
-        e
+        {
+          e,
+        }
       );
     }
 
@@ -633,9 +632,11 @@ export class ReplaceElementWorkflow extends OpenStoryWorkflowEntrypoint<ReplaceE
           error
         );
       } catch (e) {
-        console.error(
+        logger.error(
           '[ReplaceElementWorkflow:cf] Failed to persist vision-failed status:',
-          e
+          {
+            e,
+          }
         );
       }
     }
@@ -647,9 +648,8 @@ export class ReplaceElementWorkflow extends OpenStoryWorkflowEntrypoint<ReplaceE
       )
     );
 
-    console.error(
-      '[ReplaceElementWorkflow:cf]',
-      `Replace failed for element ${input.token}: ${error}`
+    logger.error(
+      `[ReplaceElementWorkflow:cf] Replace failed for element ${input.token}: ${error}`
     );
   }
 }

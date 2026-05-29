@@ -4,6 +4,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { talentKeys } from './use-talent';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'ui', 'use-talent-sheets-realtime']);
+
 type SheetProgressEvent = {
   event: string;
   data: {
@@ -71,10 +75,7 @@ export function useTalentSheetsRealtime(talentIds: string[] = []) {
           }
         })
         .catch((err: Error) => {
-          console.error(
-            `[useTalentSheetsRealtime] Failed to fetch history for talent:${id}:`,
-            err
-          );
+          logger.error(`Failed to fetch history for talent:${id}:`, { err });
         });
     }
   }, [talentIds]);

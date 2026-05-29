@@ -59,6 +59,9 @@ import type {
 } from '@/lib/workflow/types';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
 import { NonRetryableError } from 'cloudflare:workflows';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'scene-split']);
 
 const PHASE = { number: 1, name: 'Analyzing script…' } as const;
 const STEP_NAME = 'scene-splitting';
@@ -139,7 +142,7 @@ export class SceneSplitWorkflow extends OpenStoryWorkflowEntrypoint<SceneSplitWo
         const openRouterApiKeyInfo =
           await scopedDb.apiKeys.resolveKey('openrouter');
 
-        console.log(
+        logger.info(
           `[SceneSplitWorkflow:cf] [LLM:${LOG_NAME}] Starting streaming call`,
           {
             model: modelId,
@@ -177,14 +180,14 @@ export class SceneSplitWorkflow extends OpenStoryWorkflowEntrypoint<SceneSplitWo
           const events = parser.feed(chunk.accumulated);
 
           if (chunkCount % 20 === 0) {
-            console.log(
+            logger.info(
               `[SceneSplitWorkflow:cf] [Stream:${LOG_NAME}] chunk #${chunkCount} | ${finalText.length} chars | ${frameMapping.length} frames so far`
             );
           }
 
           for (const ev of events) {
             if (ev.type === 'title' && sequenceId) {
-              console.log(
+              logger.info(
                 `[SceneSplitWorkflow:cf] [Stream:${LOG_NAME}] Title detected: "${ev.title}" (chunk #${chunkCount})`
               );
               await scopedDb.sequences.updateTitle(sequenceId, ev.title);
@@ -195,7 +198,7 @@ export class SceneSplitWorkflow extends OpenStoryWorkflowEntrypoint<SceneSplitWo
             }
 
             if (ev.type === 'characterBible' && sequenceId) {
-              console.log(
+              logger.info(
                 `[SceneSplitWorkflow:cf] [Stream:${LOG_NAME}] Character bible detected (${ev.bible.length} entries), advancing to phase 2`
               );
               await getGenerationChannel(sequenceId).emit(
@@ -208,7 +211,7 @@ export class SceneSplitWorkflow extends OpenStoryWorkflowEntrypoint<SceneSplitWo
             }
 
             if (ev.type === 'scene:updated') {
-              console.log(
+              logger.info(
                 // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
                 `[SceneSplitWorkflow:cf] [Stream:${LOG_NAME}] Scene ${ev.index + 1} title updated: "${ev.scene.metadata?.title}" (chunk #${chunkCount})`
               );
@@ -245,7 +248,7 @@ export class SceneSplitWorkflow extends OpenStoryWorkflowEntrypoint<SceneSplitWo
             }
 
             if (ev.type === 'scene') {
-              console.log(
+              logger.info(
                 // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- runtime guard
                 `[SceneSplitWorkflow:cf] [Stream:${LOG_NAME}] Scene ${ev.index + 1} complete: "${ev.scene.metadata?.title}" (chunk #${chunkCount}, ${finalText.length} chars)`
               );
@@ -279,7 +282,7 @@ export class SceneSplitWorkflow extends OpenStoryWorkflowEntrypoint<SceneSplitWo
                   videoStatus: 'pending',
                 } satisfies NewFrame);
 
-                console.log(
+                logger.info(
                   `[SceneSplitWorkflow:cf] [Stream:${LOG_NAME}] Frame created: ${frame.id} for scene "${ev.scene.sceneId}"`
                 );
 
@@ -373,7 +376,7 @@ export class SceneSplitWorkflow extends OpenStoryWorkflowEntrypoint<SceneSplitWo
           );
         }
         const parsed = parsedResult;
-        console.log(
+        logger.info(
           `[SceneSplitWorkflow:cf] [Stream:${LOG_NAME}] Complete | ${chunkCount} chunks | ${parsed.scenes.length} scenes | ${finalText.length} chars`
         );
 
@@ -548,7 +551,9 @@ export class SceneSplitWorkflow extends OpenStoryWorkflowEntrypoint<SceneSplitWo
     scopedDb: ScopedDb;
   }): Promise<void> {
     const { sequenceId } = event.payload;
-    console.error('[SceneSplitWorkflow:cf] Failure:', error);
+    logger.error('[SceneSplitWorkflow:cf] Failure:', {
+      err: error,
+    });
 
     let userMessage = 'Scene splitting failed';
     if (
@@ -569,9 +574,11 @@ export class SceneSplitWorkflow extends OpenStoryWorkflowEntrypoint<SceneSplitWo
           message: userMessage,
         });
       } catch (emitError) {
-        console.error(
+        logger.error(
           `[SceneSplitWorkflow:cf] Failed to emit failure event for sequence ${sequenceId}:`,
-          emitError
+          {
+            err: emitError,
+          }
         );
       }
     }

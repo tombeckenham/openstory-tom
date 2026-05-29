@@ -10,6 +10,10 @@ import {
 } from './generation-stream.reducer';
 import { updateQueryCacheFromEvent } from './query-cache-updater';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'realtime', 'use-generation-stream']);
+
 type GenerationEvent = {
   event: string;
   data: Record<string, unknown>;
@@ -269,18 +273,16 @@ export function useGenerationStream(
             const action = mapEventToAction(evt.event, parsed);
             if (action) dispatch(action);
           } catch (e) {
-            console.error(
-              `[useGenerationStream] Failed to parse history event "${evt.event}":`,
-              e
-            );
+            logger.error(`Failed to parse history event "${evt.event}":`, {
+              err: e,
+            });
           }
         }
       })
       .catch((error: Error) => {
-        console.error(
-          `[useGenerationStream] Failed to fetch history for "${sequenceId}":`,
-          error
-        );
+        logger.error(`Failed to fetch history for "${sequenceId}":`, {
+          err: error,
+        });
       });
   }, [sequenceId, replayHistory]);
 

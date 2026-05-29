@@ -23,15 +23,9 @@ UPDATE frame_variants SET status = 'failed', updated_at = unixepoch()
 UPDATE frame_variants SET shot_variant_status = 'failed', updated_at = unixepoch()
   WHERE shot_variant_status = 'generating';
 
--- sequence_video_variants (uses 'merging' instead of 'generating')
-UPDATE sequence_video_variants SET status = 'failed', updated_at = unixepoch()
-  WHERE status = 'merging';
-
--- sequences: music ('generating') + merged_video ('merging')
+-- sequences: music ('generating')
 UPDATE sequences SET music_status = 'failed', updated_at = unixepoch()
   WHERE music_status = 'generating';
-UPDATE sequences SET merged_video_status = 'failed', updated_at = unixepoch()
-  WHERE merged_video_status = 'merging';
 
 -- sequence_elements (uses 'analyzing')
 UPDATE sequence_elements SET vision_status = 'failed', updated_at = unixepoch()

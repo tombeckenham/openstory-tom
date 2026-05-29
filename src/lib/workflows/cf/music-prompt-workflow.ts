@@ -33,6 +33,9 @@ import type {
 } from '@/lib/workflow/types';
 import { durableLLMCallCf } from '@/lib/workflows/cf/llm-call-helper';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'music-prompt']);
 
 export class MusicPromptWorkflow extends OpenStoryWorkflowEntrypoint<MusicPromptWorkflowInput> {
   protected override async runImpl(
@@ -126,15 +129,16 @@ export class MusicPromptWorkflow extends OpenStoryWorkflowEntrypoint<MusicPrompt
           { status: 'failed' }
         );
       } catch (emitError) {
-        console.error(
+        logger.error(
           `[MusicPromptWorkflow:cf] Failed to emit generation.audio:progress for sequence ${input.sequenceId}:`,
-          emitError
+          {
+            err: emitError,
+          }
         );
       }
     }
-    console.error(
-      '[MusicPromptWorkflow:cf]',
-      `Music generation failed for sequence ${input.sequenceId}: ${error}`
+    logger.error(
+      `[MusicPromptWorkflow:cf] Music generation failed for sequence ${input.sequenceId}: ${error}`
     );
   }
 }

@@ -1,6 +1,10 @@
 import { MutationCache, QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'query-client', 'query-client']);
+
 export function makeQueryClient() {
   let qc!: QueryClient;
   qc = new QueryClient({
@@ -11,10 +15,9 @@ export function makeQueryClient() {
         });
       },
       onError: (error) => {
-        console.error(
-          '[MUTATION ERROR]',
-          error instanceof Error ? error.message : error
-        );
+        logger.error('[MUTATION ERROR]', {
+          data: error instanceof Error ? error.message : error,
+        });
         toast.error(error.message);
       },
     }),

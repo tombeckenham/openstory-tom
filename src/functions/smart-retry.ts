@@ -15,12 +15,7 @@ import {
   estimateStoryboardCost,
   estimateVideoCost,
 } from '@/lib/billing/cost-estimation';
-import {
-  addMicros,
-  multiplyMicros,
-  usdToMicros,
-  ZERO_MICROS,
-} from '@/lib/billing/money';
+import { addMicros, multiplyMicros, ZERO_MICROS } from '@/lib/billing/money';
 import { requireCredits } from '@/lib/billing/preflight';
 import { aspectRatioToImageSize } from '@/lib/constants/aspect-ratios';
 import type { Character } from '@/lib/db/schema';
@@ -28,12 +23,10 @@ import { analyzeFailures } from '@/lib/failures/failure-analysis';
 import { resolveMotionPrompt } from '@/lib/motion/resolve-motion-prompt';
 import { buildCharacterReferenceImages } from '@/lib/prompts/character-prompt';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
-import { buildMergeVideoSourcesFromFrames } from '@/lib/workflows/sequence-snapshots';
 import { triggerWorkflow } from '@/lib/workflow/client';
 import { buildWorkflowLabel } from '@/lib/workflow/labels';
 import type {
   ImageWorkflowInput,
-  MergeVideoWorkflowInput,
   MotionWorkflowInput,
   MusicWorkflowInput,
   StoryboardWorkflowInput,
@@ -147,7 +140,6 @@ export const smartRetryFn = createServerFn({ method: 'POST' })
     );
     const hasMusicFailure =
       sequence.musicStatus === 'failed' && sequence.musicPrompt;
-    const hasMergeFailure = sequence.mergedVideoStatus === 'failed';
 
     // Calculate total cost
     if (failedImageFrames.length > 0) {
@@ -171,10 +163,6 @@ export const smartRetryFn = createServerFn({ method: 'POST' })
           failedMotionFrames.length
         )
       );
-    }
-
-    if (hasMergeFailure) {
-      totalCost = addMicros(totalCost, usdToMicros(0.01));
     }
 
     // Single credit check for all retries
@@ -240,7 +228,6 @@ export const smartRetryFn = createServerFn({ method: 'POST' })
           model: videoModel,
           aspectRatio: sequence.aspectRatio,
           duration: frame.durationMs ? frame.durationMs / 1000 : undefined,
-          triggerMergeOnComplete: true,
         };
 
         await triggerWorkflow('/motion', workflowInput, {
@@ -316,43 +303,6 @@ export const smartRetryFn = createServerFn({ method: 'POST' })
       );
 
       retried.push('music prompt');
-    }
-
-    // 4. Retry failed merge
-    if (hasMergeFailure) {
-      const allFrames = await context.scopedDb.frames.listBySequence(
-        sequence.id
-      );
-      const incompleteCount = allFrames.filter(
-        (f) => f.videoStatus !== 'completed' || !f.videoUrl
-      ).length;
-
-      if (incompleteCount === 0) {
-        const sorted = [...allFrames].sort(
-          (a, b) => a.orderIndex - b.orderIndex
-        );
-        const { videoUrls, sourceFrameVideoHashes } =
-          buildMergeVideoSourcesFromFrames(sorted);
-
-        await context.scopedDb.sequence(sequence.id).updateMergedVideoFields({
-          mergedVideoStatus: 'merging',
-          mergedVideoError: null,
-        });
-
-        const mergeInput: MergeVideoWorkflowInput = {
-          userId: user.id,
-          teamId,
-          sequenceId: sequence.id,
-          videoUrls,
-          sourceFrameVideoHashes,
-        };
-
-        await triggerWorkflow('/merge-video', mergeInput, {
-          label: buildWorkflowLabel(sequence.id),
-        });
-
-        retried.push('video merge');
-      }
     }
 
     // Reset sequence status from 'failed' back to 'completed'

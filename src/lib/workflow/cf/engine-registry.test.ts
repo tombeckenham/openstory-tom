@@ -1,8 +1,11 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 const envState: { CF_WORKFLOWS_ENABLED?: string } = {};
 
-mock.module('#env', () => ({
+// vi.doMock (not hoisted) applies to the per-test dynamic imports below.
+// engine-registry reads getEnv().CF_WORKFLOWS_ENABLED at call time, so the
+// live-mutated envState is observed without re-importing the module.
+vi.doMock('#env', () => ({
   getEnv: () => envState,
 }));
 

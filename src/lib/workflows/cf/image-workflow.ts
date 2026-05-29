@@ -44,6 +44,9 @@ import {
   persistImageResult,
 } from '@/lib/workflows/image-workflow-snapshot';
 import { shouldRecordUserEdit } from '@/lib/workflows/user-edit-predicate';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'image']);
 
 type ImageWorkflowResult = {
   imageUrl: string;
@@ -86,9 +89,8 @@ export class ImageWorkflow extends OpenStoryWorkflowEntrypoint<ImageWorkflowInpu
           );
         }
 
-        console.log(
-          '[ImageWorkflow:cf]',
-          `Starting image generation for user ${input.userId}`
+        logger.info(
+          `[ImageWorkflow:cf] Starting image generation for user ${input.userId}`
         );
 
         const model = input.model ?? DEFAULT_IMAGE_MODEL;
@@ -105,9 +107,8 @@ export class ImageWorkflow extends OpenStoryWorkflowEntrypoint<ImageWorkflowInpu
           );
 
           if (!frame) {
-            console.log(
-              '[ImageWorkflow:cf]',
-              `Frame ${input.frameId} was deleted, skipping`
+            logger.info(
+              `[ImageWorkflow:cf] Frame ${input.frameId} was deleted, skipping`
             );
             return null;
           }
@@ -142,9 +143,11 @@ export class ImageWorkflow extends OpenStoryWorkflowEntrypoint<ImageWorkflowInpu
                 }
               }
             } catch (err) {
-              console.warn(
+              logger.warn(
                 `[ImageWorkflow:cf] Could not compute upstream hash for user-edit on frame ${input.frameId}; recording with null hash`,
-                err
+                {
+                  err,
+                }
               );
             }
 
@@ -204,9 +207,8 @@ export class ImageWorkflow extends OpenStoryWorkflowEntrypoint<ImageWorkflowInpu
     }
 
     const imageResult = await step.do('generate-image', async () => {
-      console.log(
-        '[ImageWorkflow:cf]',
-        `Generating image ${input.frameId} with model ${generationParams.model}`
+      logger.info(
+        `[ImageWorkflow:cf] Generating image ${input.frameId} with model ${generationParams.model}`
       );
       return generateImageWithProvider(generationParams, { scopedDb });
     });
@@ -216,7 +218,7 @@ export class ImageWorkflow extends OpenStoryWorkflowEntrypoint<ImageWorkflowInpu
     if (imageCostMicros > 0 && teamId && !imageResult.metadata.usedOwnKey) {
       await step.do('deduct-credits', async () => {
         if (!(await scopedDb.billing.hasEnoughCredits(imageCostMicros))) {
-          console.warn(
+          logger.warn(
             `[ImageWorkflow:cf] Insufficient credits for team ${teamId} (cost: $${microsToUsd(imageCostMicros).toFixed(4)}), skipping deduction`
           );
           return;
@@ -271,23 +273,18 @@ export class ImageWorkflow extends OpenStoryWorkflowEntrypoint<ImageWorkflowInpu
         });
 
         if (outcome.status === 'frame-deleted') {
-          console.log(
-            '[ImageWorkflow:cf]',
-            `Frame ${frameId} was deleted, skipping persist`
+          logger.info(
+            `[ImageWorkflow:cf] Frame ${frameId} was deleted, skipping persist`
           );
           return null;
         }
 
         if (outcome.status === 'divergent' && snapshotHash) {
-          console.log(
-            '[ImageWorkflow:cf]',
-            `Diverged frame ${frameId}: snapshot=${snapshotHash.slice(0, 8)} current=${currentHash?.slice(0, 8)}; routed alternate to frame_variants`
+          logger.info(
+            `[ImageWorkflow:cf] Diverged frame ${frameId}: snapshot=${snapshotHash.slice(0, 8)} current=${currentHash?.slice(0, 8)}; routed alternate to frame_variants`
           );
         } else {
-          console.log(
-            '[ImageWorkflow:cf]',
-            `Uploaded to storage: ${upload.path}`
-          );
+          logger.info(`[ImageWorkflow:cf] Uploaded to storage: ${upload.path}`);
         }
 
         return { imageUrl: outcome.imageUrl };
@@ -306,9 +303,8 @@ export class ImageWorkflow extends OpenStoryWorkflowEntrypoint<ImageWorkflowInpu
         );
 
         if (!updatedFrame) {
-          console.log(
-            '[ImageWorkflow:cf]',
-            `Frame ${frameId} was deleted, skipping preview update`
+          logger.info(
+            `[ImageWorkflow:cf] Frame ${frameId} was deleted, skipping preview update`
           );
           return;
         }
@@ -361,16 +357,17 @@ export class ImageWorkflow extends OpenStoryWorkflowEntrypoint<ImageWorkflowInpu
           { frameId: input.frameId, status: 'failed', model }
         );
       } catch (emitError) {
-        console.error(
+        logger.error(
           `[ImageWorkflow:cf] Failed to emit failure event for sequence ${input.sequenceId} frame ${input.frameId}:`,
-          emitError
+          {
+            err: emitError,
+          }
         );
       }
     }
 
-    console.error(
-      '[ImageWorkflow:cf]',
-      `Image generation failed for frame ${input.frameId}: ${error}`
+    logger.error(
+      `[ImageWorkflow:cf] Image generation failed for frame ${input.frameId}: ${error}`
     );
   }
 }

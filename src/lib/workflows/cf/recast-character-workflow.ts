@@ -51,6 +51,9 @@ import {
 } from '@/lib/workflows/sheet-snapshots';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
 import { NonRetryableError } from 'cloudflare:workflows';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'recast-character']);
 
 type RecastCharacterWorkflowResult = {
   sheetImageUrl: string;
@@ -180,9 +183,8 @@ export class RecastCharacterWorkflow extends OpenStoryWorkflowEntrypoint<RecastC
     const sheetPayload = await step.do(
       'build-character-sheet-snapshot',
       async (): Promise<CharacterSheetWorkflowInput> => {
-        console.log(
-          '[RecastCharacterWorkflow:cf]',
-          `Starting recast for ${input.characterName} with ${input.affectedFrameIds.length} affected frames`
+        logger.info(
+          `[RecastCharacterWorkflow:cf] Starting recast for ${input.characterName} with ${input.affectedFrameIds.length} affected frames`
         );
         const talentSheetInputHash = await resolveTalentSheetHash(
           scopedDb,
@@ -260,9 +262,8 @@ export class RecastCharacterWorkflow extends OpenStoryWorkflowEntrypoint<RecastC
       }
     );
 
-    console.error(
-      '[RecastCharacterWorkflow:cf]',
-      `Recast failed for ${input.characterName}: ${error}`
+    logger.error(
+      `[RecastCharacterWorkflow:cf] Recast failed for ${input.characterName}: ${error}`
     );
   }
 }

@@ -4,7 +4,11 @@ import { createClient, type Client as LibsqlClient } from '@libsql/client/web';
 import { drizzle } from 'drizzle-orm/libsql';
 import { relations } from './schema/relations';
 
-console.log('[db-web] Loading client');
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'db', 'client-web']);
+
+logger.info('Loading client');
 
 type Database = ReturnType<typeof buildDb>;
 

@@ -26,6 +26,9 @@ import type {
   ElementVisionWorkflowResult,
 } from '@/lib/workflow/types';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'element-vision']);
 
 export class ElementVisionWorkflow extends OpenStoryWorkflowEntrypoint<ElementVisionWorkflowInput> {
   protected override async runImpl(
@@ -112,7 +115,9 @@ export class ElementVisionWorkflow extends OpenStoryWorkflowEntrypoint<ElementVi
     scopedDb: ScopedDb;
   }): Promise<void> {
     const { elementId } = event.payload;
-    console.error('[ElementVisionWorkflow:cf] Failed:', error);
+    logger.error('[ElementVisionWorkflow:cf] Failed:', {
+      err: error,
+    });
     try {
       await scopedDb.sequenceElements.updateVisionStatus(
         elementId,
@@ -120,7 +125,9 @@ export class ElementVisionWorkflow extends OpenStoryWorkflowEntrypoint<ElementVi
         error
       );
     } catch (e) {
-      console.error('[ElementVisionWorkflow:cf] Failed to persist error:', e);
+      logger.error('[ElementVisionWorkflow:cf] Failed to persist error:', {
+        e,
+      });
     }
   }
 }

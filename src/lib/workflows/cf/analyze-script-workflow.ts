@@ -75,6 +75,9 @@ import type {
 } from '@/lib/db/schema';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
 import { NonRetryableError } from 'cloudflare:workflows';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'analyze-script']);
 
 const PARENT_BINDING_NAME = 'ANALYZE_SCRIPT_WORKFLOW' as const;
 
@@ -680,7 +683,9 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
     if (!sequenceId) return;
 
     const sanitized = sanitizeFailResponse(error);
-    console.error('[AnalyzeScriptWorkflow:cf] Failure:', sanitized);
+    logger.error('[AnalyzeScriptWorkflow:cf] Failure:', {
+      sanitized,
+    });
 
     let userMessage = sanitized;
     if (

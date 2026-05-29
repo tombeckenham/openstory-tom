@@ -54,7 +54,7 @@ export function generateIdAt(timestamp: number): string {
  * ```ts
  * const id = generateId();
  * const timestamp = getTimestampFromId(id);
- * console.log(new Date(timestamp)); // Creation time
+ * logger.info(new Date(timestamp)); // Creation time
  * ```
  */
 export function getTimestampFromId(id: string): number {

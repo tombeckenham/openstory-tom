@@ -52,6 +52,9 @@ import {
   computeRegenerateFramesBatchHash,
   emitRecastEvent,
 } from '@/lib/workflows/regenerate-frames-snapshot';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'regenerate-frames']);
 
 type FrameResult =
   | { frameId: string; success: true; imageUrl: string }
@@ -182,9 +185,8 @@ export class RegenerateFramesWorkflow extends OpenStoryWorkflowEntrypoint<Regene
         }).then(
           (body): FrameResult => {
             if (!body.imageUrl) {
-              console.error(
-                '[RegenerateFramesWorkflow:cf]',
-                `Image generation failed frame=${snapshot.frameId} reason=no imageUrl`
+              logger.error(
+                `[RegenerateFramesWorkflow:cf] Image generation failed frame=${snapshot.frameId} reason=no imageUrl`
               );
               return {
                 frameId: snapshot.frameId,
@@ -200,9 +202,8 @@ export class RegenerateFramesWorkflow extends OpenStoryWorkflowEntrypoint<Regene
           },
           (err: unknown): FrameResult => {
             const reason = err instanceof Error ? err.message : String(err);
-            console.error(
-              '[RegenerateFramesWorkflow:cf]',
-              `Image generation failed frame=${snapshot.frameId} reason=${reason}`
+            logger.error(
+              `[RegenerateFramesWorkflow:cf] Image generation failed frame=${snapshot.frameId} reason=${reason}`
             );
             return {
               frameId: snapshot.frameId,
@@ -384,9 +385,8 @@ export class RegenerateFramesWorkflow extends OpenStoryWorkflowEntrypoint<Regene
               divergedVariantId: divergentVariant.id,
             });
 
-            console.log(
-              '[RegenerateFramesWorkflow:cf]',
-              `Diverged frame ${result.frameId}: snapshot=${snapshot.snapshotInputHash.slice(0, 8)} current=${currentSnapshot.snapshotInputHash.slice(0, 8)}`
+            logger.info(
+              `[RegenerateFramesWorkflow:cf] Diverged frame ${result.frameId}: snapshot=${snapshot.snapshotInputHash.slice(0, 8)} current=${currentSnapshot.snapshotInputHash.slice(0, 8)}`
             );
 
             return { kind: 'divergent' };
@@ -403,14 +403,12 @@ export class RegenerateFramesWorkflow extends OpenStoryWorkflowEntrypoint<Regene
 
       reconcileOutcomes.set(result.frameId, outcome);
       if (outcome.kind === 'failed') {
-        console.error(
-          '[RegenerateFramesWorkflow:cf]',
-          `Reconcile failed for frame ${result.frameId}: ${outcome.error}`
+        logger.error(
+          `[RegenerateFramesWorkflow:cf] Reconcile failed for frame ${result.frameId}: ${outcome.error}`
         );
       } else if (outcome.kind === 'skipped-deleted') {
-        console.warn(
-          '[RegenerateFramesWorkflow:cf]',
-          `Frame ${result.frameId} deleted mid-flight; skipping reconciliation`
+        logger.warn(
+          `[RegenerateFramesWorkflow:cf] Frame ${result.frameId} deleted mid-flight; skipping reconciliation`
         );
       }
     }
@@ -515,9 +513,8 @@ export class RegenerateFramesWorkflow extends OpenStoryWorkflowEntrypoint<Regene
       });
     });
 
-    console.log(
-      '[RegenerateFramesWorkflow:cf]',
-      `Completed: ${successCount} success, ${failedFrames.length} failed, ${divergedFrameIds.length} diverged, ${skippedDeletedFrameIds.length} skipped-deleted`
+    logger.info(
+      `[RegenerateFramesWorkflow:cf] Completed: ${successCount} success, ${failedFrames.length} failed, ${divergedFrameIds.length} diverged, ${skippedDeletedFrameIds.length} skipped-deleted`
     );
 
     return {
@@ -548,9 +545,8 @@ export class RegenerateFramesWorkflow extends OpenStoryWorkflowEntrypoint<Regene
       });
     }
 
-    console.error(
-      '[RegenerateFramesWorkflow:cf]',
-      `Frame regeneration failed: ${error}`
+    logger.error(
+      `[RegenerateFramesWorkflow:cf] Frame regeneration failed: ${error}`
     );
   }
 }

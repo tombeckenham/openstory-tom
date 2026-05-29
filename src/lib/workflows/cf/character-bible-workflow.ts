@@ -37,6 +37,9 @@ import type {
 } from '@/lib/workflow/types';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
 import { NonRetryableError } from 'cloudflare:workflows';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'character-bible']);
 
 // NOTE: `CHARACTER_BIBLE_WORKFLOW` is not yet declared on `CloudflareEnv` —
 // the parent binding gets wired into `src/lib/workflow/cf/types.ts` and
@@ -208,10 +211,11 @@ export class CharacterBibleWorkflow extends OpenStoryWorkflowEntrypoint<Characte
         // child's own `onFailure` already wrote the failed status + emitted
         // the realtime event for the affected character row.
         const character = input.characterBible[index];
-        console.error(
-          '[CharacterBibleWorkflow:cf]',
-          `Child character-sheet failed for ${character?.name ?? `index ${index}`}:`,
-          outcome.reason
+        logger.error(
+          `[CharacterBibleWorkflow:cf] Child character-sheet failed for ${character?.name ?? `index ${index}`}:`,
+          {
+            err: outcome.reason,
+          }
         );
         continue;
       }
@@ -243,9 +247,8 @@ export class CharacterBibleWorkflow extends OpenStoryWorkflowEntrypoint<Characte
     error: string;
     scopedDb: ScopedDb;
   }): void {
-    console.error(
-      '[CharacterBibleWorkflow:cf]',
-      `Character sheet generation failed: ${error}`
+    logger.error(
+      `[CharacterBibleWorkflow:cf] Character sheet generation failed: ${error}`
     );
   }
 }

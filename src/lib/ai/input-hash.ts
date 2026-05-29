@@ -322,13 +322,23 @@ export type PromptSceneContextHashInput = {
 
 /**
  * Strip the LLM-output fields off a scene so the hash represents only the
- * pre-prompt input surface.
+ * pre-prompt input surface. `metadata.durationSeconds` is excluded too: it is
+ * a video-generation parameter (passed directly to the motion API and hashed
+ * by `computeFrameVideoInputHash`), not a prompt driver. Including it caused
+ * issue #767 — `motion-music-prompts-workflow` snaps the duration mid-
+ * pipeline, overwriting `frame.metadata` after the visual prompt hash was
+ * already stored, so every fresh sequence's visual prompt reported as stale.
  */
-function sceneInputContext(
-  scene: Scene
-): Omit<Scene, 'prompts' | 'continuity'> {
-  const { prompts: _prompts, continuity: _continuity, ...context } = scene;
-  return context;
+function sceneInputContext(scene: Scene) {
+  const {
+    prompts: _prompts,
+    continuity: _continuity,
+    metadata,
+    ...rest
+  } = scene;
+  if (!metadata) return rest;
+  const { durationSeconds: _duration, ...metadataWithoutDuration } = metadata;
+  return { ...rest, metadata: metadataWithoutDuration };
 }
 
 /**
@@ -361,7 +371,7 @@ function sortedBibles(input: PromptSceneContextHashInput) {
  * `*_prompt_input_hash` columns on `frames` / `sequences` so legacy rows
  * fall through that safe path until they're regenerated.
  */
-const PROMPT_INPUT_HASH_VERSION = 2;
+const PROMPT_INPUT_HASH_VERSION = 3;
 
 export function computeVisualPromptInputHash(
   input: PromptSceneContextHashInput
@@ -411,45 +421,6 @@ export function computeMusicPromptInputHash(
     hashVersion: PROMPT_INPUT_HASH_VERSION,
     sceneSummaries: input.sceneSummaries,
     analysisModel: trim(input.analysisModel),
-  });
-}
-
-/**
- * One source frame video in the stitch order. A `variantHash` references the
- * prior frame-video artifact chain (so a stale upstream frame cascades); a
- * `url` is used when the source is an external asset with no hashable
- * upstream.
- */
-export type SequenceVideoFrameSource =
-  | { kind: 'variantHash'; hash: string }
-  | { kind: 'url'; url: string };
-
-export type SequenceVideoHashInput = {
-  /**
-   * Ordered list of source frame videos in stitch order. Each entry is
-   * either a `variantHash` (cascading from the upstream frame-video
-   * artifact) or a `url` (external asset with no hashable upstream).
-   */
-  sourceFrameVideos: readonly SequenceVideoFrameSource[];
-  targetFps?: number | null;
-  resolution?: { width: number; height: number } | null;
-};
-
-export function computeSequenceVideoInputHash(
-  input: SequenceVideoHashInput
-): Promise<string> {
-  return sha256Hex({
-    artifact: 'sequence:video',
-    // Order is meaningful — this is the ordered stitch list, not a set.
-    sourceFrameVideos: input.sourceFrameVideos.map((src) =>
-      src.kind === 'variantHash'
-        ? { kind: 'variantHash' as const, hash: trim(src.hash) }
-        : { kind: 'url' as const, url: trim(src.url) }
-    ),
-    targetFps: input.targetFps ?? null,
-    resolution: input.resolution
-      ? { width: input.resolution.width, height: input.resolution.height }
-      : null,
   });
 }
 

@@ -17,6 +17,10 @@ import {
 } from '@/lib/utils/file';
 import { generateId } from '@/lib/db/id';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'motion', 'video-storage']);
+
 type UploadVideoOptions = {
   videoUrl: string;
   teamId: string;
@@ -101,7 +105,7 @@ export async function uploadVideoToStorage(
     const filename = `${sequenceSlug}_${sceneSlug}_${shortHash}_openstory.${extension}`;
     const storagePath = `teams/${teamId}/sequences/${sequenceId}/frames/${frameId}/${filename}`;
 
-    console.log(`[Video Storage] Generated filename with hash: ${shortHash}`, {
+    logger.info(`Generated filename with hash: ${shortHash}`, {
       ulid,
       filename,
       frameId,
@@ -126,7 +130,7 @@ export async function uploadVideoToStorage(
       path: storagePath,
     };
   } catch (error) {
-    console.error('[Video Storage] Upload failed:', error);
+    logger.error('Upload failed:', { err: error });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to upload video',
@@ -150,7 +154,7 @@ export async function getSignedVideoUrl(
       path,
     };
   } catch (error) {
-    console.error('[Video Storage] Failed to create signed URL:', error);
+    logger.error('Failed to create signed URL:', { err: error });
     return {
       success: false,
       error:
@@ -193,7 +197,7 @@ export async function deleteVideoFromStorage(
 
     return { success: true };
   } catch (error) {
-    console.error('[Video Storage] Failed to delete video:', error);
+    logger.error('Failed to delete video:', { err: error });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to delete video',
@@ -232,7 +236,7 @@ export async function listSequenceVideos(
       videos,
     };
   } catch (error) {
-    console.error('[Video Storage] Failed to list videos:', error);
+    logger.error('Failed to list videos:', { err: error });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to list videos',
@@ -266,7 +270,7 @@ export async function calculateTeamStorageUsage(teamId: string): Promise<{
       totalMB: totalBytes / (1024 * 1024),
     };
   } catch (error) {
-    console.error('[Video Storage] Failed to calculate storage:', error);
+    logger.error('Failed to calculate storage:', { err: error });
     return {
       success: false,
       error:

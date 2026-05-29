@@ -1,3 +1,6 @@
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'prompts', 'reference-image-prompt']);
 /**
  * Result of building a prompt with character references
  */
@@ -155,14 +158,14 @@ function truncateBasePrompt(
 
   if (available <= 0) {
     // Reference section alone exceeds limit — truncate the whole thing as a last resort
-    console.warn(
-      `[buildReferenceImagePrompt] Reference section (${refSection.length} chars) exceeds maxPromptLength (${maxLength})`
+    logger.warn(
+      `Reference section (${refSection.length} chars) exceeds maxPromptLength (${maxLength})`
     );
     return combinedPrompt.slice(0, maxLength - 3) + '...';
   }
 
-  console.warn(
-    `[buildReferenceImagePrompt] Base prompt truncated from ${basePrompt.length} to ${available} chars (reference-images preserved)`
+  logger.warn(
+    `Base prompt truncated from ${basePrompt.length} to ${available} chars (reference-images preserved)`
   );
   return basePrompt.slice(0, available) + '...' + joiner + refSection;
 }

@@ -56,6 +56,9 @@ import {
   type FrameImageSceneSnapshot,
 } from '@/lib/workflows/sheet-snapshots';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'frame-images']);
 
 type ImageChildResult = {
   imageUrl: string;
@@ -348,10 +351,11 @@ export class FrameImagesWorkflow extends OpenStoryWorkflowEntrypoint<FrameImages
         for (let i = 1; i < modelResults.length; i++) {
           const r = modelResults[i];
           if (r?.status === 'rejected') {
-            console.warn(
-              '[FrameImagesWorkflow:cf]',
-              `Alternate model ${imageModels[i]} failed for scene ${scene.sceneId}:`,
-              r.reason
+            logger.warn(
+              `[FrameImagesWorkflow:cf] Alternate model ${imageModels[i]} failed for scene ${scene.sceneId}:`,
+              {
+                err: r.reason,
+              }
             );
           }
         }
@@ -371,10 +375,11 @@ export class FrameImagesWorkflow extends OpenStoryWorkflowEntrypoint<FrameImages
         imageUrls.push(r.value);
       } else {
         const scene = scenesWithVisualPrompts[i];
-        console.error(
-          '[FrameImagesWorkflow:cf]',
-          `Scene ${scene?.sceneId ?? '(unknown)'} failed:`,
-          r.reason
+        logger.error(
+          `[FrameImagesWorkflow:cf] Scene ${scene?.sceneId ?? '(unknown)'} failed:`,
+          {
+            err: r.reason,
+          }
         );
       }
     }
@@ -391,9 +396,8 @@ export class FrameImagesWorkflow extends OpenStoryWorkflowEntrypoint<FrameImages
     scopedDb: ScopedDb;
   }): void {
     const input = event.payload;
-    console.error(
-      '[FrameImagesWorkflow:cf]',
-      `Frame image generation failed for sequence ${input.sequenceId}: ${error}`
+    logger.error(
+      `[FrameImagesWorkflow:cf] Frame image generation failed for sequence ${input.sequenceId}: ${error}`
     );
   }
 }

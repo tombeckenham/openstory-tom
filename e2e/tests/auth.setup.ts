@@ -1,32 +1,25 @@
 /**
- * Auth Setup — authenticates the shared E2E user in the browser and saves
- * the session storage state for the rest of the suite to reuse.
- *
- * The user itself is pre-seeded by `e2e/global-setup.ts` before the
- * webServer boots, so the workerd worker's first D1 read sees the row.
- * Inserting it here (after the worker is already running) used to race
- * with miniflare's SQLite cache and abort the /verify navigation.
+ * Auth Setup - Runs once before all tests to create authenticated session
+ * Saves both browser state (cookies) and user info to disk for reuse
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { test as setup } from 'playwright/test';
-import { authenticateUser } from '../fixtures/auth.fixture';
+import { authenticateUser, createTestUser } from '../fixtures/auth.fixture';
 
 const authDir = path.join(import.meta.dirname, '../.auth');
 const authFile = path.join(authDir, 'user.json');
 const userInfoFile = path.join(authDir, 'user-info.json');
 
 setup('authenticate', async ({ page }) => {
-  if (!fs.existsSync(userInfoFile)) {
-    throw new Error(
-      `[auth.setup] ${userInfoFile} not found — global-setup should pre-seed the auth fixture user before this runs.`
-    );
+  if (!fs.existsSync(authDir)) {
+    fs.mkdirSync(authDir, { recursive: true });
   }
-  const user = JSON.parse(fs.readFileSync(userInfoFile, 'utf-8')) as {
-    email: string;
-  };
 
-  await authenticateUser(page, user.email);
+  const freshUser = await createTestUser({ name: 'E2E Shared User' });
+  await authenticateUser(page, freshUser.email);
+
   await page.context().storageState({ path: authFile });
+  fs.writeFileSync(userInfoFile, JSON.stringify(freshUser, null, 2));
 });

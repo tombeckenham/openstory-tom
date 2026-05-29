@@ -17,6 +17,10 @@ import {
 } from '../ai/scene-analysis.schema';
 import { durableStreamingLLMCall } from './llm-call-helper';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'motion-prompt-scene']);
+
 export const motionPromptSceneWorkflow = createScopedWorkflow<
   MotionPromptSceneWorkflowInput,
   { sceneId: string; motionPrompt: MotionPrompt }
@@ -44,9 +48,7 @@ export const motionPromptSceneWorkflow = createScopedWorkflow<
     const { promptVariables, additionalMetadata } = await context.run(
       'prepare-motion-prompt-generation',
       async () => {
-        console.log(
-          `[MotionPromptSceneWorkflow] Generating motion prompt for scene ${scene.sceneId}`
-        );
+        logger.info(`Generating motion prompt for scene ${scene.sceneId}`);
         return {
           promptVariables: {
             sceneBefore: sceneBefore
@@ -170,7 +172,7 @@ export const motionPromptSceneWorkflow = createScopedWorkflow<
   {
     failureFunction: async ({ context, failStatus, failResponse }) => {
       const error = sanitizeFailResponse(failResponse);
-      console.error('[MotionPromptSceneWorkflow] Failed', {
+      logger.error('Failed', {
         workflowRunId: context.workflowRunId,
         failStatus,
         failResponse: error,
@@ -184,10 +186,7 @@ export const motionPromptSceneWorkflow = createScopedWorkflow<
           );
         }
       } catch (emitErr) {
-        console.warn(
-          '[MotionPromptSceneWorkflow] failed to emit failure',
-          emitErr
-        );
+        logger.warn('failed to emit failure', { err: emitErr });
       }
       return `Motion prompt generation failed: ${error}`;
     },

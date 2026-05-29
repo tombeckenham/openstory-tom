@@ -35,6 +35,9 @@ import type {
   UpscaleShotVariantWorkflowResult,
 } from '@/lib/workflow/types';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'upscale-shot-variant']);
 
 const UPSCALE_PROMPT = `Upscale this image to a clean, high-resolution frame suitable for animation.
 
@@ -75,9 +78,8 @@ export class UpscaleShotVariantWorkflow extends OpenStoryWorkflowEntrypoint<Upsc
       throw new WorkflowValidationError('sequenceId and teamId are required');
     }
 
-    console.log(
-      '[UpscaleShotVariantWorkflow:cf]',
-      `Starting upscale for frame ${frameId}`
+    logger.info(
+      `[UpscaleShotVariantWorkflow:cf] Starting upscale for frame ${frameId}`
     );
 
     const upscaleResult = await step.do('upscale-image', async () => {
@@ -96,9 +98,8 @@ export class UpscaleShotVariantWorkflow extends OpenStoryWorkflowEntrypoint<Upsc
       );
 
       if (!frame) {
-        console.log(
-          '[UpscaleShotVariantWorkflow:cf]',
-          `Frame ${frameId} was deleted, skipping workflow`
+        logger.info(
+          `[UpscaleShotVariantWorkflow:cf] Frame ${frameId} was deleted, skipping workflow`
         );
         return null;
       }
@@ -191,9 +192,8 @@ export class UpscaleShotVariantWorkflow extends OpenStoryWorkflowEntrypoint<Upsc
       );
 
       if (!updatedFrame) {
-        console.log(
-          '[UpscaleShotVariantWorkflow:cf]',
-          `Frame ${input.frameId} was deleted, skipping final update`
+        logger.info(
+          `[UpscaleShotVariantWorkflow:cf] Frame ${input.frameId} was deleted, skipping final update`
         );
         return;
       }
@@ -207,9 +207,8 @@ export class UpscaleShotVariantWorkflow extends OpenStoryWorkflowEntrypoint<Upsc
         }
       );
 
-      console.log(
-        '[UpscaleShotVariantWorkflow:cf]',
-        `Upscale completed for frame ${input.frameId}`
+      logger.info(
+        `[UpscaleShotVariantWorkflow:cf] Upscale completed for frame ${input.frameId}`
       );
     });
 
@@ -230,9 +229,8 @@ export class UpscaleShotVariantWorkflow extends OpenStoryWorkflowEntrypoint<Upsc
   }): Promise<void> {
     const input = event.payload;
 
-    console.error(
-      '[UpscaleShotVariantWorkflow:cf]',
-      `Upscale failed for frame ${input.frameId}: ${error}`
+    logger.error(
+      `[UpscaleShotVariantWorkflow:cf] Upscale failed for frame ${input.frameId}: ${error}`
     );
 
     if (input.frameId && input.teamId) {

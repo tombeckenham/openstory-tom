@@ -13,6 +13,10 @@ import type { ScopedDb } from '../db/scoped';
 import { createAdapter } from './create-adapter';
 import { getContextWindow } from './models.config';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'ai', 'llm-client']);
+
 export type StreamChunk<T = never> =
   | { done: false; delta: string; accumulated: string }
   | {
@@ -339,7 +343,7 @@ export async function callChat<TSchema extends z.ZodType>(
   // Create the adapter using the API key
   const adapter = createAdapter(modelId, openRouterApiKeyInfo.key);
 
-  console.log(`[LLM:${name}] Starting call`, {
+  logger.info(`[LLM:${name}] Starting call`, {
     model: modelId,
     keySource: openRouterApiKeyInfo.source,
     messageCount: messages.length,
@@ -376,7 +380,7 @@ export async function callChat<TSchema extends z.ZodType>(
     debug: false,
   });
 
-  console.log(`[LLM:${name}] Call succeeded`);
+  logger.info(`[LLM:${name}] Call succeeded`);
 
   // Deduct LLM credits (cost tracked via Langfuse; adapter doesn't expose per-call usage)
   // TODO: Add cost calculation

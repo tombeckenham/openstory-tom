@@ -22,7 +22,7 @@ import { getCurrentUserFn } from '@/lib/auth/server';
  * @example
  * ```typescript
  * const user = await requireUser();
- * console.log(user.id, user.email);
+ * logger.info(user.id, user.email);
  * ```
  */
 export async function requireUser(): Promise<User> {
@@ -50,7 +50,7 @@ export async function requireUser(): Promise<User> {
  * @example
  * ```typescript
  * const role = await requireTeamMemberAccess(user.id, teamId, "member");
- * console.log(`User has ${role} role`);
+ * logger.info(`User has ${role} role`);
  * ```
  */
 export async function requireTeamMemberAccess(

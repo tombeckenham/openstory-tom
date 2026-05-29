@@ -40,6 +40,9 @@ import { WorkflowValidationError } from '@/lib/workflow/errors';
 import type { VisualPromptSceneWorkflowInput } from '@/lib/workflow/types';
 import { chat, convertSchemaToJsonSchema } from '@tanstack/ai';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'visual-prompt-scene']);
 
 type VisualPromptSceneResult = { sceneId: string } & VisualPromptWithContinuity;
 
@@ -123,7 +126,7 @@ export class VisualPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Visua
         await scopedDb.apiKeys.resolveKey('openrouter');
       const adapter = createAdapter(analysisModelId, openRouterApiKeyInfo.key);
 
-      console.log(
+      logger.info(
         `[VisualPromptSceneWorkflow:cf] [LLM:${LOG_NAME}] Starting${
           streamConfig ? ' streaming' : ''
         } call`,
@@ -197,7 +200,7 @@ export class VisualPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Visua
             },
             debug: false,
           });
-          console.log(
+          logger.info(
             `[VisualPromptSceneWorkflow:cf] [LLM:${LOG_NAME}] Call succeeded`
           );
           return JSON.stringify(
@@ -282,7 +285,7 @@ export class VisualPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Visua
           }
         }
         await flushDelta();
-        console.log(
+        logger.info(
           `[VisualPromptSceneWorkflow:cf] [LLM:${LOG_NAME}] Streaming call succeeded`
         );
         return JSON.stringify(
@@ -402,7 +405,7 @@ export class VisualPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Visua
     scopedDb: ScopedDb;
   }): Promise<void> {
     const payload = event.payload;
-    console.error('[VisualPromptSceneWorkflow:cf] Failed', {
+    logger.error('[VisualPromptSceneWorkflow:cf] Failed', {
       workflowRunId: event.instanceId,
       error,
     });
@@ -416,10 +419,9 @@ export class VisualPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Visua
         );
       }
     } catch (emitErr) {
-      console.warn(
-        '[VisualPromptSceneWorkflow:cf] failed to emit failure',
-        emitErr
-      );
+      logger.warn('[VisualPromptSceneWorkflow:cf] failed to emit failure', {
+        err: emitErr,
+      });
     }
   }
 }

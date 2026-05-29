@@ -45,6 +45,9 @@ import type {
   ShotVariantWorkflowResult,
 } from '@/lib/workflow/types';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'workflow', 'shot-variant']);
 
 export class ShotVariantWorkflow extends OpenStoryWorkflowEntrypoint<ShotVariantWorkflowInput> {
   protected override async runImpl(
@@ -66,9 +69,8 @@ export class ShotVariantWorkflow extends OpenStoryWorkflowEntrypoint<ShotVariant
           );
         }
 
-        console.log(
-          '[ShotVariantWorkflow:cf]',
-          `Starting variant image generation workflow for user ${input.userId}`
+        logger.info(
+          `[ShotVariantWorkflow:cf] Starting variant image generation workflow for user ${input.userId}`
         );
 
         const model = input.model || DEFAULT_IMAGE_MODEL;
@@ -90,9 +92,8 @@ export class ShotVariantWorkflow extends OpenStoryWorkflowEntrypoint<ShotVariant
           );
 
           if (!frame) {
-            console.log(
-              '[ShotVariantWorkflow:cf]',
-              `Frame ${input.frameId} was deleted, skipping workflow`
+            logger.info(
+              `[ShotVariantWorkflow:cf] Frame ${input.frameId} was deleted, skipping workflow`
             );
             return null; // Signal to skip
           }
@@ -168,9 +169,8 @@ export class ShotVariantWorkflow extends OpenStoryWorkflowEntrypoint<ShotVariant
 
     // Step 2: Generate image
     const imageResult = await step.do('generate-image', async () => {
-      console.log(
-        '[ShotVariantWorkflow:cf]',
-        `Generating variant image ${input.frameId} with model ${generationParams.model}`
+      logger.info(
+        `[ShotVariantWorkflow:cf] Generating variant image ${input.frameId} with model ${generationParams.model}`
       );
 
       return await generateImageWithProvider(generationParams, { scopedDb });
@@ -232,9 +232,8 @@ export class ShotVariantWorkflow extends OpenStoryWorkflowEntrypoint<ShotVariant
         );
 
         if (!updatedFrame) {
-          console.log(
-            '[ShotVariantWorkflow:cf]',
-            `Frame ${input.frameId} was deleted, skipping final update`
+          logger.info(
+            `[ShotVariantWorkflow:cf] Frame ${input.frameId} was deleted, skipping final update`
           );
           return { url: result.url, path: result.path };
         }
@@ -262,9 +261,8 @@ export class ShotVariantWorkflow extends OpenStoryWorkflowEntrypoint<ShotVariant
           }
         );
 
-        console.log(
-          '[ShotVariantWorkflow:cf]',
-          `Image uploaded to storage: ${result.path}`
+        logger.info(
+          `[ShotVariantWorkflow:cf] Image uploaded to storage: ${result.path}`
         );
         return { url: result.url, path: result.path };
       });
@@ -328,9 +326,8 @@ export class ShotVariantWorkflow extends OpenStoryWorkflowEntrypoint<ShotVariant
         }
       }
 
-      console.error(
-        '[ShotVariantWorkflow:cf]',
-        `Image generation failed for frame ${input.frameId}: ${error}`
+      logger.error(
+        `[ShotVariantWorkflow:cf] Image generation failed for frame ${input.frameId}: ${error}`
       );
     }
   }

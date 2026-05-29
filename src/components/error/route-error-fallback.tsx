@@ -5,6 +5,10 @@ import { useRouter } from '@tanstack/react-router';
 import type { ErrorComponentProps } from '@tanstack/react-router';
 import { AlertCircle } from 'lucide-react';
 
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'ui', 'error', 'route-error-fallback']);
+
 type RouteErrorFallbackProps = ErrorComponentProps & {
   heading?: string;
 };
@@ -29,7 +33,7 @@ export const RouteErrorFallback: React.FC<RouteErrorFallbackProps> = ({
   const router = useRouter();
   const is404 = isNotFoundError(error);
 
-  console.error(`[RouteError:${heading}]`, error);
+  logger.error(`[RouteError:${heading}]`, { err: error });
 
   if (is404) {
     return <DefaultNotFound />;

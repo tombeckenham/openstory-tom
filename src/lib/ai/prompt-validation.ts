@@ -1,3 +1,6 @@
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'ai', 'prompt-validation']);
 // Security: Prompt injection protection patterns
 // These patterns detect injection attempts for logging/alerting only.
 // sanitizeScriptContent performs safe, line-scoped replacements and unwraps
@@ -67,7 +70,7 @@ export const checkForInjectionAttempts = (script: string): boolean => {
   );
 
   if (containsSuspiciousContent) {
-    console.warn('Script enhancement: Potential injection attempt detected', {
+    logger.warn('Script enhancement: Potential injection attempt detected', {
       timestamp: new Date().toISOString(),
       scriptLength: script.length,
       suspiciousPatterns: INJECTION_PATTERNS.filter((pattern) =>

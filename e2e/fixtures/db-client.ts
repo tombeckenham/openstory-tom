@@ -1,13 +1,29 @@
 /**
  * Test Database Client for E2E Tests
  *
- * Uses wrangler's `getPlatformProxy()` so fixtures read/write the same
- * Miniflare-backed local D1 that the worker (running under cf-plugin) sees.
- * No more separate `file:test.db` libsql connection — schema is applied via
- * `scripts/migrate-local-d1.ts --test` against `wrangler.jsonc` [env.test].
+ * IMPORTANT: There are TWO distinct ways tests touch the D1 database:
  *
- * Top-level await runs once per process at module load. Fixtures don't need
- * to remember to await an init promise.
+ * 1. Through the app (the intended/safe path):
+ *    Browser (`page.goto`, clicks, etc.) → HTTP → server handlers → getDb()
+ *    This goes through the SINGLE Miniflare instance started by
+ *    @cloudflare/vite-plugin inside the `vite dev` / `vite preview` webServer.
+ *
+ * 2. DIRECTLY from test code (the source of the remaining locking risk):
+ *    Node.js Playwright worker processes import this module and call
+ *    `getPlatformProxy({ environment: 'test' })` themselves. With
+ *    `fullyParallel: true` + multiple workers (4 locally, 2 in CI), this
+ *    means MULTIPLE independent workerd/Miniflare processes opening the
+ *    same SQLite file under .wrangler/state/v3/d1/... while the app is
+ *    also writing.
+ *
+ * This file is Path #2. It exists for pragmatic reasons (creating users,
+ * teams, sequences, talent, frames, etc. via the real UI is slow and brittle),
+ * but it is the reason we still carry some SQLITE_BUSY risk on the test side.
+ *
+ * See also:
+ * - playwright.config.ts (why we use vite dev/preview instead of wrangler dev)
+ * - e2e/fixtures/*.fixture.ts (the direct insert/delete calls)
+ * - scripts/migrate-local-d1.ts and scripts/seed.ts (also use getPlatformProxy)
  */
 
 import { drizzle } from 'drizzle-orm/d1';
@@ -38,3 +54,15 @@ export const testDb = drizzle(d1, { relations });
  * imports `ensureDbInit`.
  */
 export const ensureDbInit = (): Promise<void> => Promise.resolve();
+
+/**
+ * Dispose the underlying getPlatformProxy / workerd process.
+ * Should be called during global teardown.
+ */
+export async function disposeTestDb(): Promise<void> {
+  try {
+    await proxy.dispose();
+  } catch {
+    // Best effort
+  }
+}

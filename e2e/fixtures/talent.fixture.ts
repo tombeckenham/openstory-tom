@@ -4,6 +4,7 @@
  */
 
 import { and, eq } from 'drizzle-orm';
+import { z } from 'zod';
 import { ulid } from 'ulid';
 import { testDb } from './db-client';
 import { talent, talentSheets, talentMedia } from '@/lib/db/schema';
@@ -26,33 +27,32 @@ export async function createTestTalent(
   teamId: string,
   name: string
 ): Promise<TestTalent> {
-  const talentId = ulid();
-  const sheetId = ulid();
-  const now = new Date();
-
-  // Insert talent
-  await testDb.insert(talent).values({
-    id: talentId,
-    teamId,
-    name,
-    isInTeamLibrary: true,
-    createdAt: now,
-    updatedAt: now,
+  // Create via guarded test API (writes happen inside the single safe Miniflare)
+  const res = await fetch('http://localhost:3001/api/test/talent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ teamId, name }),
   });
 
-  // Insert default sheet with local test image (no external dependencies)
-  await testDb.insert(talentSheets).values({
-    id: sheetId,
-    talentId,
-    name: 'Default',
-    imageUrl: `http://localhost:3001/api/test/image?w=512&h=512&label=sheet`,
-    isDefault: true,
-    source: 'manual_upload',
-    createdAt: now,
-    updatedAt: now,
-  });
+  if (!res.ok) {
+    throw new Error(`Failed to create test talent via API: ${res.status}`);
+  }
 
-  return { id: talentId, name, teamId, sheetId };
+  const created = z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      teamId: z.string(),
+      defaultSheetId: z.string(),
+    })
+    .parse(await res.json());
+
+  return {
+    id: created.id,
+    name: created.name,
+    teamId: created.teamId,
+    sheetId: created.defaultSheetId,
+  };
 }
 
 /**

@@ -11,9 +11,11 @@
 
 import { describe, expect, test, vi } from 'vitest';
 import {
+  buildChildInstanceId,
   notifyParentOfFailure,
   type ParentNotifyHint,
   sanitizeEventType,
+  spawnAndAwaitChild,
 } from './await-child';
 import type { CloudflareEnv } from '@/lib/workflow/types';
 import type { WorkflowStep } from 'cloudflare:workers';
@@ -99,6 +101,121 @@ describe('sanitizeEventType', () => {
     const result = sanitizeEventType(`:${'y'.repeat(250)}`);
     expect(result.length).toBe(100);
     expect(result).toMatch(CF_EVENT_TYPE);
+  });
+});
+
+// CF's documented instance-id rule.
+const CF_INSTANCE_ID = /^[a-zA-Z0-9_-]+$/;
+
+describe('buildChildInstanceId', () => {
+  const SEMANTIC = 'motion:01SEQ:01FRAME';
+
+  test('sanitizes colons (CF instance ids reject them, same as event types)', () => {
+    const id = buildChildInstanceId(SEMANTIC, 'parent_run_A');
+    expect(id).not.toContain(':');
+    expect(id).toMatch(CF_INSTANCE_ID);
+  });
+
+  test('two parent runs of the same semantic child get different ids (the regenerate fix)', () => {
+    const runA = buildChildInstanceId(SEMANTIC, 'openstory-so_motion-batch_A');
+    const runB = buildChildInstanceId(SEMANTIC, 'openstory-so_motion-batch_B');
+    expect(runA).not.toBe(runB);
+  });
+
+  test('same parent run + same semantic child is stable (idempotent across replays)', () => {
+    expect(buildChildInstanceId(SEMANTIC, 'parent_run_A')).toBe(
+      buildChildInstanceId(SEMANTIC, 'parent_run_A')
+    );
+  });
+
+  test('siblings within one parent run stay distinct', () => {
+    const frame7 = buildChildInstanceId('motion:01SEQ:07', 'parent_run_A');
+    const frame8 = buildChildInstanceId('motion:01SEQ:08', 'parent_run_A');
+    expect(frame7).not.toBe(frame8);
+  });
+
+  test('keeps the semantic id readable as the head when it fits', () => {
+    expect(buildChildInstanceId(SEMANTIC, 'parent_run_A')).toMatch(
+      /^motion_01SEQ_01FRAME_r/
+    );
+  });
+
+  test('over-length ids stay <=100 chars, valid, and unique per run', () => {
+    const longSemantic = `motion:${'s'.repeat(120)}:${'f'.repeat(120)}`;
+    const longParent = `openstory-so_motion-batch_${'p'.repeat(120)}`;
+    const a = buildChildInstanceId(longSemantic, `${longParent}-A`);
+    const b = buildChildInstanceId(longSemantic, `${longParent}-B`);
+    expect(a.length).toBeLessThanOrEqual(100);
+    expect(b.length).toBeLessThanOrEqual(100);
+    expect(a).toMatch(CF_INSTANCE_ID);
+    expect(a).not.toBe(b);
+  });
+});
+
+describe('spawnAndAwaitChild', () => {
+  function harness(createImpl: () => Promise<unknown>) {
+    const create =
+      vi.fn<(opts: { id: string; params: unknown }) => Promise<unknown>>(
+        createImpl
+      );
+    const waitForEvent = vi.fn().mockResolvedValue({
+      payload: { status: 'ok', output: { ok: true } },
+    });
+    const doSpy = vi.fn((_name: string, fn: () => Promise<unknown>) => fn());
+    const stepStub = { do: doSpy, waitForEvent };
+    // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion -- minimal WorkflowStep stub exposing only do + waitForEvent
+    const step = stepStub as unknown as WorkflowStep;
+    const bindingStub = { create, get: vi.fn() };
+    // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion -- minimal Workflow binding stub exposing only create + get
+    const binding = bindingStub as unknown as Workflow<{
+      userId: string;
+      teamId: string;
+    }>;
+    return { step, binding, create, waitForEvent };
+  }
+
+  const baseArgs = {
+    parentBindingName: 'MOTION_BATCH_WORKFLOW' as keyof CloudflareEnv,
+    parentInstanceId: 'parent_run_A',
+    childId: 'motion:01SEQ:01FRAME',
+    childPayload: { userId: 'u1', teamId: 't1' },
+    spawnStepName: 'spawn-motion-0',
+    awaitStepName: 'await-motion-0',
+  };
+
+  test('creates the child under a run-scoped instance id', async () => {
+    const { step, binding, create } = harness(() => Promise.resolve(undefined));
+
+    await spawnAndAwaitChild(step, { ...baseArgs, binding });
+
+    expect(create).toHaveBeenCalledTimes(1);
+    const opts = create.mock.calls[0]?.[0];
+    if (!opts) throw new Error('binding.create was not called');
+    expect(opts.id).toMatch(/^motion_01SEQ_01FRAME_r/);
+    expect(opts.id).toMatch(CF_INSTANCE_ID);
+  });
+
+  test('swallows instance.already_exists and still awaits the result (the regenerate retry path)', async () => {
+    const { step, binding, waitForEvent } = harness(() =>
+      Promise.reject(
+        new Error('(instance.already_exists) Instance already exists')
+      )
+    );
+
+    const result = await spawnAndAwaitChild(step, { ...baseArgs, binding });
+
+    expect(waitForEvent).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ ok: true });
+  });
+
+  test('rethrows unrelated create errors', async () => {
+    const { step, binding } = harness(() =>
+      Promise.reject(new Error('network down'))
+    );
+
+    await expect(
+      spawnAndAwaitChild(step, { ...baseArgs, binding })
+    ).rejects.toThrow('network down');
   });
 });
 

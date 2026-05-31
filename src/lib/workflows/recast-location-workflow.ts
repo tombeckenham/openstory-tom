@@ -221,7 +221,7 @@ export class RecastLocationWorkflow extends OpenStoryWorkflowEntrypoint<RecastLo
       >,
       parentBindingName: 'RECAST_LOCATION_WORKFLOW',
       parentInstanceId: event.instanceId,
-      childId: `location-sheet:${input.sequenceId ?? 'no-seq'}:${input.locationDbId}:${event.instanceId}`,
+      childId: `location-sheet:${input.sequenceId ?? 'no-seq'}:${input.locationDbId}`,
       childPayload: sheetBody,
       spawnStepName: 'spawn-location-sheet',
       awaitStepName: 'await-location-sheet',

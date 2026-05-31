@@ -229,10 +229,21 @@
     },
   ],
   "env": {
-    // Production deploy target. Activated via `wrangler deploy --env=production`
-    // — without --env, deploys hit the default block (whose D1 id is a
-    // placeholder), which fails loudly rather than overwriting prod.
+    // Production deploy target. @cloudflare/vite-plugin selects the env at
+    // BUILD time via CLOUDFLARE_ENV — `cf:deploy:prd` sets
+    // `CLOUDFLARE_ENV=production bun run build`, which bakes these bindings
+    // into dist/server/wrangler.json. The `--env=production` flag on
+    // `wrangler deploy` is a no-op against that generated (already-flattened)
+    // config; without CLOUDFLARE_ENV the build bakes the DEFAULT block (whose
+    // D1 id is a placeholder), so the deploy fails loudly rather than
+    // overwriting prod with the wrong DB.
     "production": {
+      // Pin the worker name so the production env deploys to the EXISTING
+      // `openstory` worker (with its routes + custom domain). Without this,
+      // legacy_env (default true) derives the name as `<top>-<env>` =
+      // `openstory-production`, which is a DIFFERENT worker — the deploy
+      // would succeed but the live site would never update.
+      "name": "openstory",
       "d1_databases": [
         {
           "binding": "DB",

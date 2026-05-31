@@ -154,6 +154,8 @@ function formatExportProgress(progress: ExportProgress | null): string {
     mix: 'Mixing audio',
     encode: 'Encoding audio',
     finalize: 'Finalizing',
+    upload: 'Uploading',
+    commit: 'Saving',
   };
   const label = phaseLabel[progress.phase];
   if (progress.total > 0) {

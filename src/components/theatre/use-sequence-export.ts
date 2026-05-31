@@ -31,6 +31,10 @@ export const sequenceExportKeys = {
   list: (sequenceId: string) => ['sequence-exports', sequenceId] as const,
 };
 
+// Cap the upload PUT so a stalled R2 proxy surfaces an error toast instead of
+// spinning forever. Generous enough for a 5-min export on a slow connection.
+const UPLOAD_TIMEOUT_MS = 5 * 60 * 1000;
+
 export type SequenceExportState = {
   isRunning: boolean;
   progress: ExportProgress | null;
@@ -85,13 +89,20 @@ export function useSequenceExport(sequence: Sequence): SequenceExportState {
         signal,
       });
 
+      // `upload` and `commit` run here, after the Mediabunny pipeline. Report
+      // them through the same progress channel so a stalled upload/commit
+      // doesn't masquerade as a stuck "Finalizing…" (finalize is the last
+      // phase exportSequence emits).
+      setProgress({ phase: 'upload', completed: 0, total: 0 });
       await uploadMergedBlob({
         blob,
         uploadUrl: reservation.uploadUrl,
         contentType: reservation.contentType,
         signal,
+        timeoutMs: UPLOAD_TIMEOUT_MS,
       });
 
+      setProgress({ phase: 'commit', completed: 0, total: 0 });
       return await commitSequenceExportFn({
         data: {
           sequenceId: sequence.id,

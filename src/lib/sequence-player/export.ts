@@ -51,7 +51,14 @@ export type ExportProgressPhase =
   | 'dialogue'
   | 'mix'
   | 'encode'
-  | 'finalize';
+  | 'finalize'
+  // `upload` and `commit` happen in the export hook (after `exportSequence`
+  // returns), not in this module. They're declared here so the hook can keep
+  // reporting through the same ExportProgress channel — otherwise an upload or
+  // commit stall shows in the UI as a stuck "Finalizing…", since `finalize` is
+  // the last phase this module emits.
+  | 'upload'
+  | 'commit';
 
 export type ExportProgress = {
   phase: ExportProgressPhase;

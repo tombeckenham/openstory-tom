@@ -106,8 +106,6 @@ function createAuth() {
 
     // Configure plugins
     plugins: [
-      // TanStack Start cookie integration
-      tanstackStartCookies(),
       // Email OTP authentication (passwordless)
       emailOTP({
         otpLength: 6,
@@ -126,6 +124,9 @@ function createAuth() {
       }),
       lastLoginMethod(),
       passkeyPlugin(),
+      // TanStack Start cookie integration - must be after all plugins that set cookies
+      // (emailOTP, passkey, lastLoginMethod)
+      tanstackStartCookies(),
     ],
 
     // Custom user fields to match existing schema, This is BetterAuth user table.

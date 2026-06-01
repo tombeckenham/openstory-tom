@@ -1,4 +1,5 @@
 import {
+  addModelToSequenceFn,
   archiveSequenceFn,
   createSequenceFn,
   getSequenceAudioModelsFn,
@@ -9,6 +10,7 @@ import {
 } from '@/functions/sequences';
 import { DEFAULT_ANALYSIS_MODEL } from '@/lib/ai/models.config';
 import type { SequenceMusicVariant } from '@/lib/db/schema';
+import type { VariantType } from '@/lib/db/schema/frame-variants';
 import {
   type CreateSequenceInput,
   type UpdateSequenceInput,
@@ -55,6 +57,47 @@ export function useSequenceAudioVariants(sequenceId?: string) {
     },
     enabled: !!sequenceId,
     staleTime: 30_000,
+  });
+}
+
+const MODEL_LIST_KEY: Record<VariantType, (id: string) => string[]> = {
+  image: (id) => ['sequence-image-models', id],
+  video: (id) => ['sequence-video-models', id],
+  audio: (id) => ['sequence-audio-models', id],
+};
+const VARIANTS_KEY: Record<VariantType, (id: string) => string[]> = {
+  image: (id) => ['sequence-image-variants', id],
+  video: (id) => ['sequence-video-variants', id],
+  audio: (id) => ['sequence-audio-variants', id],
+};
+
+// Add a new model to an existing sequence (#547): generates its output for
+// every frame (image/video) or the whole sequence (audio) using existing
+// prompts. Invalidates the matching model-list + variants queries so the new
+// model surfaces in the header dropdown immediately (pre-stamped pending).
+export function useAddModelToSequence() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    {
+      workflowRunId: string;
+      variantType: VariantType;
+      model: string;
+      count: number;
+    },
+    Error,
+    { sequenceId: string; variantType: VariantType; model: string }
+  >({
+    mutationFn: async (input) => addModelToSequenceFn({ data: input }),
+    onSuccess: async (_, { sequenceId, variantType }) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: MODEL_LIST_KEY[variantType](sequenceId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: VARIANTS_KEY[variantType](sequenceId),
+        }),
+      ]);
+    },
   });
 }
 

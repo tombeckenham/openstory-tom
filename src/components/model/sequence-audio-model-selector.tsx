@@ -7,6 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { AddModelMenuSection } from '@/components/model/add-model-menu';
 import { useActiveAudioModel } from '@/hooks/use-active-audio-model';
 import { useSequenceAudioModels } from '@/hooks/use-sequences';
 import { AUDIO_MODELS, isValidAudioModel } from '@/lib/ai/models';
@@ -92,6 +93,11 @@ export const SequenceAudioModelSelector = ({
             </DropdownMenuCheckboxItem>
           );
         })}
+        <AddModelMenuSection
+          sequenceId={sequenceId}
+          variantType="audio"
+          usedModels={models}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );

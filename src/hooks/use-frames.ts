@@ -15,6 +15,7 @@ import {
   promoteVariantFn,
   discardVariantFn,
   undiscardVariantFn,
+  getSequenceImageModelsFn,
   getSequenceVideoModelsFn,
   getSequenceVideoVariantsFn,
 } from '@/functions/frames';
@@ -78,11 +79,24 @@ export const frameKeys = {
   list: (sequenceId: string) => [...frameKeys.lists(), sequenceId] as const,
   details: () => [...frameKeys.all, 'detail'] as const,
   detail: (id: string) => [...frameKeys.details(), id] as const,
-  imageModels: (sequenceId: string) =>
-    [...frameKeys.all, 'image-models', sequenceId] as const,
   divergentVariants: (sequenceId: string) =>
     [...frameKeys.all, 'divergent-variants', sequenceId] as const,
 };
+
+// Distinct image models that have generated a variant for this sequence.
+// Drives the header image-model dropdown (#547). Flat key matches the
+// image:progress cache invalidation in query-cache-updater.
+export function useSequenceImageModels(sequenceId?: string) {
+  return useQuery<string[]>({
+    queryKey: ['sequence-image-models', sequenceId ?? ''],
+    queryFn: async () => {
+      if (!sequenceId) throw new Error('sequenceId is required');
+      return getSequenceImageModelsFn({ data: { sequenceId } });
+    },
+    enabled: !!sequenceId,
+    staleTime: 30_000,
+  });
+}
 
 // Distinct video models that have generated a variant for this sequence (#545).
 // Drives the header video-model dropdown. The realtime video:progress handler

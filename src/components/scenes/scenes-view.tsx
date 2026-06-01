@@ -22,6 +22,7 @@ import {
   useSequenceVideoVariants,
   useUndiscardVariant,
 } from '@/hooks/use-frames';
+import { useActiveImageModel } from '@/hooks/use-active-image-model';
 import { useActiveVideoModel } from '@/hooks/use-active-video-model';
 import { type ModelGenerationStatus } from '@/components/model/base-model-selector';
 import { useStaleDetected } from '@/lib/realtime/use-stale-detected';
@@ -265,6 +266,22 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
     }
     return map;
   }, [videoVariants]);
+
+  // Viewer-local active image model (#547). When pinned, the player shows that
+  // model's image for each frame (falling back to the legacy thumbnail when the
+  // model has no completed image for a frame).
+  const { activeImageModel } = useActiveImageModel(sequenceId);
+  const imageVariantsByFrame = useMemo(() => {
+    const map = new Map<string, FrameVariant[]>();
+    if (!imageVariants) return map;
+    for (const v of imageVariants) {
+      if (v.variantType !== 'image') continue;
+      const list = map.get(v.frameId) ?? [];
+      list.push(v);
+      map.set(v.frameId, list);
+    }
+    return map;
+  }, [imageVariants]);
 
   // Divergent alternates + realtime stale:detected wiring (issue #625).
   // Mirror the frames-list polling fallback so the corner-dot still updates
@@ -544,33 +561,69 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
       videoVariantForSelectedModel,
     ]);
 
-  // Frames as shown by the player: when a video model is pinned, swap each
-  // frame's video for that model's variant (or clear it when the model hasn't
-  // produced one for that frame). Only the player display is remapped — every
-  // other consumer keeps the raw `frames` (generation status, selection, etc.).
+  // Frames as shown by the player: when an image and/or video model is pinned,
+  // swap each frame's image / video for that model's variant. Only the player
+  // display is remapped — every other consumer keeps the raw `frames`
+  // (generation status, selection, the per-frame preview overlay, etc.).
   const playerFrames = useMemo(() => {
-    // Until the variants query resolves, keep the legacy videos rather than
-    // blanking every frame (the map would find no variant and clear them all).
-    if (!frames || !activeVideoModel || !videoVariants) return frames;
+    if (!frames) return frames;
+    // Wait for the relevant variants query before remapping, so we don't blank
+    // a pinned type while its data is still loading. The image pin is suppressed
+    // on the image-prompt tab, where the per-frame preview overlay + prompt
+    // panel govern the displayed image (avoids desyncing them from the header).
+    const pinImage =
+      activeImageModel && imageVariants && selectedTab !== 'image-prompt';
+    const pinVideo = activeVideoModel && videoVariants;
+    if (!pinImage && !pinVideo) return frames;
     return frames.map((f) => {
-      const variant = videoVariantsByFrame
-        .get(f.id)
-        ?.find(
-          (v) =>
-            v.model === activeVideoModel &&
-            v.divergedAt === null &&
-            v.discardedAt === null
-        );
-      if (!variant) {
-        return { ...f, videoUrl: null, videoStatus: 'pending' as const };
+      let next = f;
+      if (pinImage) {
+        // Image: swap the displayed image; fall back to the legacy thumbnail
+        // when the pinned model has no completed image for this frame (never
+        // leave a frame imageless).
+        const iv = imageVariantsByFrame
+          .get(f.id)
+          ?.find(
+            (v) =>
+              v.model === activeImageModel &&
+              v.divergedAt === null &&
+              v.discardedAt === null &&
+              v.status === 'completed' &&
+              v.url
+          );
+        if (iv?.url) next = { ...next, thumbnailUrl: iv.url };
       }
-      return {
-        ...f,
-        videoUrl: variant.status === 'completed' ? variant.url : null,
-        videoStatus: variant.status,
-      };
+      if (pinVideo) {
+        // Video: show only the pinned model's output (no fallback — a missing
+        // variant means that model hasn't produced this frame yet).
+        const vv = videoVariantsByFrame
+          .get(f.id)
+          ?.find(
+            (v) =>
+              v.model === activeVideoModel &&
+              v.divergedAt === null &&
+              v.discardedAt === null
+          );
+        next = vv
+          ? {
+              ...next,
+              videoUrl: vv.status === 'completed' ? vv.url : null,
+              videoStatus: vv.status,
+            }
+          : { ...next, videoUrl: null, videoStatus: 'pending' as const };
+      }
+      return next;
     });
-  }, [frames, activeVideoModel, videoVariants, videoVariantsByFrame]);
+  }, [
+    frames,
+    selectedTab,
+    activeImageModel,
+    imageVariants,
+    imageVariantsByFrame,
+    activeVideoModel,
+    videoVariants,
+    videoVariantsByFrame,
+  ]);
 
   const setterForType = useCallback((type: RegenerationType) => {
     switch (type) {

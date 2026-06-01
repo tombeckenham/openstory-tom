@@ -1,9 +1,8 @@
 import { RouteErrorFallback } from '@/components/error/route-error-fallback';
-import { ImageModelBadge, ModelBadge } from '@/components/model/model-badge';
+import { ModelBadge } from '@/components/model/model-badge';
 import { SequenceAudioModelSelector } from '@/components/model/sequence-audio-model-selector';
+import { SequenceImageModelSelector } from '@/components/model/sequence-image-model-selector';
 import { SequenceVideoModelSelector } from '@/components/model/sequence-video-model-selector';
-import { getSequenceImageModelsFn } from '@/functions/frames';
-import { frameKeys } from '@/hooks/use-frames';
 import { routeParams } from '@/components/layout/breadcrumbs';
 import {
   SequenceTabs,
@@ -17,7 +16,6 @@ import { useSwipeNavigation } from '@/hooks/use-swipe-navigation';
 import { useUser } from '@/hooks/use-user';
 import { requireSessionOrRedirect } from '@/lib/auth/route-guards';
 import { isValidId } from '@/lib/db/id';
-import { useQuery } from '@tanstack/react-query';
 import {
   createFileRoute,
   notFound,
@@ -69,12 +67,6 @@ function SequenceLayout() {
 
   const { data: sequence } = useSequence(sequenceId);
 
-  const { data: imageModels } = useQuery({
-    queryKey: frameKeys.imageModels(sequenceId),
-    queryFn: () => getSequenceImageModelsFn({ data: { sequenceId } }),
-    staleTime: 30_000,
-  });
-
   const tabs = useSequenceTabItems(sequenceId);
   const currentPath = useRouterState({
     select: (s) => s.location.pathname,
@@ -91,9 +83,9 @@ function SequenceLayout() {
         <PageHeader>
           <div className="hidden md:flex flex-row flex-wrap items-center gap-2">
             <ModelBadge model={sequence?.analysisModel} />
-            <ImageModelBadge
-              models={imageModels}
-              model={sequence?.imageModel}
+            <SequenceImageModelSelector
+              sequenceId={sequenceId}
+              sequenceImageModel={sequence?.imageModel}
             />
             <SequenceVideoModelSelector
               sequenceId={sequenceId}

@@ -72,9 +72,8 @@ export function estimateVideoCost(
 
 /**
  * Estimate the raw cost (before markup) of generating one music track.
- * Internal — used by `estimateStoryboardCost`'s music component.
  */
-function estimateAudioCost(
+export function estimateAudioCost(
   model: AudioModel,
   durationSeconds: number
 ): Microdollars {

@@ -3,6 +3,8 @@ import {
   DEFAULT_MUSIC_MODEL,
   DEFAULT_VIDEO_MODEL,
   isValidAudioModel,
+  isValidImageToVideoModel,
+  isValidTextToImageModel,
   safeAudioModel,
   safeImageToVideoModel,
   safeTextToImageModel,
@@ -15,10 +17,19 @@ import { resolveAudioModels } from '@/lib/ai/resolve-audio-models';
 import { resolveImageModels } from '@/lib/ai/resolve-image-models';
 import { resolveVideoModels } from '@/lib/ai/resolve-video-models';
 import { requireTeamMemberAccess } from '@/lib/auth/action-utils';
-import { estimateStoryboardCost } from '@/lib/billing/cost-estimation';
+import {
+  estimateAudioCost,
+  estimateImageCost,
+  estimateStoryboardCost,
+  estimateVideoCost,
+} from '@/lib/billing/cost-estimation';
+import { multiplyMicros } from '@/lib/billing/money';
 import { requireCredits } from '@/lib/billing/preflight';
 import { DEFAULT_ASPECT_RATIO } from '@/lib/constants/aspect-ratios';
 import type { Frame } from '@/lib/db/schema';
+import { buildFrameImageWorkflowInput } from '@/lib/image/build-frame-image-input';
+import { resolveMotionPrompt } from '@/lib/motion/resolve-motion-prompt';
+import { VARIANT_TYPES } from '@/lib/db/schema/frame-variants';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
 import {
   createSequenceSchema,
@@ -27,6 +38,7 @@ import {
 import { triggerWorkflow } from '@/lib/workflow/client';
 import { buildWorkflowLabel } from '@/lib/workflow/labels';
 import type {
+  BatchMotionMusicWorkflowInput,
   MusicSceneSummary,
   MusicWorkflowInput,
   StoryboardWorkflowInput,
@@ -473,6 +485,273 @@ export const getSequenceAudioVariantsFn = createServerFn({ method: 'GET' })
     return context.scopedDb.sequenceVariants.listMusicBySequence(
       context.sequence.id
     );
+  });
+
+/**
+ * Add a new image / video / audio model to an existing sequence (#547).
+ * Generates that model's output for every eligible frame (image/video) or the
+ * whole sequence (audio) using the EXISTING prompts — no re-analysis. Each unit
+ * lands as a `frame_variants` row (image/video) or `sequence_music_variants`
+ * row (audio), pre-stamped `pending` so the new model appears in the header
+ * dropdown immediately. Reuses the per-frame image / motion-batch / music
+ * workflows unchanged.
+ */
+export const addModelToSequenceFn = createServerFn({ method: 'POST' })
+  .middleware([sequenceAccessMiddleware])
+  .inputValidator(
+    zodValidator(
+      z.object({
+        sequenceId: ulidSchema,
+        variantType: z.enum(VARIANT_TYPES),
+        model: z.string().min(1),
+      })
+    )
+  )
+  .handler(async ({ data, context }) => {
+    const { sequence, scopedDb, user } = context;
+    const { variantType, model } = data;
+    const baseCtx = {
+      userId: user.id,
+      teamId: sequence.teamId,
+      sequenceId: sequence.id,
+    };
+
+    // ── Audio: one new track for the sequence ──────────────────────────────
+    if (variantType === 'audio') {
+      if (!isValidAudioModel(model)) {
+        throw new Error('Invalid audio model');
+      }
+      // Block only when a non-failed (pending/generating/completed) track for
+      // this model already exists — a previously failed add can be retried.
+      const existing = await scopedDb.sequenceVariants.listMusicBySequence(
+        sequence.id
+      );
+      if (existing.some((v) => v.model === model && v.status !== 'failed')) {
+        throw new Error('That audio model is already on this sequence');
+      }
+      if (!sequence.musicPrompt || !sequence.musicTags) {
+        throw new Error(
+          'Generate music once before adding another audio model'
+        );
+      }
+      const allFrames = await scopedDb.frames.listBySequence(sequence.id);
+      const totalDuration =
+        allFrames.reduce(
+          (sum, f) =>
+            sum +
+            (f.durationMs
+              ? f.durationMs / 1000
+              : (f.metadata?.metadata?.durationSeconds ?? 10)),
+          0
+        ) || 30;
+
+      await requireCredits(scopedDb, estimateAudioCost(model, totalDuration), {
+        errorMessage: 'Insufficient credits to add this audio model',
+      });
+
+      await scopedDb.sequenceVariants.upsertMusicPrimary({
+        sequenceId: sequence.id,
+        model,
+        prompt: sequence.musicPrompt,
+        tags: sequence.musicTags,
+        durationSeconds: Math.round(totalDuration),
+        status: 'pending',
+      });
+
+      const musicInput: MusicWorkflowInput = {
+        ...baseCtx,
+        prompt: sequence.musicPrompt,
+        tags: sequence.musicTags,
+        duration: totalDuration,
+        model,
+      };
+      try {
+        const workflowRunId = await triggerWorkflow('/music', musicInput, {
+          deduplicationId: `add-audio-${sequence.id}-${model}-${Date.now()}`,
+          label: buildWorkflowLabel(sequence.id),
+        });
+        return { workflowRunId, variantType, model, count: 1 };
+      } catch (error) {
+        // Mark the pre-stamped row failed so the model can be re-added.
+        await scopedDb.sequenceVariants.upsertMusicPrimary({
+          sequenceId: sequence.id,
+          model,
+          prompt: sequence.musicPrompt,
+          tags: sequence.musicTags,
+          durationSeconds: Math.round(totalDuration),
+          status: 'failed',
+        });
+        throw error;
+      }
+    }
+
+    // ── Video: animate every frame that already has an image ───────────────
+    if (variantType === 'video') {
+      if (!isValidImageToVideoModel(model)) {
+        throw new Error('Invalid video model');
+      }
+      const existing = await scopedDb.frameVariants.listBySequence(
+        sequence.id,
+        'video'
+      );
+      if (existing.some((v) => v.model === model && v.status !== 'failed')) {
+        throw new Error('That video model is already on this sequence');
+      }
+      const allFrames = await scopedDb.frames.listBySequence(sequence.id);
+      const eligible = allFrames.filter(
+        (f) => f.thumbnailStatus === 'completed' && f.thumbnailUrl
+      );
+      if (eligible.length === 0) {
+        throw new Error('No frames have a completed image to animate yet');
+      }
+
+      await requireCredits(
+        scopedDb,
+        multiplyMicros(estimateVideoCost(model, 5), eligible.length),
+        { errorMessage: 'Insufficient credits to add this video model' }
+      );
+
+      for (const f of eligible) {
+        await scopedDb.frameVariants.upsert({
+          frameId: f.id,
+          sequenceId: sequence.id,
+          variantType: 'video',
+          model,
+          status: 'pending',
+        });
+      }
+
+      const workflowInput: BatchMotionMusicWorkflowInput = {
+        ...baseCtx,
+        includeMusic: false,
+        videoModels: [model],
+        frames: eligible.map((f) => ({
+          frameId: f.id,
+          imageUrl: f.thumbnailUrl ?? '',
+          prompt: resolveMotionPrompt(f, model),
+          model,
+          motionPrompt: f.metadata?.prompts?.motion,
+          duration: f.durationMs
+            ? f.durationMs / 1000
+            : (f.metadata?.metadata?.durationSeconds ?? 3),
+          aspectRatio: sequence.aspectRatio,
+        })),
+      };
+      try {
+        const workflowRunId = await triggerWorkflow(
+          '/motion-batch',
+          workflowInput,
+          {
+            deduplicationId: `add-video-${sequence.id}-${model}-${Date.now()}`,
+            label: buildWorkflowLabel(sequence.id),
+          }
+        );
+        return { workflowRunId, variantType, model, count: eligible.length };
+      } catch (error) {
+        // Mark the pre-stamped pending rows failed so the model can be re-added.
+        await Promise.all(
+          eligible.map((f) =>
+            scopedDb.frameVariants.updateByFrameAndModel(f.id, 'video', model, {
+              status: 'failed',
+              error: 'Failed to trigger motion batch',
+            })
+          )
+        );
+        throw error;
+      }
+    }
+
+    // ── Image: re-render every frame's prompt with the new model ───────────
+    if (!isValidTextToImageModel(model)) {
+      throw new Error('Invalid image model');
+    }
+    const existingImage = await scopedDb.frameVariants.listBySequence(
+      sequence.id,
+      'image'
+    );
+    if (existingImage.some((v) => v.model === model && v.status !== 'failed')) {
+      throw new Error('That image model is already on this sequence');
+    }
+    const allFrames = await scopedDb.frames.listBySequence(sequence.id);
+    const [characters, locations, elements] = await Promise.all([
+      scopedDb.characters.listWithSheets(sequence.id),
+      scopedDb.sequenceLocations.listWithReferences(sequence.id),
+      scopedDb.sequenceElements.list(sequence.id),
+    ]);
+
+    const inputs: NonNullable<
+      Awaited<ReturnType<typeof buildFrameImageWorkflowInput>>
+    >[] = [];
+    for (const f of allFrames) {
+      const input = await buildFrameImageWorkflowInput({
+        frame: f,
+        model,
+        userId: user.id,
+        teamId: sequence.teamId,
+        sequenceId: sequence.id,
+        aspectRatio: sequence.aspectRatio,
+        characters,
+        locations,
+        elements,
+      });
+      if (input) inputs.push(input);
+    }
+    if (inputs.length === 0) {
+      throw new Error('No frames have a prompt to generate from');
+    }
+
+    await requireCredits(
+      scopedDb,
+      multiplyMicros(
+        estimateImageCost(model, sequence.aspectRatio, 1),
+        inputs.length
+      ),
+      { errorMessage: 'Insufficient credits to add this image model' }
+    );
+
+    // Trigger one image workflow per frame. A single frame's trigger failure
+    // shouldn't abort the rest of the batch — mark that frame's pending row
+    // failed (so it doesn't block a future re-add) and continue. Only throw if
+    // every frame failed to trigger.
+    let workflowRunId = '';
+    let triggered = 0;
+    for (const input of inputs) {
+      if (input.frameId) {
+        await scopedDb.frameVariants.upsert({
+          frameId: input.frameId,
+          sequenceId: sequence.id,
+          variantType: 'image',
+          model,
+          status: 'pending',
+        });
+      }
+      try {
+        workflowRunId = await triggerWorkflow('/image', input, {
+          deduplicationId: `add-image-${input.frameId}-${model}-${Date.now()}`,
+          label: buildWorkflowLabel(sequence.id),
+        });
+        triggered++;
+      } catch (error) {
+        if (input.frameId) {
+          await scopedDb.frameVariants.updateByFrameAndModel(
+            input.frameId,
+            'image',
+            model,
+            {
+              status: 'failed',
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to trigger image generation',
+            }
+          );
+        }
+      }
+    }
+    if (triggered === 0) {
+      throw new Error('Failed to start image generation for any frame');
+    }
+    return { workflowRunId, variantType, model, count: triggered };
   });
 
 /**

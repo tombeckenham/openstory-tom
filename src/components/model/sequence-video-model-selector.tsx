@@ -7,6 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { AddModelMenuSection } from '@/components/model/add-model-menu';
 import { useActiveVideoModel } from '@/hooks/use-active-video-model';
 import { useSequenceVideoModels } from '@/hooks/use-frames';
 import {
@@ -94,6 +95,11 @@ export const SequenceVideoModelSelector = ({
             {videoModelName(model)}
           </DropdownMenuCheckboxItem>
         ))}
+        <AddModelMenuSection
+          sequenceId={sequenceId}
+          variantType="video"
+          usedModels={models}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );

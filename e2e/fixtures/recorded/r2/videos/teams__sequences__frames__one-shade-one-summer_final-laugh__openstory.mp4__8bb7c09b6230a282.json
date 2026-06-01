@@ -1,0 +1,21 @@
+{
+  "fingerprint": {
+    "bucket": "videos",
+    "normalisedKey": "videos/teams/<ULID>/sequences/<ULID>/frames/<ULID>/one-shade-one-summer_final-laugh_<HASH>_openstory.mp4",
+    "contentType": "video/mp4"
+  },
+  "entries": [
+    {
+      "request": {
+        "key": "videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE99AF0E2ECTS7420ZA00/one-shade-one-summer_final-laugh_jr0vpf_openstory.mp4",
+        "bodyHash": "9089d7883008c284faeaf79dd75b0158b57d4bbad37175f2d7b9e2eb81ccf1ac",
+        "bodySize": 33338627
+      },
+      "response": {
+        "path": "videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE99AF0E2ECTS7420ZA00/one-shade-one-summer_final-laugh_jr0vpf_openstory.mp4",
+        "publicUrl": "https://storage-dev.openstory.so/videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE99AF0E2ECTS7420ZA00/one-shade-one-summer_final-laugh_jr0vpf_openstory.mp4",
+        "fullPath": "videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE99AF0E2ECTS7420ZA00/one-shade-one-summer_final-laugh_jr0vpf_openstory.mp4"
+      }
+    }
+  ]
+}

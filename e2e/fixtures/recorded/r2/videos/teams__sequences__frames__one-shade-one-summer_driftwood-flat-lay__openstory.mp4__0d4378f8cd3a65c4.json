@@ -1,0 +1,21 @@
+{
+  "fingerprint": {
+    "bucket": "videos",
+    "normalisedKey": "videos/teams/<ULID>/sequences/<ULID>/frames/<ULID>/one-shade-one-summer_driftwood-flat-lay_<HASH>_openstory.mp4",
+    "contentType": "video/mp4"
+  },
+  "entries": [
+    {
+      "request": {
+        "key": "videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE892EPSMS59XR3E4WG8S/one-shade-one-summer_driftwood-flat-lay_w1ps8p_openstory.mp4",
+        "bodyHash": "5698451d54bbcb25cfeb1e4a3e92f1d300565bdea1d6eeb4cd26faa725bca159",
+        "bodySize": 6564263
+      },
+      "response": {
+        "path": "videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE892EPSMS59XR3E4WG8S/one-shade-one-summer_driftwood-flat-lay_w1ps8p_openstory.mp4",
+        "publicUrl": "https://storage-dev.openstory.so/videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE892EPSMS59XR3E4WG8S/one-shade-one-summer_driftwood-flat-lay_w1ps8p_openstory.mp4",
+        "fullPath": "videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE892EPSMS59XR3E4WG8S/one-shade-one-summer_driftwood-flat-lay_w1ps8p_openstory.mp4"
+      }
+    }
+  ]
+}

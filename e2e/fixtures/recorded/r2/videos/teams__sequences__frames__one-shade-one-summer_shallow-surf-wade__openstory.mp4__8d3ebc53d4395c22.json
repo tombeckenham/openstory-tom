@@ -1,0 +1,21 @@
+{
+  "fingerprint": {
+    "bucket": "videos",
+    "normalisedKey": "videos/teams/<ULID>/sequences/<ULID>/frames/<ULID>/one-shade-one-summer_shallow-surf-wade_<HASH>_openstory.mp4",
+    "contentType": "video/mp4"
+  },
+  "entries": [
+    {
+      "request": {
+        "key": "videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE74SXBFX4QGTC4VGGHH0/one-shade-one-summer_shallow-surf-wade_mv63xf_openstory.mp4",
+        "bodyHash": "cafcd7836af9f754f6f21eb02a588fd8c298ba5c37fea5418873a9c390e5343d",
+        "bodySize": 19681968
+      },
+      "response": {
+        "path": "videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE74SXBFX4QGTC4VGGHH0/one-shade-one-summer_shallow-surf-wade_mv63xf_openstory.mp4",
+        "publicUrl": "https://storage-dev.openstory.so/videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE74SXBFX4QGTC4VGGHH0/one-shade-one-summer_shallow-surf-wade_mv63xf_openstory.mp4",
+        "fullPath": "videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE74SXBFX4QGTC4VGGHH0/one-shade-one-summer_shallow-surf-wade_mv63xf_openstory.mp4"
+      }
+    }
+  ]
+}

@@ -129,12 +129,12 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
     config: {
       mood: 'Rough, working-draft, evocative but unfinished -- the look of a story being figured out frame by frame, with energy in the gesture rather than polish',
       artStyle:
-        'Rough storyboard panels rendered as if drawn in pencil and marker on paper. Confident gestural line work with visible underdrawing, simplified silhouettes, flat blocked-in tones, occasional motion lines, action arrows, and frame numbers. Faces and hands described with a few decisive strokes -- expressive but not refined. Minimal background detail, just enough to read the staging. Explicitly NOT polished animation, NOT 3D rendered, NOT photographic, NOT a finished illustration. This is pre-vis -- the bones of a scene before it is animated',
+        'A single film frame drawn as rough pre-vis -- pencil-and-marker line work over visible underdrawing, simplified silhouettes, flat blocked-in tones, occasional motion lines and action arrows. Faces and hands described with a few decisive strokes -- expressive but not refined. Minimal background detail, just enough to read the staging. One full-bleed sketched frame depicting the scene -- not a grid of panels, and no frame numbers or margin notes. Explicitly NOT polished animation, NOT 3D rendered, NOT photographic, NOT a finished illustration. This is pre-vis -- the bones of a single shot before it is animated',
       lighting:
-        'Implied lighting only. Shape and value suggested through marker shading, hatching, or a single value-block of grey wash. No rendered light, no specular highlights, no atmospheric haze -- the panel reads light and dark, not lit',
+        'Implied lighting only. Shape and value suggested through marker shading, hatching, or a single value-block of grey wash. No rendered light, no specular highlights, no atmospheric haze -- the scene reads light and dark, not lit',
       colorPalette: ['#F5F1E8', '#2B2826', '#7A6F66', '#C44536', '#3A6B8C'],
       cameraWork:
-        'Static storyboard panels with composition suggested in 2D. Camera moves indicated graphically -- arrows for pans, push-ins drawn as nested frames, dolly moves shown as overlapping ghosted positions. The rhythm of a story reel -- panels held longer than animation would, cuts marked by a fresh panel rather than a smooth transition',
+        'Composition staged in 2D like rough pre-vis -- a single clearly readable wide, medium, or close that reads the staging at a glance. Plain, slow camera intent (a gentle push-in or pan) at story-reel pacing, the key beat held. No drawn arrows, nested frames, ghosted move-diagrams, or multiple panels within the image -- one staged frame',
       referenceFilms: [
         'Pixar storyboard reels',
         'The Iron Giant production animatics',
@@ -142,7 +142,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Hayao Miyazaki imageboards',
       ],
       colorGrading:
-        'Paper-tone background -- warm off-white with light grain and the occasional smudge. Marker-bleed warmth in mid-tones, slightly bluish in cool shadows. Reads like a scanned sketchpad page, not a graded film frame',
+        'Paper-tone background -- warm off-white with light grain and the occasional smudge. Marker-bleed warmth in mid-tones, slightly bluish in cool shadows. Reads like a rough hand-sketched frame, not a graded film frame',
     },
     isPublic: true,
     isTemplate: true,
@@ -1315,12 +1315,12 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
     config: {
       mood: 'Honest, helpful, thorough',
       artStyle:
-        'Product photographed with explicit scale and dimension cues -- next to a hand, a tape measure, or a recognizable object. Apparel shown on multiple body types from front, side, and back. Footwear includes sole, profile, and stack-height detail. Materials shown at macro to show weave and weight',
+        'Product photographed with explicit scale and dimension cues -- next to a hand, a tape measure, or a recognizable object. Apparel shown worn on a believable body, the cut and drape reading clearly. Footwear shown with sole, profile, and stack-height detail visible. Materials shown at macro to show weave and weight',
       lighting:
         'Even soft studio key with subtle directional fill. Color rendering accurate -- a fabric’s true color must read. Macro detail lit to show texture',
       colorPalette: ['#F4F4F4', '#1A1A1A', '#6B7280', '#FFFFFF', '#E5E7EB'],
       cameraWork:
-        'Locked frames at each diagnostic angle. Slow rotational beauty pass. Macro detail at material grain. Side-by-side scale references',
+        'Locked frame on the product. Slow rotational beauty pass. Macro detail at material grain. A recognizable object held alongside for scale reference',
       referenceFilms: [
         'Zappos PDP Imagery',
         'Bonobos Fit Guides',
@@ -1498,7 +1498,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Warm directional key from one side with cool ambient fill from the opposite. Mics catch a deliberate kicker. Background lit moodily but legibly',
       colorPalette: ['#1A1410', '#7F3F2C', '#E6C28C', '#3D2A1F', '#FFFFFF'],
       cameraWork:
-        'Three locked cameras -- two singles and a two-shot. Slow lens-zoom punches in for emphasis. Captions burned in for vertical reframes',
+        'Locked broadcast framing on the hosts at the table. Slow lens-zoom punches in for emphasis. Captions burned in for vertical reframes',
       referenceFilms: [
         'Joe Rogan Experience',
         'Diary of a CEO',
@@ -1744,12 +1744,12 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
     config: {
       mood: 'Expressive, immediate, exaggerated',
       artStyle:
-        'Tight head-and-shoulders frame of a creator reacting to something. Picture-in-picture inset of the source content top-right or top-left. Background is a creator desk or bedroom -- LED panel, posters, gaming chair. Mic visible in foreground',
+        'Tight head-and-shoulders frame of a creator reacting to something off-screen. Background is a creator desk or bedroom -- LED panel, posters, gaming chair. Mic visible in foreground',
       lighting:
         'RGB LED ambient on background, soft key light on the creator. Color cast deliberate -- often purples, teals, pinks',
       colorPalette: ['#1A1029', '#FF40A3', '#36E6B8', '#FFFFFF', '#0A0A0A'],
       cameraWork:
-        'Locked webcam or desk-mounted DSLR. Tight punch-in framing. Cuts driven by reaction beats. Native vertical or 16:9. Constant captions burned in',
+        'Locked webcam or desk-mounted DSLR. Tight punch-in framing. Cuts driven by reaction beats. Native vertical or 16:9. Captions burned in',
       referenceFilms: [
         'MrBeast Reaction Cuts',
         'Twitch Streamer Highlight Reels',
@@ -1782,12 +1782,12 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
     config: {
       mood: 'Gentle, dreamy, reassuring',
       artStyle:
-        'Hand-illustrated storybook art with rounded shapes, friendly characters, and a hand-painted texture. Pages feel like a beloved bedtime book -- soft borders, painterly backgrounds, warm faces. Not 3D, not photographic, not computer-perfect',
+        'Hand-illustrated storybook art with rounded shapes, friendly characters, and a hand-painted texture. The scene feels like a beloved bedtime book -- soft borders, painterly backgrounds, warm faces. Not 3D, not photographic, not computer-perfect',
       lighting:
         'Implied warm twilight or moonlight. Soft glows on cheeks and lanterns. Gentle gradients in sky and rooms. No harsh shadows',
       colorPalette: ['#1F2A4A', '#7F86D9', '#F6C886', '#F4A4A4', '#E8E1D0'],
       cameraWork:
-        'Static composed pages with slow Ken-Burns push-ins and gentle parallax between layered illustration planes. The camera lingers. Beats long enough for a parent to point',
+        'Static composed scenes with slow Ken-Burns push-ins and gentle parallax between layered illustration planes. The camera lingers. Beats long enough for a parent to point',
       referenceFilms: [
         'Goodnight Moon Illustrations',
         'Oliver Jeffers Picture Books',
@@ -1795,7 +1795,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Sandra Boynton Board Books',
       ],
       colorGrading:
-        'Warm, low-contrast, painterly. Cream highlights, dusky shadows. Looks like a beloved storybook page',
+        'Warm, low-contrast, painterly. Cream highlights, dusky shadows. Looks like a beloved storybook illustration',
     },
     isPublic: true,
     isTemplate: true,
@@ -1927,7 +1927,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Implied soft morning or twilight light. Color and tone do the work of lighting -- darker washes for shadow, paper showing through for light',
       colorPalette: ['#F2E9D8', '#7F9B7F', '#C7A1B2', '#3F4F5F', '#D8B68E'],
       cameraWork:
-        'Static page-compositions with very slow Ken-Burns moves and gentle parallax. Camera reverent. Long beats',
+        'Static composed scenes with very slow Ken-Burns moves and gentle parallax. Camera reverent. Long beats',
       referenceFilms: [
         'Beatrix Potter Illustrations',
         'Robert McCloskey Picture Books',
@@ -1935,7 +1935,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Jon Klassen Illustrations',
       ],
       colorGrading:
-        'Cream paper white. Pigments rendered faithfully with slight bleed and grain. Looks like an open picture book in afternoon light',
+        'Cream paper white. Pigments rendered faithfully with slight bleed and grain. Looks like a watercolour illustration in afternoon light',
     },
     isPublic: true,
     isTemplate: true,
@@ -1957,20 +1957,20 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
     config: {
       mood: 'Discovery, magical, tactile',
       artStyle:
-        'Pop-up storybook spread with paper elements that unfold as the camera tilts in. Cardboard hinges visible, slight rigging implied. Characters and trees rise from the page in layered cutouts. Background is patterned endpaper',
+        'The scene built as a layered papercraft diorama -- characters, trees, and props as scissored, hand-cut paper standing at staggered depths, soft folds and cut edges catching light, against a patterned cut-paper backdrop. A dimensional cut-paper world filling the entire frame',
       lighting:
-        'Warm overhead reading-lamp light with soft cast shadow into the page gutter. Highlights catch paper edges. Cozy intimacy',
+        'Warm, soft directional light with gentle shadows falling between the layered paper planes. Highlights catch the cut-paper edges. Cozy, intimate glow',
       colorPalette: ['#F4E4CF', '#C97B4E', '#1F8E7D', '#D85F4A', '#FFFFFF'],
       cameraWork:
-        'Slow tilt-in from a flat page to a 3D reveal. Camera moves around the spread to discover hidden mechanics. Beats held to admire each fold',
+        'Slow push-in revealing the layered paper depth. Gentle drift across the diorama to discover detail. Beats held to admire each cut-paper layer',
       referenceFilms: [
-        'Robert Sabuda Pop-Up Books',
-        'Matthew Reinhart Spreads',
-        'Sesame Street Storybook Episodes',
-        'BBC Get Squiggling Reveals',
+        'Lotte Reiniger silhouette films',
+        'cut-paper stop-motion animation',
+        'layered papercraft dioramas',
+        'hand-cut paper illustration',
       ],
       colorGrading:
-        'Warm reading-light grade. Cream highlights, rich shadow in the gutter. Looks like a beloved hardback opened on a lap',
+        'Warm, handcrafted grade. Cream highlights, soft shadow between the paper layers. Rich, tactile cut-paper warmth',
     },
     isPublic: true,
     isTemplate: true,
@@ -2032,7 +2032,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Even ambient lighting on the chalkboard surface. Slight rake to bring out chalk texture. No drama, just legibility',
       colorPalette: ['#1F2A1F', '#F8F4E3', '#F4C065', '#A8DFFF', '#FF8FA3'],
       cameraWork:
-        'Mostly locked frame on the chalkboard with occasional push-in to highlight a diagram. Sometimes the chalk-holding hand is visible. Beats paced for narration',
+        'Mostly locked frame on the chalk-drawn scene with occasional push-in to highlight a diagram. Beats paced for narration',
       referenceFilms: [
         'TED-Ed Lessons',
         'RSA Animate Talks',
@@ -2040,7 +2040,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Khan Academy Doodles',
       ],
       colorGrading:
-        'Slate green or near-black background, pastel chalk colors rendered with slight glow. Looks like a classroom blackboard at the front of a sunny room',
+        'Slate green or near-black background, pastel chalk colors rendered with slight glow. Looks like a chalk drawing on a sunlit slate surface',
     },
     isPublic: true,
     isTemplate: true,
@@ -2102,7 +2102,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Implied flat illustration light. No physical light model. Tone and color do all the work',
       colorPalette: ['#FFCB47', '#FF6B6B', '#4ECDC4', '#1F2A4A', '#F8F4E3'],
       cameraWork:
-        'Static composed pages with slow push-ins and gentle parallax between drawn layers. Camera respectful of the artwork',
+        'Static composed framing with slow push-ins and gentle parallax between drawn layers. Camera respectful of the artwork',
       referenceFilms: [
         'Eric Carle Picture Books',
         'Mo Willems Pigeon Books',
@@ -2110,7 +2110,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Mira Lobe Picture Stories',
       ],
       colorGrading:
-        'Bright, saturated, with paper-cream background and slight crayon grain. Looks like a freshly opened library book',
+        'Bright, saturated, with paper-cream background and slight crayon grain. Warm, freshly-printed picture-book feel',
     },
     isPublic: true,
     isTemplate: true,
@@ -2135,12 +2135,12 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
     config: {
       mood: 'Working-draft, exploratory, gestural',
       artStyle:
-        'Rough pencil-and-marker storyboard panels. Confident gestural lines, simplified silhouettes, light marker shading. Frame numbers and shot notes in margins. Faces and hands described with a few decisive strokes -- expressive but not finished',
+        'A single film frame rendered as a rough pencil-and-marker storyboard sketch. Confident gestural lines, simplified silhouettes, light marker shading. Faces and hands described with a few decisive strokes -- expressive but not finished. One full-bleed drawn frame depicting the scene -- no panel grid, no frame numbers, no margin notes',
       lighting:
         'Implied value-shading only. Hatching and marker wash suggest light direction. No rendered lighting',
       colorPalette: ['#F5F1E8', '#2B2826', '#7A6F66', '#C44536', '#3A6B8C'],
       cameraWork:
-        'Static panel frames. Camera moves drawn as ghosted arrows or nested frames. Cuts marked by fresh panels rather than smooth transitions',
+        'Static, clearly-staged composition -- a single readable wide, medium, or close. Minimal camera movement. No drawn arrows, nested frames, or move-diagrams in the image -- one staged frame',
       referenceFilms: [
         'Pixar Storyboard Reels',
         'DreamWorks Animatic Tests',
@@ -2148,7 +2148,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'The Iron Giant Pre-Vis Reels',
       ],
       colorGrading:
-        'Warm paper-tone background with occasional smudge. Marker-bleed mid-tones, cool shadow ink. Looks like a scanned sketchpad',
+        'Warm paper-tone background with occasional smudge. Marker-bleed mid-tones, cool shadow ink. Looks like a rough hand-drawn sketch',
     },
     isPublic: true,
     isTemplate: true,
@@ -2175,7 +2175,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Flat ambient occlusion lighting only. No direct light source, no shadow drama. Functional visibility',
       colorPalette: ['#B0B0B0', '#7F7F7F', '#4F4F4F', '#3478F6', '#FFFFFF'],
       cameraWork:
-        'Wide layout cameras, slow tracking moves, frequent shot changes to verify staging. Camera notes might be burned in -- focal length, shot number',
+        'A single wide layout camera with a slow tracking move to verify staging. One clearly-staged composition, no burned-in focal-length or shot-number annotations',
       referenceFilms: [
         'Pixar Layout Reels',
         'Disney Animation Previs',
@@ -2210,7 +2210,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Highly designed cinematic lighting -- single hard key with deep falloff, or saturated practical sources. Every frame considered as a lighting study',
       colorPalette: ['#1F2A40', '#A9633C', '#E8C28C', '#3F3F3F', '#F4E4CF'],
       cameraWork:
-        'Locked static frames held in stillness. Slow Ken-Burns push-ins on key moments. No camera movement that would distract from the composition',
+        'A locked static composition held in stillness. Slow Ken-Burns push-in on the key moment. No camera movement that would distract from the composition',
       referenceFilms: [
         'Roger Deakins Stills',
         'Emmanuel Lubezki Frame Studies',
@@ -2218,7 +2218,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Apichatpong Weerasethakul Stills',
       ],
       colorGrading:
-        'Bold, saturated, painterly. Strong color palette per frame. Cinematic black levels',
+        'Bold, saturated, painterly. Strong designed color palette. Cinematic black levels',
     },
     isPublic: true,
     isTemplate: true,
@@ -2245,7 +2245,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Real cinematic lighting setups -- hard key, soft fill, rim. Shadow shapes are the protagonists. Volumetric haze allowed',
       colorPalette: ['#0A0A0A', '#3F3F3F', '#7F7F7F', '#C0C0C0', '#FFFFFF'],
       cameraWork:
-        'Real production cinematography -- handheld, dolly, crane. Camera moves at intended final pacing. Shot numbers and lens info may be burned in',
+        'Real production cinematography -- handheld, dolly, crane. Camera moves at intended final pacing. No burned-in shot numbers or lens annotations',
       referenceFilms: [
         'Schindler’s List Stills',
         'The Lighthouse',
@@ -2280,7 +2280,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Flat technical illustration light. No physical lighting model. Subtle gradient fills for surface',
       colorPalette: ['#F7F8FB', '#0A2540', '#3478F6', '#F4C065', '#A8AFB8'],
       cameraWork:
-        'Static isometric or perspective frames. Slow zoom into callout areas. Sometimes elements animate in sequentially as the narration steps through',
+        'Static isometric or perspective framing. Slow zoom into a callout area to draw focus. Camera holds steady on the single diagram',
       referenceFilms: [
         'Apple Patent Drawings',
         'Wired How-It-Works Diagrams',
@@ -2310,12 +2310,12 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
     config: {
       mood: 'Loose, energetic, ad-agency',
       artStyle:
-        'Marker comp drawn on layout paper. Bold flat tones with one or two accent colors, soft drop shadow under figures, simplified silhouettes, occasional hand-lettered headline or callout. Looks like an art director’s pitch board',
+        'A single frame rendered in the style of a marker comp -- bold flat marker tones with one or two accent colors, soft drop shadow under figures, simplified silhouettes. The energy of an art director’s pitch art applied to one full-bleed frame depicting the scene -- no layout-sheet borders, headlines, or callouts',
       lighting:
         'Implied flat marker shading. Simple value flats with a single highlight per object',
       colorPalette: ['#F5F1E8', '#2B2826', '#FFCA3A', '#FF595E', '#1982C4'],
       cameraWork:
-        'Static composed boards with subtle Ken-Burns moves. Occasional reveal of a new comp page. Beats sized for narration',
+        'Static, composed framing with a subtle Ken-Burns drift. Beats sized for narration. A single full-bleed composition -- not a comp page or board carrying multiple thumbnails',
       referenceFilms: [
         'Mad Men Pitch Boards',
         'Saatchi & Saatchi Concept Reels',
@@ -2323,7 +2323,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Wieden+Kennedy Pitch Boards',
       ],
       colorGrading:
-        'Warm paper background with vivid marker color. Slight grain. Looks like a freshly mounted board',
+        'Warm paper background with vivid marker color. Slight grain. Looks like fresh marker on paper',
     },
     isPublic: true,
     isTemplate: true,
@@ -2380,12 +2380,12 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
     config: {
       mood: 'Honest, exploratory, in-progress',
       artStyle:
-        'A reel that intentionally mixes finished cinematic frames with rough sketch panels, mood photographs, schematic diagrams, and handwritten notes in the margins. Some shots are nearly finished, others clearly placeholder. The transitions celebrate the working-draft nature',
+        'A single frame that looks like a deliberate work-in-progress -- a largely cinematic shot with patches left as rough sketch, light annotation scribbles, and partially-rendered areas, celebrating the working-draft look. One frame depicting the scene, not a reel or montage of mixed media',
       lighting:
-        'Varies by frame -- finished frames fully lit cinematically, rough frames implied tonally, notes flat and graphic',
+        'Mixed within the one frame -- finished areas fully lit cinematically, rough areas implied tonally, annotation scribbles flat and graphic',
       colorPalette: ['#F5F1E8', '#2B2826', '#7A6F66', '#C44536', '#FFFFFF'],
       cameraWork:
-        'Frame-to-frame jump cuts that switch fidelity deliberately. Some long held cinematic shots, some quick storyboard cuts, occasional sketch-overlay reveals',
+        'A single composed shot at intended pacing, with sketch-overlay passes and partial renders visible within the one frame. Not a multi-shot reel or jump-cut montage',
       referenceFilms: [
         'Director Treatments',
         'Spike Jonze Pitch Reels',
@@ -2393,7 +2393,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Boards of Canada Visual Treatments',
       ],
       colorGrading:
-        'Mixed -- finished shots fully graded, rough shots paper-tone, notes flat. The contrast is intentional',
+        'Mixed within the one frame -- finished areas fully graded, rough areas paper-tone, notes flat. The contrast is intentional',
     },
     isPublic: true,
     isTemplate: true,

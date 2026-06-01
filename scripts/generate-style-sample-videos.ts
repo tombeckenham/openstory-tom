@@ -53,6 +53,7 @@ import {
   submitMotionJob,
 } from '@/lib/motion/motion-generation';
 import { generateCanonicalScript } from '@/lib/style/sample-script';
+import { buildStyledImagePrompt } from '@/lib/style/style-image-prompt';
 import {
   BESPOKE_SCRIPTS,
   briefForStyle,
@@ -134,27 +135,6 @@ const savedScriptSchema = z.object({
     .min(1),
 });
 type SavedScript = z.infer<typeof savedScriptSchema>;
-
-const NEGATIVE =
-  'No text, no words, no titles, no watermarks, no logos. No celebrities, no famous people, no real identifiable individuals. No grid, no collage, no split screen. Single continuous shot only';
-
-/** Blend the style config into a beat's image prompt (mirrors previews script). */
-function buildImagePrompt(beat: SampleBeat, config: StyleConfig): string {
-  return [
-    beat.imagePrompt,
-    `Art Style: ${config.artStyle}`,
-    `Mood: ${config.mood}`,
-    `Lighting: ${config.lighting}`,
-    `Camera: ${config.cameraWork}`,
-    `Color Grading: ${config.colorGrading}`,
-    config.referenceFilms.length
-      ? `Inspired by: ${config.referenceFilms.join(', ')}`
-      : '',
-    NEGATIVE,
-  ]
-    .filter(Boolean)
-    .join('. ');
-}
 
 function buildJobs(flags: Flags): RenderJob[] {
   const jobs: RenderJob[] = [];
@@ -257,7 +237,7 @@ async function renderStill(
 ): Promise<string> {
   const result = await generateImageWithProvider({
     model: job.imageModel,
-    prompt: buildImagePrompt(beat, job.config),
+    prompt: buildStyledImagePrompt(beat.imagePrompt, job.config),
     imageSize: aspectRatioToImageSize(job.aspectRatio),
     numImages: 1,
     resolution: '2K',

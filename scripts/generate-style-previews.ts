@@ -1,5 +1,6 @@
 import { DEFAULT_IMAGE_MODEL } from '@/lib/ai/models';
 import { generateImageWithProvider } from '@/lib/image/image-generation';
+import { buildStyledImagePrompt } from '@/lib/style/style-image-prompt';
 import { styleSlug } from '@/lib/style/style-slug';
 import { DEFAULT_STYLE_TEMPLATES } from '@/lib/style/style-templates';
 import { PhotonImage } from '@cf-wasm/photon';
@@ -492,24 +493,12 @@ async function main() {
     }
 
     for (const scene of SCENES) {
-      // Construct prompt blending scene + style config
-      const styleConfig = style.config;
-
-      const fullPrompt = [
-        scene.prompt,
-        `Style: ${style.name}`,
-        `Art Style: ${styleConfig.artStyle}`,
-        `Mood: ${styleConfig.mood}`,
-        `Lighting: ${styleConfig.lighting}`,
-        `Camera: ${styleConfig.cameraWork}`,
-        `Color Grading: ${styleConfig.colorGrading}`,
-        styleConfig.referenceFilms.length
-          ? `Inspired by: ${styleConfig.referenceFilms.join(', ')}`
-          : '',
-        'No text, no words, no titles, no watermarks, no logos. No celebrities, no famous people, no real identifiable individuals. No grid, no collage, no montage, no multiple images, no split screen, no photo collection. Single image only',
-      ]
-        .filter(Boolean)
-        .join('. ');
+      // Build the prompt: the scene is the subject, the style config is the
+      // treatment. We deliberately do NOT inject `style.name` — for
+      // medium-named styles it makes the model render the artifact (a book, a
+      // storyboard sheet) instead of a scene in that style. See
+      // buildStyledImagePrompt.
+      const fullPrompt = buildStyledImagePrompt(scene.prompt, style.config);
 
       allTasks.push({
         styleId: style.name, // Use name as ID since templates don't have database IDs

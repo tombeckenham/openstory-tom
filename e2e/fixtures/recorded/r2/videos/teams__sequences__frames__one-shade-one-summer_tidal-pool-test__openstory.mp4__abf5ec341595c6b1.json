@@ -1,0 +1,21 @@
+{
+  "fingerprint": {
+    "bucket": "videos",
+    "normalisedKey": "videos/teams/<ULID>/sequences/<ULID>/frames/<ULID>/one-shade-one-summer_tidal-pool-test_<HASH>_openstory.mp4",
+    "contentType": "video/mp4"
+  },
+  "entries": [
+    {
+      "request": {
+        "key": "videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE3SWPP6J9E9MGYR119GQ/one-shade-one-summer_tidal-pool-test_w8tfen_openstory.mp4",
+        "bodyHash": "457d0ee58fab20e25da4a7831ee074867e447282f7f83aec6b03ed6133276274",
+        "bodySize": 13553092
+      },
+      "response": {
+        "path": "videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE3SWPP6J9E9MGYR119GQ/one-shade-one-summer_tidal-pool-test_w8tfen_openstory.mp4",
+        "publicUrl": "https://storage-dev.openstory.so/videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE3SWPP6J9E9MGYR119GQ/one-shade-one-summer_tidal-pool-test_w8tfen_openstory.mp4",
+        "fullPath": "videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE3SWPP6J9E9MGYR119GQ/one-shade-one-summer_tidal-pool-test_w8tfen_openstory.mp4"
+      }
+    }
+  ]
+}

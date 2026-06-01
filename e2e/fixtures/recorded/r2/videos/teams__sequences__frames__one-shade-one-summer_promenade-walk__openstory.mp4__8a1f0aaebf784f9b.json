@@ -1,0 +1,21 @@
+{
+  "fingerprint": {
+    "bucket": "videos",
+    "normalisedKey": "videos/teams/<ULID>/sequences/<ULID>/frames/<ULID>/one-shade-one-summer_promenade-walk_<HASH>_openstory.mp4",
+    "contentType": "video/mp4"
+  },
+  "entries": [
+    {
+      "request": {
+        "key": "videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE1GH77V89M5E1J988ZKY/one-shade-one-summer_promenade-walk_g167zw_openstory.mp4",
+        "bodyHash": "d752dfde493c8b68bdef1e647f820202baf28cfbb4e5451060770e48889ecfad",
+        "bodySize": 18857881
+      },
+      "response": {
+        "path": "videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE1GH77V89M5E1J988ZKY/one-shade-one-summer_promenade-walk_g167zw_openstory.mp4",
+        "publicUrl": "https://storage-dev.openstory.so/videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE1GH77V89M5E1J988ZKY/one-shade-one-summer_promenade-walk_g167zw_openstory.mp4",
+        "fullPath": "videos/teams/01KT0JCEDWZCJQMGAEPCEHSB3A/sequences/01KT0JDH1S71RS1RVEK3RP8P03/frames/01KT0JE1GH77V89M5E1J988ZKY/one-shade-one-summer_promenade-walk_g167zw_openstory.mp4"
+      }
+    }
+  ]
+}

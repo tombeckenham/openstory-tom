@@ -1,0 +1,21 @@
+{
+  "fingerprint": {
+    "bucket": "videos",
+    "normalisedKey": "videos/teams/<ULID>/sequences/<ULID>/frames/<ULID>/coral-a-summer-launch_bench-application_<HASH>_openstory.mp4",
+    "contentType": "video/mp4"
+  },
+  "entries": [
+    {
+      "request": {
+        "key": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARYG854WW3CKXYVC9C34N/coral-a-summer-launch_bench-application_pm9caq_openstory.mp4",
+        "bodyHash": "95eee330e790e20fc84a2d404da665c6f1221b0aa44f068a31df5c5203f6b3b3",
+        "bodySize": 29186002
+      },
+      "response": {
+        "path": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARYG854WW3CKXYVC9C34N/coral-a-summer-launch_bench-application_pm9caq_openstory.mp4",
+        "publicUrl": "https://storage-dev.openstory.so/videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARYG854WW3CKXYVC9C34N/coral-a-summer-launch_bench-application_pm9caq_openstory.mp4",
+        "fullPath": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARYG854WW3CKXYVC9C34N/coral-a-summer-launch_bench-application_pm9caq_openstory.mp4"
+      }
+    }
+  ]
+}

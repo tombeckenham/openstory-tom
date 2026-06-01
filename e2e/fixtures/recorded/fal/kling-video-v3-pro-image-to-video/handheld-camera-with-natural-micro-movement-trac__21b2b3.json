@@ -1,0 +1,24 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Handheld camera with natural micro-movement tracks Scarlett wading deeper into the shallows. She turns in a slow circle through the water as the lipstick tube floats briefly beside her then she reaches out and catches it. Salt spray hits the lens. Gentle waves lap against her legs with water rippling outward from each step. Handheld energy follows the continuous turning motion at the waterline.\n\nAmbient sounds: ocean waves lapping at shore. water splashing, gentle tube catch in water.",
+        "model": "fal-ai/kling-video/v3/pro/image-to-video",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "video": {
+            "url": "https://v3b.fal.media/files/b/0a9c7c20/0IjRC4ZWgd79VlFyu8gkB_output.mp4",
+            "content_type": "video/mp4",
+            "file_name": "output.mp4",
+            "file_size": 39465649
+          }
+        },
+        "status": 200
+      }
+    }
+  ]
+}

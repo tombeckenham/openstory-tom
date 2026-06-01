@@ -1,0 +1,29 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Cinematic locked beauty close-up in modern social-first product photography style featuring SCARLETT wearing a loose linen shirt sitting at a crisp white vanity with marble surface in a minimal bright studio space with pale tile shelf and neutral surroundings, mid swipe of coral lipstick across her lower lip with muscles tensed and poised expression looking slightly off camera, blot tissue visible on the marble beside her, bright natural window light with clean directional shadows and direct flash accents for punchy editorial energy on macro textures, tight close-up slightly above eye-level framing with shallow depth of field emphasizing the application moment against white surroundings, clean and bright color grading with true-to-life tones and one coral accent popping against neutral base.\n\n  <reference-images>\n    - Image 1 [CHARACTER REF]: SCARLETT - Match the real-world appearance of Sienna Blake exactly\n    - Image 2 [LOCATION REF]: INT. BONDI STUDIO - Minimal bright studio space featuring a crisp white vanity with marble surface\n    \n    IMPORTANT: Reference images CARRY the visual identity of their labeled objects. When the prompt names an UPPERCASE element token, render it faithfully from its ELEMENT REF image — do not generate a new version from the prose. When the prompt names a LOCATION REF, use that image for the environment, lighting, and architectural identity. Prose describes how things are framed, lit, and positioned in the shot — it does not redefine what the reference already shows.\n  </reference-images>",
+        "model": "fal-ai/nano-banana-2/edit",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/0a9c7c09/6wvWT6njayn5MfPyTOHly_09Gq9DDU.png",
+              "content_type": "image/png",
+              "file_name": "6wvWT6njayn5MfPyTOHly_09Gq9DDU.png",
+              "file_size": null,
+              "width": null,
+              "height": null
+            }
+          ],
+          "description": ""
+        },
+        "status": 200
+      }
+    }
+  ]
+}

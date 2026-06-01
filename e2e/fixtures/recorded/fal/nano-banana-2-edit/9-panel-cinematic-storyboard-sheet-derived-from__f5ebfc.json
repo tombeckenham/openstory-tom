@@ -1,0 +1,29 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "9-panel cinematic storyboard sheet derived from Image 1. Mix Wide, Medium, and Tight shots of the same scene. No borders between panels.\n\nLayout: 3x3 grid (9 panels) in a 16:9 landscape image.\n\nScene: Cinematic still on 35mm film stock with natural grain, Scarlett in a loose linen shirt sits on a weathered wooden bench with knees drawn up, body angled toward the ocean as she twists open the lipstick and brings it to her lips in mid-application while gazing out at the horizon, wind catching her hair across her face, the Bondi Beach promenade stretches into soft focus with pale sand and gentle waves under a warm golden hour sky, distant surfers visible on the horizon line, shallow depth of field emphasizing the moment of pause with rich textures in the aged bench wood and linen fabric, natural directional side light from the setting sun casting long warm highlights and soft coral-tinted shadows across the scene, captured with a 50mm lens at eye level in a slightly low handheld composition that feels intimate and effortless.\n\nMatch Image 1 exactly: same character(s) (face, hair, skin, clothing), lighting, color grade, and texture. If character reference sheets are provided, use them for likeness — do not render them as separate panels.\n\nNo text, dialogue bubbles, scene numbers, or watermarks.\n\n\n  <reference-images>\n    - Image 1 [PRIMARY SOURCE]: Primary source scene — generate 9 variant shots from this image\n    - Image 2 [CHARACTER REF]: SCARLETT - Match the real-world appearance of Sienna Blake exactly\n    - Image 3 [LOCATION REF]: EXT. BONDI BEACH - Wide ocean-side promenade\n    \n    IMPORTANT: Character, location, and element reference images are for IDENTITY CONSISTENCY ONLY. Do NOT reproduce them as separate panels or subjects. Elements (logos, products) must render faithfully when referenced but should appear naturally within the scene. All output panels must depict the scene from the PRIMARY SOURCE image.\n  </reference-images>",
+        "model": "fal-ai/nano-banana-2/edit",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/0a9c7c0d/Vfmv6oEUDTCHpJJNLRg8m_i3IMzOyM.png",
+              "content_type": "image/png",
+              "file_name": "Vfmv6oEUDTCHpJJNLRg8m_i3IMzOyM.png",
+              "file_size": null,
+              "width": null,
+              "height": null
+            }
+          ],
+          "description": ""
+        },
+        "status": 200
+      }
+    }
+  ]
+}

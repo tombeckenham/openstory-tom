@@ -1,0 +1,24 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Dynamic handheld camera at eye level with slight downward tilt tracks Scarlett stepping forward into the shallow shoreline water. A small wave breaks at her ankles, sending a light spray of droplets that catch the golden light on her calves. She laughs, head tilted back with natural forward momentum as her loose linen shirt shifts gently. She speaks with joyful carefree delivery, mouth moving fluidly in mid-laugh and shoulders relaxed. Ocean breeze flutters the fabric edges while water ripples outward from her footstep.\n\n[SCARLETT, joyful carefree]: \"Wear it everywhere.\"\n\nAmbient sounds: gentle ocean waves and light coastal breeze. small wave breaking at ankles, light water splash and ripple.",
+        "model": "fal-ai/kling-video/v3/pro/image-to-video",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "video": {
+            "url": "https://v3b.fal.media/files/b/0a9c7c1a/5YBdd04Ai8IDaKJaDBwYd_output.mp4",
+            "content_type": "video/mp4",
+            "file_name": "output.mp4",
+            "file_size": 20496928
+          }
+        },
+        "status": 200
+      }
+    }
+  ]
+}

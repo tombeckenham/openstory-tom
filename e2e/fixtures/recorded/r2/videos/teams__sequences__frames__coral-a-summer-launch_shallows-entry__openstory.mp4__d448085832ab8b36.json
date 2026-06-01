@@ -1,0 +1,21 @@
+{
+  "fingerprint": {
+    "bucket": "videos",
+    "normalisedKey": "videos/teams/<ULID>/sequences/<ULID>/frames/<ULID>/coral-a-summer-launch_shallows-entry_<HASH>_openstory.mp4",
+    "contentType": "video/mp4"
+  },
+  "entries": [
+    {
+      "request": {
+        "key": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARQWD8S32BQFP72X2NW1G/coral-a-summer-launch_shallows-entry_btf168_openstory.mp4",
+        "bodyHash": "b422126dea840f03a0a26303c0513b3c8015d6f1691c9fe0f3686ead5939977f",
+        "bodySize": 20496928
+      },
+      "response": {
+        "path": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARQWD8S32BQFP72X2NW1G/coral-a-summer-launch_shallows-entry_btf168_openstory.mp4",
+        "publicUrl": "https://storage-dev.openstory.so/videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARQWD8S32BQFP72X2NW1G/coral-a-summer-launch_shallows-entry_btf168_openstory.mp4",
+        "fullPath": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARQWD8S32BQFP72X2NW1G/coral-a-summer-launch_shallows-entry_btf168_openstory.mp4"
+      }
+    }
+  ]
+}

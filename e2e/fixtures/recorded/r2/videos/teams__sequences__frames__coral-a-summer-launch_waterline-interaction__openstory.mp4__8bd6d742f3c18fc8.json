@@ -1,0 +1,21 @@
+{
+  "fingerprint": {
+    "bucket": "videos",
+    "normalisedKey": "videos/teams/<ULID>/sequences/<ULID>/frames/<ULID>/coral-a-summer-launch_waterline-interaction_<HASH>_openstory.mp4",
+    "contentType": "video/mp4"
+  },
+  "entries": [
+    {
+      "request": {
+        "key": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARV4GF0CHXWBRHZT19HRW/coral-a-summer-launch_waterline-interaction_hsa5cx_openstory.mp4",
+        "bodyHash": "9260056ebc17856502c977bbf93ad02974e003cb5d002bada15cefcb82564d96",
+        "bodySize": 39465649
+      },
+      "response": {
+        "path": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARV4GF0CHXWBRHZT19HRW/coral-a-summer-launch_waterline-interaction_hsa5cx_openstory.mp4",
+        "publicUrl": "https://storage-dev.openstory.so/videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARV4GF0CHXWBRHZT19HRW/coral-a-summer-launch_waterline-interaction_hsa5cx_openstory.mp4",
+        "fullPath": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARV4GF0CHXWBRHZT19HRW/coral-a-summer-launch_waterline-interaction_hsa5cx_openstory.mp4"
+      }
+    }
+  ]
+}

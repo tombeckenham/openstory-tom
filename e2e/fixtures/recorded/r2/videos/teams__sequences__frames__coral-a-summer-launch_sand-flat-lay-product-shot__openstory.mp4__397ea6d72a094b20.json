@@ -1,0 +1,21 @@
+{
+  "fingerprint": {
+    "bucket": "videos",
+    "normalisedKey": "videos/teams/<ULID>/sequences/<ULID>/frames/<ULID>/coral-a-summer-launch_sand-flat-lay-product-shot_<HASH>_openstory.mp4",
+    "contentType": "video/mp4"
+  },
+  "entries": [
+    {
+      "request": {
+        "key": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARSRVTREV03AQR7FQZ0S1/coral-a-summer-launch_sand-flat-lay-product-shot_e6x8qp_openstory.mp4",
+        "bodyHash": "1186b23e3c648717d006bd72053eeb0ce94af15fcf2090868d7b55301e49f339",
+        "bodySize": 15156690
+      },
+      "response": {
+        "path": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARSRVTREV03AQR7FQZ0S1/coral-a-summer-launch_sand-flat-lay-product-shot_e6x8qp_openstory.mp4",
+        "publicUrl": "https://storage-dev.openstory.so/videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARSRVTREV03AQR7FQZ0S1/coral-a-summer-launch_sand-flat-lay-product-shot_e6x8qp_openstory.mp4",
+        "fullPath": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARSRVTREV03AQR7FQZ0S1/coral-a-summer-launch_sand-flat-lay-product-shot_e6x8qp_openstory.mp4"
+      }
+    }
+  ]
+}

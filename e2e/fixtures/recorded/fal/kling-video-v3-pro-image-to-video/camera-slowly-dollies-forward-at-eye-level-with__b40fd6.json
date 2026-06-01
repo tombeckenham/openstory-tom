@@ -1,0 +1,24 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Camera slowly dollies forward at eye level with a gentle downward tilt toward the white marble vanity. Scarlett's hand reaches deliberately into the minimal white box, fingertips pressing the coral lipstick tube, rolling it slightly so it catches the bright window light and casts a sharp shadow across the surface. Her loose sleeve shifts naturally with the arm movement. Bright directional sunlight creates crisp clean highlights and defined shadows as dust motes drift in the beam. The motion ends in a tighter framing on the lipstick and hand.\n\n[SCARLETT, soft reflective]: \"One shade. One summer.\"\n\nAmbient sounds: quiet studio interior with faint distant ocean. fingers pressing plastic tube, subtle fabric rustle.",
+        "model": "fal-ai/kling-video/v3/pro/image-to-video",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "video": {
+            "url": "https://v3b.fal.media/files/b/0a9c7c1f/RQOfAVwRFOg8epphjvI2C_output.mp4",
+            "content_type": "video/mp4",
+            "file_name": "output.mp4",
+            "file_size": 24188909
+          }
+        },
+        "status": 200
+      }
+    }
+  ]
+}

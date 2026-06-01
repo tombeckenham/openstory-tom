@@ -1,0 +1,24 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Handheld camera tracks forward at walking pace alongside Scarlett striding along the wide ocean promenade, shoulders angled ahead, head turning back over her shoulder for an effortless glance toward lens. Natural micro-jitter keeps the forward tracking feel immediate and alive. Surfers cresting on the pale horizon behind her. Light ocean breeze lifts fabric at the edges. Bright morning coastal light casts clean moving shadows across pavement.\n\n[SCARLETT, light airy]: \"Made for the water.\"\n\nAmbient sounds: gentle ocean waves, light coastal breeze, distant surf. footsteps on pavement, fabric rustling in breeze.",
+        "model": "fal-ai/kling-video/v3/pro/image-to-video",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "video": {
+            "url": "https://v3b.fal.media/files/b/0a9c7c1d/4Qk1q0AqdtTbnR1KJQgLs_output.mp4",
+            "content_type": "video/mp4",
+            "file_name": "output.mp4",
+            "file_size": 31384175
+          }
+        },
+        "status": 200
+      }
+    }
+  ]
+}

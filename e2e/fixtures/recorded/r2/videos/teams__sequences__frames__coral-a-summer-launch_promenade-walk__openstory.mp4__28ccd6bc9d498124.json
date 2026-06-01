@@ -1,0 +1,21 @@
+{
+  "fingerprint": {
+    "bucket": "videos",
+    "normalisedKey": "videos/teams/<ULID>/sequences/<ULID>/frames/<ULID>/coral-a-summer-launch_promenade-walk_<HASH>_openstory.mp4",
+    "contentType": "video/mp4"
+  },
+  "entries": [
+    {
+      "request": {
+        "key": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARMSR6DYJDNXJPJJFSZXF/coral-a-summer-launch_promenade-walk_czyn0w_openstory.mp4",
+        "bodyHash": "370380d5a4a02bfd1daa5f7a5cb0864ac3d8e6679794eddfd46815b237e1bc6a",
+        "bodySize": 31384175
+      },
+      "response": {
+        "path": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARMSR6DYJDNXJPJJFSZXF/coral-a-summer-launch_promenade-walk_czyn0w_openstory.mp4",
+        "publicUrl": "https://storage-dev.openstory.so/videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARMSR6DYJDNXJPJJFSZXF/coral-a-summer-launch_promenade-walk_czyn0w_openstory.mp4",
+        "fullPath": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARMSR6DYJDNXJPJJFSZXF/coral-a-summer-launch_promenade-walk_czyn0w_openstory.mp4"
+      }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Uploaded filename (hint only — may be meaningless): broadcast-mic.jpg\n\nDescribe the element in the image below and suggest a token.",
+        "model": "anthropic/claude-sonnet-4.6",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "{\"description\": \"A large-diaphragm condenser studio microphone with a cylindrical champagne/satin-nickel body. The upper capsule section features a fine metal mesh grille. The body bears an engraved circular logo and the text 'PHANTOM classic' in uppercase and lowercase lettering, with 'Nr. 1307' engraved near the base. The microphone is mounted in a silver spider-style shock mount with black elastic bands. A circular black pop filter with a dual-mesh screen is attached via a gooseneck arm to the same stand.\", \"consistencyTag\": \"phantom-classic-condenser-studio-mic\", \"suggestedToken\": \"PHANTOM_CLASSIC_MIC\"}"
+      },
+      "metadata": {
+        "systemHash": "d7a7c7ae"
+      }
+    }
+  ]
+}

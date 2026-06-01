@@ -1,0 +1,24 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Static locked beauty close-up. Scarlett swipes coral lipstick smoothly across her lower lip, then blots once on the linen tissue beside her before smiling softly. Natural window light casts crisp directional shadows across the marble surface. Subtle micro-movement in the hand and fabric of her loose linen shirt.\n\nAmbient sounds: quiet studio room tone. soft lipstick swipe, tissue blot.",
+        "model": "fal-ai/kling-video/v3/pro/image-to-video",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "video": {
+            "url": "https://v3b.fal.media/files/b/0a9c7c1b/J1G8V5vVQejbi1wgzMeCk_output.mp4",
+            "content_type": "video/mp4",
+            "file_name": "output.mp4",
+            "file_size": 18788428
+          }
+        },
+        "status": 200
+      }
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Cinematic photorealistic still in modern social-first editorial style of SCARLETT wearing a loose linen shirt stepping into the shallows at the Bondi Beach shoreline on a golden hour day, one bare foot entering the water as a small wave breaks gently at the ankles sending up a spray of droplets that catch the light along the calves, body angled forward with natural forward momentum and head tilted back in mid-laugh, wide ocean-side promenade stretching behind with pale blue horizon, weathered bench, and soft beige sand underfoot, bright natural daylight shifting into warm golden side light with crisp directional shadows and airy high-key feeling, dynamic handheld camera angle at eye level with slight downward tilt and shallow depth of field that keeps the foreground water interaction sharp against a softly blurred coastal background\n\n  <reference-images>\n    - Image 1 [CHARACTER REF]: SCARLETT - Match the real-world appearance of Sienna Blake exactly\n    - Image 2 [LOCATION REF]: EXT. BONDI BEACH - Wide ocean-side promenade\n    \n    IMPORTANT: Reference images CARRY the visual identity of their labeled objects. When the prompt names an UPPERCASE element token, render it faithfully from its ELEMENT REF image — do not generate a new version from the prose. When the prompt names a LOCATION REF, use that image for the environment, lighting, and architectural identity. Prose describes how things are framed, lit, and positioned in the shot — it does not redefine what the reference already shows.\n  </reference-images>",
+        "model": "fal-ai/nano-banana-2/edit",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/0a9c7c09/z7GwwKlLfEnJMhDsjlx0W_JTT52Hcf.png",
+              "content_type": "image/png",
+              "file_name": "z7GwwKlLfEnJMhDsjlx0W_JTT52Hcf.png",
+              "file_size": null,
+              "width": null,
+              "height": null
+            }
+          ],
+          "description": ""
+        },
+        "status": 200
+      }
+    }
+  ]
+}

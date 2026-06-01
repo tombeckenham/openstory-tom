@@ -1,0 +1,29 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Locked macro still life photograph of a coral lipstick standing upright on a pale tile shelf beside a clear glass of water and a single white flower, captured in a minimal bright studio bathroom with crisp white surfaces, marble accents, and soft green highlights throughout, direct on-camera flash creating sharp highlights and clean directional shadows that emphasize the product's shape against the neutral backdrop, high-key airy natural window light mixed with punchy flash for editorial energy, shallow depth of field with crisp focus on the central objects and gentle background blur, modern social-first product photography aesthetic with tactile real-life context and clean color-matched minimal arrangement\n\n  <reference-images>\n    - Image 1 [LOCATION REF]: INT. BONDI STUDIO - Minimal bright studio space featuring a crisp white vanity with marble surface\n    \n    IMPORTANT: Reference images CARRY the visual identity of their labeled objects. When the prompt names an UPPERCASE element token, render it faithfully from its ELEMENT REF image — do not generate a new version from the prose. When the prompt names a LOCATION REF, use that image for the environment, lighting, and architectural identity. Prose describes how things are framed, lit, and positioned in the shot — it does not redefine what the reference already shows.\n  </reference-images>",
+        "model": "fal-ai/nano-banana-2/edit",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/0a9c7c09/jJ4EC0F9YnosYdq-EhEeO_PYYHzWoO.png",
+              "content_type": "image/png",
+              "file_name": "jJ4EC0F9YnosYdq-EhEeO_PYYHzWoO.png",
+              "file_size": null,
+              "width": null,
+              "height": null
+            }
+          ],
+          "description": ""
+        },
+        "status": 200
+      }
+    }
+  ]
+}

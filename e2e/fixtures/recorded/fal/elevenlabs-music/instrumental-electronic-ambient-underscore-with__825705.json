@@ -1,0 +1,24 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Instrumental electronic ambient underscore with serene and uplifting tones that unfolds gently across the sequence, evoking a fresh, breezy, and effortlessly cool coastal beauty atmosphere from morning light to warm golden hour.",
+        "model": "fal-ai/elevenlabs/music",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "audio": {
+            "url": "https://v3b.fal.media/files/b/0a9c7c0f/bCjYzcWq0icZ2vDREhDmz_music_generated.mp3",
+            "content_type": "audio/mpeg",
+            "file_name": "music_generated.mp3",
+            "file_size": 1329155
+          }
+        },
+        "status": 200
+      }
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "cinematic lifestyle still of SCARLETT in loose linen shirt standing at the shoreline edge with muscles lightly tensed and weight shifted forward mid-breath in the shallow wash looking slightly off camera with potential energy to smile and turn along the sand bright coral lips catching the final warm rays of the lowering sun wide ocean horizon behind her with pale blue water meeting warm golden sand soft beige tones and distant surfers on the pale horizon gentle breeze implied in the linen fabric shallow depth of field with natural coastal blur background golden hour side lighting casting long clean directional shadows and warm rim light on skin and fabric bright airy natural light with slight contrast pops high-key coastal atmosphere modern editorial product photography style dynamic wide 16:9 frame handheld energy lens with natural micro-movement\n\n  <reference-images>\n    - Image 1 [CHARACTER REF]: SCARLETT - Match the real-world appearance of Sienna Blake exactly\n    - Image 2 [LOCATION REF]: EXT. BONDI BEACH - Wide ocean-side promenade\n    \n    IMPORTANT: Reference images CARRY the visual identity of their labeled objects. When the prompt names an UPPERCASE element token, render it faithfully from its ELEMENT REF image — do not generate a new version from the prose. When the prompt names a LOCATION REF, use that image for the environment, lighting, and architectural identity. Prose describes how things are framed, lit, and positioned in the shot — it does not redefine what the reference already shows.\n  </reference-images>",
+        "model": "fal-ai/nano-banana-2/edit",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/0a9c7c09/MNgUN7b3ICOixOpsATUNH_ysaEgnle.png",
+              "content_type": "image/png",
+              "file_name": "MNgUN7b3ICOixOpsATUNH_ysaEgnle.png",
+              "file_size": null,
+              "width": null,
+              "height": null
+            }
+          ],
+          "description": ""
+        },
+        "status": 200
+      }
+    }
+  ]
+}

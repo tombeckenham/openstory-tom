@@ -1,0 +1,21 @@
+{
+  "fingerprint": {
+    "bucket": "videos",
+    "normalisedKey": "videos/teams/<ULID>/sequences/<ULID>/frames/<ULID>/coral-a-summer-launch_bathroom-shelf-macro_<HASH>_openstory.mp4",
+    "contentType": "video/mp4"
+  },
+  "entries": [
+    {
+      "request": {
+        "key": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARWG8BHFQZ0GS08T3W2S2/coral-a-summer-launch_bathroom-shelf-macro_7wdew2_openstory.mp4",
+        "bodyHash": "5b9ca659f3f95a2a86ec2517e131ac123ececb51cec25ba3e75960fe01f243e3",
+        "bodySize": 1966458
+      },
+      "response": {
+        "path": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARWG8BHFQZ0GS08T3W2S2/coral-a-summer-launch_bathroom-shelf-macro_7wdew2_openstory.mp4",
+        "publicUrl": "https://storage-dev.openstory.so/videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARWG8BHFQZ0GS08T3W2S2/coral-a-summer-launch_bathroom-shelf-macro_7wdew2_openstory.mp4",
+        "fullPath": "videos/teams/01KT0APZJMQY84WDMVZCE9A1XT/sequences/01KT0AR3AABM6T1EY5GVP10CS9/frames/01KT0ARWG8BHFQZ0GS08T3W2S2/coral-a-summer-launch_bathroom-shelf-macro_7wdew2_openstory.mp4"
+      }
+    }
+  ]
+}

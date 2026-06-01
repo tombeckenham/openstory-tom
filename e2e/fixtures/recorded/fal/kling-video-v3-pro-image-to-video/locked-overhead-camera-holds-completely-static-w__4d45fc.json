@@ -1,0 +1,24 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Locked overhead camera holds completely static with zero movement or drift. The flat-lay composition and product remain motionless throughout.\n\nScarlett delivers the voiceover with soft declarative tone.\n\nFaint coastal breeze gently stirs loose surface grains around the product edges.\n\n[SCARLETT, soft declarative]: \"Coral.\"\n\nAmbient sounds: gentle ocean waves and soft coastal breeze.",
+        "model": "fal-ai/kling-video/v3/pro/image-to-video",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "video": {
+            "url": "https://v3b.fal.media/files/b/0a9c7c1b/sAqGp6ZOIfkyKVOAGhj8Q_output.mp4",
+            "content_type": "video/mp4",
+            "file_name": "output.mp4",
+            "file_size": 15156690
+          }
+        },
+        "status": 200
+      }
+    }
+  ]
+}

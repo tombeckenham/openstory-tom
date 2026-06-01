@@ -1,0 +1,24 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "endpoint": "fal",
+        "userMessage": "Handheld eye-level shot with natural micro-movement starts on Scarlett seated on the weathered promenade bench with knees drawn up. She twists the lipstick open and applies it slowly while gazing out across the ocean horizon. Wind gently lifts and moves her hair across her face throughout. The camera holds the intimate framing as she finishes the application with calm poise. Gentle ocean waves roll in the background under golden hour light.\n\n[SCARLETT, intimate reflective]: \"Fresh. Sensory. Yours.\"\n\nAmbient sounds: soft ocean waves, light coastal breeze.",
+        "model": "fal-ai/kling-video/v3/pro/image-to-video",
+        "turnIndex": 0,
+        "hasToolResult": false
+      },
+      "response": {
+        "json": {
+          "video": {
+            "url": "https://v3b.fal.media/files/b/0a9c7c1f/VkEKnazGds0LBxvn4PEkt_output.mp4",
+            "content_type": "video/mp4",
+            "file_name": "output.mp4",
+            "file_size": 29186002
+          }
+        },
+        "status": 200
+      }
+    }
+  ]
+}

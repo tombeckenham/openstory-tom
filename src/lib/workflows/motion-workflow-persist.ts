@@ -195,11 +195,15 @@ export async function persistMotionCompletion(opts: {
  * Failure dual-write (called from the workflow's `onFailure`). Records `failed`
  * on the legacy columns and on this model's variant row, then emits.
  *
- * Uses `upsert` (not `updateByFrameAndModel`) so a `failed` row is recorded
- * even when the failure happened before `set-generating-status` ran (e.g. an
+ * Flips an *existing* variant row to `failed` via `updateByFrameAndModel` —
+ * which only touches `status`/`error`, so a previously-completed `url`/
+ * `storagePath` is preserved (a re-run that fails before producing a new video
+ * must not erase the last good one). Falls back to `upsert` only when no row
+ * exists yet — e.g. a failure before `set-generating-status` ran (an
  * insufficient-credit throw in `check-credits`, or the top-level imageUrl
- * guard) — at that point no generating row exists yet, and a bare update would
- * no-op, leaving this model's variant invisible in the scenes-view switcher.
+ * guard) — so the `failed` state is still visible in the scenes-view switcher.
+ * (A blind `upsert` would set `url`/`storagePath` from the failure payload,
+ * i.e. NULL, silently dropping the completed artifact.)
  */
 export async function persistMotionFailure(opts: {
   scopedDb: PersistMotionScopedDb;
@@ -219,14 +223,22 @@ export async function persistMotionFailure(opts: {
     throwOnMissing: false,
   });
 
-  await scopedDb.frameVariants.upsert({
+  const updated = await scopedDb.frameVariants.updateByFrameAndModel(
     frameId,
-    sequenceId,
-    variantType: 'video',
+    'video',
     model,
-    workflowRunId,
-    ...writes.variant,
-  });
+    writes.variant
+  );
+  if (!updated) {
+    await scopedDb.frameVariants.upsert({
+      frameId,
+      sequenceId,
+      variantType: 'video',
+      model,
+      workflowRunId,
+      ...writes.variant,
+    });
+  }
 
   await emit('generation.video:progress', { frameId, status: 'failed', model });
 }

@@ -389,9 +389,14 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
   // Video equivalent (#545): the selected scene's video variant for the
   // effective video model (override → frame's own model). Excludes divergent /
   // discarded alternates so only the primary per-model row is matched.
+  // `null` = unknown: a never-generated frame has no recorded `motionModel`, so
+  // we surface no model rather than silently asserting DEFAULT_VIDEO_MODEL
+  // (which would attribute a model the scene was never generated with).
   const effectiveVideoModel =
     videoModelOverride ??
-    safeImageToVideoModel(selectedFrame?.motionModel, DEFAULT_VIDEO_MODEL);
+    (selectedFrame?.motionModel
+      ? safeImageToVideoModel(selectedFrame.motionModel, DEFAULT_VIDEO_MODEL)
+      : null);
 
   const videoVariantForSelectedModel = useMemo(() => {
     if (!curSelectedFrameId) return undefined;
@@ -513,7 +518,11 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
           selectedFrame.motionModel,
           DEFAULT_VIDEO_MODEL
         );
+        // Only prompt when a specific model is picked (effectiveVideoModel) and
+        // differs from the frame's current one with no variant yet. A null
+        // (unknown) model means there's nothing specific to generate here.
         if (
+          effectiveVideoModel &&
           effectiveVideoModel !== frameVideoModel &&
           !videoVariantForSelectedModel
         ) {

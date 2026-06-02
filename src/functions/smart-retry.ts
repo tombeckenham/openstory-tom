@@ -88,7 +88,7 @@ export const smartRetryFn = createServerFn({ method: 'POST' })
         estimateStoryboardCost({
           imageModel,
           aspectRatio: sequence.aspectRatio,
-          videoModel,
+          videoModels: [videoModel],
         }),
         {
           providers: ['fal', 'openrouter'],

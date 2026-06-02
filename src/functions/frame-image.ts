@@ -84,10 +84,9 @@ export const generateFramesFn = createServerFn({ method: 'POST' })
           DEFAULT_IMAGE_MODEL
         ),
         aspectRatio: sequence.aspectRatio,
-        videoModel: safeImageToVideoModel(
-          sequence.videoModel,
-          DEFAULT_VIDEO_MODEL
-        ),
+        videoModels: [
+          safeImageToVideoModel(sequence.videoModel, DEFAULT_VIDEO_MODEL),
+        ],
       }),
       {
         providers: ['fal', 'openrouter'],

@@ -99,6 +99,18 @@ export class MotionWorkflow extends OpenStoryWorkflowEntrypoint<MotionWorkflowIn
       );
     }
 
+    // Motion's dual-write (#545) opens this model's `frame_variants` row in
+    // `set-generating-status` and closes it in completion/`onFailure`, all of
+    // which need `sequenceId`. Every trigger sets both ids; assert it once here
+    // so a `sequenceId`-less caller fails loudly at the boundary rather than
+    // silently writing the legacy columns while skipping the variant half
+    // (which would leave the model invisible in the scenes-view switcher).
+    if (input.frameId && !input.sequenceId) {
+      throw new WorkflowValidationError(
+        'sequenceId is required when frameId is set (motion dual-write)'
+      );
+    }
+
     // Step 0: Get cost and check if team has enough credits
     const { cost, duration } = await step.do('check-credits', async () => {
       const { cost, duration } = calculateMotionMetadata({

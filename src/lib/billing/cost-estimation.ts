@@ -8,12 +8,12 @@ import { calculateImageCost, calculateVideoCost } from '@/lib/ai/fal-cost';
 import {
   IMAGE_MODELS,
   IMAGE_TO_VIDEO_MODELS,
-  type TextToImageModel,
   type ImageToVideoModel,
+  type TextToImageModel,
   videoModelSupportsAudio,
 } from '@/lib/ai/models';
-import { aspectRatioToDimensions } from '@/lib/constants/aspect-ratios';
 import type { AspectRatio } from '@/lib/constants/aspect-ratios';
+import { aspectRatioToDimensions } from '@/lib/constants/aspect-ratios';
 import { type Microdollars, addMicros, micros, multiplyMicros } from './money';
 
 /**
@@ -90,14 +90,17 @@ export function estimateStoryboardCost(opts: {
   aspectRatio: AspectRatio;
   estimatedSceneCount?: number;
   autoGenerateMotion?: boolean;
-  videoModel?: ImageToVideoModel;
-  /** Number of video models selected (multiplies per-frame motion cost) */
-  videoModelCount?: number;
+  /**
+   * Video models selected for per-frame motion (#545). Each model is priced
+   * individually from its own parameters — fal returns no cost, so a uniform
+   * per-model multiplier would mis-estimate a mixed (e.g. cheap + audio-capable)
+   * selection. First is primary; all are billed once per frame.
+   */
+  videoModels?: ImageToVideoModel[];
   videoDurationSeconds?: number;
 }): Microdollars {
   const sceneCount = opts.estimatedSceneCount ?? DEFAULT_ESTIMATED_SCENE_COUNT;
   const imageModelCount = opts.imageModelCount ?? 1;
-  const videoModelCount = opts.videoModelCount ?? 1;
 
   // LLM calls: script analysis + character bible + location bible (~3 calls)
   const llmCost = estimateLLMCost(3);
@@ -119,15 +122,19 @@ export function estimateStoryboardCost(opts: {
     frameCost
   );
 
-  // Optional motion generation for all frames (multiplied by the number of
-  // selected video models — each model produces its own video per frame).
-  if (opts.autoGenerateMotion && opts.videoModel) {
+  // Optional motion generation for all frames. Each selected video model
+  // produces its own video per frame, so sum each model's own per-frame cost
+  // (priced from its parameters) rather than scaling one model's rate by a
+  // count — a mixed selection has genuinely different per-model costs.
+  if (opts.autoGenerateMotion && opts.videoModels?.length) {
     const duration = opts.videoDurationSeconds ?? 5;
-    const perFrameMotion = estimateVideoCost(opts.videoModel, duration);
-    totalCost = addMicros(
-      totalCost,
-      multiplyMicros(perFrameMotion, sceneCount * videoModelCount)
-    );
+    for (const model of opts.videoModels) {
+      const perFrameMotion = estimateVideoCost(model, duration);
+      totalCost = addMicros(
+        totalCost,
+        multiplyMicros(perFrameMotion, sceneCount)
+      );
+    }
   }
 
   return totalCost;

@@ -132,8 +132,7 @@ export const createSequenceFn = createServerFn({ method: 'POST' })
         imageModelCount: imageModels.length,
         aspectRatio,
         autoGenerateMotion,
-        videoModel: primaryVideoModel,
-        videoModelCount: videoModels.length,
+        videoModels,
       }),
       {
         providers: ['fal', 'openrouter'],
@@ -299,10 +298,9 @@ export const updateSequenceFn = createServerFn({ method: 'POST' })
             DEFAULT_IMAGE_MODEL
           ),
           aspectRatio: sequence.aspectRatio,
-          videoModel: safeImageToVideoModel(
-            sequence.videoModel,
-            DEFAULT_VIDEO_MODEL
-          ),
+          videoModels: [
+            safeImageToVideoModel(sequence.videoModel, DEFAULT_VIDEO_MODEL),
+          ],
         }),
         {
           providers: ['fal', 'openrouter'],
@@ -363,10 +361,9 @@ export const retryStoryboardFn = createServerFn({ method: 'POST' })
           DEFAULT_IMAGE_MODEL
         ),
         aspectRatio: sequence.aspectRatio,
-        videoModel: safeImageToVideoModel(
-          sequence.videoModel,
-          DEFAULT_VIDEO_MODEL
-        ),
+        videoModels: [
+          safeImageToVideoModel(sequence.videoModel, DEFAULT_VIDEO_MODEL),
+        ],
       }),
       {
         providers: ['fal', 'openrouter'],

@@ -21,13 +21,13 @@
  *     rather than a silently-skipped child), `Promise.allSettled` on await
  *     so a single bad frame doesn't kill the rest of the batch. */
 
-import { DEFAULT_VIDEO_MODEL, type ImageToVideoModel } from '@/lib/ai/models';
 import type { ScopedDb } from '@/lib/db/scoped';
 import { assembleMotionPrompt } from '@/lib/motion/assemble-motion-prompt';
 import { getGenerationChannel } from '@/lib/realtime';
 import { OpenStoryWorkflowEntrypoint } from '@/lib/workflow/base-workflow';
 import { spawnAndAwaitChild } from '@/lib/workflow/await-child';
 import { WorkflowValidationError } from '@/lib/workflow/errors';
+import { buildMotionJobs } from '@/lib/workflows/motion-batch-jobs';
 import type {
   BatchMotionMusicWorkflowInput,
   MotionWorkflowInput,
@@ -87,24 +87,13 @@ export class MotionBatchWorkflow extends OpenStoryWorkflowEntrypoint<BatchMotion
 
     // Step 1: Fan out motion workflows + optional music workflow in parallel.
     // Multi-model video (#545): one MOTION_WORKFLOW child per (frame, model)
-    // — the motion analog of frame-images' per-(scene, model) fan-out. The
-    // top-level `videoModels` (if present) applies to every frame; otherwise
-    // each frame falls back to its own `model` (single-model behaviour). The
-    // first model is primary (its output also lands in the legacy
-    // `frames.video*` columns); the rest are alternates in `frame_variants`.
-    // Pattern 3 spawns + awaits each child via `spawnAndAwaitChild`;
-    // Promise.allSettled lets a single failing (frame, model) not poison the
-    // rest of the batch.
-    const topVideoModels =
-      input.videoModels && input.videoModels.length > 0
-        ? [...new Set(input.videoModels)]
-        : null;
-
-    const motionJobs = input.frames.flatMap((frame, frameIndex) => {
-      const models: ImageToVideoModel[] =
-        topVideoModels ?? (frame.model ? [frame.model] : [DEFAULT_VIDEO_MODEL]);
-      return models.map((model) => ({ frame, frameIndex, model }));
-    });
+    // — the motion analog of frame-images' per-(scene, model) fan-out (see
+    // `buildMotionJobs` for the resolution/dedupe rules). The first model is
+    // primary (its output also lands in the legacy `frames.video*` columns);
+    // the rest are alternates in `frame_variants`. Pattern 3 spawns + awaits
+    // each child via `spawnAndAwaitChild`; Promise.allSettled lets a single
+    // failing (frame, model) not poison the rest of the batch.
+    const motionJobs = buildMotionJobs(input.frames, input.videoModels);
 
     const motionAwaits = motionJobs.map(({ frame, frameIndex, model }) => {
       // Per-model prompt: re-assemble from the structured motion prompt when

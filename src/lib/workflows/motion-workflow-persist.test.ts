@@ -7,8 +7,9 @@
  *
  *   - generating: open the variant row + stamp the legacy columns
  *   - completed:  stamp both, clearing any prior error (frame-deleted short-circuit)
- *   - failed:     record the error on both — via UPSERT so a pre-generating
- *                 failure still lands a visible `failed` variant
+ *   - failed:     record the error on both — updating the existing variant row
+ *                 (preserving a completed url), falling back to UPSERT only when
+ *                 no row exists so a pre-generating failure still lands a row
  */
 
 import { describe, expect, it } from 'vitest';
@@ -109,7 +110,9 @@ type CallName =
   | 'frameVariants.updateByFrameAndModel'
   | 'frameVariants.upsert';
 
-function buildScopedDbSpy(opts: { frameMissing?: boolean } = {}): {
+function buildScopedDbSpy(
+  opts: { frameMissing?: boolean; variantMissing?: boolean } = {}
+): {
   scopedDb: PersistMotionScopedDb;
   framesUpdates: FrameUpdateCall[];
   variantsUpdates: VariantUpdateCall[];
@@ -133,7 +136,8 @@ function buildScopedDbSpy(opts: { frameMissing?: boolean } = {}): {
       updateByFrameAndModel: async (frameId, variantType, model, data) => {
         variantsUpdates.push({ frameId, variantType, model, data });
         callOrder.push('frameVariants.updateByFrameAndModel');
-        return { id: 'v1' };
+        // null = no matching primary row exists (caller decides whether to insert).
+        return opts.variantMissing ? null : { id: 'v1' };
       },
       upsert: async (data) => {
         variantsUpserts.push(data);
@@ -231,7 +235,7 @@ describe('persistMotionCompletion', () => {
 });
 
 describe('persistMotionFailure', () => {
-  it('records failed on the legacy columns and UPSERTS the variant (not update), then emits', async () => {
+  it('updates the existing variant row to failed (preserving its url, no upsert), then emits', async () => {
     const {
       scopedDb,
       framesUpdates,
@@ -247,24 +251,66 @@ describe('persistMotionFailure', () => {
       frameId: 'f1',
       sequenceId: 'seq1',
       model: 'veo3',
-      error: 'Insufficient credits for motion generation',
+      error: 'fal 500',
       workflowRunId: 'run-9',
       emit: async (event, payload) => {
         emits.push({ event, payload });
       },
     });
 
-    // Critically: upsert, NOT updateByFrameAndModel — so a failure that
-    // happened before the generating row was written still lands a row.
-    expect(callOrder).toEqual(['frames.update', 'frameVariants.upsert']);
-    expect(variantsUpdates).toEqual([]);
+    // A row exists: update only (status/error). No upsert — a blind upsert
+    // would null the completed url/storagePath from the failure payload.
+    expect(callOrder).toEqual([
+      'frames.update',
+      'frameVariants.updateByFrameAndModel',
+    ]);
+    expect(variantsUpserts).toEqual([]);
 
     const [frameUpdate] = framesUpdates;
     if (!frameUpdate) throw new Error('expected frames.update call');
     expect(frameUpdate.data.videoStatus).toBe('failed');
-    expect(frameUpdate.data.videoError).toBe(
-      'Insufficient credits for motion generation'
-    );
+    expect(frameUpdate.data.videoError).toBe('fal 500');
+
+    const [variantUpdate] = variantsUpdates;
+    if (!variantUpdate) throw new Error('expected variant update call');
+    expect(variantUpdate.frameId).toBe('f1');
+    expect(variantUpdate.variantType).toBe('video');
+    expect(variantUpdate.model).toBe('veo3');
+    expect(variantUpdate.data).toEqual({ status: 'failed', error: 'fal 500' });
+    // The update payload carries no url/storagePath, so an existing completed
+    // artifact is left untouched.
+    expect(variantUpdate.data.url).toBeUndefined();
+    expect(variantUpdate.data.storagePath).toBeUndefined();
+
+    expect(emits).toEqual([
+      {
+        event: 'generation.video:progress',
+        payload: { frameId: 'f1', status: 'failed', model: 'veo3' },
+      },
+    ]);
+  });
+
+  it('no existing variant row (pre-generating failure): UPSERTS a failed row so it stays visible', async () => {
+    const { scopedDb, variantsUpdates, variantsUpserts, callOrder } =
+      buildScopedDbSpy({ variantMissing: true });
+
+    await persistMotionFailure({
+      scopedDb,
+      frameId: 'f1',
+      sequenceId: 'seq1',
+      model: 'veo3',
+      error: 'Insufficient credits for motion generation',
+      workflowRunId: 'run-9',
+      emit: async () => {},
+    });
+
+    // Update first (no-op, returns null), then upsert to land a visible row.
+    expect(callOrder).toEqual([
+      'frames.update',
+      'frameVariants.updateByFrameAndModel',
+      'frameVariants.upsert',
+    ]);
+    expect(variantsUpdates.length).toBe(1);
 
     const [upserted] = variantsUpserts;
     if (!upserted) throw new Error('expected frameVariants.upsert call');
@@ -277,12 +323,5 @@ describe('persistMotionFailure', () => {
       error: 'Insufficient credits for motion generation',
       workflowRunId: 'run-9',
     });
-
-    expect(emits).toEqual([
-      {
-        event: 'generation.video:progress',
-        payload: { frameId: 'f1', status: 'failed', model: 'veo3' },
-      },
-    ]);
   });
 });

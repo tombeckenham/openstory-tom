@@ -41,16 +41,23 @@ const THUMBNAIL_SIZE = 256;
 const UPLOAD_CONCURRENCY = Number(process.env.UPLOAD_CONCURRENCY ?? '12');
 
 /**
- * R2 S3 client when credentials are present (same pattern as
- * upload-e2e-report.ts) — direct HTTP PutObject, no `wrangler` process per
- * file. Returns null to fall back to the wrangler CLI (which uses
- * CLOUDFLARE_API_TOKEN auth instead).
+ * Optional direct-S3 client (opt-in via --s3). Default is the wrangler CLI,
+ * which authenticates with your account-wide CLOUDFLARE_API_TOKEN / `wrangler
+ * login` and reliably has write access to the public bucket. We do NOT
+ * auto-select S3 just because R2_* keys exist — those keys are often scoped to
+ * a different bucket (e.g. the e2e bucket used by upload-e2e-report.ts), which
+ * yields "Access Denied" writing to openstory-public-assets.
  */
 function createR2S3Client(): S3Client | null {
+  if (!process.argv.includes('--s3')) return null;
   const accountId = process.env.R2_ACCOUNT_ID;
   const accessKeyId = process.env.R2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-  if (!accountId || !accessKeyId || !secretAccessKey) return null;
+  if (!accountId || !accessKeyId || !secretAccessKey) {
+    throw new Error(
+      '--s3 requires R2_ACCOUNT_ID, R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY (and the key must have write access to the bucket)'
+    );
+  }
   return new S3Client({
     region: 'auto',
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,

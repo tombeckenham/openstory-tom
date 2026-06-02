@@ -6,7 +6,6 @@
  *   bun db:seed:local     # Wrangler local D1 (dev env)
  *   bun db:seed:test      # Wrangler local D1 (test env, isolated state)
  *   bun db:seed:d1        # Cloudflare D1 via HTTP API (production / CI)
- *   bun db:seed           # Turso (legacy; only used by tooling that still has TURSO_DATABASE_URL)
  */
 
 import { createD1HttpClient } from '@/lib/db/client-d1-http';
@@ -28,10 +27,8 @@ import {
   DEFAULT_SYSTEM_TALENT,
   getTalentSheetUrl,
 } from '@/lib/talent/talent-templates';
-import { createClient } from '@libsql/client';
 import { and, eq } from 'drizzle-orm';
 import { drizzle as drizzleD1 } from 'drizzle-orm/d1';
-import { drizzle as drizzleLibsql } from 'drizzle-orm/libsql';
 import { getPlatformProxy } from 'wrangler';
 
 const SYSTEM_TEAM_SLUG = 'system-templates';
@@ -60,14 +57,10 @@ function parseArgs() {
 async function seed() {
   const { local, test, d1 } = parseArgs();
 
-  let libsqlClient: ReturnType<typeof createClient> | undefined;
   let platformProxy:
     | Awaited<ReturnType<typeof getPlatformProxy<{ DB?: D1Database }>>>
     | undefined;
-  let db:
-    | ReturnType<typeof drizzleLibsql>
-    | ReturnType<typeof drizzleD1>
-    | ReturnType<typeof createD1HttpClient>;
+  let db: ReturnType<typeof drizzleD1> | ReturnType<typeof createD1HttpClient>;
 
   if (d1) {
     const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
@@ -109,21 +102,9 @@ async function seed() {
     }
     db = drizzleD1(d1Binding);
   } else {
-    const tursoUrl = process.env.TURSO_DATABASE_URL;
-    const tursoToken = process.env.TURSO_AUTH_TOKEN;
-
-    if (!tursoUrl) {
-      throw new Error(
-        'TURSO_DATABASE_URL is required (use --local for Wrangler local D1)'
-      );
-    }
-
-    console.log('🗄️  Using Turso database\n');
-    libsqlClient = createClient({
-      url: tursoUrl,
-      ...(tursoToken && { authToken: tursoToken }),
-    });
-    db = drizzleLibsql({ client: libsqlClient });
+    throw new Error(
+      'No database target specified. Use --local, --test, or --d1.'
+    );
   }
 
   try {
@@ -413,7 +394,6 @@ async function seed() {
     console.error('❌ Error seeding database:', error);
     throw error;
   } finally {
-    libsqlClient?.close();
     await platformProxy?.dispose();
   }
 }

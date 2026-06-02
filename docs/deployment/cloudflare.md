@@ -78,5 +78,5 @@ OpenStory automatically detects the deployment platform:
 import { getDeploymentPlatform } from '@/lib/utils/environment';
 
 const platform = getDeploymentPlatform();
-// Returns: 'cloudflare' | 'vercel' | 'railway' | 'local'
+// Returns: 'cloudflare' | 'local' | 'unknown'
 ```

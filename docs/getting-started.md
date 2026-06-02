@@ -46,20 +46,20 @@ The app will be available at [http://localhost:3000](http://localhost:3000).
 
 ## Database
 
-Local development uses a SQLite file (`local.db`) via the [libSQL](https://github.com/tursodatabase/libsql) client and [Drizzle ORM](https://orm.drizzle.team) — no account or remote service required.
+Local development uses a [Cloudflare D1](https://developers.cloudflare.com/d1) database (Miniflare-backed SQLite) via [Drizzle ORM](https://orm.drizzle.team) — no account or remote service required. `bun dev` migrates and seeds it automatically.
 
 ```bash
 # Generate migrations from schema changes
 bun db:generate
 
-# Apply migrations
-bun db:migrate
+# Apply migrations to the local D1 database
+bun db:migrate:local
 
-# Open Drizzle Studio
-bun db:studio
+# Open Drizzle Studio against the local D1 database
+bun db:studio:local
 ```
 
-Production deployments use Cloudflare D1 (default) or Turso. See the [Cloudflare deployment guide](/docs/deployment/cloudflare) for details.
+Production deployments use Cloudflare D1. See the [Cloudflare deployment guide](/docs/deployment/cloudflare) for details.
 
 ## Next Steps
 

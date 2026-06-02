@@ -2,8 +2,8 @@
  * Interactive setup script for OpenStory
  *
  * Usage:
- *   bun setup      — local dev (SQLite, QStash emulator, localhost defaults → .env.local)
- *   bun setup:prd  — production (hosting platform, database, email, services → .env.production)
+ *   bun setup      — local dev (local Cloudflare D1, localhost defaults → .env.local)
+ *   bun setup:prd  — production (Cloudflare Workers + D1, email, services → .env.production)
  *   bun setup:stg  — push PR preview secrets to GitHub staging environment
  */
 
@@ -92,10 +92,7 @@ function writeEnvFile(vars: Map<string, string>) {
       keys: [
         'VITE_APP_URL',
         'VITE_APP_NAME',
-        'DEPLOY_PLATFORM',
         'BETTER_AUTH_SECRET',
-        'TURSO_DATABASE_URL',
-        'TURSO_AUTH_TOKEN',
         'CLOUDFLARE_ACCOUNT_ID',
         'CLOUDFLARE_API_TOKEN',
         'CLOUDFLARE_ZONE_ID',
@@ -255,14 +252,12 @@ const PR_PREVIEW_SECRETS_BASE = [
   'VITE_PUBLIC_POSTHOG_PROJECT_TOKEN',
 ] as const;
 
-function getPrPreviewSecrets(vars: Map<string, string>): string[] {
-  const isCloudflare =
-    vars.get('DEPLOY_PLATFORM') === 'cloudflare' ||
-    vars.has('CLOUDFLARE_API_TOKEN');
-  const ciSecrets = isCloudflare
-    ? ['CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN']
-    : ['TURSO_DATABASE_URL', 'TURSO_AUTH_TOKEN'];
-  return [...PR_PREVIEW_SECRETS_BASE, ...ciSecrets];
+function getPrPreviewSecrets(): string[] {
+  return [
+    ...PR_PREVIEW_SECRETS_BASE,
+    'CLOUDFLARE_ACCOUNT_ID',
+    'CLOUDFLARE_API_TOKEN',
+  ];
 }
 
 const PR_PREVIEW_VARIABLES = [
@@ -593,52 +588,43 @@ async function prPreviewSetup() {
   }
 
   // 6c. Configure CORS on the staging bucket. Each PR deploy gets a unique
-  // URL so we use a wildcard origin matching the hosting platform's preview
-  // pattern. GET/HEAD only — staging buckets don't accept browser uploads.
+  // workers.dev URL so we use a wildcard origin matching the preview pattern.
+  // GET/HEAD only — staging buckets don't accept browser uploads.
   const stgBucketName = merged.get('R2_BUCKET_NAME');
   if (stgBucketName) {
-    const platform =
-      merged.get('DEPLOY_PLATFORM') ??
-      (merged.has('CLOUDFLARE_API_TOKEN') ? 'cloudflare' : undefined);
-
     let workersSubdomain: string | undefined;
-    if (platform === 'cloudflare') {
-      const accountId = merged.get('CLOUDFLARE_ACCOUNT_ID');
-      const apiToken = merged.get('CLOUDFLARE_API_TOKEN');
-      if (accountId && apiToken) {
-        const subSpinner = p.spinner();
-        subSpinner.start('Looking up Cloudflare Workers subdomain');
-        workersSubdomain = await getCloudflareWorkersSubdomain(
-          accountId,
-          apiToken
-        );
-        if (workersSubdomain) {
-          subSpinner.stop(`Workers subdomain: ${workersSubdomain}`);
-        } else {
-          subSpinner.stop('Could not auto-detect Workers subdomain');
-        }
-      }
-
-      if (!workersSubdomain) {
-        const manual = await p.text({
-          message:
-            'Workers subdomain (the part before .workers.dev in your preview URL)',
-          placeholder: 'e.g. myaccount',
-        });
-        if (!p.isCancel(manual) && manual.trim()) {
-          workersSubdomain = manual.trim();
-        }
+    const accountId = merged.get('CLOUDFLARE_ACCOUNT_ID');
+    const apiToken = merged.get('CLOUDFLARE_API_TOKEN');
+    if (accountId && apiToken) {
+      const subSpinner = p.spinner();
+      subSpinner.start('Looking up Cloudflare Workers subdomain');
+      workersSubdomain = await getCloudflareWorkersSubdomain(
+        accountId,
+        apiToken
+      );
+      if (workersSubdomain) {
+        subSpinner.stop(`Workers subdomain: ${workersSubdomain}`);
+      } else {
+        subSpinner.stop('Could not auto-detect Workers subdomain');
       }
     }
 
-    const previewOrigins = derivePreviewOriginPatterns({
-      platform,
-      workersSubdomain,
-    });
+    if (!workersSubdomain) {
+      const manual = await p.text({
+        message:
+          'Workers subdomain (the part before .workers.dev in your preview URL)',
+        placeholder: 'e.g. myaccount',
+      });
+      if (!p.isCancel(manual) && manual.trim()) {
+        workersSubdomain = manual.trim();
+      }
+    }
+
+    const previewOrigins = derivePreviewOriginPatterns({ workersSubdomain });
 
     if (previewOrigins.length === 0) {
       p.log.warn(
-        `No preview origin pattern available for platform "${platform ?? 'unknown'}".\n` +
+        `No Workers subdomain available.\n` +
           `Configure CORS manually in Cloudflare Dashboard:\n` +
           `  R2 → ${stgBucketName} → Settings → CORS Policy`
       );
@@ -678,7 +664,7 @@ async function prPreviewSetup() {
   }
 
   // 7. Summary + confirm
-  const previewSecrets = getPrPreviewSecrets(merged);
+  const previewSecrets = getPrPreviewSecrets();
   const allKeys = [...previewSecrets, ...PR_PREVIEW_VARIABLES];
   const ready = allKeys.filter((k) => merged.get(k));
   const missing = allKeys.filter((k) => !merged.get(k));
@@ -825,39 +811,11 @@ async function prPreviewSetup() {
 // Deploy Setup
 // ---------------------------------------------------------------------------
 
-const cliConfig: Record<
-  string,
-  {
-    cmd: string;
-    install: string;
-    loginArgs: string[];
-    whoamiArgs: string[];
-  }
-> = {
-  cloudflare: {
-    cmd: 'wrangler',
-    install: 'bun add -g wrangler',
-    loginArgs: ['login'],
-    whoamiArgs: ['whoami'],
-  },
-  vercel: {
-    cmd: 'vercel',
-    install: 'bun add -g vercel',
-    loginArgs: ['login'],
-    whoamiArgs: ['whoami'],
-  },
-  railway: {
-    cmd: 'railway',
-    install: 'npm i -g @railway/cli',
-    loginArgs: ['login'],
-    whoamiArgs: ['whoami'],
-  },
-};
-
-const platformLabels: Record<string, string> = {
-  cloudflare: 'Cloudflare Workers',
-  vercel: 'Vercel',
-  railway: 'Railway',
+const config = {
+  cmd: 'wrangler',
+  install: 'bun add -g wrangler',
+  loginArgs: ['login'] as string[],
+  whoamiArgs: ['whoami'] as string[],
 };
 
 async function deploySetup(
@@ -865,22 +823,7 @@ async function deploySetup(
   checkCancel: <T>(value: T | symbol) => T,
   _saveProgress: () => void
 ) {
-  const platform = vars.get('DEPLOY_PLATFORM');
-  if (!platform || !(platform in cliConfig)) {
-    p.log.error(
-      `Unknown or missing DEPLOY_PLATFORM: ${platform ?? '(not set)'}. Run ${chalk.bold('bun setup:prd')} first.`
-    );
-    return;
-  }
-
-  const config = cliConfig[platform];
-  if (!config) {
-    p.log.error(`No CLI config for platform: ${platform}`);
-    return;
-  }
-  const label = platformLabels[platform] ?? platform;
-
-  p.log.step(chalk.bold(`Deploy Setup — ${label}`));
+  p.log.step(chalk.bold('Deploy Setup — Cloudflare Workers'));
 
   // 1. Check CLI installed
   if (!commandExists(config.cmd)) {
@@ -963,38 +906,8 @@ async function deploySetup(
     p.log.success(`Authenticated with ${config.cmd}`);
   }
 
-  // 3. Link project (Vercel + Railway only)
-  if (platform === 'vercel' || platform === 'railway') {
-    const shouldLink = checkCancel(
-      await p.confirm({
-        message: `Link this directory to your ${label} project?`,
-        initialValue: true,
-      })
-    );
-
-    if (shouldLink) {
-      p.log.info(`Follow the prompts to link your ${label} project…`);
-      if (platform === 'vercel') {
-        p.log.info(
-          chalk.dim(
-            'Decline "pull environment variables" — we push them in the next step.'
-          )
-        );
-      }
-      try {
-        execFileSync(config.cmd, ['link'], { stdio: 'inherit' });
-        p.log.success(`Linked to ${label} project`);
-      } catch (error) {
-        p.log.error(
-          `Link failed: ${error instanceof Error ? error.message : String(error)}`
-        );
-        return;
-      }
-    }
-  }
-
-  // 4. Push secrets
-  if (platform === 'cloudflare') {
+  // 3. Push secrets to Cloudflare Workers
+  {
     const shouldPushSecrets = checkCancel(
       await p.confirm({
         message: 'Push secrets to Cloudflare Workers?',
@@ -1104,121 +1017,14 @@ async function deploySetup(
         }
       }
     }
-  } else if (platform === 'vercel') {
-    const shouldPushSecrets = checkCancel(
-      await p.confirm({
-        message: 'Push environment variables to Vercel?',
-        initialValue: true,
-      })
-    );
-
-    if (shouldPushSecrets) {
-      // Push production vars to production + preview
-      const secretsSpinner = p.spinner();
-      secretsSpinner.start(
-        `Pushing ${vars.size} env vars to Vercel (production + preview)`
-      );
-
-      let pushed = 0;
-      let failed = 0;
-
-      for (const [key, value] of vars) {
-        // Preview gets all vars except TURSO_DATABASE_URL (each preview branch should have its own DB)
-        const envs =
-          key === 'TURSO_DATABASE_URL'
-            ? ['production']
-            : ['production', 'preview'];
-
-        try {
-          execFileSync('vercel', ['env', 'add', key, ...envs, '--force'], {
-            input: value,
-            stdio: ['pipe', 'pipe', 'pipe'],
-          });
-          pushed++;
-        } catch {
-          failed++;
-        }
-      }
-
-      if (failed > 0) {
-        secretsSpinner.stop(
-          `Pushed ${pushed} env vars to Vercel (${failed} failed)`
-        );
-      } else {
-        secretsSpinner.stop(
-          `Pushed ${vars.size} env vars to Vercel (production + preview)`
-        );
-      }
-
-      // Optionally push .env.local as development environment
-      const localEnvFile = resolve(process.cwd(), '.env.local');
-      const localVars = parseEnvFile(localEnvFile);
-
-      if (localVars.size > 0) {
-        const shouldPushDev = checkCancel(
-          await p.confirm({
-            message: `Found .env.local with ${localVars.size} values. Push to Vercel development environment?`,
-            initialValue: true,
-          })
-        );
-
-        if (shouldPushDev) {
-          const devSpinner = p.spinner();
-          devSpinner.start(
-            `Pushing ${localVars.size} env vars to Vercel (development)`
-          );
-
-          let devPushed = 0;
-          let devFailed = 0;
-
-          for (const [key, value] of localVars) {
-            try {
-              execFileSync(
-                'vercel',
-                ['env', 'add', key, 'development', '--force'],
-                {
-                  input: value,
-                  stdio: ['pipe', 'pipe', 'pipe'],
-                }
-              );
-              devPushed++;
-            } catch {
-              devFailed++;
-            }
-          }
-
-          if (devFailed > 0) {
-            devSpinner.stop(
-              `Pushed ${devPushed} dev env vars to Vercel (${devFailed} failed)`
-            );
-          } else {
-            devSpinner.stop(
-              `Pushed ${localVars.size} env vars to Vercel (development)`
-            );
-          }
-        }
-      } else {
-        p.log.info(
-          `No .env.local found — skipping Vercel development environment. Run ${chalk.bold('bun setup')} first to create one.`
-        );
-      }
-    }
-  } else {
-    // Railway — no bulk env push via CLI without specifying service
-    p.log.info(
-      `Copy environment variables from ${chalk.bold(ENV_FILENAME)} to your ${label} dashboard.`
-    );
   }
 
-  // 5. Push CI secrets to GitHub production environment
-  const ciSecrets =
-    platform === 'cloudflare'
-      ? ([
-          'CLOUDFLARE_ACCOUNT_ID',
-          'CLOUDFLARE_API_TOKEN',
-          'VITE_PUBLIC_POSTHOG_PROJECT_TOKEN',
-        ] as const)
-      : (['TURSO_DATABASE_URL', 'TURSO_AUTH_TOKEN'] as const);
+  // 4. Push CI secrets to GitHub production environment
+  const ciSecrets = [
+    'CLOUDFLARE_ACCOUNT_ID',
+    'CLOUDFLARE_API_TOKEN',
+    'VITE_PUBLIC_POSTHOG_PROJECT_TOKEN',
+  ] as const;
   const ciSecretsToPush = ciSecrets.filter((k) => vars.get(k));
 
   if (ciSecretsToPush.length > 0) {
@@ -1299,10 +1105,10 @@ async function deploySetup(
     }
   }
 
-  // 6. Deploy
+  // 5. Deploy
   const shouldDeploy = checkCancel(
     await p.confirm({
-      message: `Deploy to ${label} now?`,
+      message: 'Deploy to Cloudflare Workers now?',
       initialValue: true,
     })
   );
@@ -1312,53 +1118,22 @@ async function deploySetup(
     return;
   }
 
-  if (platform === 'cloudflare') {
-    p.log.info(
-      'D1 migrations and seeding are handled by the GitHub Actions deploy workflow.'
-    );
+  p.log.info(
+    'D1 migrations and seeding are handled by the GitHub Actions deploy workflow.'
+  );
 
-    // Deploy
-    p.log.info('Building and deploying to Cloudflare Workers…');
-    try {
-      execFileSync('bun', ['cf:deploy:prd'], {
-        stdio: 'inherit',
-        cwd: process.cwd(),
-      });
-      p.log.success('Deployed to Cloudflare Workers');
-    } catch (error) {
-      p.log.error(
-        `Deploy failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-      p.log.info(`Run manually: ${chalk.bold('bun cf:deploy:prd')}`);
-    }
-  } else if (platform === 'vercel') {
-    p.log.info('Deploying to Vercel…');
-    try {
-      execFileSync('vercel', ['deploy', '--prod'], {
-        stdio: 'inherit',
-        cwd: process.cwd(),
-      });
-      p.log.success('Deployed to Vercel');
-    } catch (error) {
-      p.log.error(
-        `Deploy failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-      p.log.info(`Run manually: ${chalk.bold('vercel deploy --prod')}`);
-    }
-  } else if (platform === 'railway') {
-    p.log.info('Deploying to Railway…');
-    try {
-      execFileSync('railway', ['up'], {
-        stdio: 'inherit',
-        cwd: process.cwd(),
-      });
-      p.log.success('Deployed to Railway');
-    } catch (error) {
-      p.log.error(
-        `Deploy failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-      p.log.info(`Run manually: ${chalk.bold('railway up')}`);
-    }
+  p.log.info('Building and deploying to Cloudflare Workers…');
+  try {
+    execFileSync('bun', ['cf:deploy:prd'], {
+      stdio: 'inherit',
+      cwd: process.cwd(),
+    });
+    p.log.success('Deployed to Cloudflare Workers');
+  } catch (error) {
+    p.log.error(
+      `Deploy failed: ${error instanceof Error ? error.message : String(error)}`
+    );
+    p.log.info(`Run manually: ${chalk.bold('bun cf:deploy:prd')}`);
   }
 }
 
@@ -1407,26 +1182,6 @@ async function main() {
     }
 
     p.log.info(`Loaded ${existing.size} values from ${ENV_FILENAME}`);
-
-    // Prompt for platform if missing
-    if (!vars.has('DEPLOY_PLATFORM')) {
-      const platform = checkCancel(
-        await p.select({
-          message: 'Where will you deploy?',
-          options: [
-            {
-              value: 'cloudflare',
-              label: 'Cloudflare Workers',
-              hint: 'recommended',
-            },
-            { value: 'vercel', label: 'Vercel' },
-            { value: 'railway', label: 'Railway' },
-          ],
-        })
-      );
-      vars.set('DEPLOY_PLATFORM', platform);
-      saveProgress();
-    }
 
     await deploySetup(vars, checkCancel, saveProgress);
     p.outro('Deploy setup complete.');
@@ -1708,36 +1463,6 @@ async function main() {
   }
 
   // -------------------------------------------------------------------------
-  // Hosting Platform (prod only)
-  // -------------------------------------------------------------------------
-  if (isProd) {
-    p.log.step(chalk.bold('Hosting Platform'));
-
-    if (vars.has('DEPLOY_PLATFORM')) {
-      p.log.success(
-        `DEPLOY_PLATFORM — already configured (${vars.get('DEPLOY_PLATFORM')})`
-      );
-    } else {
-      const platform = checkCancel(
-        await p.select({
-          message: 'Where will you host this app?',
-          options: [
-            {
-              value: 'cloudflare',
-              label: 'Cloudflare Workers',
-              hint: 'recommended',
-            },
-            { value: 'vercel', label: 'Vercel' },
-            { value: 'railway', label: 'Railway' },
-          ],
-        })
-      );
-      vars.set('DEPLOY_PLATFORM', platform);
-      saveProgress();
-    }
-  }
-
-  // -------------------------------------------------------------------------
   // Core
   // -------------------------------------------------------------------------
   p.log.step(chalk.bold('Core Setup'));
@@ -1749,43 +1474,23 @@ async function main() {
       'e.g. https://app.example.com'
     );
 
-    // Branch database setup by hosting platform
-    const platform = vars.get('DEPLOY_PLATFORM');
-
-    if (platform === 'cloudflare') {
-      p.log.step(chalk.bold('Cloudflare'));
-      await promptForKey(
-        'CLOUDFLARE_ACCOUNT_ID',
-        'Enter your Cloudflare Account ID',
-        'Find in Cloudflare console → Compute → Workers & Pages → Account ID (sidebar)'
-      );
-      await promptForKey(
-        'CLOUDFLARE_API_TOKEN',
-        'Enter your Cloudflare API token',
-        'Create at: https://dash.cloudflare.com/profile/api-tokens (needs D1 + Workers edit permissions)'
-      );
-      p.log.info(
-        'D1 database is configured in wrangler.jsonc — deploy handles migrations automatically.'
-      );
-    } else {
-      // Vercel / Railway → Turso
-      p.log.step(chalk.bold('Database (Turso)'));
-      await promptForKey(
-        'TURSO_DATABASE_URL',
-        'Enter your Turso database URL',
-        'e.g. libsql://your-db-name-org.turso.io'
-      );
-      await promptForKey(
-        'TURSO_AUTH_TOKEN',
-        'Enter your Turso auth token',
-        'Get one at: https://turso.tech/app'
-      );
-    }
+    p.log.step(chalk.bold('Cloudflare'));
+    await promptForKey(
+      'CLOUDFLARE_ACCOUNT_ID',
+      'Enter your Cloudflare Account ID',
+      'Find in Cloudflare console → Compute → Workers & Pages → Account ID (sidebar)'
+    );
+    await promptForKey(
+      'CLOUDFLARE_API_TOKEN',
+      'Enter your Cloudflare API token',
+      'Create at: https://dash.cloudflare.com/profile/api-tokens (needs D1 + Workers edit permissions)'
+    );
+    p.log.info(
+      'D1 database is configured in wrangler.jsonc — deploy handles migrations automatically.'
+    );
   } else {
     if (!vars.has('VITE_APP_URL'))
       vars.set('VITE_APP_URL', 'http://localhost:3000');
-    if (!vars.has('TURSO_DATABASE_URL'))
-      vars.set('TURSO_DATABASE_URL', 'file:local.db');
   }
 
   if (!vars.has('VITE_APP_NAME')) vars.set('VITE_APP_NAME', 'OpenStory');
@@ -1818,11 +1523,11 @@ async function main() {
     p.log.success('Encryption key — already configured');
   }
 
-  if (vars.get('DEPLOY_PLATFORM') === 'cloudflare') {
-    p.log.success('Database: Cloudflare D1 (via wrangler.jsonc)');
-  } else if (vars.has('TURSO_DATABASE_URL')) {
-    p.log.success(`Database: ${vars.get('TURSO_DATABASE_URL')}`);
-  }
+  p.log.success(
+    isProd
+      ? 'Database: Cloudflare D1 (via wrangler.jsonc)'
+      : 'Database: Cloudflare D1 (local Miniflare)'
+  );
   p.log.success(`App URL: ${vars.get('VITE_APP_URL')}`);
   saveProgress();
 
@@ -2066,7 +1771,7 @@ async function main() {
   // -------------------------------------------------------------------------
   // Storage (R2)
   // -------------------------------------------------------------------------
-  if (vars.get('DEPLOY_PLATFORM') === 'cloudflare') {
+  if (isProd) {
     p.log.info(
       'R2 storage is handled by native bindings configured in wrangler.jsonc.\n' +
         'S3 credentials (for signed URLs) can be added to .env and deployed\n' +
@@ -2589,22 +2294,8 @@ async function main() {
   // Summary
   // -------------------------------------------------------------------------
   const features: Array<[string, string]> = [
-    [
-      'Hosting',
-      isProd
-        ? (platformLabels[vars.get('DEPLOY_PLATFORM') ?? ''] ?? 'Unknown')
-        : 'Local',
-    ],
-    [
-      'Database',
-      isProd
-        ? vars.get('DEPLOY_PLATFORM') === 'cloudflare'
-          ? 'Cloudflare D1'
-          : vars.has('TURSO_DATABASE_URL')
-            ? 'Turso'
-            : 'Skipped'
-        : 'SQLite (local.db)',
-    ],
+    ['Hosting', isProd ? 'Cloudflare Workers' : 'Local'],
+    ['Database', isProd ? 'Cloudflare D1' : 'Cloudflare D1 (local Miniflare)'],
     ['Auth', 'Better Auth (secret generated)'],
     ['Email', vars.has('RESEND_API_KEY') ? 'Configured' : 'Skipped'],
     ['AI Generation', vars.has('FAL_KEY') ? 'Configured' : 'Skipped'],

@@ -13,12 +13,7 @@ import { getRequest } from '@tanstack/react-start/server';
 /**
  * Platform detection
  */
-type DeploymentPlatform =
-  | 'cloudflare'
-  | 'vercel'
-  | 'railway'
-  | 'local'
-  | 'unknown';
+type DeploymentPlatform = 'cloudflare' | 'local' | 'unknown';
 
 /**
  * Detect which platform the app is running on
@@ -27,12 +22,6 @@ export function getDeploymentPlatform(): DeploymentPlatform {
   const env = getEnv();
   if (env.CF_PAGES) {
     return 'cloudflare';
-  }
-  if (env.VERCEL) {
-    return 'vercel';
-  }
-  if (env.RAILWAY_ENVIRONMENT) {
-    return 'railway';
   }
   if (env.NODE_ENV === 'development') {
     return 'local';

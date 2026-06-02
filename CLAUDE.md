@@ -255,16 +255,16 @@ bun db:migrate   # Apply migrations to local.db
 
 **Reproducing a prod bug locally:** temporarily set the default D1's `database_id` to the real prod value, restart `bun dev`, and revert when done. **Never commit a real prod D1 id into the default block.**
 
-### D1 / Turso table-rebuild trap — READ BEFORE CHANGING SCHEMA
+### D1 table-rebuild trap — READ BEFORE CHANGING SCHEMA
 
-drizzle-kit's HTTP migrators (`d1-http`, `turso`) join all migration statements into a single HTTP body. Both D1 and Turso libSQL wrap multi-statement bodies in an implicit transaction, and SQLite **silently** ignores `PRAGMA foreign_keys = OFF` inside a transaction. So when the standard SQLite "table rebuild" pattern (`CREATE __new_X` → `INSERT SELECT` → `DROP X` → `RENAME`) drops the parent table, every inbound `ON DELETE CASCADE` FK fires and child rows are deleted.
+drizzle-kit's `d1-http` HTTP migrator joins all migration statements into a single HTTP body. D1 wraps multi-statement bodies in an implicit transaction, and SQLite **silently** ignores `PRAGMA foreign_keys = OFF` inside a transaction. So when the standard SQLite "table rebuild" pattern (`CREATE __new_X` → `INSERT SELECT` → `DROP X` → `RENAME`) drops the parent table, every inbound `ON DELETE CASCADE` FK fires and child rows are deleted.
 
 This destroyed `team_members`, `session`, `account`, and `passkey` in production on 2026-04-29 (issue #612, migration `20260428013041_productive_kabuki`). `PRAGMA defer_foreign_keys = ON` does **not** help — it defers constraint _checks_ but CASCADE still fires.
 
 **Workarounds (in order):**
 
-1. **Avoid table rebuilds.** Prefer `ALTER TABLE … RENAME COLUMN / ADD COLUMN / DROP COLUMN` — SQLite/D1/Turso support these without a rebuild.
-2. **Apply destructive migrations manually.** Snapshot first (`wrangler d1 export`), then apply via the D1 dashboard or `wrangler d1 ... --file=…`. Do not let `db:migrate:turso` / `db:migrate:d1` run it.
+1. **Avoid table rebuilds.** Prefer `ALTER TABLE … RENAME COLUMN / ADD COLUMN / DROP COLUMN` — SQLite/D1 support these without a rebuild.
+2. **Apply destructive migrations manually.** Snapshot first (`wrangler d1 export`), then apply via the D1 dashboard or `wrangler d1 ... --file=…`. Do not let `db:migrate:d1` run it.
 3. **Avoid `ON DELETE CASCADE`** on FKs to long-lived parent tables (`user`, `teams`, `sequences`). Use `'restrict'` or `'no action'` and clean up children in app code.
 
 **Local guardrail:** `scripts/check-migrations.ts` runs as a Lefthook pre-commit step on staged `drizzle/migrations/**/*.sql`. It flags `DROP TABLE`, `TRUNCATE`, `DELETE FROM`, `ALTER TABLE … DROP COLUMN`, and annotates each `DROP TABLE` with the count of inbound `ON DELETE CASCADE` FKs. Bypass for a manually-applied migration: `bun scripts/check-migrations.ts --allow-destructive`.
@@ -400,9 +400,7 @@ When re-mocking inside an `it()` block to test a different code path, call `vi.r
 
 ## Platform & Deployment
 
-Automatic platform detection: `getDeploymentPlatform()` / `getAppUrl()` in `src/lib/utils/environment.ts` resolve `CF_PAGES_URL` / `VERCEL_URL` / etc.
-
-Production target: **Cloudflare Workers**. CI auto-deploys main; PRs get preview deployments with unique D1 databases. See `.env.example` for required vars (or `bun setup` for local defaults).
+Production target: **Cloudflare Workers** (the only supported platform). `getDeploymentPlatform()` in `src/lib/utils/environment.ts` distinguishes Cloudflare / local / unknown via `CF_PAGES` and `NODE_ENV`. CI auto-deploys main; PRs get preview deployments with unique D1 databases. See `.env.example` for required vars (or `bun setup` for local defaults).
 
 <!-- intent-skills:start -->
 

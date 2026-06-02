@@ -34,7 +34,7 @@ OpenStory takes a script and produces a sequence of AI-generated frames — imag
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Runtime**    | [Bun](https://bun.com)                                                                                                                                                                        |
 | **Framework**  | [TanStack Start](https://tanstack.com/start) + [TanStack Router](https://tanstack.com/router) + [Vite](https://vite.dev)                                                                      |
-| **Database**   | [Drizzle ORM](https://orm.drizzle.team) + SQLite ([Bun SQLite](https://bun.com/docs/runtime/sqlite), [Cloudflare D1](https://developers.cloudflare.com/d1), or [Turso](https://turso.tech))   |
+| **Database**   | [Drizzle ORM](https://orm.drizzle.team) + [Cloudflare D1](https://developers.cloudflare.com/d1) (SQLite)                                                                                      |
 | **AI**         | [TanStack AI](https://tanstack.com/ai) + [Fal.ai](https://fal.ai) + [OpenRouter](https://openrouter.ai) + [Langfuse](https://langfuse.com) (observability)                                    |
 | **Workflows**  | [QStash Workflow](https://upstash.com/docs/workflow) (durable execution)                                                                                                                      |
 | **Realtime**   | [QStash Realtime](https://upstash.com/docs/realtime)                                                                                                                                          |
@@ -149,11 +149,9 @@ scripts/          # CLI utilities and setup
 
 ## Deployment
 
-**Primary:** Cloudflare Workers — edge runtime, R2 storage, D1 database, global CDN.
+**Cloudflare Workers** — edge runtime, R2 storage, D1 database, global CDN.
 
-**Also supported:** Vercel, Railway.
-
-**CI/CD:** GitHub Actions auto-deploys on push to `main`. Pull requests get preview deployments with dedicated Turso databases.
+**CI/CD:** GitHub Actions auto-deploys on push to `main`. Pull requests get preview deployments with dedicated D1 databases.
 
 > See the [Platform & Deployment](CLAUDE.md#platform--deployment) section in CLAUDE.md for environment variable configuration and platform detection.
 

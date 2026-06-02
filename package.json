@@ -15,7 +15,7 @@
     "#db-client": {
       "workerd": "./src/lib/db/client-d1.ts",
       "storybook": "./src/lib/db/client-stub.ts",
-      "default": "./src/lib/db/client-web.ts"
+      "default": "./src/lib/db/client-node.ts"
     },
     "#storage": {
       "workerd": "./src/lib/storage/storage-cloudflare.ts",

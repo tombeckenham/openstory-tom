@@ -3,12 +3,12 @@ name: block-remote-db-ops
 enabled: true
 event: bash
 action: block
-pattern: db:(migrate|push|studio|seed):(turso|d1)|db:seed(?!:)|setup:(prd|stg|deploy)|drizzle\.config\.(turso|d1)\.ts|wrangler\s+d1\s+execute(?!.*--local)
+pattern: db:(migrate|push|studio|seed):d1|setup:(prd|stg|deploy)|drizzle\.config\.d1\.ts|wrangler\s+d1\s+execute(?!.*--local)
 ---
 
 🚫 **Remote database operation blocked!**
 
-You attempted a command that mutates or connects to a **remote database** (Turso or Cloudflare D1) or a remote deploy target. These commands skip local sandboxing and can destroy production data.
+You attempted a command that mutates or connects to the **remote Cloudflare D1 database** or a remote deploy target. These commands skip local sandboxing and can destroy production data.
 
 **Safe local equivalents:**
 

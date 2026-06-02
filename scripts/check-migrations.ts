@@ -4,8 +4,8 @@
  *
  * Flags destructive SQL in drizzle migrations. The standard SQLite
  * "table rebuild" pattern (DROP X -> INSERT SELECT -> RENAME __new_X) is
- * structurally unsafe on Cloudflare D1 and Turso libSQL because their HTTP
- * /query endpoints wrap multi-statement bodies in an implicit transaction,
+ * structurally unsafe on Cloudflare D1 because its HTTP /query endpoint
+ * wraps multi-statement bodies in an implicit transaction,
  * inside which `PRAGMA foreign_keys=OFF` is silently ignored — so any
  * inbound `ON DELETE CASCADE` fires when the parent table is dropped.
  *

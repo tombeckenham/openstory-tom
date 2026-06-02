@@ -96,24 +96,14 @@ export function setBucketCors(bucketName: string, rules: CorsRule[]): void {
 }
 
 /**
- * Wildcard origin patterns matching each hosting platform's PR preview URLs.
- * PR preview URLs are ephemeral and unique per PR, so we use platform-specific
- * wildcards to cover all of them with a single rule.
+ * Wildcard origin patterns matching Cloudflare's PR preview URLs.
+ * PR preview URLs are ephemeral and unique per PR, so we use a wildcard to
+ * cover all of them with a single rule.
  */
 export function derivePreviewOriginPatterns(opts: {
-  platform: string | undefined;
   workersSubdomain?: string;
 }): string[] {
-  switch (opts.platform) {
-    case 'cloudflare':
-      return opts.workersSubdomain
-        ? [`https://pr-*.${opts.workersSubdomain}.workers.dev`]
-        : [];
-    case 'vercel':
-      return ['https://*.vercel.app'];
-    case 'railway':
-      return ['https://*.up.railway.app'];
-    default:
-      return [];
-  }
+  return opts.workersSubdomain
+    ? [`https://pr-*.${opts.workersSubdomain}.workers.dev`]
+    : [];
 }

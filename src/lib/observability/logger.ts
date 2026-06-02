@@ -49,7 +49,7 @@ const SECRET_PATTERNS: readonly RedactionPattern[] = [
     replacement: REDACT,
   },
   {
-    pattern: /\b(postgres|mysql|redis|libsql|https?):\/\/[^\s"']+@[^\s"']+/gi,
+    pattern: /\b(postgres|mysql|redis|https?):\/\/[^\s"']+@[^\s"']+/gi,
     replacement: REDACT,
   },
   { pattern: /\b[A-Za-z0-9+/]{64,}={0,2}\b/g, replacement: REDACT },

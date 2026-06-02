@@ -911,7 +911,8 @@ export interface ReplaceElementWorkflowResult {
  * `Workflow`, `WorkflowInstance`) are declared globally by `cloudflare-env.d.ts`
  * via the wrangler runtime-types generator. Each binding below maps to an entry
  * in `wrangler.jsonc` under `workflows[]` and is optional because it only
- * exists in CF-deployed builds — local Node/Vercel runs don't bind workflows.
+ * exists in Workerd builds — non-Workerd runs (unit tests, plain Node) don't
+ * bind workflows.
  */
 export type CloudflareEnv = Cloudflare.Env & {
   IMAGE_WORKFLOW?: Workflow<unknown>;

@@ -44,8 +44,6 @@ declare namespace Cloudflare {
     RESEND_API_KEY: string;
     STRIPE_SECRET_KEY: string;
     STRIPE_WEBHOOK_SECRET: string;
-    TURSO_AUTH_TOKEN: string;
-    TURSO_DATABASE_URL: string;
     UPSTASH_REDIS_REST_TOKEN: string;
     UPSTASH_REDIS_REST_URL: string;
   }
@@ -91,8 +89,6 @@ declare namespace Cloudflare {
     RESEND_API_KEY: string;
     STRIPE_SECRET_KEY: string;
     STRIPE_WEBHOOK_SECRET: string;
-    TURSO_AUTH_TOKEN: string;
-    TURSO_DATABASE_URL: string;
     UPSTASH_REDIS_REST_TOKEN: string;
     UPSTASH_REDIS_REST_URL: string;
   }
@@ -134,8 +130,6 @@ declare namespace Cloudflare {
     RESEND_API_KEY: string;
     STRIPE_SECRET_KEY: string;
     STRIPE_WEBHOOK_SECRET: string;
-    TURSO_AUTH_TOKEN: string;
-    TURSO_DATABASE_URL: string;
     UPSTASH_REDIS_REST_TOKEN: string;
     UPSTASH_REDIS_REST_URL: string;
     NEXT_INC_CACHE_R2_BUCKET?: R2Bucket;
@@ -190,8 +184,6 @@ declare namespace NodeJS {
       | 'RESEND_API_KEY'
       | 'STRIPE_SECRET_KEY'
       | 'STRIPE_WEBHOOK_SECRET'
-      | 'TURSO_AUTH_TOKEN'
-      | 'TURSO_DATABASE_URL'
       | 'UPSTASH_REDIS_REST_TOKEN'
       | 'UPSTASH_REDIS_REST_URL'
     >

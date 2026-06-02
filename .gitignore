@@ -43,9 +43,6 @@ cerebras-validation-error.json
 .env*
 !.env.example
 
-# vercel
-.vercel
-
 # typescript
 *.tsbuildinfo
 

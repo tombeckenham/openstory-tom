@@ -164,3 +164,48 @@ export async function waitForLocationReferences(
     },
   });
 }
+
+/** Element vision statuses that are still in flight (not terminal). */
+const ELEMENT_VISION_IN_FLIGHT = new Set(['pending', 'analyzing']);
+
+/**
+ * Block until every sequence element has a terminal vision status
+ * (`completed`/`failed`), or the timeout expires.
+ *
+ * Elements uploaded while creating a sequence kick off
+ * `/element-vision` (a separate, fire-and-forget workflow) which writes the
+ * element's `description`/`consistencyTag` and flips `visionStatus` from
+ * `pending` → `analyzing` → `completed`. The analyze pipeline reads those
+ * descriptions when it builds the element bible for scene-split, so a still-
+ * running vision means the element is fed into generation with no description.
+ *
+ * We first scan the sequence for elements still in flight, then poll only those
+ * by id — completed/failed elements never enter the wait set, so a sequence
+ * whose vision already finished short-circuits with no added latency.
+ */
+export async function waitForElementVision(
+  step: WorkflowStep,
+  scopedDb: ScopedDb,
+  sequenceId: string,
+  opts?: { onWaitNeeded?: OnWaitNeeded }
+): Promise<WaitForSheetsResult> {
+  const inFlightIds = await step.do('wait-element-vision-scan', async () => {
+    const elements = await scopedDb.sequenceElements.list(sequenceId);
+    return elements
+      .filter((el) => ELEMENT_VISION_IN_FLIGHT.has(el.visionStatus))
+      .map((el) => el.id);
+  });
+
+  return pollUntilReady(step, {
+    ids: inFlightIds,
+    stepPrefix: 'wait-element-vision',
+    label: 'element vision',
+    onWaitNeeded: opts?.onWaitNeeded,
+    findPending: async () => {
+      const elements = await scopedDb.sequenceElements.listByIds(inFlightIds);
+      return elements
+        .filter((el) => ELEMENT_VISION_IN_FLIGHT.has(el.visionStatus))
+        .map((el) => el.id);
+    },
+  });
+}

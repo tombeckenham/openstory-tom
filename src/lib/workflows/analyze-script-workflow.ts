@@ -66,6 +66,7 @@ import {
   computeFrameImagesHashFromDto,
   type FrameImageSceneSnapshot,
 } from '@/lib/workflows/sheet-snapshots';
+import { waitForElementVision } from '@/lib/workflows/wait-for-sheets';
 import type {
   CharacterMinimal,
   SequenceLocationMinimal,
@@ -131,8 +132,29 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
       });
     });
 
+    // Elements uploaded while creating this sequence kick off `/element-vision`
+    // (fire-and-forget) which writes their description/consistencyTag. Scene-
+    // split reads those descriptions, so wait (bounded) for any still-running
+    // vision before loading — mirrors the talent-sheet / location-reference
+    // waits. Already-completed elements short-circuit with no added latency.
+    if (sequenceId) {
+      await waitForElementVision(step, scopedDb, sequenceId, {
+        onWaitNeeded: async () => {
+          await getGenerationChannel(sequenceId).emit(
+            'generation.phase:start',
+            {
+              phase: 1,
+              phaseName: 'Analyzing elements…',
+            }
+          );
+        },
+      });
+    }
+
     // Load sequence elements. Vision MUST be terminal before scene-split.
-    // See QStash original for the full rationale.
+    // See QStash original for the full rationale. After the wait above this
+    // only trips for vision that genuinely failed to terminate within the
+    // timeout, in which case we still surface the explicit error.
     const elements = await step.do('load-elements', async () => {
       if (!sequenceId) return [];
       const list = await scopedDb.sequenceElements.list(sequenceId);

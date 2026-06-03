@@ -1,72 +1,194 @@
 /**
  * Public input schema for `POST /api/v1/sequences`. Deliberately ergonomic and
- * lenient: callers pass human-friendly references (style by id or name, talent
- * and locations by id or name) and a single `enhance` flag. The orchestrator
- * resolves these into the strict `CreateSequenceInput`, which re-validates model
- * keys etc. — so this schema only needs to police shape, not model validity.
+ * lenient: callers pass human-friendly references (style by id or name, cast and
+ * locations by id/name or an inline create object). The orchestrator resolves
+ * these into the strict `CreateSequenceInput`, which re-validates model keys
+ * etc. — so this schema only needs to police shape, not model validity.
+ *
+ * Every field carries `.meta({...})` so `z.toJSONSchema(apiCreateSequenceSchema)`
+ * yields a fully-described OpenAPI component (titles/descriptions/examples)
+ * without hand-writing the spec. Uses Zod 4 top-level formats (`z.url`, `z.int`).
  */
 
 import { aspectRatioSchema } from '@/lib/constants/aspect-ratios';
 import { z } from 'zod';
 
-/** Create a new library talent/location inline before generation. */
-const createEntitySchema = z.object({
-  name: z.string().min(1).max(255),
-  description: z.string().max(2000).optional(),
+const entityName = z
+  .string()
+  .min(1)
+  .max(255)
+  .meta({ description: 'Display name.' });
+const entityDescription = z
+  .string()
+  .max(2000)
+  .optional()
+  .meta({ description: 'Optional description used to guide generation.' });
+const referenceImageUrls = z.array(z.url()).optional().meta({
+  description:
+    'Optional hosted reference image URLs; ingested and used to generate the reference sheet.',
 });
 
-export const apiCreateSequenceSchema = z.object({
-  /** Raw script or, with `enhance: true`, a one-liner / brief to expand. */
-  script: z.string().min(10).max(50000),
-  title: z.string().min(1).max(500).optional(),
+/** Inline request to create a new library cast member (talent). */
+const createCharacterSchema = z
+  .object({
+    name: entityName,
+    description: entityDescription,
+    isHuman: z.boolean().optional().meta({
+      description: 'Whether the character is a human (vs creature/object).',
+    }),
+    referenceImageUrls,
+  })
+  .meta({ id: 'CreateCharacter' });
 
-  /** When true, run script enhancement to completion before generating. */
-  enhance: z.boolean().default(false),
-  /** Target video length in seconds for enhancement (5–180). */
-  targetSeconds: z.number().int().min(5).max(180).optional(),
+/** Inline request to create a new library location. */
+const createLocationSchema = z
+  .object({
+    name: entityName,
+    description: entityDescription,
+    referenceImageUrls,
+  })
+  .meta({ id: 'CreateLocation' });
 
-  /** Style by id, name, or slugified name. Omit to auto-pick a default. */
-  style: z.string().min(1).optional(),
-  aspectRatio: aspectRatioSchema.optional(),
+/**
+ * One cast member / location: a **reference** to an existing library entry
+ * (string = id or name), or an inline **create** request (object). A single
+ * list per kind keeps the "some exist, some are new" mental model.
+ */
+const characterRefSchema = z
+  .union([z.string().min(1), createCharacterSchema])
+  .meta({
+    id: 'CharacterRef',
+    description:
+      'Existing talent by id or name (string), or an inline create object.',
+  });
+const locationRefSchema = z
+  .union([z.string().min(1), createLocationSchema])
+  .meta({
+    id: 'LocationRef',
+    description:
+      'Existing location by id or name (string), or an inline create object.',
+  });
 
-  /** Model keys/ids. Validated downstream against the model registry. */
-  analysisModels: z.array(z.string()).min(1).optional(),
-  imageModels: z.array(z.string()).min(1).optional(),
-  videoModels: z.array(z.string()).min(1).optional(),
+export const apiCreateSequenceSchema = z
+  .object({
+    script: z
+      .string()
+      .min(10)
+      .max(50000)
+      .meta({
+        description:
+          'Raw script, or — when enhancement runs — a one-liner / brief to expand.',
+        examples: ['A lighthouse keeper befriends a stranded whale.'],
+      }),
+    title: z
+      .string()
+      .min(1)
+      .max(500)
+      .optional()
+      .meta({
+        description: 'Optional sequence title.',
+        examples: ['Sea Tale'],
+      }),
 
-  /** Generate motion (video) for each frame. */
-  motion: z.boolean().default(false),
-  /** Generate sequence music. */
-  music: z.boolean().default(false),
-  audioModels: z.array(z.string()).min(1).optional(),
+    enhance: z.enum(['auto', 'always', 'off']).default('auto').meta({
+      description:
+        "Script enhancement mode. 'auto' (default) enhances only a short/thin script (mirrors the new-sequence short-script nudge); 'always' forces it; 'off' uses the script verbatim. When enhancement runs, the enhanced script is returned in the response.",
+    }),
+    targetSeconds: z
+      .int()
+      .min(5)
+      .max(300)
+      .optional()
+      .meta({
+        description:
+          'Target video length in seconds (max 5 minutes), applied whenever enhancement runs.',
+        examples: [30],
+      }),
 
-  /** Existing talent to cast, by id or name. */
-  characters: z.array(z.string().min(1)).optional(),
-  /** New talent to create inline (name + description). */
-  createCharacters: z.array(createEntitySchema).optional(),
+    style: z
+      .string()
+      .min(1)
+      .optional()
+      .meta({
+        description:
+          'Style by id, name, or slugified name. Omit to auto-pick the most popular available style.',
+        examples: ['Cinematic Noir'],
+      }),
+    aspectRatio: aspectRatioSchema.optional().meta({
+      description:
+        "Aspect ratio. Defaults to the resolved style's recommendation, else 16:9.",
+    }),
 
-  /** Existing library locations to use, by id or name. */
-  locations: z.array(z.string().min(1)).optional(),
-  /** New library locations to create inline (name + description). */
-  createLocations: z.array(createEntitySchema).optional(),
+    analysisModels: z.array(z.string()).min(1).optional().meta({
+      description:
+        'Analysis model id(s); one sequence is created per model. Validated against the model registry.',
+    }),
+    imageModels: z.array(z.string()).min(1).optional().meta({
+      description: 'Image model key(s); first is primary.',
+    }),
+    videoModels: z.array(z.string()).min(1).optional().meta({
+      description: 'Video (image-to-video) model key(s); first is primary.',
+    }),
 
-  /** Reference elements (logos, products) by hosted image URL. */
-  elements: z
-    .array(
-      z.object({
-        url: z.string().url(),
-        /** Optional UPPERCASE token; derived by vision when omitted. */
-        token: z.string().min(1).max(100).optional(),
-        filename: z.string().min(1).optional(),
-      })
-    )
-    .optional(),
+    motion: z
+      .boolean()
+      .default(false)
+      .meta({ description: 'Generate motion (video) for each frame.' }),
+    music: z
+      .boolean()
+      .default(false)
+      .meta({ description: 'Generate sequence music.' }),
+    audioModels: z.array(z.string()).min(1).optional().meta({
+      description: 'Audio model key(s) for music; first is primary.',
+    }),
 
-  /**
-   * Reserved for phase 2: a URL to receive a signed completion webhook. Stored
-   * intent only — delivery is not implemented yet (see follow-up issue).
-   */
-  webhookUrl: z.string().url().optional(),
-});
+    characters: z.array(characterRefSchema).optional().meta({
+      description:
+        'Cast: each item is an existing ref (id/name) or an inline create object.',
+    }),
+    locations: z.array(locationRefSchema).optional().meta({
+      description:
+        'Locations: each item is an existing ref (id/name) or an inline create object.',
+    }),
+
+    elements: z
+      .array(
+        z
+          .object({
+            url: z.url().meta({ description: 'Hosted image URL to ingest.' }),
+            token: z
+              .string()
+              .min(1)
+              .max(100)
+              .optional()
+              .meta({
+                description:
+                  'Optional UPPERCASE token to reference the element in prompts; derived by vision when omitted.',
+                examples: ['LOGO'],
+              }),
+            filename: z
+              .string()
+              .min(1)
+              .optional()
+              .meta({ description: 'Optional original filename.' }),
+          })
+          .meta({ id: 'ElementInput' })
+      )
+      .optional()
+      .meta({
+        description: 'Reference elements (logos, products) by image URL.',
+      }),
+
+    webhookUrl: z.url().optional().meta({
+      description:
+        'Reserved for phase 2: URL to receive a signed completion webhook. Stored intent only — delivery is not implemented yet.',
+    }),
+  })
+  .meta({
+    id: 'CreateSequenceRequest',
+    title: 'Create Sequence Request',
+    description:
+      'Input for POST /api/v1/sequences — one-shot video sequence creation.',
+  });
 
 export type ApiCreateSequenceInput = z.infer<typeof apiCreateSequenceSchema>;

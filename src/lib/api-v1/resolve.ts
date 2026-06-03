@@ -10,16 +10,13 @@
  * a caller can never resolve another team's private library entry.
  */
 
-import { describeElementImage } from '@/lib/ai/element-vision';
 import type { Style } from '@/lib/db/schema';
 import type { ScopedDb } from '@/lib/db/scoped';
-import { generateId } from '@/lib/db/id';
 import { NotFoundError } from '@/lib/errors';
 import type { TempElementUpload } from '@/lib/sequence-elements/promote-temp-elements';
-import { getPublicUrl, STORAGE_BUCKETS } from '@/lib/storage/buckets';
-import { uploadFile } from '#storage';
+import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
 import type { ApiCreateSequenceInput } from './input-schema';
-import { fetchSafeImage } from './safe-fetch';
+import { ingestImageToTempBucket } from './safe-fetch';
 
 /** lowercase, non-alphanumerics → single hyphens; for forgiving name matching. */
 function slugify(value: string): string {
@@ -39,16 +36,43 @@ function matchesRef(ref: string, candidate: { id: string; name: string }) {
   );
 }
 
-// Narrow dependency surfaces: each resolver depends only on the scoped-db
-// methods it actually calls, so a test double is a plain object with those
-// methods (no casts) and the real coupling is self-documenting. A full
-// `ScopedDb` is structurally assignable to each.
+// Narrow dependency surfaces: each resolver depends only on what it actually
+// uses — the team-scoped `list()` for matching, plus an injected `create*`
+// thunk for inline-create. The thunk (wired by the orchestrator) owns the heavy
+// create-with-ingest path, keeping these resolvers pure and cast-free to test.
 type StyleDeps = { styles: Pick<ScopedDb['styles'], 'list'> };
-type TalentDeps = { talent: Pick<ScopedDb['talent'], 'list' | 'create'> };
-type LocationDeps = {
-  locations: Pick<ScopedDb['locations'], 'list' | 'create'>;
+
+type TalentCreate = Exclude<
+  NonNullable<ApiCreateSequenceInput['characters']>[number],
+  string
+>;
+type LocationCreate = Exclude<
+  NonNullable<ApiCreateSequenceInput['locations']>[number],
+  string
+>;
+
+type TalentResolveDeps = {
+  talent: Pick<ScopedDb['talent'], 'list'>;
+  createTalent: (input: TalentCreate) => Promise<{ id: string }>;
 };
-type ElementDeps = { apiKeys: Pick<ScopedDb['apiKeys'], 'resolveKey'> };
+type LocationResolveDeps = {
+  locations: Pick<ScopedDb['locations'], 'list'>;
+  createLocation: (input: LocationCreate) => Promise<{ id: string }>;
+};
+
+/** Partition a mixed ref/create list into reference strings and create objects. */
+function partition<T>(items: readonly (string | T)[]): {
+  refs: string[];
+  creates: T[];
+} {
+  const refs: string[] = [];
+  const creates: T[] = [];
+  for (const item of items) {
+    if (typeof item === 'string') refs.push(item);
+    else creates.push(item);
+  }
+  return { refs, creates };
+}
 
 /**
  * Resolve a style reference to the full style row. With no reference, auto-pick
@@ -81,18 +105,21 @@ export async function resolveStyle(
 }
 
 /**
- * Resolve existing talent refs (id|name) plus any inline create requests into a
- * deduped list of talent ids suitable for `suggestedTalentIds`.
+ * Resolve a mixed list of talent items — reference strings (id|name) and inline
+ * create objects — into a deduped list of talent ids for `suggestedTalentIds`.
+ * Inline-create is delegated to `deps.createTalent` (which triggers sheet
+ * generation); the storyboard workflow's `waitForTalentSheets` gate then waits.
  */
 export async function resolveTalentIds(
-  scopedDb: TalentDeps,
-  refs: string[] | undefined,
-  creates: ApiCreateSequenceInput['createCharacters']
+  deps: TalentResolveDeps,
+  items: ApiCreateSequenceInput['characters']
 ): Promise<string[]> {
+  if (!items || items.length === 0) return [];
+  const { refs, creates } = partition(items);
   const ids: string[] = [];
 
-  if (refs && refs.length > 0) {
-    const all = await scopedDb.talent.list();
+  if (refs.length > 0) {
+    const all = await deps.talent.list();
     for (const ref of refs) {
       const match = all.find((t) => matchesRef(ref, t));
       if (!match) {
@@ -102,33 +129,29 @@ export async function resolveTalentIds(
     }
   }
 
-  if (creates && creates.length > 0) {
-    for (const c of creates) {
-      const created = await scopedDb.talent.create({
-        name: c.name,
-        description: c.description,
-        isInTeamLibrary: true,
-      });
-      ids.push(created.id);
-    }
+  for (const create of creates) {
+    const created = await deps.createTalent(create);
+    ids.push(created.id);
   }
 
   return [...new Set(ids)];
 }
 
 /**
- * Resolve existing location refs (id|name) plus any inline create requests into
- * a deduped list of location ids suitable for `suggestedLocationIds`.
+ * Resolve a mixed list of location items — reference strings (id|name) and
+ * inline create objects — into a deduped list of ids for `suggestedLocationIds`.
+ * Inline-create is delegated to `deps.createLocation`.
  */
 export async function resolveLocationIds(
-  scopedDb: LocationDeps,
-  refs: string[] | undefined,
-  creates: ApiCreateSequenceInput['createLocations']
+  deps: LocationResolveDeps,
+  items: ApiCreateSequenceInput['locations']
 ): Promise<string[]> {
+  if (!items || items.length === 0) return [];
+  const { refs, creates } = partition(items);
   const ids: string[] = [];
 
-  if (refs && refs.length > 0) {
-    const all = await scopedDb.locations.list();
+  if (refs.length > 0) {
+    const all = await deps.locations.list();
     for (const ref of refs) {
       const match = all.find((l) => matchesRef(ref, l));
       if (!match) {
@@ -138,63 +161,42 @@ export async function resolveLocationIds(
     }
   }
 
-  if (creates && creates.length > 0) {
-    for (const c of creates) {
-      const created = await scopedDb.locations.create({
-        name: c.name,
-        description: c.description,
-      });
-      ids.push(created.id);
-    }
+  for (const create of creates) {
+    const created = await deps.createLocation(create);
+    ids.push(created.id);
   }
 
   return [...new Set(ids)];
 }
 
 /**
- * Ingest a caller-hosted reference image into temp storage, run vision to
- * derive description/consistencyTag/token, and return a `TempElementUpload`
- * ready for `promoteTempElements`. Mirrors the dashboard's presign → analyze
- * draft flow, but server-side from a URL since API callers can't presign.
+ * Ingest caller-hosted reference images into element temp storage and return
+ * `TempElementUpload`s for `promoteTempElements`. Vision is intentionally NOT
+ * run here: promotion leaves `visionStatus: pending`, which fires the
+ * `element-vision` workflow, and analyze-script's `waitForElementVision` gate
+ * blocks scene-split until it completes — so the request stays fast.
  */
 export async function ingestElements(
-  scopedDb: ElementDeps,
   teamId: string,
   elements: ApiCreateSequenceInput['elements']
 ): Promise<TempElementUpload[]> {
   if (!elements || elements.length === 0) return [];
 
-  const openRouter = await scopedDb.apiKeys.resolveKey('openrouter');
-
   return Promise.all(
     elements.map(async (el) => {
-      // SSRF-hardened: validates the host, refuses redirects, and derives the
-      // type/extension from the verified response (never the URL extension).
-      const { bytes, contentType, extension } = await fetchSafeImage(el.url);
-      const filename = el.filename ?? `element.${extension}`;
-      const uploadId = generateId();
-      // Bucket-relative path used for the put + public URL; the promote contract
-      // wants the bucket-prefixed `elements/` form for `tempPath`.
-      const relative = `${teamId}/temp/${uploadId}.${extension}`;
-
-      await uploadFile(STORAGE_BUCKETS.ELEMENTS, relative, bytes, {
-        contentType,
-      });
-
-      const tempPublicUrl = getPublicUrl(STORAGE_BUCKETS.ELEMENTS, relative);
-      const vision = await describeElementImage({
-        imageUrl: tempPublicUrl,
-        filename,
-        openRouterApiKey: openRouter.key,
-      });
-
+      const { tempPath, publicUrl, extension } = await ingestImageToTempBucket(
+        el.url,
+        STORAGE_BUCKETS.ELEMENTS,
+        teamId
+      );
       return {
-        tempPath: `elements/${relative}`,
-        tempPublicUrl,
-        filename,
-        token: el.token ?? vision.suggestedToken,
-        description: vision.description,
-        consistencyTag: vision.consistencyTag,
+        // promote contract wants the bucket-prefixed `elements/` form.
+        tempPath: `elements/${tempPath}`,
+        tempPublicUrl: publicUrl,
+        filename: el.filename ?? `element.${extension}`,
+        // Token from the caller if given; else promote derives it from the
+        // filename and the vision workflow refines it.
+        token: el.token,
       };
     })
   );

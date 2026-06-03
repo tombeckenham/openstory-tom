@@ -6,22 +6,17 @@ import type {
 } from '@/lib/db/schema';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mock the runtime side-effecting deps of resolve.ts so the module imports
-// cleanly in Node and element ingestion is observable. `#storage` and the
-// vision client never run for real here.
+// Mock the runtime side-effecting deps so resolve.ts (and the safe-fetch ingest
+// it uses) import cleanly in Node and element ingestion is observable.
 const uploadFileMock = vi.fn(async () => undefined);
-const describeElementImageMock = vi.fn(async () => ({
-  description: 'a red hexagon brand logo',
-  consistencyTag: 'red-hex-brand-logo',
-  suggestedToken: 'BRAND_LOGO',
-}));
 
 vi.doMock('#storage', () => ({ uploadFile: uploadFileMock }));
-vi.doMock('@/lib/ai/element-vision', () => ({
-  describeElementImage: describeElementImageMock,
-}));
 vi.doMock('@/lib/storage/buckets', () => ({
-  STORAGE_BUCKETS: { ELEMENTS: 'elements' },
+  STORAGE_BUCKETS: {
+    ELEMENTS: 'elements',
+    TALENT: 'talent',
+    LOCATIONS: 'locations',
+  },
   getPublicUrl: (bucket: string, path: string) =>
     `https://cdn.test/${bucket}/${path}`,
 }));
@@ -154,80 +149,74 @@ describe('resolveStyle', () => {
 });
 
 describe('resolveTalentIds', () => {
-  it('resolves existing talent by name and id', async () => {
+  it('resolves existing talent by name and id (no create)', async () => {
     const talent = [
       makeTalent({ id: 't-ada', name: 'Ada Lovelace' }),
       makeTalent({ id: 't-grace', name: 'Grace Hopper' }),
     ];
-    const deps = {
-      talent: { list: async () => talent, create: vi.fn() },
-    };
+    const createTalent = vi.fn();
     const ids = await resolveTalentIds(
-      deps,
-      ['Ada Lovelace', 't-grace'],
-      undefined
+      { talent: { list: async () => talent }, createTalent },
+      ['Ada Lovelace', 't-grace']
     );
     expect(ids).toEqual(['t-ada', 't-grace']);
-    expect(deps.talent.create).not.toHaveBeenCalled();
+    expect(createTalent).not.toHaveBeenCalled();
   });
 
-  it('creates new talent and returns its id', async () => {
-    const createMock = vi.fn(async (data: { name: string }) =>
-      makeTalent({ id: 't-new', name: data.name })
+  it('delegates inline-create to createTalent and mixes with refs', async () => {
+    const talent = [makeTalent({ id: 't-ada', name: 'Ada Lovelace' })];
+    const createTalent = vi.fn(async (input: { name: string }) => ({
+      id: `new-${input.name}`,
+    }));
+    const ids = await resolveTalentIds(
+      { talent: { list: async () => talent }, createTalent },
+      ['Ada Lovelace', { name: 'Hero', description: 'brave', isHuman: true }]
     );
-    const deps = { talent: { list: async () => [], create: createMock } };
-    const ids = await resolveTalentIds(deps, undefined, [
-      { name: 'New Hero', description: 'brave' },
-    ]);
-    expect(ids).toEqual(['t-new']);
-    expect(createMock).toHaveBeenCalledWith({
-      name: 'New Hero',
+    expect(ids).toEqual(['t-ada', 'new-Hero']);
+    expect(createTalent).toHaveBeenCalledWith({
+      name: 'Hero',
       description: 'brave',
-      isInTeamLibrary: true,
+      isHuman: true,
     });
   });
 
   it('throws NotFound when a referenced talent is missing', async () => {
-    const deps = { talent: { list: async () => [], create: vi.fn() } };
-    await expect(resolveTalentIds(deps, ['Nobody'], undefined)).rejects.toThrow(
-      /No character\/talent found/
-    );
+    await expect(
+      resolveTalentIds(
+        { talent: { list: async () => [] }, createTalent: vi.fn() },
+        ['Nobody']
+      )
+    ).rejects.toThrow(/No character\/talent found/);
   });
 
   it('dedupes overlapping ids', async () => {
     const talent = [makeTalent({ id: 't-ada', name: 'Ada Lovelace' })];
-    const deps = { talent: { list: async () => talent, create: vi.fn() } };
     const ids = await resolveTalentIds(
-      deps,
-      ['t-ada', 'Ada Lovelace'],
-      undefined
+      { talent: { list: async () => talent }, createTalent: vi.fn() },
+      ['t-ada', 'Ada Lovelace']
     );
     expect(ids).toEqual(['t-ada']);
   });
 });
 
 describe('resolveLocationIds', () => {
-  it('resolves existing and creates new locations', async () => {
+  it('resolves existing and delegates inline-create to createLocation', async () => {
     const locations = [makeLocation({ id: 'l-roof', name: 'Rooftop Bar' })];
-    const createMock = vi.fn(async (data: { name: string }) =>
-      makeLocation({ id: 'l-new', name: data.name })
-    );
-    const deps = {
-      locations: { list: async () => locations, create: createMock },
-    };
+    const createLocation = vi.fn(async (input: { name: string }) => ({
+      id: `new-${input.name}`,
+    }));
     const ids = await resolveLocationIds(
-      deps,
-      ['Rooftop Bar'],
-      [{ name: 'Beach' }]
+      { locations: { list: async () => locations }, createLocation },
+      ['Rooftop Bar', { name: 'Beach' }]
     );
-    expect(ids).toEqual(['l-roof', 'l-new']);
+    expect(ids).toEqual(['l-roof', 'new-Beach']);
+    expect(createLocation).toHaveBeenCalledWith({ name: 'Beach' });
   });
 });
 
 describe('ingestElements', () => {
   beforeEach(() => {
     uploadFileMock.mockClear();
-    describeElementImageMock.mockClear();
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
@@ -239,20 +228,14 @@ describe('ingestElements', () => {
     );
   });
 
-  const deps = {
-    apiKeys: {
-      resolveKey: async () => ({ key: 'or-key', source: 'team' as const }),
-    },
-  };
-
   it('returns [] for no elements', async () => {
-    expect(await ingestElements(deps, 'team-1', undefined)).toEqual([]);
-    expect(await ingestElements(deps, 'team-1', [])).toEqual([]);
+    expect(await ingestElements('team-1', undefined)).toEqual([]);
+    expect(await ingestElements('team-1', [])).toEqual([]);
   });
 
-  it('uploads to a temp path and runs vision, returning a promotable upload', async () => {
-    const [upload] = await ingestElements(deps, 'team-1', [
-      { url: 'https://host/logo.png', filename: 'logo.png' },
+  it('uploads to a temp path and returns a promotable upload (vision deferred)', async () => {
+    const [upload] = await ingestElements('team-1', [
+      { url: 'https://host/logo.png', filename: 'logo.png', token: 'LOGO' },
     ]);
 
     expect(uploadFileMock).toHaveBeenCalledWith(
@@ -261,22 +244,29 @@ describe('ingestElements', () => {
       expect.any(Uint8Array),
       { contentType: 'image/png' }
     );
+    // No description/consistencyTag: vision runs in the element-vision workflow.
     expect(upload).toEqual({
       tempPath: 'elements/team-1/temp/gen-1.png',
       tempPublicUrl: 'https://cdn.test/elements/team-1/temp/gen-1.png',
       filename: 'logo.png',
-      // No explicit token → vision's suggestion is used.
-      token: 'BRAND_LOGO',
-      description: 'a red hexagon brand logo',
-      consistencyTag: 'red-hex-brand-logo',
+      token: 'LOGO',
     });
   });
 
-  it('prefers a caller-supplied token over the vision suggestion', async () => {
-    const [upload] = await ingestElements(deps, 'team-1', [
-      { url: 'https://host/x.jpg', token: 'MY_LOGO' },
+  it('derives the extension from the response content-type', async () => {
+    const [upload] = await ingestElements('team-1', [
+      { url: 'https://host/no-ext' },
     ]);
-    expect(upload?.token).toBe('MY_LOGO');
+    expect(upload?.filename).toBe('element.png');
+  });
+
+  it('rejects an SSRF target before any fetch', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    await expect(
+      ingestElements('team-1', [{ url: 'http://169.254.169.254/latest' }])
+    ).rejects.toThrow(/not allowed/);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('throws when the source image cannot be fetched', async () => {
@@ -290,16 +280,7 @@ describe('ingestElements', () => {
       }))
     );
     await expect(
-      ingestElements(deps, 'team-1', [{ url: 'https://host/missing.png' }])
+      ingestElements('team-1', [{ url: 'https://host/missing.png' }])
     ).rejects.toThrow(/could not be fetched/);
-  });
-
-  it('rejects an SSRF target before any fetch', async () => {
-    const fetchSpy = vi.fn();
-    vi.stubGlobal('fetch', fetchSpy);
-    await expect(
-      ingestElements(deps, 'team-1', [{ url: 'http://169.254.169.254/latest' }])
-    ).rejects.toThrow(/not allowed/);
-    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

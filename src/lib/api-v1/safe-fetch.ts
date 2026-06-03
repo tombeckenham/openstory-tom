@@ -19,7 +19,10 @@
  * status back to the caller.
  */
 
+import { uploadFile } from '#storage';
+import { generateId } from '@/lib/db/id';
 import { ValidationError } from '@/lib/errors';
+import { getPublicUrl, type StorageBucket } from '@/lib/storage/buckets';
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024; // 20 MB
 
@@ -146,4 +149,35 @@ export async function fetchSafeImage(
   }
 
   return { bytes, contentType, extension };
+}
+
+export type IngestedImage = {
+  /** Bucket-relative temp path, e.g. `<teamId>/temp/<id>.png`. */
+  tempPath: string;
+  /** Public URL of the uploaded temp object. */
+  publicUrl: string;
+  extension: string;
+  contentType: string;
+};
+
+/**
+ * SSRF-safely fetch a caller-supplied image URL and store it under the given
+ * bucket's `temp/` prefix, returning the temp path + public URL. The temp
+ * object is later promoted to permanent storage by the relevant create flow
+ * (elements → `promoteTempElements`; talent/locations → their create cores).
+ */
+export async function ingestImageToTempBucket(
+  url: string,
+  bucket: StorageBucket,
+  teamId: string
+): Promise<IngestedImage> {
+  const { bytes, contentType, extension } = await fetchSafeImage(url);
+  const tempPath = `${teamId}/temp/${generateId()}.${extension}`;
+  await uploadFile(bucket, tempPath, bytes, { contentType });
+  return {
+    tempPath,
+    publicUrl: getPublicUrl(bucket, tempPath),
+    extension,
+    contentType,
+  };
 }

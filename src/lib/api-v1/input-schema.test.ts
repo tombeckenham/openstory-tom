@@ -2,13 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { apiCreateSequenceSchema } from './input-schema';
 
 describe('apiCreateSequenceSchema', () => {
-  it('applies boolean defaults (enhance/motion/music = false)', () => {
+  it('defaults enhance to auto and motion/music to false', () => {
     const parsed = apiCreateSequenceSchema.parse({
       script: 'A short film about a robot learning to paint.',
     });
-    expect(parsed.enhance).toBe(false);
+    expect(parsed.enhance).toBe('auto');
     expect(parsed.motion).toBe(false);
     expect(parsed.music).toBe(false);
+  });
+
+  it('rejects an invalid enhance mode', () => {
+    expect(
+      apiCreateSequenceSchema.safeParse({
+        script: 'A valid length script here.',
+        enhance: 'true',
+      }).success
+    ).toBe(false);
   });
 
   it('rejects scripts shorter than 10 characters', () => {
@@ -16,11 +25,11 @@ describe('apiCreateSequenceSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('accepts a fully-specified request', () => {
+  it('accepts a fully-specified request with unified cast/location lists', () => {
     const result = apiCreateSequenceSchema.safeParse({
       script: 'A sweeping documentary about deep-sea creatures.',
       title: 'Deep Sea',
-      enhance: true,
+      enhance: 'always',
       targetSeconds: 60,
       style: 'Cinematic Noir',
       aspectRatio: '9:16',
@@ -30,11 +39,14 @@ describe('apiCreateSequenceSchema', () => {
       motion: true,
       music: true,
       audioModels: ['lyria2'],
-      characters: ['Ada', 'char-123'],
-      createCharacters: [{ name: 'Narrator', description: 'calm voice' }],
-      locations: ['Rooftop'],
-      createLocations: [{ name: 'Submarine' }],
-      elements: [{ url: 'https://cdn/logo.png', token: 'LOGO' }],
+      // mixed: existing refs (strings) + inline create (objects)
+      characters: [
+        'Ada',
+        'char-123',
+        { name: 'Narrator', description: 'calm' },
+      ],
+      locations: ['Rooftop', { name: 'Submarine' }],
+      elements: [{ url: 'https://cdn.example.com/logo.png', token: 'LOGO' }],
       webhookUrl: 'https://example.com/hook',
     });
     expect(result.success).toBe(true);
@@ -56,16 +68,16 @@ describe('apiCreateSequenceSchema', () => {
     ).toBe(false);
   });
 
-  it('bounds targetSeconds to 5–180', () => {
-    const base = { script: 'A valid length script here.', enhance: true };
+  it('bounds targetSeconds to 5–300 (max 5 minutes)', () => {
+    const base = { script: 'A valid length script here.', enhance: 'always' };
     expect(
       apiCreateSequenceSchema.safeParse({ ...base, targetSeconds: 4 }).success
     ).toBe(false);
     expect(
-      apiCreateSequenceSchema.safeParse({ ...base, targetSeconds: 181 }).success
+      apiCreateSequenceSchema.safeParse({ ...base, targetSeconds: 301 }).success
     ).toBe(false);
     expect(
-      apiCreateSequenceSchema.safeParse({ ...base, targetSeconds: 30 }).success
+      apiCreateSequenceSchema.safeParse({ ...base, targetSeconds: 300 }).success
     ).toBe(true);
   });
 });

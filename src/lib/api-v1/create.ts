@@ -11,10 +11,14 @@
  */
 
 import { enhanceScriptToString } from '@/functions/ai';
+import { isShortScript } from '@/lib/ai/should-enhance';
 import { DEFAULT_ASPECT_RATIO } from '@/lib/constants/aspect-ratios';
 import type { ScopedDb } from '@/lib/db/scoped';
+import { createLibraryLocation } from '@/lib/locations/create-library-location';
 import { createSequenceSchema } from '@/lib/schemas/sequence.schemas';
 import { createSequences } from '@/lib/sequences/create-sequences';
+import { STORAGE_BUCKETS, type StorageBucket } from '@/lib/storage/buckets';
+import { createLibraryTalent } from '@/lib/talent/create-library-talent';
 import type { ApiCreateSequenceInput } from './input-schema';
 import {
   ingestElements,
@@ -22,6 +26,7 @@ import {
   resolveStyle,
   resolveTalentIds,
 } from './resolve';
+import { ingestImageToTempBucket } from './safe-fetch';
 
 export type OneShotContext = {
   scopedDb: ScopedDb;
@@ -39,14 +44,33 @@ export type OneShotResult = {
   enhancedScript?: string;
 };
 
+/** Ingest hosted reference image URLs into a bucket's temp area → temp URLs. */
+async function ingestReferenceImages(
+  urls: string[] | undefined,
+  bucket: StorageBucket,
+  teamId: string
+): Promise<string[]> {
+  if (!urls || urls.length === 0) return [];
+  const ingested = await Promise.all(
+    urls.map((url) => ingestImageToTempBucket(url, bucket, teamId))
+  );
+  return ingested.map((i) => i.publicUrl);
+}
+
 export async function runOneShotCreate(
   input: ApiCreateSequenceInput,
   ctx: OneShotContext
 ): Promise<OneShotResult> {
-  // 1. Optionally enhance the script to completion before generating.
+  // 1. Optionally enhance the script. `always` forces it; `auto` enhances only
+  //    a short/thin script (same heuristic as the new-sequence nudge); `off`
+  //    leaves it verbatim.
+  const willEnhance =
+    input.enhance === 'always' ||
+    (input.enhance === 'auto' && isShortScript(input.script));
+
   let script = input.script;
   let enhancedScript: string | undefined;
-  if (input.enhance) {
+  if (willEnhance) {
     const result = await enhanceScriptToString(
       {
         script: input.script,
@@ -61,13 +85,54 @@ export async function runOneShotCreate(
     }
   }
 
-  // 2. Resolve references in parallel — style, cast, locations, elements.
+  // 2. Resolve references in parallel — style, cast, locations, elements. Cast
+  //    and locations are unified lists (ref strings + inline create objects);
+  //    inline-create delegates to the real library-create cores (which trigger
+  //    sheet generation), so the storyboard workflow's sheet/vision-wait gates
+  //    block on the new entities before matching.
   const [style, suggestedTalentIds, suggestedLocationIds, elementUploads] =
     await Promise.all([
       resolveStyle(ctx.scopedDb, input.style),
-      resolveTalentIds(ctx.scopedDb, input.characters, input.createCharacters),
-      resolveLocationIds(ctx.scopedDb, input.locations, input.createLocations),
-      ingestElements(ctx.scopedDb, ctx.teamId, input.elements),
+      resolveTalentIds(
+        {
+          talent: ctx.scopedDb.talent,
+          createTalent: async (item) =>
+            createLibraryTalent(
+              {
+                name: item.name,
+                description: item.description,
+                isHuman: item.isHuman,
+                referenceImageUrls: await ingestReferenceImages(
+                  item.referenceImageUrls,
+                  STORAGE_BUCKETS.TALENT,
+                  ctx.teamId
+                ),
+              },
+              ctx
+            ),
+        },
+        input.characters
+      ),
+      resolveLocationIds(
+        {
+          locations: ctx.scopedDb.locations,
+          createLocation: async (item) =>
+            createLibraryLocation(
+              {
+                name: item.name,
+                description: item.description,
+                referenceImageUrls: await ingestReferenceImages(
+                  item.referenceImageUrls,
+                  STORAGE_BUCKETS.LOCATIONS,
+                  ctx.teamId
+                ),
+              },
+              ctx
+            ),
+        },
+        input.locations
+      ),
+      ingestElements(ctx.teamId, input.elements),
     ]);
 
   // 3. Assemble + validate the strict create input. createSequenceSchema applies

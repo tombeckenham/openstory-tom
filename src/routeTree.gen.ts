@@ -8,70 +8,70 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root';
-import { Route as AuthLoginRouteImport } from './routes/_auth/login';
-import { Route as AuthRouteRouteImport } from './routes/_auth/route';
-import { Route as AuthVerifyRouteImport } from './routes/_auth/verify';
-import { Route as MarketingRouteImport } from './routes/_marketing';
-import { Route as MarketingIndexRouteImport } from './routes/_marketing/index';
-import { Route as MarketingPrivacyRouteImport } from './routes/_marketing/privacy';
-import { Route as MarketingTermsRouteImport } from './routes/_marketing/terms';
-import { Route as ProtectedAdminRouteRouteImport } from './routes/_protected/admin/route';
-import { Route as ProtectedAdminUsageRouteImport } from './routes/_protected/admin/usage';
-import { Route as ProtectedCreditsRouteImport } from './routes/_protected/credits';
-import { Route as ProtectedLocationsLocationIdRouteImport } from './routes/_protected/locations/$locationId';
-import { Route as ProtectedLocationsIndexRouteImport } from './routes/_protected/locations/index';
-import { Route as ProtectedRouteRouteImport } from './routes/_protected/route';
-import { Route as ProtectedSequencesIdCastCharacterIdRouteImport } from './routes/_protected/sequences/$id/cast/$characterId';
-import { Route as ProtectedSequencesIdCastIndexRouteImport } from './routes/_protected/sequences/$id/cast/index';
-import { Route as ProtectedSequencesIdElementsRouteImport } from './routes/_protected/sequences/$id/elements';
-import { Route as ProtectedSequencesIdLocationsLocationIdRouteImport } from './routes/_protected/sequences/$id/locations/$locationId';
-import { Route as ProtectedSequencesIdLocationsIndexRouteImport } from './routes/_protected/sequences/$id/locations/index';
-import { Route as ProtectedSequencesIdMusicRouteImport } from './routes/_protected/sequences/$id/music';
-import { Route as ProtectedSequencesIdRouteRouteImport } from './routes/_protected/sequences/$id/route';
-import { Route as ProtectedSequencesIdScenesRouteImport } from './routes/_protected/sequences/$id/scenes';
-import { Route as ProtectedSequencesIdScriptRouteImport } from './routes/_protected/sequences/$id/script';
-import { Route as ProtectedSequencesIdTheatreRouteImport } from './routes/_protected/sequences/$id/theatre';
-import { Route as ProtectedSequencesIndexRouteImport } from './routes/_protected/sequences/index';
-import { Route as ProtectedSequencesNewRouteImport } from './routes/_protected/sequences/new';
-import { Route as ProtectedSettingsApiKeysRouteImport } from './routes/_protected/settings/api-keys';
-import { Route as ProtectedSettingsDeveloperRouteImport } from './routes/_protected/settings/developer';
-import { Route as ProtectedSettingsIndexRouteImport } from './routes/_protected/settings/index';
-import { Route as ProtectedSettingsPasskeysRouteImport } from './routes/_protected/settings/passkeys';
-import { Route as ProtectedSettingsRouteRouteImport } from './routes/_protected/settings/route';
-import { Route as ProtectedTalentIdRouteImport } from './routes/_protected/talent/$id';
-import { Route as ProtectedTalentIndexRouteImport } from './routes/_protected/talent/index';
-import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$';
-import { Route as ApiBillingWebhookRouteImport } from './routes/api/billing/webhook';
-import { Route as ApiDevMemoryRouteImport } from './routes/api/dev/memory';
-import { Route as ApiOpenrouterCallbackRouteImport } from './routes/api/openrouter/callback';
-import { Route as ApiRealtimeRouteImport } from './routes/api/realtime';
-import { Route as ApiStorageMultipartRouteImport } from './routes/api/storage/multipart';
-import { Route as ApiStorageUploadRouteImport } from './routes/api/storage/upload';
-import { Route as ApiTestCharacterRouteImport } from './routes/api/test/character';
-import { Route as ApiTestCleanupRouteImport } from './routes/api/test/cleanup';
-import { Route as ApiTestFrameRouteImport } from './routes/api/test/frame';
-import { Route as ApiTestImageRouteImport } from './routes/api/test/image';
-import { Route as ApiTestLocationRouteImport } from './routes/api/test/location';
-import { Route as ApiTestRouteRouteImport } from './routes/api/test/route';
-import { Route as ApiTestSequenceRouteImport } from './routes/api/test/sequence';
-import { Route as ApiTestStyleRouteImport } from './routes/api/test/style';
-import { Route as ApiTestTalentRouteImport } from './routes/api/test/talent';
-import { Route as ApiTestUserRouteImport } from './routes/api/test/user';
-import { Route as ApiTestVerifyRouteImport } from './routes/api/test/verify';
-import { Route as ApiV1SequencesRouteImport } from './routes/api/v1/sequences';
-import { Route as ApiV1SequencesIdRouteImport } from './routes/api/v1/sequences.$id';
-import { Route as DocsRouteImport } from './routes/docs';
-import { Route as DocsSplatRouteImport } from './routes/docs/$';
-import { Route as DocsIndexRouteImport } from './routes/docs/index';
-import { Route as DocsLlmsDotmdRouteImport } from './routes/docs/llms[.]md';
-import { Route as GiftCodeRouteImport } from './routes/gift/$code';
-import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt';
-import { Route as MetaOgRouteImport } from './routes/meta/og';
-import { Route as MetaOgGithubRouteImport } from './routes/meta/og-github';
-import { Route as MetaOgLinkedinRouteImport } from './routes/meta/og-linkedin';
-import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt';
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml';
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
+import { Route as DocsRouteImport } from './routes/docs'
+import { Route as MarketingRouteImport } from './routes/_marketing'
+import { Route as ProtectedRouteRouteImport } from './routes/_protected/route'
+import { Route as AuthRouteRouteImport } from './routes/_auth/route'
+import { Route as DocsIndexRouteImport } from './routes/docs/index'
+import { Route as MarketingIndexRouteImport } from './routes/_marketing/index'
+import { Route as MetaOgLinkedinRouteImport } from './routes/meta/og-linkedin'
+import { Route as MetaOgGithubRouteImport } from './routes/meta/og-github'
+import { Route as MetaOgRouteImport } from './routes/meta/og'
+import { Route as GiftCodeRouteImport } from './routes/gift/$code'
+import { Route as DocsLlmsDotmdRouteImport } from './routes/docs/llms[.]md'
+import { Route as DocsSplatRouteImport } from './routes/docs/$'
+import { Route as ApiRealtimeRouteImport } from './routes/api/realtime'
+import { Route as ProtectedCreditsRouteImport } from './routes/_protected/credits'
+import { Route as MarketingTermsRouteImport } from './routes/_marketing/terms'
+import { Route as MarketingPrivacyRouteImport } from './routes/_marketing/privacy'
+import { Route as AuthVerifyRouteImport } from './routes/_auth/verify'
+import { Route as AuthLoginRouteImport } from './routes/_auth/login'
+import { Route as ApiTestRouteRouteImport } from './routes/api/test/route'
+import { Route as ProtectedSettingsRouteRouteImport } from './routes/_protected/settings/route'
+import { Route as ProtectedAdminRouteRouteImport } from './routes/_protected/admin/route'
+import { Route as ProtectedTalentIndexRouteImport } from './routes/_protected/talent/index'
+import { Route as ProtectedSettingsIndexRouteImport } from './routes/_protected/settings/index'
+import { Route as ProtectedSequencesIndexRouteImport } from './routes/_protected/sequences/index'
+import { Route as ProtectedLocationsIndexRouteImport } from './routes/_protected/locations/index'
+import { Route as ApiV1SequencesRouteImport } from './routes/api/v1/sequences'
+import { Route as ApiTestVerifyRouteImport } from './routes/api/test/verify'
+import { Route as ApiTestUserRouteImport } from './routes/api/test/user'
+import { Route as ApiTestTalentRouteImport } from './routes/api/test/talent'
+import { Route as ApiTestStyleRouteImport } from './routes/api/test/style'
+import { Route as ApiTestSequenceRouteImport } from './routes/api/test/sequence'
+import { Route as ApiTestLocationRouteImport } from './routes/api/test/location'
+import { Route as ApiTestImageRouteImport } from './routes/api/test/image'
+import { Route as ApiTestFrameRouteImport } from './routes/api/test/frame'
+import { Route as ApiTestCleanupRouteImport } from './routes/api/test/cleanup'
+import { Route as ApiTestCharacterRouteImport } from './routes/api/test/character'
+import { Route as ApiStorageUploadRouteImport } from './routes/api/storage/upload'
+import { Route as ApiStorageMultipartRouteImport } from './routes/api/storage/multipart'
+import { Route as ApiOpenrouterCallbackRouteImport } from './routes/api/openrouter/callback'
+import { Route as ApiDevMemoryRouteImport } from './routes/api/dev/memory'
+import { Route as ApiBillingWebhookRouteImport } from './routes/api/billing/webhook'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ProtectedTalentIdRouteImport } from './routes/_protected/talent/$id'
+import { Route as ProtectedSettingsPasskeysRouteImport } from './routes/_protected/settings/passkeys'
+import { Route as ProtectedSettingsDeveloperRouteImport } from './routes/_protected/settings/developer'
+import { Route as ProtectedSettingsApiKeysRouteImport } from './routes/_protected/settings/api-keys'
+import { Route as ProtectedSequencesNewRouteImport } from './routes/_protected/sequences/new'
+import { Route as ProtectedLocationsLocationIdRouteImport } from './routes/_protected/locations/$locationId'
+import { Route as ProtectedAdminUsageRouteImport } from './routes/_protected/admin/usage'
+import { Route as ProtectedSequencesIdRouteRouteImport } from './routes/_protected/sequences/$id/route'
+import { Route as ApiV1SequencesIdRouteImport } from './routes/api/v1/sequences.$id'
+import { Route as ProtectedSequencesIdTheatreRouteImport } from './routes/_protected/sequences/$id/theatre'
+import { Route as ProtectedSequencesIdScriptRouteImport } from './routes/_protected/sequences/$id/script'
+import { Route as ProtectedSequencesIdScenesRouteImport } from './routes/_protected/sequences/$id/scenes'
+import { Route as ProtectedSequencesIdMusicRouteImport } from './routes/_protected/sequences/$id/music'
+import { Route as ProtectedSequencesIdElementsRouteImport } from './routes/_protected/sequences/$id/elements'
+import { Route as ProtectedSequencesIdLocationsIndexRouteImport } from './routes/_protected/sequences/$id/locations/index'
+import { Route as ProtectedSequencesIdCastIndexRouteImport } from './routes/_protected/sequences/$id/cast/index'
+import { Route as ProtectedSequencesIdLocationsLocationIdRouteImport } from './routes/_protected/sequences/$id/locations/$locationId'
+import { Route as ProtectedSequencesIdCastCharacterIdRouteImport } from './routes/_protected/sequences/$id/cast/$characterId'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -1453,8 +1453,8 @@ export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from './router.tsx';
-import type { startInstance } from './start.ts';
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true

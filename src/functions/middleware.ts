@@ -12,6 +12,7 @@ import {
 import type { Session, User } from '@/lib/auth/config';
 import { getAuth } from '@/lib/auth/config';
 import { isSystemAdmin, requireSystemAdmin } from '@/lib/auth/system-admin';
+import { APIError } from 'better-auth/api';
 import { isStripeEnabled } from '@/lib/billing/constants';
 import { getStripeOrThrow, getStripeWebhookSecret } from '@/lib/billing/stripe';
 import type { AspectRatio } from '@/lib/constants/aspect-ratios';
@@ -162,19 +163,44 @@ export const loggerMiddleware = createMiddleware({ type: 'function' }).server(
 // ============================================================================
 
 /**
+ * Resolve the session for a request. The apiKey plugin validates a key header
+ * inside `getSession` and *throws* an APIError rather than returning null:
+ *   - a 429 (key over its per-key rate limit) is surfaced as a JSON 429 with a
+ *     `Retry-After` header (programmatic callers need this);
+ *   - any other throw (disabled/expired/unknown key) is treated as
+ *     unauthenticated → null (the caller turns that into a 401), never a 500.
+ */
+async function resolveRequestSession(request: Request) {
+  const auth = getAuth();
+  try {
+    return await auth.api.getSession({ headers: request.headers });
+  } catch (error) {
+    if (error instanceof APIError && error.statusCode === 429) {
+      const tryAgainInMs = error.body?.details?.tryAgainIn;
+      const retryAfter =
+        typeof tryAgainInMs === 'number' ? Math.ceil(tryAgainInMs / 1000) : 1;
+      throw Response.json(
+        {
+          error: {
+            code: 'RATE_LIMITED',
+            message: 'API key rate limit exceeded. Retry shortly.',
+          },
+        },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+      );
+    }
+    return null;
+  }
+}
+
+/**
  * Request auth middleware — for use with server routes (server.middleware).
  * Unlike authMiddleware (type: 'function'), this is request-scoped and
  * receives the request object directly from the middleware params.
  */
 export const authRequestMiddleware = createMiddleware().server(
   async ({ next, request }) => {
-    const auth = getAuth();
-    // The apiKey plugin validates a key header inside getSession and *throws*
-    // (APIError) for a disabled/expired/unknown key rather than returning null,
-    // so treat any throw as unauthenticated → 401, never a 500.
-    const session = await auth.api
-      .getSession({ headers: request.headers })
-      .catch(() => null);
+    const session = await resolveRequestSession(request);
 
     if (!session?.user) {
       throw new Response('Unauthorized', { status: 401 });
@@ -192,17 +218,11 @@ export const authRequestMiddleware = createMiddleware().server(
 /**
  * Request auth + team middleware — for use with server routes (server.middleware).
  * Authenticates user, resolves their default team, and creates a scoped DB.
- * Throws 401 if no user, 403 if no team.
+ * Throws 401 if no user, 403 if no team, 429 if a key is over its rate limit.
  */
 export const authWithTeamRequestMiddleware = createMiddleware().server(
   async ({ next, request }) => {
-    const auth = getAuth();
-    // See authRequestMiddleware: a bad API key makes getSession throw, so
-    // swallow to null → 401 instead of a 500. Also serves the public `/api/v1`
-    // routes, where the apiKey plugin resolves the key's owner into the session.
-    const session = await auth.api
-      .getSession({ headers: request.headers })
-      .catch(() => null);
+    const session = await resolveRequestSession(request);
 
     if (!session?.user) {
       throw new Response('Unauthorized', { status: 401 });

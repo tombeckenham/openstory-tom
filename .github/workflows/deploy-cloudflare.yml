@@ -169,6 +169,19 @@ jobs:
               { bucket_name: 'openstory-public-assets', binding: 'R2_PUBLIC_ASSETS_BUCKET', remote: true },
               { binding: 'R2_STORAGE_BUCKET', bucket_name: 'openstory-storage-stg' }
             ];
+            // Cloudflare Workflows are account-global resources keyed by 'name'
+            // — NOT scoped per worker. Without this, a preview's workflow
+            // entries reuse production's names (image-workflow, …), so
+            // triggerWorkflow() -> binding.create() resolves to the shared,
+            // production-owned workflow (prod code + prod D1 + prod realtime
+            // DO) and a preview deploy can last-writer-wins re-point ownership
+            // onto the preview worker, breaking prod. Namespace the name per-PR
+            // (keep binding + class_name so TRIGGER_TO_BINDING still resolves)
+            // so each preview owns an isolated set. See issue #805.
+            obj.workflows = (obj.workflows || []).map((w) => ({
+              ...w,
+              name: \`\${w.name}-pr-${PR_NUMBER}\`,
+            }));
             // Tail-consume preview logs into the staging log forwarder
             // (workers/posthog-log-forwarder), which transforms our LogTape
             // JSON into proper OTLP log records and POSTs to PostHog. The
@@ -296,6 +309,47 @@ jobs:
             -H "Authorization: Bearer $CF_API_TOKEN" \
             "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/workers/scripts/$WORKER_NAME")
           echo "Delete worker $WORKER_NAME response: $status"
+
+      - name: Delete preview workflows
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Workflows are account-global resources (see issue #805), so the
+          # preview's namespaced set (`<name>-pr-<n>`) survives the worker
+          # delete above. Sweep them by exact `-pr-<n>` suffix so the account
+          # doesn't accumulate orphaned `*-pr-<n>` workflow definitions.
+          SUFFIX="-pr-${PR_NUMBER}"
+          page=1
+          deleted=0
+          while :; do
+            resp=$(curl -sf \
+              -H "Authorization: Bearer $CF_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/workflows?per_page=100&page=$page") || {
+                echo "::warning::Failed to list workflows (page $page) — skipping workflow cleanup"
+                break
+              }
+
+            names=$(echo "$resp" | jq -r --arg sfx "$SUFFIX" '.result[]?.name | select(endswith($sfx))')
+
+            for name in $names; do
+              status=$(curl -sw '%{http_code}' -o /dev/null \
+                -X DELETE \
+                -H "Authorization: Bearer $CF_API_TOKEN" \
+                "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/workflows/$name")
+              echo "Delete workflow $name response: $status"
+              deleted=$((deleted + 1))
+            done
+
+            count=$(echo "$resp" | jq -r '.result | length')
+            total_pages=$(echo "$resp" | jq -r '.result_info.total_pages // 1')
+            if [ "$count" -eq 0 ] || [ "$page" -ge "$total_pages" ]; then
+              break
+            fi
+            page=$((page + 1))
+          done
+          echo "Deleted $deleted preview workflow(s) with suffix $SUFFIX"
 
       - name: Delete D1 database
         env:

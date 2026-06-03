@@ -283,16 +283,20 @@ export type EnhanceScriptInput = z.infer<typeof enhanceScriptInputSchema>;
 /**
  * Core script-enhancement generator, shared by the streaming server function
  * (which yields deltas to the browser) and the public API's one-shot create
- * flow (which drains it to a full string before generating). Single source of
- * truth so rate-limiting, billing, sanitization, and the prompt/model choice
- * never drift between the two callers.
+ * flow (which drains it to a full string). Single source of truth for billing,
+ * sanitization, and the prompt/model choice.
+ *
+ * Note: this is a *server-only* helper but lives in a module the client imports
+ * (for the `enhanceScriptStreamFn` stub). It must NOT reference request-scoped
+ * server-only APIs (e.g. `getRequest`/`getClientIP`) at this level, or the
+ * import-protection plugin will pull them into the client bundle. IP
+ * rate-limiting therefore lives in the serverFn handler below; the public API
+ * path is throttled by its per-key rate limit instead.
  */
 export async function* streamScriptEnhancement(
   data: EnhanceScriptInput,
   ctx: { scopedDb: ScopedDb; userId: string; teamId: string }
 ): AsyncGenerator<{ delta: string }> {
-  enforceRateLimit(scriptEnhancementRateLimiter, getClientIP());
-
   const deduct = await prepareBilling(ctx.scopedDb, 'Script enhancement');
 
   if (checkForInjectionAttempts(data.script)) {
@@ -389,6 +393,9 @@ export const enhanceScriptStreamFn = createServerFn({ method: 'POST' })
   .middleware([authWithTeamMiddleware])
   .inputValidator(zodValidator(enhanceScriptInputSchema))
   .handler(async function* ({ data, context }) {
+    // IP rate-limit the dashboard path here (kept out of the shared core so the
+    // core stays free of request-scoped server-only APIs — see note above).
+    enforceRateLimit(scriptEnhancementRateLimiter, getClientIP());
     yield* streamScriptEnhancement(data, {
       scopedDb: context.scopedDb,
       userId: context.user.id,

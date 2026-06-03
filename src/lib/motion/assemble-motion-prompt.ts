@@ -47,17 +47,21 @@ export function assembleMotionPrompt({
   if (!supportsAudio) {
     assembled = fullPrompt;
   } else {
-    // Audio-capable models: enrich fullPrompt with dialogue + audio sections
+    // Audio-capable models: enrich fullPrompt with dialogue + audio sections.
+    // dialogue/audio are nullish on the schema (the model emits null when a
+    // scene has none — see scene-analysis.schema.ts), so normalize null →
+    // undefined for the builders.
     const hasDialogue = dialogue?.presence && dialogue.lines.length > 0;
     const dialogueData = hasDialogue ? dialogue : undefined;
+    const audioData = audio ?? undefined;
 
     switch (provider) {
       case 'Kling':
-        assembled = buildKlingPrompt(fullPrompt, dialogueData, audio);
+        assembled = buildKlingPrompt(fullPrompt, dialogueData, audioData);
         break;
       case 'Google':
       default:
-        assembled = buildVeoPrompt(fullPrompt, dialogueData, audio);
+        assembled = buildVeoPrompt(fullPrompt, dialogueData, audioData);
         break;
     }
   }

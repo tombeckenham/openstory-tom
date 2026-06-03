@@ -73,15 +73,15 @@ export const sceneSplittingResultSchema = z.object({
         .required()
     )
     .meta({ description: 'Array of scenes split from the script' }),
-  characterBible: z.array(characterBibleEntrySchema).catch([]).meta({
+  characterBible: z.array(characterBibleEntrySchema).meta({
     description:
       'Character descriptions extracted from the script for visual consistency',
   }),
-  locationBible: z.array(locationBibleEntrySchema).catch([]).meta({
+  locationBible: z.array(locationBibleEntrySchema).meta({
     description:
       'Location descriptions extracted from the script for visual consistency',
   }),
-  elementBible: z.array(elementBibleEntrySchema).catch([]).meta({
+  elementBible: z.array(elementBibleEntrySchema).meta({
     description:
       'User-uploaded elements referenced in the script by UPPERCASE token',
   }),
@@ -104,7 +104,7 @@ export const characterExtractionResultSchema = sceneAnalysisSchema
  */
 export const locationExtractionResultSchema = z.object({
   status: z.enum(['success', 'error', 'rejected']),
-  locationBible: z.array(locationBibleEntrySchema).catch([]),
+  locationBible: z.array(locationBibleEntrySchema),
 });
 
 /**

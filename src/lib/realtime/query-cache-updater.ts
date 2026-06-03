@@ -369,6 +369,20 @@ export function updateQueryCacheFromEvent(
       break;
     }
 
+    case 'generation.character-sheet:progress':
+    case 'generation.talent:matched':
+      // Cast was created / cast / had its sheet generated during a run.
+      // Refresh the character list so the cast grid (TalentView) and the
+      // per-scene cast (SceneCastTab) populate live instead of only after a
+      // page refresh. Debounced because character-sheet:progress fires
+      // generating + completed for every character.
+      debouncedInvalidate(
+        queryClient,
+        sequenceCharacterKeys.list(sequenceId),
+        `sequence-characters:${sequenceId}`
+      );
+      break;
+
     case 'generation.preview:replaced':
       // Preview frames replaced by AI-analyzed frames — refetch frame list
       void queryClient.invalidateQueries({
@@ -382,6 +396,11 @@ export function updateQueryCacheFromEvent(
       // Invalidate sequence to get updated status/title
       void queryClient.invalidateQueries({
         queryKey: sequenceKeys.detail(sequenceId),
+      });
+      // Final catch-all so the cast list reflects the finished run even if an
+      // intermediate character event was missed.
+      void queryClient.invalidateQueries({
+        queryKey: sequenceCharacterKeys.list(sequenceId),
       });
       break;
 

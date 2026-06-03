@@ -44,7 +44,9 @@ export type SceneForHash = {
   continuity?: {
     characterTags?: string[];
     environmentTag?: string;
-    elementTags?: string[];
+    // nullable: `Scene.continuity.elementTags` is `.nullish()` (model emits
+    // null when no elements) — keep this assignable from production `Scene`.
+    elementTags?: string[] | null;
   } | null;
   metadata?: { location?: string } | null;
   originalScript?: { extract?: string } | null;

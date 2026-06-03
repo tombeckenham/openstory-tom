@@ -358,11 +358,19 @@ describe('llm-client', () => {
         expect(terminal.parsed).toBeUndefined();
       });
 
-      it('falls back to json_object + schema-in-prompt for Anthropic models', async () => {
+      it('uses the native outputSchema path for Anthropic models', async () => {
+        // The json_object fallback is gone — Anthropic now goes through native
+        // structured output like every other model (response schemas are kept
+        // under Anthropic's strict-grammar union limits).
         mockChat.mockReturnValue(
           (async function* () {
             yield { type: 'TEXT_MESSAGE_CONTENT', delta: '{"greeting":' };
             yield { type: 'TEXT_MESSAGE_CONTENT', delta: '"hi"}' };
+            yield {
+              type: 'CUSTOM',
+              name: 'structured-output.complete',
+              value: { object: { greeting: 'hi' } },
+            };
           })()
         );
 
@@ -377,16 +385,10 @@ describe('llm-client', () => {
 
         const callArgs = mockChat.mock.calls[0]?.[0];
         if (!callArgs) throw new Error('expected mockChat to have been called');
-        // Anthropic can't compile the strict grammar → no outputSchema; uses
-        // json_object with the schema pinned in an extra system prompt.
-        expect(callArgs.outputSchema).toBeUndefined();
-        expect(callArgs.modelOptions.responseFormat).toEqual({
-          type: 'json_object',
-        });
-        expect(
-          callArgs.systemPrompts.some((p: string) => p.includes('JSON Schema'))
-        ).toBe(true);
-        // `parsed` comes from validating the accumulated JSON text.
+        // Native path: outputSchema is forwarded, no json_object responseFormat.
+        expect(callArgs.outputSchema).toBe(schema);
+        expect(callArgs.modelOptions.responseFormat).toBeUndefined();
+        // `parsed` comes from the terminal structured-output.complete event.
         const terminal = chunks.at(-1);
         if (!terminal || !terminal.done) throw new Error('expected terminal');
         expect(terminal.parsed).toEqual({ greeting: 'hi' });

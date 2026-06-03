@@ -10,24 +10,21 @@
 
 import { getEnv } from '#env';
 import { createAdapter } from '@/lib/ai/create-adapter';
-import {
-  extractRunError,
-  formatRunErrorMessage,
-  structuredOutputConfig,
-} from '@/lib/ai/llm-client';
+import { extractRunError, formatRunErrorMessage } from '@/lib/ai/llm-client';
 import type { TextModel } from '@/lib/ai/models';
 import { getContextWindow } from '@/lib/ai/models.config';
 import { extractStreamingStringField } from '@/lib/ai/stream-extract';
 import { ZERO_MICROS } from '@/lib/billing/money';
 import { deductWorkflowCredits } from '@/lib/billing/workflow-deduction';
 import type { ScopedDb } from '@/lib/db/scoped';
+import { getLogger } from '@/lib/observability/logger';
 import { getChatPrompt } from '@/lib/prompts';
+import { isLocalDevelopment } from '@/lib/utils/environment';
 import { getFramePromptChannel } from '@/lib/realtime';
 import { chat } from '@tanstack/ai';
 import type { WorkflowStep } from 'cloudflare:workers';
 import { NonRetryableError } from 'cloudflare:workflows';
 import type { z } from 'zod';
-import { getLogger } from '@/lib/observability/logger';
 
 const logger = getLogger(['openstory', 'workflow', 'llm-call-helper']);
 
@@ -143,17 +140,12 @@ export async function durableLLMCallCf<TSchema extends z.ZodType>(
 
     const abortController = new AbortController();
     const timeout = setTimeout(() => abortController.abort(), 300_000);
-    const structured = structuredOutputConfig(
-      config.modelId,
-      config.responseSchema,
-      systemPrompts
-    );
 
     try {
       const text = await chat({
         adapter,
         messages: chatMessages,
-        systemPrompts: structured.systemPrompts,
+        systemPrompts: systemPrompts,
         stream: false,
         maxTokens: Math.floor(getContextWindow(config.modelId) * 0.5),
         abortController,
@@ -165,13 +157,13 @@ export async function durableLLMCallCf<TSchema extends z.ZodType>(
           sessionId: callContext.sequenceId,
           userId: callContext.userId,
         },
-        modelOptions: { responseFormat: structured.responseFormat },
-        debug: false,
+        outputSchema: config.responseSchema,
+        debug: isLocalDevelopment(),
       });
       logger.info(`[LLM:${logName}:cf] Call succeeded`);
       // Return as JSON string — round-trips through step.do without hitting
       // CF's Rpc.Serializable constraint on the Zod-inferred shape.
-      return text;
+      return JSON.stringify(text);
     } finally {
       clearTimeout(timeout);
     }
@@ -287,11 +279,6 @@ export async function durableStreamingLLMCallCf<TSchema extends z.ZodType>(
 
       const abortController = new AbortController();
       const timeout = setTimeout(() => abortController.abort(), 300_000);
-      const structured = structuredOutputConfig(
-        config.modelId,
-        config.responseSchema,
-        systemPrompts
-      );
 
       const channel = getFramePromptChannel(frameId);
       let accumulated = '';
@@ -311,7 +298,7 @@ export async function durableStreamingLLMCallCf<TSchema extends z.ZodType>(
         for await (const event of chat({
           adapter,
           messages: chatMessages,
-          systemPrompts: structured.systemPrompts,
+          systemPrompts: systemPrompts,
           stream: true,
           maxTokens: Math.floor(getContextWindow(config.modelId) * 0.5),
           abortController,
@@ -323,8 +310,8 @@ export async function durableStreamingLLMCallCf<TSchema extends z.ZodType>(
             sessionId: callContext.sequenceId,
             userId: callContext.userId,
           },
-          modelOptions: { responseFormat: structured.responseFormat },
-          debug: false,
+          outputSchema: config.responseSchema,
+          debug: isLocalDevelopment(),
         })) {
           if (
             event.type === 'TEXT_MESSAGE_CONTENT' &&

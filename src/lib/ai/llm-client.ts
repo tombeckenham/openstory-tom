@@ -5,12 +5,13 @@
 
 import type { TextModel } from '@/lib/ai/models';
 import type { ChatMessage } from '@/lib/prompts';
-import { chat, convertSchemaToJsonSchema } from '@tanstack/ai';
+import { chat } from '@tanstack/ai';
 import { webSearchTool } from '@tanstack/ai-openrouter/tools';
 import { z } from 'zod';
 import { createAdapter } from './create-adapter';
 
 import { getLogger } from '@/lib/observability/logger';
+import { isLocalDevelopment } from '@/lib/utils/environment';
 
 const logger = getLogger(['openstory', 'ai', 'llm-client']);
 
@@ -203,84 +204,20 @@ function baseChatOptions(params: LLMRequestParams) {
     topP: params.top_p,
     modelOptions: buildModelOptions(params),
     ...(tools && { tools }),
-    debug: params.debug ?? false,
+    // Default `debug` on in local dev so every chat() call streams TanStack AI's
+    // request/provider/output logs; explicit `params.debug` still wins.
+    debug: params.debug ?? isLocalDevelopment(),
   };
 }
 
 /**
- * Anthropic's native structured output (`output_config`) compiles the schema
- * into a grammar with a hard size cap that our large analysis schemas exceed
- * ("compiled grammar is too large"). Every other provider handles native
- * structured output fine, so only Anthropic needs a fallback: `json_object`
- * mode with the schema described in the prompt (the pre-#785 lenient
- * behaviour). Upstream tracking: https://github.com/TanStack/ai/issues/682
- */
-export function isAnthropicModel(model: string): boolean {
-  return model.startsWith('anthropic/');
-}
-
-/**
- * System-prompt instruction that pins a `json_object` response to `schema` —
- * used for the Anthropic fallback, where we can't ship a strict JSON-Schema
- * grammar.
- */
-export function jsonSchemaInstruction(schema: z.ZodType): string {
-  const jsonSchema = convertSchemaToJsonSchema(schema, {
-    forStructuredOutput: true,
-  });
-  return (
-    'You must respond with ONLY a single JSON object that conforms to this ' +
-    'JSON Schema. No markdown, no code fences, no commentary:\n' +
-    JSON.stringify(jsonSchema)
-  );
-}
-
-/** Parse a `json_object` response, tolerating an accidental ```json fence. */
-export function parseJsonObjectResponse(text: string): unknown {
-  const unfenced = text
-    .trim()
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```$/, '');
-  return JSON.parse(unfenced);
-}
-
-/**
- * `{ systemPrompts, responseFormat }` for a workflow structured-output `chat()`
- * call (the explicit `modelOptions.responseFormat` path): native strict
- * `json_schema` for providers that support it, and the `json_object` +
- * schema-in-prompt fallback for Anthropic (whose strict grammar can't fit large
- * schemas). Mirrors the conditional in {@link callLLMStream}.
- */
-export function structuredOutputConfig(
-  model: string,
-  responseSchema: z.ZodType,
-  baseSystemPrompts: readonly string[]
-) {
-  if (isAnthropicModel(model)) {
-    return {
-      systemPrompts: [
-        ...baseSystemPrompts,
-        jsonSchemaInstruction(responseSchema),
-      ],
-      responseFormat: { type: 'json_object' as const },
-    };
-  }
-  return {
-    systemPrompts: [...baseSystemPrompts],
-    responseFormat: {
-      type: 'json_schema' as const,
-      jsonSchema: {
-        name: 'structured_output',
-        schema: convertSchemaToJsonSchema(responseSchema, {
-          forStructuredOutput: true,
-        }),
-        strict: true,
-      },
-    },
-  };
-}
-
-/**
+ * Every structured-output model — Anthropic included — now goes through the
+ * native `outputSchema` path. The response schemas are kept under Anthropic's
+ * strict-grammar limits (≤16 union-typed params; see the note in
+ * `scene-analysis.schema.ts`), so the old `json_object` + schema-in-prompt
+ * fallback for Anthropic is gone: native structured output GUARANTEES
+ * conformance, where the lenient fallback could silently drop required fields.
+ *
  * @tanstack/ai's chat orchestrator validates `outputSchema` upstream and surfaces
  * the parsed object through the terminal `structured-output.complete` event (stream)
  * or as the resolved value (non-stream) — but the return is typed `unknown` because
@@ -493,31 +430,7 @@ export async function* callLLMStream<T>(
   };
 
   const responseSchema = params.responseSchema;
-  if (responseSchema && isAnthropicModel(params.model)) {
-    // Anthropic can't compile a strict grammar for large schemas, so stream
-    // plain JSON (`json_object`) with the schema pinned in the prompt, then
-    // validate the accumulated text at the end.
-    validateStructuredOutputSupport(params.model);
-    for await (const event of chat({
-      ...baseOptions,
-      systemPrompts: [
-        ...baseOptions.systemPrompts,
-        jsonSchemaInstruction(responseSchema),
-      ],
-      modelOptions: {
-        ...baseOptions.modelOptions,
-        responseFormat: { type: 'json_object' as const },
-      },
-    })) {
-      if (event.type === 'TEXT_MESSAGE_CONTENT') {
-        accumulated += event.delta;
-        yield { delta: event.delta, accumulated, done: false };
-        continue;
-      }
-      throwIfRunError(event);
-    }
-    parsed = responseSchema.parse(parseJsonObjectResponse(accumulated));
-  } else if (responseSchema) {
+  if (responseSchema) {
     validateStructuredOutputSupport(params.model);
     for await (const event of chat({
       ...baseOptions,

@@ -11,21 +11,47 @@ import { z } from 'zod';
 import {
   type CharacterBibleEntry,
   characterBibleEntrySchema,
+  dialogueLineSchema,
   type LocationBibleEntry,
   locationBibleEntrySchema,
-  originalScriptSchema,
-  sceneMetadataSchema,
 } from './scene-analysis.schema';
 
 /**
- * Minimal scene schema for completeness detection.
- * A scene is "complete" when all required fields are present and valid.
+ * Lenient, default-filling scene schema for streaming completeness detection.
+ *
+ * The canonical scene-analysis schemas are now STRICT (no `.catch()`) so they
+ * compile to a tight structured-output grammar (see the note in
+ * `scene-analysis.schema.ts`). But this parser runs against PARTIAL mid-stream
+ * JSON: it must accept a scene as soon as its `originalScript` / `metadata`
+ * keys appear and COMPLETE the not-yet-streamed fields with defaults, so a
+ * scene can be shown — and upserted as a full `Scene` — before its trailing
+ * fields arrive. We therefore keep the lenient `.catch()` defaults LOCAL here
+ * rather than re-introducing them into the strict schemas. The resulting
+ * output type still matches `Scene` (every field present), so emitted scenes
+ * remain assignable for `frames.upsert`.
+ *
+ * `originalScript` and `metadata` are required KEYS (a scene missing either is
+ * "not complete yet"), but their contents are defaulted — matching the prior
+ * `.catch()`-driven behaviour and the parser's tests.
  */
+const lenientOriginalScript = z.object({
+  extract: z.string().catch(''),
+  dialogue: z.array(dialogueLineSchema).catch([]),
+});
+
+const lenientMetadata = z.object({
+  title: z.string().catch('Untitled Scene'),
+  durationSeconds: z.number().catch(3),
+  location: z.string().catch(''),
+  timeOfDay: z.string().catch(''),
+  storyBeat: z.string().catch(''),
+});
+
 const sceneSplittingSceneSchema = z.object({
   sceneId: z.string(),
   sceneNumber: z.number(),
-  originalScript: originalScriptSchema,
-  metadata: sceneMetadataSchema,
+  originalScript: lenientOriginalScript,
+  metadata: lenientMetadata,
 });
 
 export type SceneSplittingScene = z.infer<typeof sceneSplittingSceneSchema>;
@@ -47,6 +73,20 @@ export function stripCodeFences(text: string): string {
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
+/**
+ * Parse each array element against `schema`, keeping only the ones that fully
+ * validate. Used for mid-stream bible arrays where the trailing entry is often
+ * still partial — we emit the entries that have completed so far.
+ */
+function collectComplete<T>(items: unknown[], schema: z.ZodType<T>): T[] {
+  const out: T[] = [];
+  for (const item of items) {
+    const result = schema.safeParse(item);
+    if (result.success) out.push(result.data);
+  }
+  return out;
 }
 
 export function createStreamingSceneParser() {
@@ -114,25 +154,30 @@ export function createStreamingSceneParser() {
         }
       }
 
-      // Check for character bible (streams after scenes)
+      // Check for character bible (streams after scenes). The canonical entry
+      // schema is strict, so we collect only the entries that have fully
+      // streamed (dropping a trailing partial one) rather than requiring the
+      // whole array to validate — this keeps the eager mid-stream emit.
       if (!characterBibleEmitted && Array.isArray(raw.characterBible)) {
-        const parsed = z
-          .array(characterBibleEntrySchema)
-          .safeParse(raw.characterBible);
-        if (parsed.success && parsed.data.length > 0) {
+        const complete = collectComplete(
+          raw.characterBible,
+          characterBibleEntrySchema
+        );
+        if (complete.length > 0) {
           characterBibleEmitted = true;
-          events.push({ type: 'characterBible', bible: parsed.data });
+          events.push({ type: 'characterBible', bible: complete });
         }
       }
 
       // Check for location bible (streams after scenes)
       if (!locationBibleEmitted && Array.isArray(raw.locationBible)) {
-        const parsed = z
-          .array(locationBibleEntrySchema)
-          .safeParse(raw.locationBible);
-        if (parsed.success && parsed.data.length > 0) {
+        const complete = collectComplete(
+          raw.locationBible,
+          locationBibleEntrySchema
+        );
+        if (complete.length > 0) {
           locationBibleEmitted = true;
-          events.push({ type: 'locationBible', bible: parsed.data });
+          events.push({ type: 'locationBible', bible: complete });
         }
       }
 

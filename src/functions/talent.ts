@@ -1,6 +1,7 @@
 import { deleteFile, moveFile, getSignedUploadUrl } from '#storage';
 import { requireTeamAdminAccess } from '@/lib/auth/action-utils';
 import { generateId } from '@/lib/db/id';
+import { listPublicTalent } from '@/lib/db/scoped';
 import type { Talent, TalentWithSheets } from '@/lib/db/schema';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
 import {
@@ -62,6 +63,14 @@ export const getTalentFn = createServerFn({ method: 'GET' })
     return context.scopedDb.talent.list({
       favoritesOnly: data?.favoritesOnly,
     });
+  });
+
+// List Public ("system") Talent — no auth, for anonymous visitors
+
+export const getPublicTalentFn = createServerFn({ method: 'GET' })
+  .inputValidator(zodValidator(listTalentFilterSchema.optional()))
+  .handler(async ({ data }): Promise<TalentWithSheets[]> => {
+    return listPublicTalent({ favoritesOnly: data?.favoritesOnly });
   });
 
 // Get Single Talent

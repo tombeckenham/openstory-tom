@@ -20,12 +20,13 @@ function createTalentReadMethods(db: Database, teamId: string) {
   return {
     list: async (options?: {
       favoritesOnly?: boolean;
+      /** Restrict to public ("system") talent only, ignoring team scope. */
+      publicOnly?: boolean;
     }): Promise<TalentWithSheets[]> => {
-      const teamOrPublic = or(
-        eq(talent.teamId, teamId),
-        eq(talent.isPublic, true)
-      );
-      const conditions = teamOrPublic ? [teamOrPublic] : [];
+      const scope = options?.publicOnly
+        ? eq(talent.isPublic, true)
+        : or(eq(talent.teamId, teamId), eq(talent.isPublic, true));
+      const conditions = [scope];
       if (options?.favoritesOnly) {
         conditions.push(eq(talent.isFavorite, true));
       }

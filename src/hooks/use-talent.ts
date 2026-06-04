@@ -3,6 +3,7 @@ import {
   createTalentFn,
   deleteTalentFn,
   generateTalentSheetFn,
+  getPublicTalentFn,
   getTalentByIdFn,
   getTalentFn,
   presignTalentUploadFn,
@@ -27,21 +28,31 @@ export const talentKeys = {
   lists: () => [...talentKeys.all, 'list'] as const,
   list: (filters: { favoritesOnly?: boolean }) =>
     [...talentKeys.lists(), filters] as const,
+  publicList: (filters: { favoritesOnly?: boolean }) =>
+    [...talentKeys.lists(), 'public', filters] as const,
   details: () => [...talentKeys.all, 'detail'] as const,
   detail: (id: string) => [...talentKeys.details(), id] as const,
 };
 
 /**
- * Hook to fetch all talent for the current team
+ * Hook to fetch talent. Authenticated users get their team's talent plus
+ * public ("system") talent; anonymous visitors get the public talent catalogue
+ * so they can browse and pre-cast system talent on the public new-sequence
+ * screen and talent library page.
  */
 export function useTalent(options?: { favoritesOnly?: boolean }) {
-  // Talent is team-scoped; skip the request entirely for anonymous visitors
-  // (e.g. the suggestion picker on the public new-sequence screen).
   const { data: session } = useSession();
+  const isAuthenticated = !!session;
+  const filters = options ?? {};
+
   return useQuery({
-    queryKey: talentKeys.list(options ?? {}),
-    queryFn: () => getTalentFn({ data: options }),
-    enabled: !!session,
+    queryKey: isAuthenticated
+      ? talentKeys.list(filters)
+      : talentKeys.publicList(filters),
+    queryFn: () =>
+      isAuthenticated
+        ? getTalentFn({ data: options })
+        : getPublicTalentFn({ data: options }),
   });
 }
 

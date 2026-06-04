@@ -26,6 +26,13 @@ export function createLocationsReadMethods(db: Database, teamId: string) {
         );
     },
 
+    getPublic: async (): Promise<LibraryLocation[]> => {
+      return await db
+        .select()
+        .from(locationLibrary)
+        .where(eq(locationLibrary.isPublic, true));
+    },
+
     search: async (query: string, limit = 10): Promise<LibraryLocation[]> => {
       return await db
         .select()

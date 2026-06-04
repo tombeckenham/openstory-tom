@@ -1,6 +1,7 @@
 import { moveFile, getSignedUploadUrl } from '#storage';
 import { requireTeamAdminAccess } from '@/lib/auth/action-utils';
 import { generateId } from '@/lib/db/id';
+import { listPublicLibraryLocations } from '@/lib/db/scoped';
 import type { LibraryLocation } from '@/lib/db/schema';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
 import { STORAGE_BUCKETS, getPublicUrl } from '@/lib/storage/buckets';
@@ -70,6 +71,14 @@ export const getTeamLibraryLocationsFn = createServerFn({ method: 'GET' })
   .handler(async ({ context }) => {
     return context.scopedDb.locations.list();
   });
+
+// List Public ("system") library locations — no auth, for anonymous visitors
+
+export const getPublicLibraryLocationsFn = createServerFn({
+  method: 'GET',
+}).handler(async () => {
+  return listPublicLibraryLocations();
+});
 
 export const getLibraryLocationByIdFn = createServerFn({ method: 'GET' })
   .middleware([authWithTeamMiddleware])

@@ -14,6 +14,7 @@ import {
   useLibraryLocationById,
 } from '@/hooks/use-location-library';
 import { useLocationSheetRealtime } from '@/hooks/use-location-realtime';
+import { requireSessionOrRedirect } from '@/lib/auth/route-guards';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import {
   ArrowLeft,
@@ -33,6 +34,9 @@ function LibraryLocationCrumbLabel({ id }: { id: string }) {
 
 export const Route = createFileRoute('/_protected/locations/$locationId')({
   component: LocationDetailPage,
+  beforeLoad: async ({ context: { queryClient }, location }) => {
+    await requireSessionOrRedirect(queryClient, location.href);
+  },
   staticData: {
     breadcrumb: (match) => {
       const { locationId } = routeParams<{ locationId: string }>(match);

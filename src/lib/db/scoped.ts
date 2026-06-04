@@ -138,6 +138,24 @@ export async function listPublicStyles() {
 }
 
 /**
+ * List public ("system") talent without team scoping or auth. Lets anonymous
+ * visitors browse and pre-cast system talent on the public new-sequence
+ * screen and talent library page.
+ */
+export async function listPublicTalent(options?: { favoritesOnly?: boolean }) {
+  const db = getDb();
+  return createTalentReadMethods(db, '').list({ ...options, publicOnly: true });
+}
+
+/**
+ * List public ("system") library locations without team scoping or auth.
+ */
+export async function listPublicLibraryLocations() {
+  const db = getDb();
+  return createLocationsReadMethods(db, '').getPublic();
+}
+
+/**
  * Get a sequence by ID without team scoping.
  * Only for admin operations where team context isn't available yet.
  */

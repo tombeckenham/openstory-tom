@@ -14,6 +14,7 @@ import {
   useSetDefaultSheet,
   useToggleTalentFavorite,
 } from '@/hooks/use-talent';
+import { requireSessionOrRedirect } from '@/lib/auth/route-guards';
 import { cn } from '@/lib/utils';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import {
@@ -34,6 +35,9 @@ function TalentCrumbLabel({ id }: { id: string }) {
 
 export const Route = createFileRoute('/_protected/talent/$id')({
   component: TalentDetailPage,
+  beforeLoad: async ({ context: { queryClient }, location }) => {
+    await requireSessionOrRedirect(queryClient, location.href);
+  },
   staticData: {
     breadcrumb: (match) => {
       const { id } = routeParams<{ id: string }>(match);

@@ -33,6 +33,38 @@ baseTest.describe('Route Protection', () => {
   );
 
   baseTest(
+    'anonymous generate is intercepted by the login dialog',
+    async ({ page }) => {
+      await page.goto('/sequences/new');
+
+      // Composing a draft is allowed while logged out… (the script input is a
+      // TipTap contenteditable, not a <textarea> — same locator as
+      // full-sequence.spec.ts)
+      const scriptEditor = page.locator(
+        '[data-slot="markdown-editor"] .ProseMirror'
+      );
+      await expect(scriptEditor).toBeVisible();
+      await scriptEditor.fill(
+        'INT. KITCHEN - DAY\n\nA cat knocks a glass off the counter.'
+      );
+
+      const generate = page.getByRole('button', {
+        name: 'Generate',
+        exact: true,
+      });
+      await expect(generate).toBeEnabled();
+      await generate.click();
+
+      // …but the action itself is gated: the auth gate opens the login dialog
+      // in place and bails — no sequence is created, we stay on the composer.
+      const dialog = page.getByRole('dialog', { name: 'Sign in to continue' });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByLabel('Email')).toBeVisible();
+      await expect(page).toHaveURL(/\/sequences\/new/);
+    }
+  );
+
+  baseTest(
     'account-bound routes redirect anonymous users to login',
     async ({ page }) => {
       // Settings is genuinely account-only — it redirects.

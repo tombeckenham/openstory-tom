@@ -140,7 +140,7 @@ src/
     workflows/    # QStash durable workflow definitions
   routes/         # TanStack Router file-based routes
     api/          # Webhooks: workflows and auth only
-    _protected/   # Auth-required pages
+    _app/         # App shell (anonymous-browsable; actions gated behind login)
 e2e/              # Playwright end-to-end tests
 scripts/          # CLI utilities and setup
 ```

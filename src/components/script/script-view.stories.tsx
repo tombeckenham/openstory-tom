@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
+import { AuthGateStub } from '@/components/auth/auth-gate-provider';
 import { styleKeys } from '@/hooks/use-styles';
 import type { Sequence } from '@/lib/db/schema/sequences';
 import { MOCK_SYSTEM_STYLES } from '@/lib/style/style-templates';
@@ -89,7 +90,9 @@ const meta: Meta<typeof ScriptView> = {
   decorators: [
     (Story) => (
       <QueryClientProvider client={createQueryClient()}>
-        <Story />
+        <AuthGateStub>
+          <Story />
+        </AuthGateStub>
       </QueryClientProvider>
     ),
   ],

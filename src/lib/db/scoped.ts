@@ -163,7 +163,7 @@ export async function listPublicLibraryLocations() {
 
 /**
  * Fetch a public ("system") talent with its sheets and media, no auth.
- * Returns null if the talent isn't public. Lets anonymous visitors open a
+ * Returns undefined if the talent isn't public. Lets anonymous visitors open a
  * talent detail page read-only.
  */
 export async function getPublicTalentWithRelations(talentId: string) {

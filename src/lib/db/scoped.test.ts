@@ -84,6 +84,10 @@ vi.doMock('@/lib/db/scoped/talent', () => ({
     sheets: { getById: mockTalentSheetsGetById },
     media: { getById: mockTalentMediaGetById },
   })),
+  createPublicTalentReadMethods: vi.fn(() => ({
+    list: mockTalentList,
+    getWithRelations: mockTalentGetWithRelations,
+  })),
   createTalentMethods: vi.fn(() => ({
     list: mockTalentList,
     getByIds: mockTalentGetByIds,
@@ -112,14 +116,16 @@ const mockStylesCreate = vi.fn();
 const mockStylesUpdate = vi.fn();
 const mockStylesDelete = vi.fn();
 const mockStylesGetById = vi.fn();
-const mockStylesGetPublic = vi.fn();
+const mockStylesPublicList = vi.fn();
 const mockStylesIncrementUsage = vi.fn();
 
 vi.doMock('@/lib/db/scoped/styles', () => ({
   createStylesReadMethods: vi.fn(() => ({
     list: mockStylesList,
     getById: mockStylesGetById,
-    getPublic: mockStylesGetPublic,
+  })),
+  createPublicStylesReadMethods: vi.fn(() => ({
+    list: mockStylesPublicList,
   })),
   createStylesMethods: vi.fn(() => ({
     list: mockStylesList,
@@ -127,7 +133,6 @@ vi.doMock('@/lib/db/scoped/styles', () => ({
     update: mockStylesUpdate,
     delete: mockStylesDelete,
     getById: mockStylesGetById,
-    getPublic: mockStylesGetPublic,
     incrementUsage: mockStylesIncrementUsage,
   })),
 }));
@@ -156,6 +161,10 @@ vi.doMock('@/lib/db/scoped/location-library', () => ({
     withReferences: mockLocationsWithReferences,
     getById: mockLocationsGetById,
     getByIds: mockLocationsGetByIds,
+  })),
+  createPublicLocationsReadMethods: vi.fn(() => ({
+    list: mockLocationsList,
+    getById: mockLocationsGetById,
   })),
   createLocationsMethods: vi.fn(() => ({
     list: mockLocationsList,
@@ -340,7 +349,7 @@ describe('createScopedDb', () => {
       mockStylesUpdate,
       mockStylesDelete,
       mockStylesGetById,
-      mockStylesGetPublic,
+      mockStylesPublicList,
       mockStylesIncrementUsage,
       mockLocationsList,
       mockLocationsSearch,

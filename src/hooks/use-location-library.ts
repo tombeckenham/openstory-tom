@@ -1,10 +1,10 @@
 /**
- * Hooks for team-level location library operations
+ * Hooks for location library operations — team-scoped for authenticated
+ * users, plus public ("system") reads for anonymous visitors.
  */
 
 import {
   useMutation,
-  useQuery,
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query';
@@ -19,7 +19,7 @@ import {
   finalizeLocationUploadFn,
   updateLibraryLocationFn,
 } from '@/functions/location-library';
-import { useSession } from '@/lib/auth/client';
+import { usePublicOrTeamQuery } from '@/hooks/use-public-or-team-query';
 import { putToR2 } from '@/lib/utils/upload';
 import {
   libraryLocationKeys,
@@ -39,6 +39,8 @@ export type LibraryLocationWithSheets = LibraryLocation & {
 export const locationLibraryKeys = {
   all: ['location-library'] as const,
   detail: (id: string) => [...locationLibraryKeys.all, 'detail', id] as const,
+  publicDetail: (id: string) =>
+    [...locationLibraryKeys.all, 'detail', 'public', id] as const,
 };
 
 /**
@@ -66,23 +68,12 @@ function invalidateLocationQueries(
  * detail page read-only.
  */
 export function useLibraryLocationById(locationId: string) {
-  // Only a *settled* null session counts as anonymous — while the session is
-  // loading we wait, and a failed session lookup surfaces as a query error.
-  const { data: session, isPending, error: sessionError } = useSession();
-  const isAuthenticated = !!session;
-  return useQuery<LibraryLocationWithSheets>({
-    queryKey: locationLibraryKeys.detail(locationId),
-    queryFn: () => {
-      if (sessionError) {
-        throw new Error(`Failed to fetch session: ${sessionError.message}`, {
-          cause: sessionError,
-        });
-      }
-      return isAuthenticated
-        ? getLibraryLocationByIdFn({ data: { locationId } })
-        : getPublicLibraryLocationByIdFn({ data: { locationId } });
-    },
-    enabled: !!locationId && !isPending,
+  return usePublicOrTeamQuery<LibraryLocationWithSheets>({
+    teamKey: locationLibraryKeys.detail(locationId),
+    publicKey: locationLibraryKeys.publicDetail(locationId),
+    teamFn: () => getLibraryLocationByIdFn({ data: { locationId } }),
+    publicFn: () => getPublicLibraryLocationByIdFn({ data: { locationId } }),
+    enabled: !!locationId,
   });
 }
 

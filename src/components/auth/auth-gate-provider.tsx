@@ -12,9 +12,10 @@
  *     // …authenticated path…
  *   };
  *
- * The default context value (used when no provider is mounted, e.g. Storybook)
- * treats the user as authenticated and runs the action, so components that opt
- * into gating still work unchanged outside the app shell.
+ * `useAuthGate()` requires a provider — outside the app shell (Storybook,
+ * tests) wrap with <AuthGateStub>, which treats the user as authenticated and
+ * runs actions immediately. There is deliberately no permissive default: a
+ * missing provider must fail loudly rather than silently bypass the gate.
  */
 
 import { AuthForm } from '@/components/auth/auth-form';
@@ -25,6 +26,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useUser } from '@/hooks/use-user';
+import { getIsPreviewFn } from '@/lib/utils/environment';
+import { useQuery } from '@tanstack/react-query';
 import { useRouterState } from '@tanstack/react-router';
 import {
   createContext,
@@ -47,28 +50,63 @@ type AuthGateContextValue = {
   openLogin: () => void;
 };
 
-const AuthGateContext = createContext<AuthGateContextValue>({
-  isAuthenticated: true,
-  requireAuth: (action) => {
-    action?.();
-    return true;
-  },
-  openLogin: () => {},
-});
+const AuthGateContext = createContext<AuthGateContextValue | null>(null);
 
 export function useAuthGate(): AuthGateContextValue {
-  return useContext(AuthGateContext);
+  const value = useContext(AuthGateContext);
+  if (!value) {
+    throw new Error(
+      'useAuthGate must be used within <AuthGateProvider> (app shell) or <AuthGateStub> (stories/tests)'
+    );
+  }
+  return value;
 }
 
-function isPreviewHost(): boolean {
-  if (typeof window === 'undefined') return false;
-  return window.location.host.includes('pr-');
+/**
+ * Permissive stand-in for trees rendered outside the app shell (Storybook,
+ * tests): treats the visitor as authenticated so gated actions run
+ * immediately. Never use in app code — mount <AuthGateProvider> instead.
+ */
+export function AuthGateStub({ children }: { children: ReactNode }) {
+  const value = useMemo<AuthGateContextValue>(
+    () => ({
+      isAuthenticated: true,
+      requireAuth: (action) => {
+        action?.();
+        return true;
+      },
+      openLogin: () => {},
+    }),
+    []
+  );
+  return (
+    <AuthGateContext.Provider value={value}>
+      {children}
+    </AuthGateContext.Provider>
+  );
 }
 
 export function AuthGateProvider({ children }: { children: ReactNode }) {
-  const { data: user } = useUser();
+  const { data: user, error: sessionError } = useUser();
+  // A failed session lookup must NOT be conflated with "anonymous" — rethrow
+  // to the route errorComponent instead of silently popping the login dialog
+  // at a signed-in user whose session refetch blipped (see getSessionFn,
+  // which throws on lookup failure for exactly this reason).
+  if (sessionError) {
+    throw new Error(`Failed to fetch session: ${sessionError.message}`, {
+      cause: sessionError,
+    });
+  }
   const isAuthenticated = !!user;
   const [open, setOpen] = useState(false);
+
+  // Canonical preview detection (same server-side check the login route
+  // uses) — previews hide OAuth, whose redirect URIs aren't configured there.
+  const { data: isPreview } = useQuery({
+    queryKey: ['is-preview'],
+    queryFn: () => getIsPreviewFn(),
+    staleTime: Infinity,
+  });
 
   // Return the visitor to wherever they were after signing in so their
   // in-progress draft (persisted to localStorage) is restored.
@@ -103,7 +141,7 @@ export function AuthGateProvider({ children }: { children: ReactNode }) {
           <DialogHeader className="sr-only">
             <DialogTitle>Sign in to continue</DialogTitle>
           </DialogHeader>
-          <AuthForm redirectTo={redirectTo} isPreview={isPreviewHost()} />
+          <AuthForm redirectTo={redirectTo} isPreview={isPreview ?? false} />
         </DialogContent>
       </Dialog>
     </AuthGateContext.Provider>

@@ -13,7 +13,7 @@ import {
   getPublicLibraryLocationsFn,
   getTeamLibraryLocationsFn,
 } from '@/functions/location-library';
-import { useSession } from '@/lib/auth/client';
+import { usePublicOrTeamQuery } from '@/hooks/use-public-or-team-query';
 import type { LibraryLocation, SequenceLocation } from '@/lib/db/schema';
 
 // Re-export for backwards compatibility
@@ -85,27 +85,12 @@ export function useLibraryLocations() {
   // Authenticated users get their team's locations plus public ("system")
   // ones; anonymous visitors get the public catalogue so they can browse and
   // pick system locations on the public new-sequence screen and locations page.
-  // Only a *settled* null session counts as anonymous — while the session is
-  // loading we wait, and a failed session lookup surfaces as a query error
-  // instead of silently serving the public catalogue to a signed-in user.
-  const { data: session, isPending, error: sessionError } = useSession();
-  const isAuthenticated = !!session;
-  return useQuery<LibraryLocation[]>({
-    queryKey: isAuthenticated
-      ? libraryLocationKeys.list
-      : libraryLocationKeys.publicList,
-    queryFn: async () => {
-      if (sessionError) {
-        throw new Error(`Failed to fetch session: ${sessionError.message}`, {
-          cause: sessionError,
-        });
-      }
-      return isAuthenticated
-        ? getTeamLibraryLocationsFn()
-        : getPublicLibraryLocationsFn();
-    },
+  return usePublicOrTeamQuery<LibraryLocation[]>({
+    teamKey: libraryLocationKeys.list,
+    publicKey: libraryLocationKeys.publicList,
+    teamFn: () => getTeamLibraryLocationsFn(),
+    publicFn: () => getPublicLibraryLocationsFn(),
     staleTime: 5 * 60 * 1000, // 5 minutes
-    enabled: !isPending,
   });
 }
 

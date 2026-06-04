@@ -54,7 +54,7 @@ bun cf:deploy:prd                  # Cloudflare Workers production deploy
 src/
   routes/           # TanStack Router file-based routes
     api/            #   Webhooks (workflows + auth only)
-    _protected/     #   Auth-required pages
+    _app/           #   App shell (anonymous-browsable; actions gated behind login)
   functions/        # createServerFn endpoints — most business logic lives here
   components/       # React UI (shadcn/ui base + layout-only Tailwind)
   lib/

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   createTalentFn,
   deleteTalentFn,
@@ -14,7 +14,7 @@ import {
   updateTalentFn,
   deleteTalentMediaFn,
 } from '@/functions/talent';
-import { useSession } from '@/lib/auth/client';
+import { usePublicOrTeamQuery } from '@/hooks/use-public-or-team-query';
 import { putToR2 } from '@/lib/utils/upload';
 import type {
   CreateTalentInput,
@@ -33,6 +33,8 @@ export const talentKeys = {
     [...talentKeys.lists(), 'public', filters] as const,
   details: () => [...talentKeys.all, 'detail'] as const,
   detail: (id: string) => [...talentKeys.details(), id] as const,
+  publicDetail: (id: string) =>
+    [...talentKeys.details(), 'public', id] as const,
 };
 
 /**
@@ -42,28 +44,13 @@ export const talentKeys = {
  * screen and talent library page.
  */
 export function useTalent(options?: { favoritesOnly?: boolean }) {
-  // Only a *settled* null session counts as anonymous — while the session is
-  // loading we wait, and a failed session lookup surfaces as a query error
-  // instead of silently serving the public catalogue to a signed-in user.
-  const { data: session, isPending, error: sessionError } = useSession();
-  const isAuthenticated = !!session;
   const filters = options ?? {};
 
-  return useQuery({
-    queryKey: isAuthenticated
-      ? talentKeys.list(filters)
-      : talentKeys.publicList(filters),
-    queryFn: () => {
-      if (sessionError) {
-        throw new Error(`Failed to fetch session: ${sessionError.message}`, {
-          cause: sessionError,
-        });
-      }
-      return isAuthenticated
-        ? getTalentFn({ data: options })
-        : getPublicTalentFn({ data: options });
-    },
-    enabled: !isPending,
+  return usePublicOrTeamQuery({
+    teamKey: talentKeys.list(filters),
+    publicKey: talentKeys.publicList(filters),
+    teamFn: () => getTalentFn({ data: options }),
+    publicFn: () => getPublicTalentFn({ data: options }),
   });
 }
 
@@ -72,23 +59,12 @@ export function useTalent(options?: { favoritesOnly?: boolean }) {
  * public ("system") talent so they can open a talent detail page read-only.
  */
 export function useTalentById(talentId: string) {
-  // Only a *settled* null session counts as anonymous — while the session is
-  // loading we wait, and a failed session lookup surfaces as a query error.
-  const { data: session, isPending, error: sessionError } = useSession();
-  const isAuthenticated = !!session;
-  return useQuery({
-    queryKey: talentKeys.detail(talentId),
-    queryFn: () => {
-      if (sessionError) {
-        throw new Error(`Failed to fetch session: ${sessionError.message}`, {
-          cause: sessionError,
-        });
-      }
-      return isAuthenticated
-        ? getTalentByIdFn({ data: { talentId } })
-        : getPublicTalentByIdFn({ data: { talentId } });
-    },
-    enabled: !!talentId && !isPending,
+  return usePublicOrTeamQuery({
+    teamKey: talentKeys.detail(talentId),
+    publicKey: talentKeys.publicDetail(talentId),
+    teamFn: () => getTalentByIdFn({ data: { talentId } }),
+    publicFn: () => getPublicTalentByIdFn({ data: { talentId } }),
+    enabled: !!talentId,
   });
 }
 

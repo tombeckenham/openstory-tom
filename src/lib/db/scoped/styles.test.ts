@@ -2,8 +2,8 @@
  * Scoped styles tests:
  *   - incrementUsage atomically bumps usageCount.
  *   - list({ orderBy: 'popular' }) sorts by usageCount desc.
- *   - getPublic() never leaks private team styles (guards the unauthenticated
- *     public-catalogue endpoint).
+ *   - createPublicStylesReadMethods().list() never leaks private team styles
+ *     (guards the unauthenticated public-catalogue endpoint).
  */
 
 import {
@@ -35,7 +35,9 @@ import { relations } from '@/lib/db/schema/relations';
 // via vi.doMock(). vi.doMock is per-file, so it shouldn't bleed across the
 // suite, but we mirror the production methods inline against an in-memory
 // libSQL DB anyway to exercise real SQL behavior without depending on the
-// other file's mock setup. Keep these in lockstep with @/lib/db/scoped/styles.
+// other file's mock setup. Keep these in lockstep with the *team-scoped*
+// methods in @/lib/db/scoped/styles only — the public read path is exercised
+// via the real createPublicStylesReadMethods factory below, not mirrored.
 function makeStylesMethods(database: Database, teamId: string, userId: string) {
   return {
     list: async (

@@ -6,7 +6,7 @@ import {
   getStylesFn,
   updateStyleFn,
 } from '@/functions/styles';
-import { useSession } from '@/lib/auth/client';
+import { usePublicOrTeamQuery } from '@/hooks/use-public-or-team-query';
 import type { StyleConfig } from '@/lib/db/schema/libraries';
 import type { Style } from '@/types/database';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -36,26 +36,15 @@ export const styleKeys = {
 // Hook for listing styles.
 // Anonymous (logged-out) visitors get the public style catalogue so they can
 // compose a sequence before signing in; authenticated users get their team's
-// styles plus public ones. Only a *settled* null session counts as anonymous —
-// while the session is loading we wait, and a failed session lookup surfaces
-// as a query error rather than silently serving the public catalogue to a
-// signed-in user.
+// styles plus public ones (see usePublicOrTeamQuery for the session rules).
 export function useStyles(teamId?: string, enabled = true) {
-  const { data: session, isPending, error: sessionError } = useSession();
-  const isAuthenticated = !!session;
-
-  return useQuery<Style[]>({
-    queryKey: isAuthenticated ? styleKeys.list(teamId) : styleKeys.public(),
-    queryFn: async () => {
-      if (sessionError) {
-        throw new Error(`Failed to fetch session: ${sessionError.message}`, {
-          cause: sessionError,
-        });
-      }
-      return isAuthenticated ? getStylesFn() : getPublicStylesFn();
-    },
+  return usePublicOrTeamQuery<Style[]>({
+    teamKey: styleKeys.list(teamId),
+    publicKey: styleKeys.public(),
+    teamFn: () => getStylesFn(),
+    publicFn: () => getPublicStylesFn(),
     staleTime: 10 * 60 * 1000, // 10 minutes (styles change less frequently)
-    enabled: enabled && !isPending,
+    enabled,
   });
 }
 

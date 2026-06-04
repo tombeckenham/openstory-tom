@@ -5,11 +5,10 @@ import { TalentLibraryList } from '@/components/talent-library/talent-library-li
 import { PageContainer } from '@/components/layout/page-container';
 import { PageDescription } from '@/components/typography/page-description';
 import { PageHeader } from '@/components/typography/page-header';
-import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useTalent } from '@/hooks/use-talent';
 import { createFileRoute } from '@tanstack/react-router';
-import { Plus, User } from 'lucide-react';
+import { User } from 'lucide-react';
 import { z } from 'zod';
 
 const searchParamsSchema = z.object({
@@ -24,7 +23,7 @@ export const Route = createFileRoute('/_app/talent/')({
 
 function TalentPage() {
   const { filter } = Route.useSearch();
-  const { isAuthenticated, openLogin } = useAuthGate();
+  const { isAuthenticated } = useAuthGate();
   const {
     data: talent,
     isLoading,
@@ -33,16 +32,10 @@ function TalentPage() {
     favoritesOnly: filter === 'favorites',
   });
 
-  // Anonymous visitors browse the public ("system") talent catalogue; creating
-  // talent prompts a login.
-  const addAction = isAuthenticated ? (
-    <AddTalentDialog />
-  ) : (
-    <Button onClick={openLogin}>
-      <Plus className="mr-2 h-4 w-4" />
-      Add Talent
-    </Button>
-  );
+  // Anonymous visitors browse the public ("system") talent catalogue and can
+  // open the dialog; the actual add prompts a login (gated inside
+  // AddTalentDialog).
+  const addAction = <AddTalentDialog />;
 
   return (
     <div className="h-full overflow-auto">

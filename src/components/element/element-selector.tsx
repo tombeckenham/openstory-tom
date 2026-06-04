@@ -12,6 +12,7 @@
  * files.
  */
 
+import { useAuthGate } from '@/components/auth/auth-gate-provider';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -115,6 +116,7 @@ export const ElementSelector: React.FC<ElementSelectorProps> = (props) => {
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const { requireAuth } = useAuthGate();
   const draftUpload = useUploadDraftElement();
   const sequenceUpload = useUploadElementToSequence();
   const deleteElement = useDeleteSequenceElement();
@@ -199,6 +201,10 @@ export const ElementSelector: React.FC<ElementSelectorProps> = (props) => {
       if (disabled) return;
       const images = newFiles.filter((f) => f.type.startsWith('image/'));
       if (images.length === 0) return;
+
+      // Uploads hit the server immediately — anonymous visitors get the login
+      // prompt instead (covers browse, drop, paste, and external drops).
+      if (!requireAuth()) return;
 
       const accepted: { key: string; file: File }[] = [];
       setEntries((prev) => {
@@ -298,6 +304,7 @@ export const ElementSelector: React.FC<ElementSelectorProps> = (props) => {
     },
     [
       disabled,
+      requireAuth,
       isPersisted,
       persistedElements.length,
       sequenceId,

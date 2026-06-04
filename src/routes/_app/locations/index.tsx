@@ -5,11 +5,10 @@ import { LocationLibraryList } from '@/components/location-library/location-libr
 import { PageContainer } from '@/components/layout/page-container';
 import { PageDescription } from '@/components/typography/page-description';
 import { PageHeader } from '@/components/typography/page-header';
-import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useLibraryLocations } from '@/hooks/use-sequence-locations';
 import { createFileRoute } from '@tanstack/react-router';
-import { MapPin, Plus } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { z } from 'zod';
 
 const searchParamsSchema = z.object({
@@ -24,7 +23,7 @@ export const Route = createFileRoute('/_app/locations/')({
 
 function LocationsPage() {
   const { search } = Route.useSearch();
-  const { isAuthenticated, openLogin } = useAuthGate();
+  const { isAuthenticated } = useAuthGate();
   const { data: locations, isLoading, error } = useLibraryLocations();
 
   // Filter locations based on search params
@@ -41,16 +40,10 @@ function LocationsPage() {
     return true;
   });
 
-  // Anonymous visitors browse the public ("system") location catalogue;
-  // creating locations prompts a login.
-  const addAction = isAuthenticated ? (
-    <AddLocationDialog />
-  ) : (
-    <Button onClick={openLogin}>
-      <Plus className="mr-2 h-4 w-4" />
-      Add Location
-    </Button>
-  );
+  // Anonymous visitors browse the public ("system") location catalogue and
+  // can open the dialog; the actual add prompts a login (gated inside
+  // AddLocationDialog).
+  const addAction = <AddLocationDialog />;
 
   return (
     <div className="h-full overflow-auto">

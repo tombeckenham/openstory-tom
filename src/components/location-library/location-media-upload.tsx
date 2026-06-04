@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAuthGate } from '@/components/auth/auth-gate-provider';
 import { Button } from '@/components/ui/button';
 import {
   FileUpload,
@@ -37,6 +38,7 @@ export const LocationMediaUpload: React.FC<LocationMediaUploadProps> = ({
   const [uploadedUrlsMap, setUploadedUrlsMap] = useState<Map<string, string>>(
     new Map()
   );
+  const { requireAuth } = useAuthGate();
   const uploadMedia = useUploadLocationMedia();
 
   useEffect(() => {
@@ -66,6 +68,14 @@ export const LocationMediaUpload: React.FC<LocationMediaUploadProps> = ({
 
   const onUpload: NonNullable<FileUploadProps['onUpload']> = useCallback(
     async (newFiles, { onProgress, onSuccess, onError }) => {
+      // Uploads hit the server immediately — anonymous visitors get the login
+      // prompt instead of a raw upload error.
+      if (!requireAuth()) {
+        for (const file of newFiles) {
+          onError(file, new Error('Sign in to upload'));
+        }
+        return;
+      }
       const uploadPromises = newFiles.map(async (file) => {
         try {
           const result = await uploadMedia.mutateAsync({
@@ -93,7 +103,7 @@ export const LocationMediaUpload: React.FC<LocationMediaUploadProps> = ({
         onComplete?.();
       }
     },
-    [locationId, uploadMedia, onComplete]
+    [requireAuth, locationId, uploadMedia, onComplete]
   );
 
   return (

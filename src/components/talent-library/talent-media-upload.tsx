@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAuthGate } from '@/components/auth/auth-gate-provider';
 import { Button } from '@/components/ui/button';
 import {
   FileUpload,
@@ -38,6 +39,7 @@ export const TalentMediaUpload: React.FC<TalentMediaUploadProps> = ({
   const [uploadedUrlsMap, setUploadedUrlsMap] = useState<Map<string, string>>(
     new Map()
   );
+  const { requireAuth } = useAuthGate();
   const uploadTempMedia = useUploadTempMedia();
   const uploadTalentMedia = useUploadTalentMedia();
 
@@ -67,6 +69,14 @@ export const TalentMediaUpload: React.FC<TalentMediaUploadProps> = ({
 
   const onUpload: NonNullable<FileUploadProps['onUpload']> = useCallback(
     async (newFiles, { onProgress, onSuccess, onError }) => {
+      // Uploads hit the server immediately — anonymous visitors get the login
+      // prompt instead of a raw upload error.
+      if (!requireAuth()) {
+        for (const file of newFiles) {
+          onError(file, new Error('Sign in to upload'));
+        }
+        return;
+      }
       const uploadPromises = newFiles.map(async (file) => {
         try {
           const type = file.type.startsWith('video/')
@@ -107,7 +117,7 @@ export const TalentMediaUpload: React.FC<TalentMediaUploadProps> = ({
         onComplete?.();
       }
     },
-    [talentId, uploadTempMedia, uploadTalentMedia, onComplete]
+    [requireAuth, talentId, uploadTempMedia, uploadTalentMedia, onComplete]
   );
 
   return (

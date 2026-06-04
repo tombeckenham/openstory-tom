@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuthGate } from '@/components/auth/auth-gate-provider';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -33,6 +34,7 @@ export const AddLocationDialog: React.FC<AddLocationDialogProps> = ({
   const [uploadedUrls, setUploadedUrls] = useState<string[]>([]);
 
   const isHydrated = useHydrated();
+  const { requireAuth } = useAuthGate();
   const createLocation = useCreateLibraryLocation();
 
   const closeAndReset = () => {
@@ -56,6 +58,11 @@ export const AddLocationDialog: React.FC<AddLocationDialogProps> = ({
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // Anonymous visitors can open the dialog and fill the form; the actual
+    // add prompts a login.
+    if (!requireAuth()) return;
+
     const formData = new FormData(e.currentTarget);
     const nameValue = formData.get('name');
     const descriptionValue = formData.get('description');

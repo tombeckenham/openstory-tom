@@ -6,6 +6,21 @@
  *     (guards the unauthenticated public-catalogue endpoint).
  */
 
+import type { Database } from '@/lib/db/client';
+import { generateId } from '@/lib/db/id';
+import {
+  styles,
+  teams,
+  user,
+  type NewStyle,
+  type Style,
+} from '@/lib/db/schema';
+import { relations } from '@/lib/db/schema/relations';
+import { createPublicStylesReadMethods } from '@/lib/db/scoped/styles';
+import { createClient, type Client } from '@libsql/client';
+import { asc, desc, eq, or, sql } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/libsql';
+import { migrate } from 'drizzle-orm/libsql/migrator';
 import {
   afterAll,
   beforeAll,
@@ -15,21 +30,6 @@ import {
   it,
   vi,
 } from 'vitest';
-import { type Client, createClient } from '@libsql/client';
-import { asc, desc, eq, or, sql } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/libsql';
-import { migrate } from 'drizzle-orm/libsql/migrator';
-import { generateId } from '@/lib/db/id';
-import { createPublicStylesReadMethods } from '@/lib/db/scoped/styles';
-import type { Database } from '@/lib/db/client';
-import {
-  styles,
-  teams,
-  user,
-  type NewStyle,
-  type Style,
-} from '@/lib/db/schema';
-import { relations } from '@/lib/db/schema/relations';
 
 // scoped.test.ts registers a global module mock for @/lib/db/scoped/styles
 // via vi.doMock(). vi.doMock is per-file, so it shouldn't bleed across the

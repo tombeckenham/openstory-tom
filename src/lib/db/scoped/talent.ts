@@ -3,9 +3,7 @@
  * Team-scoped talent library CRUD with sheet counts and default sheets.
  */
 
-import { and, asc, desc, eq, or, sql } from 'drizzle-orm';
 import type { Database } from '@/lib/db/client';
-import { talent, talentMedia, talentSheets } from '@/lib/db/schema';
 import type {
   NewTalent,
   NewTalentMedia,
@@ -15,6 +13,8 @@ import type {
   TalentSheet,
   TalentWithSheets,
 } from '@/lib/db/schema';
+import { talent, talentMedia, talentSheets } from '@/lib/db/schema';
+import { and, asc, desc, eq, or, sql } from 'drizzle-orm';
 
 /**
  * Shared implementation for team-scoped and public (anonymous) talent reads.

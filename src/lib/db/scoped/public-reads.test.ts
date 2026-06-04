@@ -7,16 +7,16 @@
  * The styles equivalent lives in styles.test.ts alongside its other tests.
  */
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import type { Database } from '@/lib/db/client';
+import { generateId } from '@/lib/db/id';
+import { locationLibrary, talent, teams } from '@/lib/db/schema';
+import { relations } from '@/lib/db/schema/relations';
+import { createPublicLocationsReadMethods } from '@/lib/db/scoped/location-library';
+import { createPublicTalentReadMethods } from '@/lib/db/scoped/talent';
 import { type Client, createClient } from '@libsql/client';
 import { drizzle } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
-import { generateId } from '@/lib/db/id';
-import type { Database } from '@/lib/db/client';
-import { createPublicLocationsReadMethods } from '@/lib/db/scoped/location-library';
-import { createPublicTalentReadMethods } from '@/lib/db/scoped/talent';
-import { locationLibrary, talent, teams } from '@/lib/db/schema';
-import { relations } from '@/lib/db/schema/relations';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 let client: Client;
 let db: Database;

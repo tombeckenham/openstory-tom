@@ -3,10 +3,10 @@
  * Team-scoped style library CRUD (includes public styles in listing).
  */
 
-import { asc, desc, and, eq, or, sql } from 'drizzle-orm';
 import type { Database } from '@/lib/db/client';
-import { styles } from '@/lib/db/schema';
 import type { NewStyle, Style } from '@/lib/db/schema';
+import { styles } from '@/lib/db/schema';
+import { and, asc, desc, eq, or, sql } from 'drizzle-orm';
 
 import { getLogger } from '@/lib/observability/logger';
 

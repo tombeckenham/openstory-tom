@@ -1,3 +1,4 @@
+import { useAuthGate } from '@/components/auth/auth-gate-provider';
 import { routeParams } from '@/components/layout/breadcrumbs';
 import { EditTalentDialog } from '@/components/talent-library/edit-talent-dialog';
 import { PageContainer } from '@/components/layout/page-container';
@@ -14,7 +15,6 @@ import {
   useSetDefaultSheet,
   useToggleTalentFavorite,
 } from '@/hooks/use-talent';
-import { requireSessionOrRedirect } from '@/lib/auth/route-guards';
 import { cn } from '@/lib/utils';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import {
@@ -35,9 +35,6 @@ function TalentCrumbLabel({ id }: { id: string }) {
 
 export const Route = createFileRoute('/_protected/talent/$id')({
   component: TalentDetailPage,
-  beforeLoad: async ({ context: { queryClient }, location }) => {
-    await requireSessionOrRedirect(queryClient, location.href);
-  },
   staticData: {
     breadcrumb: (match) => {
       const { id } = routeParams<{ id: string }>(match);
@@ -52,6 +49,7 @@ export const Route = createFileRoute('/_protected/talent/$id')({
 function TalentDetailPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuthGate();
   const { data: talent, isLoading, error } = useTalentById(id);
   const toggleFavorite = useToggleTalentFavorite();
   const deleteTalent = useDeleteTalent();
@@ -62,7 +60,8 @@ function TalentDetailPage() {
     phase: generatingPhase,
     error: sheetError,
     startGenerating,
-  } = useTalentSheetRealtime(id);
+    // Anonymous visitors view talent read-only; don't open a realtime channel.
+  } = useTalentSheetRealtime(isAuthenticated ? id : undefined);
 
   const handleGenerateSheet = () => {
     if (!talent) return;
@@ -129,39 +128,41 @@ function TalentDetailPage() {
 
         <PageHeader
           actions={
-            <div className="flex items-center gap-2">
-              <EditTalentDialog
-                talent={talent}
-                trigger={
-                  <Button variant="outline" size="icon">
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                }
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => toggleFavorite.mutate(talent.id)}
-                disabled={toggleFavorite.isPending}
-              >
-                <Star
-                  className={cn(
-                    'h-4 w-4',
-                    talent.isFavorite
-                      ? 'fill-yellow-400 text-yellow-400'
-                      : 'text-muted-foreground'
-                  )}
+            isAuthenticated ? (
+              <div className="flex items-center gap-2">
+                <EditTalentDialog
+                  talent={talent}
+                  trigger={
+                    <Button variant="outline" size="icon">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  }
                 />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => void handleDelete()}
-                disabled={deleteTalent.isPending}
-              >
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
-            </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => toggleFavorite.mutate(talent.id)}
+                  disabled={toggleFavorite.isPending}
+                >
+                  <Star
+                    className={cn(
+                      'h-4 w-4',
+                      talent.isFavorite
+                        ? 'fill-yellow-400 text-yellow-400'
+                        : 'text-muted-foreground'
+                    )}
+                  />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => void handleDelete()}
+                  disabled={deleteTalent.isPending}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            ) : undefined
           }
         >
           <h1 className="sr-only">{talent.name}</h1>
@@ -223,7 +224,8 @@ function TalentDetailPage() {
             </h2>
             {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime guard */}
             {talent.media &&
-              talent.media.filter((m) => m.type === 'image').length > 0 && (
+              talent.media.filter((m) => m.type === 'image').length > 0 &&
+              isAuthenticated && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -246,7 +248,8 @@ function TalentDetailPage() {
               <User className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
               {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime guard */}
               {talent.media &&
-              talent.media.filter((m) => m.type === 'image').length > 0 ? (
+              talent.media.filter((m) => m.type === 'image').length > 0 &&
+              isAuthenticated ? (
                 <div>
                   <p className="text-muted-foreground mb-3">
                     {isGeneratingSheet
@@ -330,21 +333,23 @@ function TalentDetailPage() {
                     <p className="font-medium text-sm line-clamp-1">
                       {sheet.name}
                     </p>
-                    {talent.sheets.length > 1 && !sheet.isDefault && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          setDefaultSheet.mutate({
-                            sheetId: sheet.id,
-                            talentId: talent.id,
-                          })
-                        }
-                        disabled={setDefaultSheet.isPending}
-                      >
-                        Set as Default
-                      </Button>
-                    )}
+                    {isAuthenticated &&
+                      talent.sheets.length > 1 &&
+                      !sheet.isDefault && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setDefaultSheet.mutate({
+                              sheetId: sheet.id,
+                              talentId: talent.id,
+                            })
+                          }
+                          disabled={setDefaultSheet.isPending}
+                        >
+                          Set as Default
+                        </Button>
+                      )}
                   </div>
                 </Card>
               ))}

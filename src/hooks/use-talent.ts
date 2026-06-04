@@ -3,6 +3,7 @@ import {
   createTalentFn,
   deleteTalentFn,
   generateTalentSheetFn,
+  getPublicTalentByIdFn,
   getPublicTalentFn,
   getTalentByIdFn,
   getTalentFn,
@@ -57,12 +58,18 @@ export function useTalent(options?: { favoritesOnly?: boolean }) {
 }
 
 /**
- * Hook to fetch a single talent with all relations
+ * Hook to fetch a single talent with all relations. Anonymous visitors get the
+ * public ("system") talent so they can open a talent detail page read-only.
  */
 export function useTalentById(talentId: string) {
+  const { data: session } = useSession();
+  const isAuthenticated = !!session;
   return useQuery({
     queryKey: talentKeys.detail(talentId),
-    queryFn: () => getTalentByIdFn({ data: { talentId } }),
+    queryFn: () =>
+      isAuthenticated
+        ? getTalentByIdFn({ data: { talentId } })
+        : getPublicTalentByIdFn({ data: { talentId } }),
     enabled: !!talentId,
   });
 }

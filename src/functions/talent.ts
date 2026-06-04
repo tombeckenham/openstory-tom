@@ -1,7 +1,10 @@
 import { deleteFile, moveFile, getSignedUploadUrl } from '#storage';
 import { requireTeamAdminAccess } from '@/lib/auth/action-utils';
 import { generateId } from '@/lib/db/id';
-import { listPublicTalent } from '@/lib/db/scoped';
+import {
+  getPublicTalentWithRelations,
+  listPublicTalent,
+} from '@/lib/db/scoped';
 import type { Talent, TalentWithSheets } from '@/lib/db/schema';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
 import {
@@ -82,6 +85,20 @@ export const getTalentByIdFn = createServerFn({ method: 'GET' })
     const talentRecord = await context.scopedDb.talent.getWithRelations(
       data.talentId
     );
+
+    if (!talentRecord) {
+      throw new Error('Talent not found');
+    }
+
+    return talentRecord;
+  });
+
+// Get Single Public ("system") Talent — no auth, for anonymous visitors
+
+export const getPublicTalentByIdFn = createServerFn({ method: 'GET' })
+  .inputValidator(zodValidator(talentIdSchema))
+  .handler(async ({ data }) => {
+    const talentRecord = await getPublicTalentWithRelations(data.talentId);
 
     if (!talentRecord) {
       throw new Error('Talent not found');

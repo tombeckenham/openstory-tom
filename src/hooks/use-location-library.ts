@@ -14,10 +14,12 @@ import {
   deleteLibraryLocationFn,
   deleteLocationSheetFn,
   getLibraryLocationByIdFn,
+  getPublicLibraryLocationByIdFn,
   presignLocationUploadFn,
   finalizeLocationUploadFn,
   updateLibraryLocationFn,
 } from '@/functions/location-library';
+import { useSession } from '@/lib/auth/client';
 import { putToR2 } from '@/lib/utils/upload';
 import {
   libraryLocationKeys,
@@ -59,12 +61,19 @@ function invalidateLocationQueries(
 }
 
 /**
- * Hook to fetch a single location with details and reference sheets
+ * Hook to fetch a single location with details and reference sheets. Anonymous
+ * visitors get the public ("system") location so they can open a location
+ * detail page read-only.
  */
 export function useLibraryLocationById(locationId: string) {
+  const { data: session } = useSession();
+  const isAuthenticated = !!session;
   return useQuery<LibraryLocationWithSheets>({
     queryKey: locationLibraryKeys.detail(locationId),
-    queryFn: () => getLibraryLocationByIdFn({ data: { locationId } }),
+    queryFn: () =>
+      isAuthenticated
+        ? getLibraryLocationByIdFn({ data: { locationId } })
+        : getPublicLibraryLocationByIdFn({ data: { locationId } }),
     enabled: !!locationId,
   });
 }

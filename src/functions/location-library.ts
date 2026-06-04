@@ -1,7 +1,10 @@
 import { moveFile, getSignedUploadUrl } from '#storage';
 import { requireTeamAdminAccess } from '@/lib/auth/action-utils';
 import { generateId } from '@/lib/db/id';
-import { listPublicLibraryLocations } from '@/lib/db/scoped';
+import {
+  getPublicLibraryLocationById,
+  listPublicLibraryLocations,
+} from '@/lib/db/scoped';
 import type { LibraryLocation } from '@/lib/db/schema';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
 import { STORAGE_BUCKETS, getPublicUrl } from '@/lib/storage/buckets';
@@ -93,6 +96,20 @@ export const getLibraryLocationByIdFn = createServerFn({ method: 'GET' })
       sequenceTitle: 'Library' as const,
       sheets,
     };
+  });
+
+// Get Single Public ("system") library location — no auth, for anonymous visitors
+
+export const getPublicLibraryLocationByIdFn = createServerFn({ method: 'GET' })
+  .inputValidator(zodValidator(z.object({ locationId: ulidSchema })))
+  .handler(async ({ data }) => {
+    const location = await getPublicLibraryLocationById(data.locationId);
+
+    if (!location) {
+      throw new Error('Location not found');
+    }
+
+    return location;
   });
 
 export const createLibraryLocationFn = createServerFn({ method: 'POST' })

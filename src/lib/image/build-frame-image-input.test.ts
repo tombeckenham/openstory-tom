@@ -11,11 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_IMAGE_MODEL } from '@/lib/ai/models';
-import {
-  continuitySchema,
-  sceneSchema,
-  type Scene,
-} from '@/lib/ai/scene-analysis.schema';
+import type { Scene } from '@/lib/ai/scene-analysis.schema';
 import type { CharacterMinimal, Frame } from '@/lib/db/schema';
 import { buildFrameImageWorkflowInput } from '@/lib/image/build-frame-image-input';
 
@@ -82,22 +78,34 @@ const VISUAL_COMPONENTS = {
   atmosphere: '',
 };
 
-/** A valid, fully-typed Scene built through the schema (no casts). */
+/**
+ * A complete, fully-typed `Scene`. Built as a plain literal (the `: Scene`
+ * return type makes tsgo enforce completeness at compile time) rather than via
+ * `schema.parse()` — so the fixture never leans on `.catch()` defaults filling
+ * missing keys, a behavior that isn't portable across zod versions.
+ */
 function makeScene(
   opts: { sceneId?: string; visualFullPrompt?: string } = {}
 ): Scene {
-  return sceneSchema.parse({
+  return {
     sceneId: opts.sceneId ?? 'scene-1',
     sceneNumber: 1,
     originalScript: { extract: '', dialogue: [] },
-    metadata: { location: '' },
+    metadata: {
+      title: 'Scene',
+      durationSeconds: 3,
+      location: '',
+      timeOfDay: '',
+      storyBeat: '',
+    },
     prompts: {
       visual: {
         fullPrompt: opts.visualFullPrompt ?? '',
+        negativePrompt: '',
         components: VISUAL_COMPONENTS,
       },
     },
-  });
+  };
 }
 
 const baseOpts = {
@@ -241,7 +249,14 @@ describe('buildFrameImageWorkflowInput — reference images', () => {
       frame,
       characters: [character],
       // Matching continuity passed directly (avoids building frame metadata).
-      continuity: continuitySchema.parse({ characterTags: ['Jack'] }),
+      continuity: {
+        characterTags: ['Jack'],
+        environmentTag: '',
+        elementTags: [],
+        colorPalette: '',
+        lightingSetup: '',
+        styleTag: '',
+      },
     });
     expect(input?.referenceImages?.[0]).toMatchObject({
       referenceImageUrl: 'https://cdn/jack-sheet.png',

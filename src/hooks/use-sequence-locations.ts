@@ -9,7 +9,10 @@ import {
   getTeamLocationsLibraryFn,
   recastLocationFn,
 } from '@/functions/sequence-locations';
-import { getTeamLibraryLocationsFn } from '@/functions/location-library';
+import {
+  getPublicLibraryLocationsFn,
+  getTeamLibraryLocationsFn,
+} from '@/functions/location-library';
 import { useSession } from '@/lib/auth/client';
 import type { LibraryLocation, SequenceLocation } from '@/lib/db/schema';
 
@@ -46,6 +49,7 @@ export const sequenceLocationKeys = {
 export const libraryLocationKeys = {
   all: ['library-locations'] as const,
   list: ['library-locations', 'list'] as const,
+  publicList: ['library-locations', 'list', 'public'] as const,
 };
 
 export function useSequenceLocations(sequenceId: string) {
@@ -78,23 +82,30 @@ export function useTeamSequenceLocations() {
  * These are user-created location templates
  */
 export function useLibraryLocations() {
-  // Team-scoped; skip for anonymous visitors (e.g. the suggestion picker on the
-  // public new-sequence screen). Only a *settled* null session counts as
-  // anonymous — a failed session lookup surfaces as a query error instead of
-  // silently showing empty locations.
-  const { data: session, error: sessionError } = useSession();
+  // Authenticated users get their team's locations plus public ("system")
+  // ones; anonymous visitors get the public catalogue so they can browse and
+  // pick system locations on the public new-sequence screen and locations page.
+  // Only a *settled* null session counts as anonymous — while the session is
+  // loading we wait, and a failed session lookup surfaces as a query error
+  // instead of silently serving the public catalogue to a signed-in user.
+  const { data: session, isPending, error: sessionError } = useSession();
+  const isAuthenticated = !!session;
   return useQuery<LibraryLocation[]>({
-    queryKey: libraryLocationKeys.list,
+    queryKey: isAuthenticated
+      ? libraryLocationKeys.list
+      : libraryLocationKeys.publicList,
     queryFn: async () => {
       if (sessionError) {
         throw new Error(`Failed to fetch session: ${sessionError.message}`, {
           cause: sessionError,
         });
       }
-      return getTeamLibraryLocationsFn();
+      return isAuthenticated
+        ? getTeamLibraryLocationsFn()
+        : getPublicLibraryLocationsFn();
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
-    enabled: !!session || !!sessionError,
+    enabled: !isPending,
   });
 }
 

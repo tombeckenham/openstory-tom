@@ -1,3 +1,4 @@
+import { useAuthGate } from '@/components/auth/auth-gate-provider';
 import { routeParams } from '@/components/layout/breadcrumbs';
 import { PageContainer } from '@/components/layout/page-container';
 import { EditLocationDialog } from '@/components/location-library/edit-location-dialog';
@@ -14,7 +15,6 @@ import {
   useLibraryLocationById,
 } from '@/hooks/use-location-library';
 import { useLocationSheetRealtime } from '@/hooks/use-location-realtime';
-import { requireSessionOrRedirect } from '@/lib/auth/route-guards';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import {
   ArrowLeft,
@@ -34,9 +34,6 @@ function LibraryLocationCrumbLabel({ id }: { id: string }) {
 
 export const Route = createFileRoute('/_app/locations/$locationId')({
   component: LocationDetailPage,
-  beforeLoad: async ({ context: { queryClient }, location }) => {
-    await requireSessionOrRedirect(queryClient, location.href);
-  },
   staticData: {
     breadcrumb: (match) => {
       const { locationId } = routeParams<{ locationId: string }>(match);
@@ -51,6 +48,7 @@ export const Route = createFileRoute('/_app/locations/$locationId')({
 function LocationDetailPage() {
   const { locationId } = Route.useParams();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuthGate();
   const {
     data: location,
     isLoading,
@@ -59,8 +57,9 @@ function LocationDetailPage() {
   const deleteLocation = useDeleteLibraryLocation();
   const addSheets = useAddLocationSheets();
   const deleteSheet = useDeleteLocationSheet();
+  // Anonymous visitors view locations read-only; don't open a realtime channel.
   const { isGenerating: isGeneratingSheet, error: sheetError } =
-    useLocationSheetRealtime(locationId);
+    useLocationSheetRealtime(isAuthenticated ? locationId : undefined);
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [uploadedUrls, setUploadedUrls] = useState<string[]>([]);
   const [isAddingImages, setIsAddingImages] = useState(false);
@@ -149,24 +148,26 @@ function LocationDetailPage() {
 
         <PageHeader
           actions={
-            <div className="flex items-center gap-2">
-              <EditLocationDialog
-                location={location}
-                trigger={
-                  <Button variant="outline" size="icon">
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                }
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => void handleDelete()}
-                disabled={deleteLocation.isPending}
-              >
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
-            </div>
+            isAuthenticated ? (
+              <div className="flex items-center gap-2">
+                <EditLocationDialog
+                  location={location}
+                  trigger={
+                    <Button variant="outline" size="icon">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  }
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => void handleDelete()}
+                  disabled={deleteLocation.isPending}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            ) : undefined
           }
         >
           <h1 className="sr-only">{location.name}</h1>
@@ -228,7 +229,7 @@ function LocationDetailPage() {
         <section className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Reference Images</h2>
-            {!isAddingImages && (
+            {isAuthenticated && !isAddingImages && (
               <Button
                 variant="outline"
                 size="sm"
@@ -289,13 +290,15 @@ function LocationDetailPage() {
                         alt={sheet.name}
                         className="w-full h-full object-cover"
                       />
-                      <button
-                        className="absolute top-2 right-2 p-1.5 bg-destructive text-destructive-foreground rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => void handleDeleteSheet(sheet.id)}
-                        disabled={deleteSheet.isPending}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
+                      {isAuthenticated && (
+                        <button
+                          className="absolute top-2 right-2 p-1.5 bg-destructive text-destructive-foreground rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => void handleDeleteSheet(sheet.id)}
+                          disabled={deleteSheet.isPending}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
                     </div>
                   </Card>
                 ))}

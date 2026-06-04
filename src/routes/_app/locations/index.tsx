@@ -1,15 +1,15 @@
-import { SignInPrompt } from '@/components/auth/sign-in-prompt';
+import { useAuthGate } from '@/components/auth/auth-gate-provider';
 import { AddLocationDialog } from '@/components/location-library/add-location-dialog';
 import { LocationLibraryFilters } from '@/components/location-library/location-library-filters';
 import { LocationLibraryList } from '@/components/location-library/location-library-list';
 import { PageContainer } from '@/components/layout/page-container';
 import { PageDescription } from '@/components/typography/page-description';
 import { PageHeader } from '@/components/typography/page-header';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useLibraryLocations } from '@/hooks/use-sequence-locations';
-import { useUser } from '@/hooks/use-user';
 import { createFileRoute } from '@tanstack/react-router';
-import { MapPin } from 'lucide-react';
+import { MapPin, Plus } from 'lucide-react';
 import { z } from 'zod';
 
 const searchParamsSchema = z.object({
@@ -23,28 +23,8 @@ export const Route = createFileRoute('/_app/locations/')({
 });
 
 function LocationsPage() {
-  const { data: user } = useUser();
-
-  return (
-    <div className="h-full overflow-auto">
-      <PageContainer>
-        <h1 className="sr-only">Location Library</h1>
-        {user ? (
-          <LocationLibraryContent />
-        ) : (
-          <SignInPrompt
-            icon={<MapPin className="h-12 w-12" />}
-            title="Sign in to manage locations"
-            description="Keep a library of location references to maintain visual consistency across your sequences."
-          />
-        )}
-      </PageContainer>
-    </div>
-  );
-}
-
-function LocationLibraryContent() {
   const { search } = Route.useSearch();
+  const { isAuthenticated, openLogin } = useAuthGate();
   const { data: locations, isLoading, error } = useLibraryLocations();
 
   // Filter locations based on search params
@@ -61,31 +41,52 @@ function LocationLibraryContent() {
     return true;
   });
 
+  // Anonymous visitors browse the public ("system") location catalogue;
+  // creating locations prompts a login.
+  const addAction = isAuthenticated ? (
+    <AddLocationDialog />
+  ) : (
+    <Button onClick={openLogin}>
+      <Plus className="mr-2 h-4 w-4" />
+      Add Location
+    </Button>
+  );
+
   return (
-    <>
-      <PageHeader actions={<AddLocationDialog />}>
-        <PageDescription>
-          Browse and manage location references across all your sequences.
-          Upload custom references to maintain visual consistency.
-        </PageDescription>
-      </PageHeader>
+    <div className="h-full overflow-auto">
+      <PageContainer>
+        <h1 className="sr-only">Location Library</h1>
+        <PageHeader actions={addAction}>
+          <PageDescription>
+            {isAuthenticated
+              ? 'Browse and manage location references across all your sequences. Upload custom references to maintain visual consistency.'
+              : 'Browse system locations. Sign in to add your own references and keep settings consistent across sequences.'}
+          </PageDescription>
+        </PageHeader>
 
-      <LocationLibraryFilters currentSearch={search} />
+        {isAuthenticated && <LocationLibraryFilters currentSearch={search} />}
 
-      {!isLoading && filteredLocations && filteredLocations.length === 0 ? (
-        <EmptyState
-          icon={<MapPin className="h-12 w-12" />}
-          title="No locations yet"
-          description="Add locations to your library to maintain visual consistency across your sequences."
-          action={<AddLocationDialog />}
-        />
-      ) : (
-        <LocationLibraryList
-          locations={filteredLocations}
-          isLoading={isLoading}
-          error={error}
-        />
-      )}
-    </>
+        {!isLoading && filteredLocations && filteredLocations.length === 0 ? (
+          <EmptyState
+            icon={<MapPin className="h-12 w-12" />}
+            title={
+              isAuthenticated ? 'No locations yet' : 'No system locations yet'
+            }
+            description={
+              isAuthenticated
+                ? 'Add locations to your library to maintain visual consistency across your sequences.'
+                : 'Check back soon, or sign in to build your own location library.'
+            }
+            action={addAction}
+          />
+        ) : (
+          <LocationLibraryList
+            locations={filteredLocations}
+            isLoading={isLoading}
+            error={error}
+          />
+        )}
+      </PageContainer>
+    </div>
   );
 }

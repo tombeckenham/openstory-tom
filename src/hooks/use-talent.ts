@@ -3,6 +3,8 @@ import {
   createTalentFn,
   deleteTalentFn,
   generateTalentSheetFn,
+  getPublicTalentByIdFn,
+  getPublicTalentFn,
   getTalentByIdFn,
   getTalentFn,
   presignTalentUploadFn,
@@ -27,41 +29,66 @@ export const talentKeys = {
   lists: () => [...talentKeys.all, 'list'] as const,
   list: (filters: { favoritesOnly?: boolean }) =>
     [...talentKeys.lists(), filters] as const,
+  publicList: (filters: { favoritesOnly?: boolean }) =>
+    [...talentKeys.lists(), 'public', filters] as const,
   details: () => [...talentKeys.all, 'detail'] as const,
   detail: (id: string) => [...talentKeys.details(), id] as const,
 };
 
 /**
- * Hook to fetch all talent for the current team
+ * Hook to fetch talent. Authenticated users get their team's talent plus
+ * public ("system") talent; anonymous visitors get the public talent catalogue
+ * so they can browse and pre-cast system talent on the public new-sequence
+ * screen and talent library page.
  */
 export function useTalent(options?: { favoritesOnly?: boolean }) {
-  // Talent is team-scoped; skip the request entirely for anonymous visitors
-  // (e.g. the suggestion picker on the public new-sequence screen). Only a
-  // *settled* null session counts as anonymous — a failed session lookup
-  // surfaces as a query error instead of silently showing empty talent.
-  const { data: session, error: sessionError } = useSession();
+  // Only a *settled* null session counts as anonymous — while the session is
+  // loading we wait, and a failed session lookup surfaces as a query error
+  // instead of silently serving the public catalogue to a signed-in user.
+  const { data: session, isPending, error: sessionError } = useSession();
+  const isAuthenticated = !!session;
+  const filters = options ?? {};
+
   return useQuery({
-    queryKey: talentKeys.list(options ?? {}),
+    queryKey: isAuthenticated
+      ? talentKeys.list(filters)
+      : talentKeys.publicList(filters),
     queryFn: () => {
       if (sessionError) {
         throw new Error(`Failed to fetch session: ${sessionError.message}`, {
           cause: sessionError,
         });
       }
-      return getTalentFn({ data: options });
+      return isAuthenticated
+        ? getTalentFn({ data: options })
+        : getPublicTalentFn({ data: options });
     },
-    enabled: !!session || !!sessionError,
+    enabled: !isPending,
   });
 }
 
 /**
- * Hook to fetch a single talent with all relations
+ * Hook to fetch a single talent with all relations. Anonymous visitors get the
+ * public ("system") talent so they can open a talent detail page read-only.
  */
 export function useTalentById(talentId: string) {
+  // Only a *settled* null session counts as anonymous — while the session is
+  // loading we wait, and a failed session lookup surfaces as a query error.
+  const { data: session, isPending, error: sessionError } = useSession();
+  const isAuthenticated = !!session;
   return useQuery({
     queryKey: talentKeys.detail(talentId),
-    queryFn: () => getTalentByIdFn({ data: { talentId } }),
-    enabled: !!talentId,
+    queryFn: () => {
+      if (sessionError) {
+        throw new Error(`Failed to fetch session: ${sessionError.message}`, {
+          cause: sessionError,
+        });
+      }
+      return isAuthenticated
+        ? getTalentByIdFn({ data: { talentId } })
+        : getPublicTalentByIdFn({ data: { talentId } });
+    },
+    enabled: !!talentId && !isPending,
   });
 }
 

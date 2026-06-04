@@ -138,6 +138,48 @@ export async function listPublicStyles() {
 }
 
 /**
+ * List public ("system") talent without team scoping or auth. Lets anonymous
+ * visitors browse and pre-cast system talent on the public new-sequence
+ * screen and talent library page.
+ */
+export async function listPublicTalent(options?: { favoritesOnly?: boolean }) {
+  const db = getDb();
+  return createTalentReadMethods(db, '').list({ ...options, publicOnly: true });
+}
+
+/**
+ * List public ("system") library locations without team scoping or auth.
+ */
+export async function listPublicLibraryLocations() {
+  const db = getDb();
+  return createLocationsReadMethods(db, '').getPublic();
+}
+
+/**
+ * Fetch a public ("system") talent with its sheets and media, no auth.
+ * Returns null if the talent isn't public. Lets anonymous visitors open a
+ * talent detail page read-only. getWithRelations already filters on
+ * `OR [teamId, isPublic]`; an empty team scope therefore matches public only.
+ */
+export async function getPublicTalentWithRelations(talentId: string) {
+  const db = getDb();
+  return createTalentReadMethods(db, '').getWithRelations(talentId);
+}
+
+/**
+ * Fetch a public ("system") library location with its sheets, no auth.
+ * Returns null if the location isn't public. Mirrors getLibraryLocationByIdFn's
+ * shape so the same detail page renders for anonymous visitors.
+ */
+export async function getPublicLibraryLocationById(locationId: string) {
+  const db = getDb();
+  const location = await createLocationsReadMethods(db, '').getById(locationId);
+  if (!location) return null;
+  const sheets = await createLocationSheetsReadMethods(db).list(locationId);
+  return { ...location, sequenceTitle: 'Library' as const, sheets };
+}
+
+/**
  * Get a sequence by ID without team scoping.
  * Only for admin operations where team context isn't available yet.
  */

@@ -14,10 +14,12 @@ import {
   deleteLibraryLocationFn,
   deleteLocationSheetFn,
   getLibraryLocationByIdFn,
+  getPublicLibraryLocationByIdFn,
   presignLocationUploadFn,
   finalizeLocationUploadFn,
   updateLibraryLocationFn,
 } from '@/functions/location-library';
+import { useSession } from '@/lib/auth/client';
 import { putToR2 } from '@/lib/utils/upload';
 import {
   libraryLocationKeys,
@@ -59,13 +61,28 @@ function invalidateLocationQueries(
 }
 
 /**
- * Hook to fetch a single location with details and reference sheets
+ * Hook to fetch a single location with details and reference sheets. Anonymous
+ * visitors get the public ("system") location so they can open a location
+ * detail page read-only.
  */
 export function useLibraryLocationById(locationId: string) {
+  // Only a *settled* null session counts as anonymous — while the session is
+  // loading we wait, and a failed session lookup surfaces as a query error.
+  const { data: session, isPending, error: sessionError } = useSession();
+  const isAuthenticated = !!session;
   return useQuery<LibraryLocationWithSheets>({
     queryKey: locationLibraryKeys.detail(locationId),
-    queryFn: () => getLibraryLocationByIdFn({ data: { locationId } }),
-    enabled: !!locationId,
+    queryFn: () => {
+      if (sessionError) {
+        throw new Error(`Failed to fetch session: ${sessionError.message}`, {
+          cause: sessionError,
+        });
+      }
+      return isAuthenticated
+        ? getLibraryLocationByIdFn({ data: { locationId } })
+        : getPublicLibraryLocationByIdFn({ data: { locationId } });
+    },
+    enabled: !!locationId && !isPending,
   });
 }
 

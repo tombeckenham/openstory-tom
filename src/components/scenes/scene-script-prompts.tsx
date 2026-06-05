@@ -243,9 +243,7 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
 
   // Previous value tracking for prop-to-state sync (refs avoid extra re-renders)
   const prevImagePromptRef = useRef<string | undefined>(undefined);
-  const prevImageModelRef = useRef<string | undefined>(undefined);
   const prevMotionPromptRef = useRef<string | undefined>(undefined);
-  const prevMotionModelKeyRef = useRef<string>('');
 
   const queryClient = useQueryClient();
   const generateVariants = useGenerateVariants();
@@ -505,21 +503,20 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
   // The model this scene's image tab targets, mirroring scenes-view's
   // effectiveImageModel so the selector, the Generate/Set state, and the
   // previewed image all agree. Precedence: explicit per-scene pick → the
-  // sequence-level header pin (#547) → the frame's own model. `regenImageModel`
-  // is the same minus the frame fallback, so "nothing chosen" still passes
-  // undefined and lets the server default rather than re-asserting a model.
+  // sequence-level header pin (#547) → the frame's own model. `selectedImageModel`
+  // is ONLY a deliberate dropdown pick (reset on frame switch), so the pin isn't
+  // shadowed by a frame-synced value. `regenImageModel` drops the frame fallback
+  // so "nothing chosen" passes undefined and lets the server default.
   const effectiveImageModel =
     selectedImageModel ?? activeImageModel ?? imageModel;
   const regenImageModel = selectedImageModel ?? activeImageModel ?? undefined;
   // Resolved motion model for this scene. Precedence:
-  //   1. user picked one in the dropdown right now
+  //   1. explicit per-scene dropdown pick
   //   2. sequence-level header pin (#547) — switching it moves this selector
   //   3. frame already has completed motion → show what it was generated with
   //   4. sequence-level model (reflects most recent batch pick or creation)
   //   5. global default
-  // Without (3) and (4) the per-frame label would just show DEFAULT_VIDEO_MODEL
-  // regardless of what was actually used or what batch-generate just selected.
-  const effectiveMotionModel: ImageToVideoModel =
+  const baseMotionModel: ImageToVideoModel =
     selectedMotionModel ||
     activeVideoModel ||
     (frame?.videoStatus === 'completed' && frame.motionModel
@@ -527,6 +524,20 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
       : undefined) ||
     sequenceMotionModel ||
     DEFAULT_VIDEO_MODEL;
+  // Keep the resolved model usable for this scene: snap to an aspect-ratio
+  // compatible model, then fall back to the default when it's gated to a
+  // different style category (e.g. Seedance 2 is animation-only). This used to
+  // live in a render-phase frame→state sync, which pre-filled the dropdown
+  // selection and shadowed the header pin — folding it here lets the pin drive.
+  const aspectCompatibleMotion = aspectRatio
+    ? getCompatibleModel(baseMotionModel, aspectRatio)
+    : baseMotionModel;
+  const motionModelConfig = IMAGE_TO_VIDEO_MODELS[aspectCompatibleMotion];
+  const effectiveMotionModel: ImageToVideoModel =
+    'requiredStyleCategory' in motionModelConfig &&
+    motionModelConfig.requiredStyleCategory !== styleCategory
+      ? DEFAULT_VIDEO_MODEL
+      : aspectCompatibleMotion;
   // Regen target (mirror of regenImageModel): explicit pick → header pin, else
   // undefined so the server defaults rather than re-asserting a model.
   const regenMotionModel = selectedMotionModel ?? activeVideoModel ?? undefined;
@@ -860,6 +871,12 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
     prevScriptFrameIdRef.current = frame?.id;
     setEditedScript(undefined);
     setEditedDurationSeconds(undefined);
+    // Clear per-scene dropdown picks so the next scene starts from its header
+    // pin / own model (#547). Storing the frame's model here previously shadowed
+    // the pin; aspect-ratio + style-category fallback now lives in
+    // effectiveMotionModel instead.
+    setSelectedImageModel(undefined);
+    setSelectedMotionModel(undefined);
   }
 
   if (imagePrompt !== prevImagePromptRef.current) {
@@ -867,35 +884,9 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
     setEditedImagePrompt(imagePrompt || '');
   }
 
-  if (frame?.imageModel !== prevImageModelRef.current) {
-    prevImageModelRef.current = frame?.imageModel;
-    setSelectedImageModel(
-      safeTextToImageModel(frame?.imageModel, DEFAULT_IMAGE_MODEL)
-    );
-  }
-
   if (rawMotionPrompt !== prevMotionPromptRef.current) {
     prevMotionPromptRef.current = rawMotionPrompt;
     setEditedMotionPrompt(rawMotionPrompt);
-  }
-
-  const motionModelKey = `${frame?.motionModel ?? ''}:${aspectRatio ?? ''}:${styleCategory ?? ''}`;
-  if (motionModelKey !== prevMotionModelKeyRef.current) {
-    prevMotionModelKeyRef.current = motionModelKey;
-    const currentModel = frame?.motionModel
-      ? safeImageToVideoModel(frame.motionModel)
-      : DEFAULT_VIDEO_MODEL;
-    const compatibleModel = aspectRatio
-      ? getCompatibleModel(currentModel, aspectRatio)
-      : currentModel;
-    // Fall back if the model requires a style category that doesn't match
-    const modelConfig = IMAGE_TO_VIDEO_MODELS[compatibleModel];
-    const finalModel =
-      'requiredStyleCategory' in modelConfig &&
-      modelConfig.requiredStyleCategory !== styleCategory
-        ? DEFAULT_VIDEO_MODEL
-        : compatibleModel;
-    setSelectedMotionModel(finalModel);
   }
 
   // Check if image is currently generating

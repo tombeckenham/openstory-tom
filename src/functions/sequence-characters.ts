@@ -7,6 +7,7 @@ import { createServerFn } from '@tanstack/react-start';
 import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 
+import { safeTextToImageModel } from '@/lib/ai/models';
 import { StyleConfigSchema } from '@/lib/db/schema';
 import { buildCastingAttributes } from '@/lib/prompts/character-prompt';
 import { getGenerationChannel } from '@/lib/realtime';
@@ -165,6 +166,7 @@ export const recastCharacterFn = createServerFn({ method: 'POST' })
       talentMetadata: defaultSheet?.metadata ?? undefined,
       talentDescription:
         `This character must look exactly like ${talentWithSheets.name}. ${talentWithSheets.description ?? ''}`.trim(),
+      imageModel: safeTextToImageModel(sequence.imageModel),
       affectedFrameIds,
       styleConfig,
     };

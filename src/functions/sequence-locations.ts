@@ -1,3 +1,4 @@
+import { safeTextToImageModel } from '@/lib/ai/models';
 import { type SequenceLocation, StyleConfigSchema } from '@/lib/db/schema';
 import { getGenerationChannel } from '@/lib/realtime';
 import { triggerWorkflow } from '@/lib/workflow/client';
@@ -132,6 +133,7 @@ export const recastLocationFn = createServerFn({ method: 'POST' })
         userId: context.user.id,
         referenceImageUrl: data.referenceImageUrl,
         libraryLocationDescription: data.description,
+        imageModel: safeTextToImageModel(sequence.imageModel),
         affectedFrameIds,
         styleConfig,
       } satisfies RecastLocationWorkflowInput,

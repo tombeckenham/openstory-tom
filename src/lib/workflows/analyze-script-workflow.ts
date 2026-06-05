@@ -380,6 +380,7 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
             teamId: input.teamId,
             locationBible,
             libraryLocationMatches,
+            imageModel,
             styleConfig,
           },
           spawnStepName: 'spawn-location-bible',

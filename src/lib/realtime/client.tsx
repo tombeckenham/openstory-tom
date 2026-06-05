@@ -16,7 +16,7 @@ import type {
 } from './shared-types';
 
 /**
- * In-repo realtime client (#802), replacing `@upstash/realtime/client`.
+ * In-repo realtime client (#802), replacing the removed Upstash-hosted realtime client.
  *
  * One `EventSource` is opened per distinct channel, ref-counted across every
  * hook that subscribes to it, and pointed at `/api/realtime?channel=…` which

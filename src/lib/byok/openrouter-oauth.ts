@@ -15,9 +15,10 @@ const OPENROUTER_AUTH_URL = 'https://openrouter.ai/auth';
 const OPENROUTER_KEY_EXCHANGE_URL = 'https://openrouter.ai/api/v1/auth/keys';
 
 /**
- * Generate a PKCE code verifier (random 43-128 character string).
+ * Generate a random URL-safe token (256 bits of entropy).
+ * Used both as the PKCE code verifier and the CSRF state nonce.
  */
-function generateCodeVerifier(): string {
+function generateUrlSafeToken(): string {
   const array = crypto.getRandomValues(new Uint8Array(32));
   return uint8ToUrlSafeBase64(array);
 }
@@ -35,30 +36,39 @@ export type OAuthState = {
   teamId: string;
   userId: string;
   codeVerifier: string;
+  /** CSRF nonce echoed back via the callback URL's `state` query param. */
+  csrfState: string;
 };
 
 /**
  * Build the OpenRouter authorization URL for the PKCE flow.
- * The returned `state` must be stored server-side (e.g., in Redis or session)
- * so it can be verified when OpenRouter redirects back.
+ * The returned `state` must be carried across the redirect (encrypted
+ * HttpOnly cookie — see openrouter-oauth-cookie.ts) so it can be verified
+ * when OpenRouter redirects back.
  */
 export async function buildAuthorizationUrl(
   callbackUrl: string,
   teamId: string,
   userId: string
 ): Promise<{ url: string; state: OAuthState }> {
-  const codeVerifier = generateCodeVerifier();
+  const codeVerifier = generateUrlSafeToken();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
+  const csrfState = generateUrlSafeToken();
+
+  // OpenRouter preserves query params already present on the callback_url,
+  // so the CSRF state rides along and comes back on the redirect.
+  const callbackWithState = new URL(callbackUrl);
+  callbackWithState.searchParams.set('state', csrfState);
 
   const params = new URLSearchParams({
-    callback_url: callbackUrl,
+    callback_url: callbackWithState.toString(),
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
   });
 
   return {
     url: `${OPENROUTER_AUTH_URL}?${params.toString()}`,
-    state: { teamId, userId, codeVerifier },
+    state: { teamId, userId, codeVerifier, csrfState },
   };
 }
 

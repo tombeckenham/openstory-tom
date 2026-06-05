@@ -45,8 +45,6 @@ declare namespace Cloudflare {
     RESEND_API_KEY: string;
     STRIPE_SECRET_KEY: string;
     STRIPE_WEBHOOK_SECRET: string;
-    UPSTASH_REDIS_REST_TOKEN: string;
-    UPSTASH_REDIS_REST_URL: string;
   }
   interface PrdEnv {
     NEXT_INC_CACHE_R2_BUCKET: R2Bucket;
@@ -91,8 +89,6 @@ declare namespace Cloudflare {
     RESEND_API_KEY: string;
     STRIPE_SECRET_KEY: string;
     STRIPE_WEBHOOK_SECRET: string;
-    UPSTASH_REDIS_REST_TOKEN: string;
-    UPSTASH_REDIS_REST_URL: string;
   }
   interface Env {
     API_KEY_ENCRYPTION_KEY: string;
@@ -132,8 +128,6 @@ declare namespace Cloudflare {
     RESEND_API_KEY: string;
     STRIPE_SECRET_KEY: string;
     STRIPE_WEBHOOK_SECRET: string;
-    UPSTASH_REDIS_REST_TOKEN: string;
-    UPSTASH_REDIS_REST_URL: string;
     NEXT_INC_CACHE_R2_BUCKET?: R2Bucket;
     R2_STORAGE_BUCKET?: R2Bucket;
     DB?: D1Database;
@@ -187,8 +181,6 @@ declare namespace NodeJS {
       | 'RESEND_API_KEY'
       | 'STRIPE_SECRET_KEY'
       | 'STRIPE_WEBHOOK_SECRET'
-      | 'UPSTASH_REDIS_REST_TOKEN'
-      | 'UPSTASH_REDIS_REST_URL'
     >
   > {}
 }

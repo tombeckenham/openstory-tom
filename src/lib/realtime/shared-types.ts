@@ -2,7 +2,7 @@ import type { z } from 'zod';
 
 /**
  * Type machinery for the typed realtime client, ported from the removed
- * `@upstash/realtime` package (#802) so the `useRealtime` call sites keep their
+ * Upstash realtime package (#802) so the `useRealtime` call sites keep their
  * exact event-name + payload inference against `realtimeSchema`.
  *
  * `realtimeSchema` is a nested record whose leaves are Zod schemas. An "event

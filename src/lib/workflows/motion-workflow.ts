@@ -13,7 +13,7 @@
  *   - Reads the workflow run id from `event.instanceId` instead of
  *     `context.workflowRunId`.
  *   - Throws `NonRetryableError` from `cloudflare:workflows` in place of
- *     `WorkflowNonRetryableError` from `@upstash/workflow`. */
+ *     the old Upstash workflow `WorkflowNonRetryableError`. */
 
 import { extractFalErrorMessage } from '@/lib/ai/fal-error';
 import { computeMotionPromptInputHash } from '@/lib/ai/input-hash';

@@ -2,21 +2,22 @@
  * OpenRouter OAuth PKCE Server Functions
  *
  * Handles the initiation and completion of the OpenRouter OAuth PKCE flow.
- * Uses Upstash Redis to store temporary PKCE state between redirect hops.
+ * Carries the temporary PKCE state between redirect hops in an encrypted
+ * HttpOnly cookie (#807) — no server-side store.
  */
 
 import { createServerFn } from '@tanstack/react-start';
-import { getRequest } from '@tanstack/react-start/server';
+import { getRequest, setCookie } from '@tanstack/react-start/server';
 import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
 import { teamAdminAccessMiddleware } from './middleware';
 import { buildAuthorizationUrl } from '@/lib/byok/openrouter-oauth';
-import { getServerAppUrl } from '@/lib/utils/environment';
 import {
-  getOAuthRedis,
-  OAUTH_STATE_PREFIX,
-  OAUTH_STATE_TTL,
-} from './openrouter-oauth-utils';
+  getOAuthCookieName,
+  getOAuthCookieOptions,
+  sealOAuthState,
+} from '@/lib/byok/openrouter-oauth-cookie';
+import { getServerAppUrl } from '@/lib/utils/environment';
 
 // ============================================================================
 // Initiate OAuth Flow
@@ -44,10 +45,14 @@ export const initiateOpenRouterOAuthFn = createServerFn({ method: 'POST' })
       context.user.id
     );
 
-    // Store PKCE state in Redis with a TTL
-    const stateKey = `${OAUTH_STATE_PREFIX}${context.teamId}`;
-    const redis = getOAuthRedis();
-    await redis.set(stateKey, JSON.stringify(state), { ex: OAUTH_STATE_TTL });
+    // Carry the PKCE state across the redirect in an encrypted HttpOnly
+    // cookie; the callback reads, verifies, and clears it.
+    const secure = appUrl.startsWith('https:');
+    setCookie(
+      getOAuthCookieName(secure),
+      await sealOAuthState(state),
+      getOAuthCookieOptions(secure)
+    );
 
     return { authUrl: url };
   });

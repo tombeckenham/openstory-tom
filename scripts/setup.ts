@@ -109,7 +109,6 @@ function writeEnvFile(vars: Map<string, string>) {
         'QSTASH_TOKEN',
         'QSTASH_CURRENT_SIGNING_KEY',
         'QSTASH_NEXT_SIGNING_KEY',
-        'UPSTASH_WORKFLOW_URL',
       ],
     },
     {
@@ -149,10 +148,6 @@ function writeEnvFile(vars: Map<string, string>) {
     {
       header: 'Billing (Stripe)',
       keys: ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET'],
-    },
-    {
-      header: 'Redis (Upstash) — OpenRouter OAuth state',
-      keys: ['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'],
     },
     {
       header: 'Security',
@@ -247,8 +242,6 @@ const PR_PREVIEW_SECRETS_BASE = [
   'R2_PUBLIC_ASSETS_BUCKET',
   'R2_SECRET_ACCESS_KEY',
   'RESEND_API_KEY',
-  'UPSTASH_REDIS_REST_TOKEN',
-  'UPSTASH_REDIS_REST_URL',
   'VITE_PUBLIC_POSTHOG_PROJECT_TOKEN',
 ] as const;
 
@@ -1726,7 +1719,6 @@ async function main() {
           'sig_7kYjw48mhY7kAjqNGcy6cr29RJ6r'
         );
         vars.set('QSTASH_NEXT_SIGNING_KEY', 'sig_5ZB6DVzB1wjE8S6rZ7eenA8Pdnhs');
-        vars.set('UPSTASH_WORKFLOW_URL', 'http://host.docker.internal:3000');
         saveProgress();
         p.log.success('QStash configured for local Docker emulator');
       }
@@ -1739,37 +1731,9 @@ async function main() {
   }
 
   // Realtime progress updates run on the `REALTIME` Durable Object
-  // (wrangler.jsonc) — no external Redis/Upstash setup required for those.
-
-  // -------------------------------------------------------------------------
-  // Redis (Upstash) — OpenRouter OAuth state store
-  // -------------------------------------------------------------------------
-  const redisKeys = [
-    'UPSTASH_REDIS_REST_URL',
-    'UPSTASH_REDIS_REST_TOKEN',
-  ] as const;
-  if (redisKeys.every((k) => vars.has(k))) {
-    p.log.success('Upstash Redis — already configured');
-  } else {
-    const setupRedis = checkCancel(
-      await p.confirm({
-        message: 'Set up Upstash Redis? (OpenRouter OAuth state store)',
-        initialValue: false,
-      })
-    );
-
-    if (setupRedis) {
-      await promptForKey(
-        'UPSTASH_REDIS_REST_URL',
-        'Upstash Redis REST URL',
-        'Get one at: https://console.upstash.com/redis'
-      );
-      await promptForKey(
-        'UPSTASH_REDIS_REST_TOKEN',
-        'Upstash Redis REST Token'
-      );
-    }
-  }
+  // (wrangler.jsonc) — no external Redis setup required for those.
+  // OpenRouter OAuth state rides in an encrypted HttpOnly cookie (#807),
+  // so no external store is needed for that either.
 
   // -------------------------------------------------------------------------
   // Storage (R2)

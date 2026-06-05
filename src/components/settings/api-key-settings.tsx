@@ -164,8 +164,12 @@ function ApiKeySettingsContent({
     mutationFn: (provider: 'openrouter' | 'fal') =>
       revalidateApiKeyFn({ data: { teamId, provider } }),
     onSuccess: (result, provider) => {
+      // Only announce recovery — a key that was already valid (e.g. just
+      // connected via OAuth) shouldn't toast "valid again" on page mount.
+      const wasInvalid =
+        apiKeys?.find((k) => k.provider === provider)?.isInvalid ?? false;
       invalidateKeys();
-      if (result.valid) {
+      if (result.valid && wasInvalid) {
         toast.success('Key re-validated', {
           description: `Your ${provider === 'openrouter' ? 'OpenRouter' : 'Fal.ai'} key is valid again.`,
         });

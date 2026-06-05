@@ -86,6 +86,18 @@ export type ExportSequenceInput = {
 export type ExportSequenceResult = {
   blob: Blob;
   durationSeconds: number;
+  /**
+   * True when the transmux fast path was unavailable (mixed resolutions or
+   * differing decoder configs) and the video was re-encoded — slower and
+   * mildly lossy, so the caller should tell the user (#791). Derived from the
+   * export's own probe, independent of the live player's warning.
+   */
+  reEncoded: boolean;
+  /**
+   * Distinct scene resolutions when mixed, e.g. `"1920×1080, 1280×720"`.
+   * Empty string when uniform.
+   */
+  resolutionsLabel: string;
 };
 
 export async function exportSequence(
@@ -118,6 +130,16 @@ export async function exportSequence(
     // scenes disagree (mixed resolutions from different models, #791, or
     // otherwise incompatible configs), so we decode each scene, letterbox it to
     // the common target via `canvases()`, and re-encode a single uniform track.
+    if (!meta.canTransmux) {
+      // Leave a breadcrumb for "why is my export slow/blurry/huge" reports —
+      // this is the most consequential quality decision in the pipeline.
+      logger.warn('exportSequence: transmux unavailable; re-encoding video', {
+        reason: meta.hasMixedResolutions
+          ? `mixed scene resolutions (${meta.resolutionsLabel})`
+          : 'scenes share a resolution but their decoder configs differ',
+        target: `${meta.displayWidth}×${meta.displayHeight}`,
+      });
+    }
     const reEncodeCanvas = meta.canTransmux
       ? null
       : new OffscreenCanvas(meta.displayWidth, meta.displayHeight);
@@ -238,9 +260,18 @@ export async function exportSequence(
       return {
         blob: new Blob([buffer], { type: 'video/mp4' }),
         durationSeconds: meta.totalDurationSeconds,
+        reEncoded: !meta.canTransmux,
+        resolutionsLabel: meta.resolutionsLabel,
       };
     } catch (error) {
-      await output.cancel().catch(() => {});
+      // Don't let a failing cancel mask the original export error, but don't
+      // lose the signal entirely either (a consistently-failing cancel leaks
+      // the muxer/encoder).
+      await output.cancel().catch((err: unknown) => {
+        logger.warn('exportSequence: output.cancel failed during teardown', {
+          err,
+        });
+      });
       throw error;
     }
   } finally {
@@ -280,8 +311,9 @@ async function reEncodeNormalizedVideo(args: {
     for await (const frame of iterator) {
       if (signal?.aborted) throw new Error('Export aborted');
       // `canvases()` already letterboxes to the target size; redraw onto the
-      // encoder's canvas (clearing first so transparent letterbox bars stay
-      // black rather than retaining the previous frame).
+      // encoder's canvas, clearing first so the letterbox region doesn't
+      // retain the previous frame's pixels. The cleared region is transparent;
+      // it renders black in the output only because AVC has no alpha channel.
       ctx.clearRect(0, 0, targetWidth, targetHeight);
       ctx.drawImage(frame.canvas, 0, 0, targetWidth, targetHeight);
       await canvasSource.add(frame.timestamp, frame.duration);
@@ -291,7 +323,11 @@ async function reEncodeNormalizedVideo(args: {
       }
     }
   } finally {
-    await iterator.return();
+    // Swallow cleanup rejections so they can't clobber an in-flight
+    // decode/encode error — the original throw is the one the user sees.
+    await iterator.return().catch((err: unknown) => {
+      logger.warn('reEncodeNormalizedVideo: iterator cleanup failed', { err });
+    });
   }
 
   onProgress?.({ phase: 'video', completed: frameCount, total: frameCount });

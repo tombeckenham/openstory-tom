@@ -81,13 +81,24 @@ export function useSequenceExport(sequence: Sequence): SequenceExportState {
         data: { sequenceId: sequence.id },
       });
 
-      const { blob, durationSeconds } = await exportSequence({
-        scenes,
-        musicUrl: sequence.musicUrl ?? null,
-        musicLoudnessGainDb: null,
-        onProgress: setProgress,
-        signal,
-      });
+      const { blob, durationSeconds, reEncoded, resolutionsLabel } =
+        await exportSequence({
+          scenes,
+          musicUrl: sequence.musicUrl ?? null,
+          musicLoudnessGainDb: null,
+          onProgress: setProgress,
+          signal,
+        });
+
+      // Tell the user from the export's OWN probe — the player's warning is a
+      // separate, possibly-unfired prepare(), so it can't be relied on (#791).
+      if (reEncoded) {
+        toast.info(
+          resolutionsLabel
+            ? `Scenes have mixed resolutions (${resolutionsLabel}); the export was normalized by re-encoding.`
+            : 'Scene video encodings differ; the export was re-encoded.'
+        );
+      }
 
       // `upload` and `commit` run here, after the Mediabunny pipeline. Report
       // them through the same progress channel so a stalled upload/commit
@@ -106,18 +117,20 @@ export function useSequenceExport(sequence: Sequence): SequenceExportState {
       );
 
       setProgress({ phase: 'commit', completed: 0, total: 0 });
-      return await commitSequenceExportFn({
+      await commitSequenceExportFn({
         data: {
           sequenceId: sequence.id,
           path: reservation.path,
           durationSeconds,
         },
       });
+      return { reEncoded };
     },
-    onSuccess: () => {
+    onSuccess: ({ reEncoded }) => {
       toast.success('MP4 ready to download.');
       posthog.capture('sequence_export_completed', {
         sequence_id: sequence.id,
+        re_encoded: reEncoded,
       });
       void queryClient.invalidateQueries({
         queryKey: sequenceExportKeys.list(sequence.id),

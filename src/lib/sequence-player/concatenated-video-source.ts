@@ -31,9 +31,19 @@ import { addCorsCacheBuster } from '@/lib/utils/cors-cache-buster';
 import {
   computeTargetResolution,
   describeResolutions,
+  detectMixedAspectRatios,
   detectMixedResolutions,
   type SceneDimensions,
 } from './resolution';
+import {
+  canTransmuxScenes,
+  decoderConfigDescriptionHex,
+  type SceneCodecProbe,
+} from './transmux';
+
+import { getLogger } from '@/lib/observability/logger';
+
+const logger = getLogger(['openstory', 'sequence-player', 'concat-source']);
 
 type CanvasFit = 'fill' | 'contain' | 'cover';
 
@@ -68,10 +78,16 @@ export type ConcatenatedVideoMeta = {
   sceneDimensions: SceneDimensions[];
   /**
    * True when the scenes resolve to more than one distinct native resolution —
-   * the models disagree on pixel dimensions, so the output is normalized
-   * (letterboxed) and the user should be warned (#791).
+   * the models disagree on pixel dimensions, so the output is normalized and
+   * the user should be warned (#791).
    */
   hasMixedResolutions: boolean;
+  /**
+   * True when the scenes' aspect ratios also differ (beyond rounding noise) —
+   * normalization letterboxes/pillarboxes. When resolutions are mixed but
+   * ratios match, smaller scenes are simply upscaled to fill the target.
+   */
+  hasMixedAspectRatios: boolean;
   /**
    * Human-readable list of the distinct resolutions present, e.g.
    * `"1920×1080, 1280×1280"`. Empty string when uniform.
@@ -79,8 +95,9 @@ export type ConcatenatedVideoMeta = {
   resolutionsLabel: string;
   /**
    * True when every scene is AVC with a byte-identical decoder config, so the
-   * export can transmux without re-encoding. When false, the export must
-   * decode→normalize→re-encode (`packets()` would throw on the config check).
+   * export can transmux without re-encoding. When false, transmux is unsafe
+   * and the export falls back to decode→normalize→re-encode (`packets()`
+   * refuses to run).
    */
   canTransmux: boolean;
 };
@@ -121,10 +138,9 @@ export class ConcatenatedVideoSource {
     const audioTracks: Array<InputAudioTrack | null> = [];
     const sceneDurationsSeconds: number[] = [];
     const sceneDimensions: SceneDimensions[] = [];
-    // Track whether every scene shares a byte-identical AVC decoder config so
-    // the export can pick the fast transmux path vs. a decode→re-encode path.
-    let canTransmux = true;
-    let firstDescriptionHex: string | null = null;
+    // Codec + decoder-config probes, fed to `canTransmuxScenes()` after the
+    // loop to decide the fast transmux path vs. decode→re-encode.
+    const codecProbes: SceneCodecProbe[] = [];
 
     for (let i = 0; i < this.scenes.length; i++) {
       const scene = this.scenes[i];
@@ -153,32 +169,33 @@ export class ConcatenatedVideoSource {
 
       // Probe EVERY scene's display dimensions — different models emit
       // different sizes for the same aspect ratio (#791), so we can't assume
-      // scene 0 is representative.
+      // scene 0 is representative. A failed probe (0/NaN) must not silently
+      // corrupt the target resolution downstream.
       const width = await videoTrack.getDisplayWidth();
       const height = await videoTrack.getDisplayHeight();
+      if (
+        !Number.isFinite(width) ||
+        !Number.isFinite(height) ||
+        width < 1 ||
+        height < 1
+      ) {
+        throw new Error(
+          `Scene ${i} reported invalid dimensions ${width}×${height}; cannot stitch.`
+        );
+      }
       sceneDimensions.push({ width, height });
 
-      // Decide transmux-safety as we go: any non-AVC codec, missing/empty
-      // decoder config, or a config that differs from scene 0 means the
-      // packets can't be concatenated as-is and the export must re-encode.
-      if (canTransmux) {
-        const codec = await videoTrack.getCodec();
-        if (codec !== 'avc') {
-          canTransmux = false;
-        } else {
-          const decoderConfig = await videoTrack.getDecoderConfig();
-          const descriptionHex = decoderConfig
-            ? decoderConfigDescriptionHex(decoderConfig)
-            : '';
-          if (descriptionHex.length === 0) {
-            canTransmux = false;
-          } else if (firstDescriptionHex === null) {
-            firstDescriptionHex = descriptionHex;
-          } else if (descriptionHex !== firstDescriptionHex) {
-            canTransmux = false;
-          }
-        }
-      }
+      // Probe transmux-safety inputs; the verdict is computed once after the
+      // loop (see `canTransmuxScenes`) and stored on `meta.canTransmux`.
+      const codec = await videoTrack.getCodec();
+      const decoderConfig =
+        codec === 'avc' ? await videoTrack.getDecoderConfig() : null;
+      codecProbes.push({
+        codec,
+        descriptionHex: decoderConfig
+          ? decoderConfigDescriptionHex(decoderConfig)
+          : '',
+      });
 
       // Embedded scene audio (dialogue / VO). Best-effort: scenes without an
       // audio track or with an undecodable codec are silent; the rest are
@@ -214,10 +231,11 @@ export class ConcatenatedVideoSource {
       displayHeight: target.height,
       sceneDimensions,
       hasMixedResolutions,
+      hasMixedAspectRatios: detectMixedAspectRatios(sceneDimensions),
       resolutionsLabel: hasMixedResolutions
         ? describeResolutions(sceneDimensions)
         : '',
-      canTransmux,
+      canTransmux: canTransmuxScenes(codecProbes),
     };
     return this.meta;
   }
@@ -301,7 +319,14 @@ export class ConcatenatedVideoSource {
           };
         }
       } finally {
-        await iterator.return();
+        // Swallow cleanup rejections so they can't clobber an in-flight
+        // decode error — the original throw is the one worth surfacing.
+        await iterator.return().catch((err: unknown) => {
+          logger.warn(
+            `ConcatenatedVideoSource: canvas iterator cleanup failed for scene ${sceneIndex}`,
+            { err }
+          );
+        });
       }
     }
   }
@@ -309,8 +334,9 @@ export class ConcatenatedVideoSource {
   /**
    * Export iterator: yields raw `EncodedPacket`s with offset timestamps,
    * suitable for feeding to `EncodedVideoPacketSource.add()` in the export
-   * pipeline. Verifies that scenes share a byte-identical AVC decoder config
-   * so transmux is safe.
+   * pipeline. Transmux-compatibility is decided once in `prepare()` (stored
+   * on `meta.canTransmux`); this refuses to run when it's false rather than
+   * re-deriving the verdict, so the two code paths can't drift.
    */
   async *packets(
     options: { signal?: AbortSignal } = {}
@@ -322,7 +348,12 @@ export class ConcatenatedVideoSource {
     const { signal } = options;
     const meta = this.getMeta();
 
-    let recordedDescriptionHex: string | null = null;
+    if (!meta.canTransmux) {
+      throw new Error(
+        'ConcatenatedVideoSource.packets(): scenes are not transmux-compatible (mixed codecs or decoder configs); use the re-encode path instead.'
+      );
+    }
+
     let firstPacketEmitted = false;
 
     for (
@@ -336,30 +367,11 @@ export class ConcatenatedVideoSource {
       const offset = meta.sceneOffsetsSeconds[sceneIndex];
       if (!videoTrack || offset === undefined) continue;
 
-      const codec = await videoTrack.getCodec();
-      if (codec !== 'avc') {
-        throw new Error(
-          `Scene ${sceneIndex} uses codec "${codec}"; export requires H.264 (avc).`
-        );
-      }
-      const decoderConfig = await videoTrack.getDecoderConfig();
-      if (!decoderConfig) {
-        throw new Error(`Scene ${sceneIndex} has no usable decoder config`);
-      }
-
-      const description = decoderConfigDescriptionHex(decoderConfig);
-      if (description.length === 0) {
-        throw new Error(
-          `Scene ${sceneIndex} has no SPS/PPS in its decoder config; cannot concatenate.`
-        );
-      }
-      if (recordedDescriptionHex === null) {
-        recordedDescriptionHex = description;
-      } else if (description !== recordedDescriptionHex) {
-        throw new Error(
-          `Scene ${sceneIndex} has a different H.264 decoder config than scene 0; cannot transmux without re-encoding.`
-        );
-      }
+      // Only the first emitted packet carries the decoder config; the
+      // canTransmux gate above guarantees every scene's config is identical.
+      const decoderConfig = firstPacketEmitted
+        ? null
+        : await videoTrack.getDecoderConfig();
 
       const sink = new EncodedPacketSink(videoTrack);
       for await (const packet of sink.packets()) {
@@ -408,21 +420,4 @@ export class ConcatenatedVideoSource {
     this.audioTracks = [];
     this.meta = null;
   }
-}
-
-function decoderConfigDescriptionHex(config: VideoDecoderConfig): string {
-  const desc = config.description;
-  if (!desc) return '';
-  const view =
-    desc instanceof ArrayBuffer
-      ? new Uint8Array(desc)
-      : ArrayBuffer.isView(desc)
-        ? new Uint8Array(desc.buffer, desc.byteOffset, desc.byteLength)
-        : null;
-  if (!view || view.length === 0) return '';
-  let hex = '';
-  for (let i = 0; i < view.length; i++) {
-    hex += (view[i] ?? 0).toString(16).padStart(2, '0');
-  }
-  return hex;
 }

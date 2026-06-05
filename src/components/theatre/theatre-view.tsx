@@ -12,6 +12,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -112,13 +113,13 @@ export const TheatreView: React.FC<TheatreViewProps> = ({ sequence }) => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {playerMeta?.hasMixedResolutions && (
-          <div className="flex items-start gap-2 px-2 py-1.5 text-xs text-muted-foreground">
+          <DropdownMenuLabel className="flex items-start gap-2 text-xs font-normal text-muted-foreground">
             <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
             <span>
               Scenes have different resolutions ({playerMeta.resolutionsLabel}).
               The export will be normalized (re-encoded), which is slower.
             </span>
-          </div>
+          </DropdownMenuLabel>
         )}
         <DropdownMenuItem onClick={() => void handleCopyShareUrl()}>
           <Link className="h-4 w-4" />

@@ -39,7 +39,10 @@ function toEvenCeil(value: number): number {
  *
  * Dimensions are rounded up to even values for codec compatibility.
  *
- * Throws if given an empty list — callers always have at least one scene.
+ * Throws if given an empty list — callers always have at least one scene — or
+ * if any scene reports a non-positive / non-finite dimension. A failed probe
+ * (0 or NaN) must fail loudly here rather than propagating into a NaN-sized
+ * canvas deep in the export pipeline.
  */
 export function computeTargetResolution(
   dimensions: SceneDimensions[]
@@ -49,11 +52,21 @@ export function computeTargetResolution(
   }
   let width = 0;
   let height = 0;
-  for (const dim of dimensions) {
+  for (let i = 0; i < dimensions.length; i++) {
+    const dim = dimensions[i];
+    if (!dim || !isPositiveFinite(dim.width) || !isPositiveFinite(dim.height)) {
+      throw new Error(
+        `computeTargetResolution: scene ${i} reported invalid dimensions ${dim?.width}×${dim?.height}`
+      );
+    }
     if (dim.width > width) width = dim.width;
     if (dim.height > height) height = dim.height;
   }
   return { width: toEvenCeil(width), height: toEvenCeil(height) };
+}
+
+function isPositiveFinite(value: number): boolean {
+  return Number.isFinite(value) && value >= 1;
 }
 
 /**
@@ -68,6 +81,25 @@ export function detectMixedResolutions(dimensions: SceneDimensions[]): boolean {
   if (!first) return false;
   return dimensions.some(
     (dim) => dim.width !== first.width || dim.height !== first.height
+  );
+}
+
+/**
+ * True when the scenes' aspect ratios differ by more than ~1% — i.e.
+ * normalization will letterbox/pillarbox rather than just upscale. Used to
+ * pick accurate user-facing copy: same-ratio scenes scale to fill the target
+ * frame edge-to-edge, while different-ratio scenes get bars. The tolerance
+ * absorbs rounding noise (e.g. 1916×1080 vs 1920×1080) where bars would be
+ * invisible anyway.
+ */
+export function detectMixedAspectRatios(
+  dimensions: SceneDimensions[]
+): boolean {
+  const first = dimensions[0];
+  if (!first || dimensions.length < 2) return false;
+  const firstRatio = first.width / first.height;
+  return dimensions.some(
+    (dim) => Math.abs(dim.width / dim.height - firstRatio) / firstRatio > 0.01
   );
 }
 

@@ -30,7 +30,7 @@ import {
   type ChatMessageContentPart,
 } from '@/lib/prompts';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
-import { createServerFn } from '@tanstack/react-start';
+import { createServerFn, createServerOnlyFn } from '@tanstack/react-start';
 import { getRequest } from '@tanstack/react-start/server';
 import { zodValidator } from '@tanstack/zod-adapter';
 import { z } from 'zod';
@@ -378,16 +378,18 @@ export async function* streamScriptEnhancement(
  * Run script enhancement to completion and return the full enhanced text.
  * Used by the public API where there is no client streaming channel.
  */
-export async function enhanceScriptToString(
-  data: EnhanceScriptInput,
-  ctx: { scopedDb: ScopedDb; userId: string; teamId: string }
-): Promise<string> {
-  let enhanced = '';
-  for await (const { delta } of streamScriptEnhancement(data, ctx)) {
-    enhanced += delta;
+export const enhanceScriptToString = createServerOnlyFn(
+  async (
+    data: EnhanceScriptInput,
+    ctx: { scopedDb: ScopedDb; userId: string; teamId: string }
+  ): Promise<string> => {
+    let enhanced = '';
+    for await (const { delta } of streamScriptEnhancement(data, ctx)) {
+      enhanced += delta;
+    }
+    return enhanced.trim();
   }
-  return enhanced.trim();
-}
+);
 
 export const enhanceScriptStreamFn = createServerFn({ method: 'POST' })
   .middleware([authWithTeamMiddleware])

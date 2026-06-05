@@ -141,13 +141,17 @@ describe('location-prompt', () => {
     const animatedStyle: StyleConfig = {
       mood: 'Whimsical, playful, and colorful',
       artStyle:
-        'Pixar-style 3D animation with exaggerated proportions and rich textures.',
+        'Stylized 3D animation with exaggerated proportions and rich textures.',
       lighting:
         'Soft global illumination with warm key lights and cool fill. Bounced light creates depth.',
       colorPalette: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'],
       cameraWork:
         'Smooth dollies and gentle crane movements. Wide establishing shots with shallow depth of field on details.',
-      referenceFilms: ['Up', 'Ratatouille', 'Coco'],
+      referenceFilms: [
+        'heartfelt balloon-house adventure animation',
+        'gourmet rat-chef kitchen animation',
+        'vibrant land-of-the-dead family animation',
+      ],
       colorGrading:
         'Saturated and warm with a slight bloom. Shadows are never pure black.',
     };
@@ -165,9 +169,9 @@ describe('location-prompt', () => {
       );
 
       expect(result.prompt).toContain('[STYLE DIRECTION]');
-      expect(result.prompt).toContain('Pixar-style 3D animation');
+      expect(result.prompt).toContain('Stylized 3D animation');
       expect(result.prompt).toContain('Whimsical, playful');
-      expect(result.prompt).toContain('Up');
+      expect(result.prompt).toContain('heartfelt balloon-house adventure');
     });
 
     it('with styleConfig preserves location-specific attributes', () => {
@@ -193,7 +197,7 @@ describe('location-prompt', () => {
       );
 
       expect(result.prompt).toContain('[STYLE DIRECTION]');
-      expect(result.prompt).toContain('Pixar-style 3D animation');
+      expect(result.prompt).toContain('Stylized 3D animation');
       expect(result.prompt).toContain('A sleek tech startup');
       expect(result.referenceUrls).toContain('https://example.com/lib.png');
     });

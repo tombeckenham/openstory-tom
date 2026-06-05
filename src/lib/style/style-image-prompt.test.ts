@@ -8,7 +8,7 @@ const config: StyleConfig = {
   lighting: 'soft daylight',
   colorPalette: ['#fff'],
   cameraWork: 'slow push-in',
-  referenceFilms: ['Wallace & Gromit'],
+  referenceFilms: ['handmade stop-motion clay shorts'],
   colorGrading: 'warm',
 };
 
@@ -17,7 +17,7 @@ describe('buildStyledImagePrompt', () => {
     const prompt = buildStyledImagePrompt('a child reads in a meadow', config);
     expect(prompt).toContain('a child reads in a meadow');
     expect(prompt).toContain('layered paper pop-up cutouts');
-    expect(prompt).toContain('Wallace & Gromit');
+    expect(prompt).toContain('handmade stop-motion clay shorts');
   });
 
   it('guards against literal-medium / multi-frame renders', () => {

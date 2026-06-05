@@ -132,7 +132,11 @@ const neoNoirStyle: StyleConfig = {
   colorPalette: ['#0A0A0A', '#1A1A2E', '#E94560', '#16213E', '#533483'],
   cameraWork:
     'Dutch angles, low-angle power shots, tight close-ups. Slow deliberate movements with dramatic reveals.',
-  referenceFilms: ['Blade Runner', 'Sin City', 'Drive'],
+  referenceFilms: [
+    'rain-slicked neon-noir cityscape cinematography',
+    'high-contrast graphic-novel monochrome',
+    'synthwave night-drive thriller framing',
+  ],
   colorGrading:
     'Desaturated with selective color pops. Teal and orange split toning with crushed blacks.',
 };
@@ -162,7 +166,7 @@ describe('buildCharacterSheetPrompt with styleConfig', () => {
     expect(prompt).toContain('Neo-noir cinematic style');
     expect(prompt).toContain('chiaroscuro');
     expect(prompt).toContain('Dark, brooding');
-    expect(prompt).toContain('Blade Runner');
+    expect(prompt).toContain('rain-slicked neon-noir cityscape');
   });
 
   test('with styleConfig preserves layout and materiality sections', () => {

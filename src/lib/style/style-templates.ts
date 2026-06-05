@@ -58,10 +58,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Dynamic mix of handheld and locked shots with consistent energy. Handheld with natural micro-movement for lifestyle moments -- hands interacting, daily rituals, real context. Quick-cut to locked beauty frames for hero product shots. Macro details on textures and surfaces. Overhead flat-lays directly above. Eye-level and slightly above angles. Shallow depth of field on tactile details. Energetic pacing -- no lingering, every frame earns its time',
       referenceFilms: [
-        'Rhode Skin Instagram',
-        'Glossier Visual Identity',
-        'Summer Fridays Campaigns',
-        'Drunk Elephant Content',
+        'modern social-first skincare-brand content',
+        'dewy minimalist beauty-brand visual identity',
+        'sun-soaked lifestyle beauty campaigns',
+        'playful color-blocked skincare content',
       ],
       colorGrading:
         'Clean and bright with true-to-life color. Whites are crisp, skin tones warm and natural. Minimal processing -- the product looks like it does in your hand. Slight warmth in highlights, lifted shadows keeping everything airy. One accent color pops against neutral base',
@@ -96,10 +96,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Slow, cinematic dolly movements through grand interiors at eye level. Smooth reveals through doorways framing figures in the distance. Wide establishing shots of exteriors in warm low-angle sun, intimate medium shots of lifestyle moments. Shallow depth of field isolating textures and details -- a hand on a marble countertop, light catching crystal glassware. Symmetrical compositions for architectural grandeur, rule-of-thirds for lifestyle vignettes',
       referenceFilms: [
-        "Sotheby's International Realty Brand Films",
-        'Tom Ford A Single Man Interiors',
-        'Succession HBO Cinematography',
-        'The Great Gatsby Production Design',
+        'prestige international realty brand films',
+        'impeccably tailored 1960s modernist interiors',
+        'old-money corporate-dynasty drama cinematography',
+        'opulent jazz-age mansion production design',
       ],
       colorGrading:
         'Warm and luminous with rich golden highlights and creamy skin tones. Lifted shadows keeping interiors airy and inviting. Subtle amber shift throughout, with deep walnut tones in shadows. Skin rendered with warmth and softness. Overall palette feels like late-afternoon sun on travertine',
@@ -136,10 +136,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Composition staged in 2D like rough pre-vis -- a single clearly readable wide, medium, or close that reads the staging at a glance. Plain, slow camera intent (a gentle push-in or pan) at story-reel pacing, the key beat held. No drawn arrows, nested frames, ghosted move-diagrams, or multiple panels within the image -- one staged frame',
       referenceFilms: [
-        'Pixar storyboard reels',
-        'The Iron Giant production animatics',
-        'DreamWorks story reels',
-        'Hayao Miyazaki imageboards',
+        'feature-animation storyboard reels',
+        '90s hand-drawn feature production animatics',
+        'studio story reels with gestural pencil energy',
+        'painterly hand-drawn feature imageboards',
       ],
       colorGrading:
         'Paper-tone background -- warm off-white with light grain and the occasional smudge. Marker-bleed warmth in mid-tones, slightly bluish in cool shadows. Reads like a rough hand-sketched frame, not a graded film frame',
@@ -167,10 +167,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Smooth dolly or gimbal movements through workspace environments. Static or slow-push medium shots for interviews and presentations. Over-the-shoulder angles for screen and product demonstrations. Clean, corporate B-roll pacing',
       referenceFilms: [
-        'Stripe Brand Films',
-        'Notion Product Videos',
-        'HubSpot Culture Videos',
-        'Salesforce Dreamforce Keynotes',
+        'payments-platform brand films',
+        'productivity-software product videos',
+        'tech-company culture videos',
+        'enterprise-software conference keynotes',
       ],
       colorGrading:
         'Clean and modern with slight cool cast. Whites are bright and true, skin tones natural. Subtle blue tint in shadows for a tech-forward feel. Overall bright and airy with controlled, professional color rendering',
@@ -194,7 +194,11 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       lighting: 'Dramatic chiaroscuro lighting with strong contrast',
       cameraWork: 'Slow, deliberate movements with meaningful close-ups',
       mood: 'Introspective and emotional',
-      referenceFilms: ['The Godfather', 'There Will Be Blood', 'Moonlight'],
+      referenceFilms: [
+        '1970s crime-saga chiaroscuro with amber tungsten interiors',
+        'stark oil-frontier epic with sun-scorched landscapes',
+        'intimate moonlit coming-of-age drama with luminous skin tones',
+      ],
       colorGrading: 'Warm highlights with cool shadows',
     },
     isPublic: true,
@@ -216,7 +220,11 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       lighting: 'Natural and available light only',
       cameraWork: 'Handheld camera with observational framing',
       mood: 'Authentic and immediate',
-      referenceFilms: ['Free Solo', 'The Act of Killing', 'Citizenfour'],
+      referenceFilms: [
+        'vertiginous big-wall climbing documentary',
+        'unflinching observational documentary portraiture',
+        'tense vérité whistleblower documentary',
+      ],
       colorGrading: 'Natural color with slight desaturation',
     },
     isPublic: true,
@@ -238,7 +246,11 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       lighting: 'High contrast with dramatic rim lighting',
       cameraWork: 'Fast cuts, sweeping crane shots, and dynamic angles',
       mood: 'Exciting and adrenaline-pumping',
-      referenceFilms: ['Mad Max: Fury Road', 'John Wick', 'Mission Impossible'],
+      referenceFilms: [
+        'high-octane desert-chase blockbuster',
+        'neon-soaked assassin-thriller choreography',
+        'globe-trotting spy-caper set pieces',
+      ],
       colorGrading: 'Saturated colors with orange and teal contrast',
     },
     isPublic: true,
@@ -260,7 +272,11 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       lighting: 'Soft, diffused lighting with warm tones',
       cameraWork: 'Smooth movements with intimate framing',
       mood: 'Light, romantic, and optimistic',
-      referenceFilms: ['La La Land', 'Amelie', 'When Harry Met Sally'],
+      referenceFilms: [
+        'technicolor musical romance at magic hour',
+        'whimsical Parisian romance with saturated greens and reds',
+        'classic autumn-in-the-city romantic comedy',
+      ],
       colorGrading: 'Warm and saturated with soft contrast',
     },
     isPublic: true,
@@ -293,10 +309,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Cinematic camera language -- slow tracking shots through detailed environments, dramatic rack focuses between foreground and background layers. Low angles for power, high angles for vulnerability. Long takes that let the world breathe, punctuated by sharp editorial cuts for impact',
       mood: 'Intense, layered, and emotionally complex',
       referenceFilms: [
-        'Arcane',
-        'Love Death + Robots',
-        'Into the Spider-Verse',
-        'Wolfwalkers',
+        'painterly neon-lit prestige fantasy animation',
+        'adult sci-fi anthology animation with cinematic render quality',
+        'kinetic halftone comic-book animation',
+        'hand-drawn folkloric animation with woodcut linework',
       ],
       colorGrading:
         'Deep, moody palette with crushed blacks and selective saturation. Warm amber and gold for intimate scenes, cold steel blue for tension. Rich jewel tones used sparingly as accent. Overall filmic with subtle grain and texture overlay',
@@ -320,7 +336,11 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       lighting: 'High contrast with venetian blind shadows and neon highlights',
       cameraWork: 'Dutch angles and voyeuristic framing',
       mood: 'Tense and mysterious',
-      referenceFilms: ['Blade Runner', 'Sin City', 'Drive'],
+      referenceFilms: [
+        'rain-slicked neon-noir cityscape cinematography',
+        'high-contrast graphic-novel monochrome with selective color',
+        'synthwave night-drive thriller framing',
+      ],
       colorGrading: 'Desaturated with selective color pops',
     },
     isPublic: true,
@@ -346,9 +366,9 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Centered framing, tracking shots, and planimetric composition',
       mood: 'Whimsical melancholy, deadpan charm, nostalgic precision',
       referenceFilms: [
-        'Grand Budapest Hotel',
-        'Moonrise Kingdom',
-        'The Royal Tenenbaums',
+        'symmetrical pastel grand-hotel caper cinematography',
+        'storybook scout-camp adventure with planimetric framing',
+        'deadpan family-ensemble portraiture in vintage brownstone interiors',
       ],
       colorGrading:
         'Muted saturated pastels with warm vintage film emulsion. Lifted blacks, soft film grain, slightly faded highlights. Every color feels hand-picked and coordinated',
@@ -372,7 +392,11 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       lighting: 'Cool LED lighting with lens flares',
       cameraWork: 'Smooth camera movements with wide establishing shots',
       mood: 'Futuristic and technological',
-      referenceFilms: ['Ex Machina', 'Arrival', 'Interstellar'],
+      referenceFilms: [
+        'minimalist AI-laboratory chamber sci-fi',
+        'contemplative first-contact sci-fi with soft atmospheric haze',
+        'epic space-time odyssey with practical-scale grandeur',
+      ],
       colorGrading: 'Cool blues and teals with high contrast',
     },
     isPublic: true,
@@ -394,7 +418,11 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       lighting: 'Low-key lighting with harsh shadows',
       cameraWork: 'Unsettling angles and slow zooms',
       mood: 'Ominous and foreboding',
-      referenceFilms: ['The Witch', 'Hereditary', 'The Lighthouse'],
+      referenceFilms: [
+        'candle-lit puritan folk-horror naturalism',
+        'slow-burn domestic dread with dollhouse framing',
+        'storm-lashed monochrome maritime madness',
+      ],
       colorGrading: 'Desaturated with crushed blacks',
     },
     isPublic: true,
@@ -417,9 +445,9 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork: 'Wide shots, slow zooms, and classic Western framing',
       mood: 'Epic and frontier-inspired',
       referenceFilms: [
-        'The Good, The Bad and The Ugly',
-        'Once Upon a Time in the West',
-        'The Searchers',
+        'sun-bleached spaghetti-western standoffs with extreme close-ups',
+        'operatic frontier epic with patient widescreen staging',
+        'classic desert-valley western vistas framed through doorways',
       ],
       colorGrading: 'Warm, dusty tones with high contrast',
     },
@@ -479,10 +507,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Locked-off hero frames, slow rotating turntable moves, hyper-smooth dolly-ins from wide to macro. Beauty pass with shallow depth. No handheld energy -- everything feels designed',
       referenceFilms: [
-        'Apple Product Films',
-        'Bang & Olufsen Launches',
-        'Leica Brand Films',
-        'Dyson Cinema Spots',
+        'flagship consumer-electronics product films',
+        'high-end audio hardware launches',
+        'precision camera-brand heritage films',
+        'engineering-led appliance cinema spots',
       ],
       colorGrading:
         'Rich and contrasty with true blacks and neutral whites. Slight warm accent on metallic highlights. Skin and surface tones rendered faithfully. Print-campaign polish',
@@ -514,10 +542,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Slow handheld and tracked moves. Frequent shallow depth, often racking focus from hand to face. Wider clean masters for context, intimate close-ups on touch and texture',
       referenceFilms: [
-        'Aesop Brand Films',
-        'Loewe Campaigns',
-        'COS Lookbooks',
-        'Aman Resorts Films',
+        'minimalist apothecary brand films',
+        'quietly surreal luxury fashion-house campaigns',
+        'understated minimalist fashion lookbooks',
+        'serene luxury resort films',
       ],
       colorGrading:
         'Warm, low-contrast filmic with creamy highlights. Skin tones soft and natural. Subtle desaturation in shadow, slight green-cream cast overall. Looks like an editorial spread',
@@ -549,10 +577,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Slow macro push-ins, slight rotational moves, slow-motion liquid pours and ribbon shots. Locked frames for hero product. Probe lens style for unusual angles into bottles and jars',
       referenceFilms: [
-        'Charlotte Tilbury Films',
-        'La Mer Brand Spots',
-        'Glossier Beauty Films',
-        'Pat McGrath Launch Reels',
+        'glamour cosmetics launch films',
+        'luxury skincare brand spots',
+        'dewy minimalist beauty films',
+        'maximalist editorial makeup launch reels',
       ],
       colorGrading:
         'Warm and luminous. Highlights softly bloomed, skin tones flushed and dewy. Pinks and peaches gently amplified. Looks like a high-end beauty editorial',
@@ -584,10 +612,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Tracking vehicle shots from gimbal cars and aerial drones. Long lens compression for highway sequences, wide for landscape integration. Slow rotational beauty passes around static heroes. Pans that follow the car cleanly through frame',
       referenceFilms: [
-        'Porsche Brand Films',
-        'BMW M Films',
-        'Polestar Launch Spots',
-        'Ford Bronco Cinema',
+        'heritage sports-car brand films',
+        'performance-division automotive films',
+        'minimalist electric-vehicle launch spots',
+        'rugged off-road truck cinema',
       ],
       colorGrading:
         'Cinematic teal-and-amber with deep saturated paint colors. Skies pushed toward blue, asphalt cool, sunlit faces warm. Crushed shadows, controlled highlights. Looks like a feature film trailer',
@@ -619,10 +647,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Locked or slow-tracked frames at portrait, wide, and detail focal lengths. Model often centered or held to a strong vertical. Slow reveals via dolly-in or pan. Beats held longer than commercial pacing',
       referenceFilms: [
-        'Saint Laurent Campaign Films',
-        'Bottega Veneta Lookbooks',
-        'The Row Brand Films',
-        'Jacquemus Show Films',
+        'rock-edged monochrome fashion-house campaigns',
+        'sculptural leather-goods lookbooks',
+        'austere minimalist fashion brand films',
+        'sun-drenched provincial runway show films',
       ],
       colorGrading:
         'Filmic with deep blacks and slightly desaturated mid-tones. Skin tones cooled fractionally. Strong color accents from wardrobe punch against muted environments. Magazine-print finish',
@@ -649,15 +677,15 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       artStyle:
         'Still-life composition in the tradition of Dutch master painting. A single hero object on a sculpted surface, perhaps with one accompanying prop. Materials emphasized: hand-stitched leather, hand-thrown ceramic, blown glass. Negative space and asymmetry favored over symmetry',
       lighting:
-        'A single soft window-like key from one side, deep ambient shadow on the other. Chiaroscuro inspired by Vermeer. Highlights gentle, falloff dramatic. Surfaces breathe',
+        'A single soft window-like key from one side, deep ambient shadow on the other. Chiaroscuro in the manner of Dutch master painting. Highlights gentle, falloff dramatic. Surfaces breathe',
       colorPalette: ['#2A2118', '#7A5A3A', '#D6BE94', '#1A1A1A', '#F0E8D6'],
       cameraWork:
         'Locked frames, glacial pushes, slow orbital tracks. Compositions held in stillness for long enough that the viewer notices the silence. Macro detail passes for texture',
       referenceFilms: [
-        'Hermès Brand Films',
-        'Bulgari Heritage Spots',
+        'heritage leather-house brand films',
+        'Roman high-jewellery heritage spots',
         'Single Malt Whisky Launch Films',
-        'Loewe Craft Films',
+        'artisan craft-workshop brand films',
       ],
       colorGrading:
         'Rich, oil-painting palette. Deep walnut shadows, golden mid-tones, soft highlights. Subtle warmth across the frame. Looks like a museum-lit object',
@@ -689,10 +717,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Macro slow-motion pours, slices, and drips. Overhead flat-lay reveals. Slow tabletop tracking past plated dishes. Probe lens dives into bubbles, pots, and grills. Beats held long enough to feel the texture',
       referenceFilms: [
-        'Le Creuset Brand Films',
-        'Bon Appetit Test Kitchen',
-        'Salt Fat Acid Heat',
-        'Magnolia Bakery Spots',
+        'enamel-cookware brand films',
+        'editorial test-kitchen video series',
+        'sensory food-science documentary series',
+        'nostalgic neighbourhood-bakery spots',
       ],
       colorGrading:
         'Warm and rich. Golden highlights, deep saucy shadows, vivid greens for herbs and produce. Slight contrast lift in midtones. Looks delicious before the cut even lands',
@@ -724,10 +752,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Locked hero frames, slow dolly-ins, perfect rotational reveals. UI flythroughs with measured parallax. No handheld energy, no wobble. Everything moves on rails',
       referenceFilms: [
-        'Apple Keynote Reveal Films',
-        'Tesla Launch Events',
-        'Nothing Brand Films',
-        'OnePlus Hero Spots',
+        'flagship tech keynote reveal films',
+        'electric-vehicle stage launch events',
+        'transparent-hardware design-brand films',
+        'challenger smartphone hero spots',
       ],
       colorGrading:
         'Cool, contrasty, slightly desaturated. Deep blacks, neon-glass blues, crisp whites. Skin tones pulled fractionally cool. Looks like a stage feed',
@@ -759,10 +787,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Locked or gently floated handheld for human moments. UI inserts are flat-on with measured push-ins to specific dashboard elements. Smooth transitions from person to screen and back',
       referenceFilms: [
-        'Wise Brand Films',
-        'Monzo Onboarding',
-        'Revolut Product Spots',
-        'Stripe Explainers',
+        'borderless-money fintech brand films',
+        'neobank onboarding films',
+        'fintech super-app product spots',
+        'payments-infrastructure explainers',
       ],
       colorGrading:
         'Bright and airy with one brand accent. Whites kept clean, mid-tones gently warm, shadows soft. UI rendered with high fidelity and no banding',
@@ -794,10 +822,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Slow tracking, slow rotation, slow reveal. Soft slow-motion fabric and liquid passes. Beats held in stillness until they almost break. Macro detail on glass, skin, light',
       referenceFilms: [
-        'Chanel Fragrance Films',
-        'Tom Ford Perfume Spots',
-        'Dior Sauvage Films',
-        'Byredo Brand Films',
+        'haute-couture fragrance films',
+        'smoldering designer perfume spots',
+        'desert-at-dusk cologne campaign films',
+        'minimalist niche-fragrance brand films',
       ],
       colorGrading:
         'Warm amber and deep walnut shadows. Skin tones rich, slightly bronzed. Highlights bloomed gently. Looks like film stock from the mid-90s',
@@ -829,10 +857,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Locked hero frames, slow rotational reveals at 1 frame per second feel. Macro probe lens for tiny details. The watch turns; the camera barely moves',
       referenceFilms: [
-        'Rolex Brand Films',
-        'Patek Philippe Spots',
-        'Audemars Piguet Launches',
-        'Omega Heritage Films',
+        'heritage Swiss watch brand films',
+        'grand-complication watchmaking spots',
+        'sculptural sport-luxury watch launches',
+        'space-heritage chronograph films',
       ],
       colorGrading:
         'Deep blacks, neutral midtones, gold and steel rendered with no color cast. Restrained, faithful to the materials. Print-campaign clarity',
@@ -864,10 +892,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Slow motion at 120-240fps for hero action. Tracking shots alongside running athletes, low-angle wides for elevation, tight macro on sweat and texture. Quick cuts between disciplines',
       referenceFilms: [
-        'Nike Brand Films',
-        'On Running Films',
-        'Lululemon Athlete Spots',
-        'Adidas Performance Films',
+        'global sportswear brand films',
+        'engineered running-shoe films',
+        'studio-athletic apparel athlete spots',
+        'heritage athletic-brand performance films',
       ],
       colorGrading:
         'High contrast, slightly desaturated, with one brand accent pushed. Skin tones warm, blacks crushed, highlights crisp. Looks like a global brand spot',
@@ -899,10 +927,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Locked hero, slow rotational tracks, macro probe shots into the glass. High frame rate pours -- 480fps for splash, 120fps for the bottle settle. Beats long enough to savor',
       referenceFilms: [
-        'Macallan Brand Films',
-        'Hendrick’s Gin Spots',
-        'Patron Tequila Launches',
-        'Guinness Stout Films',
+        'heritage single-malt brand films',
+        'whimsical botanical gin spots',
+        'premium agave-spirit launches',
+        'velvety stout-pour films',
       ],
       colorGrading:
         'Warm and rich. Amber liquids amplified, deep walnut shadows, golden highlights. Skin tones (if present) warm. Looks like a heritage spirits campaign',
@@ -934,10 +962,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Locked frames, ultra-slow rotational beauty passes, macro probe into stone settings. Hand-model passes shot at 60-120fps. Movement is glacial and deliberate',
       referenceFilms: [
-        'Tiffany & Co. Brand Films',
-        'Cartier Spots',
-        'Van Cleef & Arpels Films',
-        'Bvlgari Heritage Reels',
+        'legacy diamond-house brand films',
+        'Parisian high-jewellery maison spots',
+        'whimsical fine-jewellery craft films',
+        'bold Roman jewellery heritage reels',
       ],
       colorGrading:
         'Deep blacks, neutral whites. Metals rendered faithfully, stones with a touch of extra brilliance. No color cast. Print-jewellery polish',
@@ -969,10 +997,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Slow gimbal and tracked moves through interiors and grounds. Aerial reveals of architecture and landscape. Intimate medium shots for guests, wide masters for environment. Long beats that let the place breathe',
       referenceFilms: [
-        'Aman Resorts Brand Films',
-        'Six Senses Spots',
-        'Soho House Films',
-        'Belmond Resort Films',
+        'serene ultra-luxury resort brand films',
+        'wellness-resort spots',
+        'members-club lifestyle films',
+        'heritage rail-and-resort films',
       ],
       colorGrading:
         'Warm filmic with creamy highlights. Skin tones soft and golden. Natural greens and blues lightly enhanced. Looks like a travel-magazine spread in motion',
@@ -1008,9 +1036,9 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Locked hero frames at each required angle. Slow rotational beauty pass. Macro detail passes for label, stitching, finish. No handheld energy, no creative angles',
       referenceFilms: [
         'Amazon PDP Imagery',
-        'Net-a-Porter Product Pages',
-        'Apple Online Store',
-        'Shopify Brand Templates',
+        'luxury fashion e-commerce product pages',
+        'premium consumer-electronics store imagery',
+        'e-commerce storefront template imagery',
       ],
       colorGrading:
         'Neutral and true-to-life. Whites are clean and white, color rendered faithfully. No stylization. Buyer-trustworthy color accuracy',
@@ -1042,10 +1070,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Mix of locked and lightly-floated handheld. Medium shots for context, close-ups for product interaction, occasional wide for environment. Pace is unhurried',
       referenceFilms: [
-        'Everlane Product Pages',
-        'COS Lookbooks',
-        'Patagonia Spots',
-        'Allbirds Brand Content',
+        'transparent-basics DTC product pages',
+        'understated minimalist fashion lookbooks',
+        'outdoor-apparel brand spots',
+        'natural-material footwear brand content',
       ],
       colorGrading:
         'Warm naturalism. Skin tones honest, shadows soft, whites slightly cream. Product color faithful. Looks like a friendly catalogue',
@@ -1112,10 +1140,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Locked overhead camera. Subtle dolly-in or push-out. Slow rotational reframes around the centerpiece. Occasional reveal of a hand placing or adjusting an element',
       referenceFilms: [
-        'Kinfolk Magazine Spreads',
-        'The Sill Plant Editorial',
-        'Bon Appetit Top-Down Recipes',
-        'Aesop Catalogue Imagery',
+        'slow-living lifestyle-magazine spreads',
+        'houseplant e-commerce editorial',
+        'editorial top-down recipe videos',
+        'apothecary-style catalogue imagery',
       ],
       colorGrading:
         'Warm naturalism. Subtle film grain texture. Highlights soft, shadows luminous. Looks like a stylist’s portfolio',
@@ -1147,9 +1175,9 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Fully locked camera, product rotates on a motorized turntable. Single take, single move, smooth constant velocity. No cuts',
       referenceFilms: [
-        'Apple Store AR Previews',
-        'Best Buy PDP Turntables',
-        '3D Sketchfab Product Showcases',
+        'AR product-preview turntables',
+        'electronics-retail PDP turntables',
+        '3D product-showcase viewers',
         'Sneaker Resale Detail Reels',
       ],
       colorGrading:
@@ -1182,7 +1210,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Mostly locked over-the-shoulder onto the phone. Occasional reframe as the user scrolls. Macro detail when the product hits the feed. Cuts mirror typical short-form pacing',
       referenceFilms: [
-        'Apple iPhone Ads',
+        'flagship smartphone ads',
         'Meta Ad Creative Templates',
         'TikTok Spark Ads',
         'Mobile-Native Brand Films',
@@ -1289,7 +1317,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       referenceFilms: [
         'Skincare TikTok Routines',
         'Beauty Reels Demos',
-        'Sephora Squad Creator Content',
+        'beauty-retailer creator-squad content',
         'Influencer GRWM Videos',
       ],
       colorGrading:
@@ -1322,10 +1350,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Locked frame on the product. Slow rotational beauty pass. Macro detail at material grain. A recognizable object held alongside for scale reference',
       referenceFilms: [
-        'Zappos PDP Imagery',
-        'Bonobos Fit Guides',
-        'ASOS Catwalk Loops',
-        'Patagonia Product Notes',
+        'footwear-retail PDP imagery',
+        'menswear fit-guide imagery',
+        'fashion e-commerce catwalk loops',
+        'outdoor-gear technical product notes',
       ],
       colorGrading:
         'Neutral and faithful. No stylization. Print-ready color accuracy',
@@ -1357,9 +1385,9 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Locked frames or slow rotational moves. Macro probe lens at edges and seams. Beats held long enough to feel the craft',
       referenceFilms: [
-        'Apple Packaging Reveals',
-        'Aesop Box Films',
-        'Diptyque Packaging Spots',
+        'premium electronics packaging reveals',
+        'apothecary box films',
+        'French candle-house packaging spots',
         'Boutique Spirits Box Films',
       ],
       colorGrading:
@@ -1392,10 +1420,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Mix of medium shots showing context and tight inserts showing function. Light handheld energy. Cuts driven by the action -- pour, click, zip, swipe',
       referenceFilms: [
-        'YETI Brand Films',
-        'Patagonia Worn Wear Stories',
-        'Bellroy Function Films',
-        'Knife Aid Sharpening Spots',
+        'rugged outdoor-cooler brand films',
+        'repair-and-reuse outdoor-apparel stories',
+        'carry-goods function films',
+        'mail-in knife-sharpening spots',
       ],
       colorGrading:
         'Warm naturalism with slight contrast lift. Skin tones honest. Looks like a believable day, not a studio',
@@ -1430,10 +1458,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Light handheld locked-off on a tripod with the occasional reframe. Medium and close-up framing. Cuts driven by edit pace, b-roll inserts of hands, mug, laptop, dog. Native vertical or 16:9 supported',
       referenceFilms: [
-        'Casey Neistat Vlogs',
-        'Emma Chamberlain Films',
-        'Matt D’Avella Episodes',
-        'Sami Clarke Lifestyle',
+        'kinetic daily-vlog creator energy',
+        'ironic intimate lifestyle-creator films',
+        'minimalist slow-living vlog episodes',
+        'wellness-creator lifestyle content',
       ],
       colorGrading:
         'Warm filmic. Cream highlights, soft shadows, gentle saturation. Skin tones warm and forgiving. Looks like a thoughtful creator’s grade',
@@ -1500,10 +1528,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Locked broadcast framing on the hosts at the table. Slow lens-zoom punch-in for emphasis',
       referenceFilms: [
-        'Joe Rogan Experience',
-        'Diary of a CEO',
-        'Smartless Studios',
-        'Call Her Daddy',
+        'long-form studio podcast conversations',
+        'executive-interview podcast sets',
+        'celebrity-friends banter podcast studios',
+        'confessional pop-culture podcasts',
       ],
       colorGrading:
         'Warm, rich, low-contrast filmic. Highlights bloomed, blacks lifted slightly. Skin tones warm. Looks like a content studio shoot',
@@ -1541,10 +1569,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Handheld camera at chest height with subtle micro-shake. Frequent reframes as the subject reacts. Cuts to b-roll of the location. Native vertical aspect for short-form repurposing',
       referenceFilms: [
-        'Cleo Abram Street Vox',
-        'BBC News Vox Pops',
+        'optimistic explainer-journalist street vox',
+        'broadcast-news vox pops',
         'TikTok Street Interviews',
-        'Hot Ones Off-Set Cuts',
+        'between-takes interview-show cutaways',
       ],
       colorGrading:
         'Natural with slight digital crunch. Skin tones honest. Highlights occasionally rolled off. Reads like a news package',
@@ -1611,10 +1639,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Two cameras -- one locked head-and-shoulders, one locked overhead on the work surface. Macro insert lens for hand detail. Cuts driven by the recipe steps',
       referenceFilms: [
-        'NYT Cooking Videos',
-        'Bon Appetit Test Kitchen',
-        'Joshua Weissman Reels',
-        'Carla Lalli Music Creator Cuts',
+        'newspaper test-kitchen cooking videos',
+        'editorial test-kitchen video series',
+        'high-energy chef-creator reels',
+        'warm technique-first cooking-creator cuts',
       ],
       colorGrading:
         'Warm, appetizing, with rich greens and golden tones. Skin tones warm, whites cream. Looks like a friendly recipe channel',
@@ -1646,10 +1674,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Phone-mounted POV, mirror selfie, chest-mounted GoPro. Mix of slow-motion lift hero shots and quick-cut piece-to-camera. Native vertical',
       referenceFilms: [
-        'Sam Sulek Vlogs',
-        'David Laid Training Reels',
-        'Athlean-X Demos',
-        'Gymshark Athlete Content',
+        'raw bodybuilding-vlog energy',
+        'aesthetic physique training reels',
+        'form-breakdown coaching demos',
+        'gymwear-brand athlete content',
       ],
       colorGrading:
         'Cool, slightly desaturated, with high contrast. Skin slightly cool. Looks like an LED-lit gym',
@@ -1681,9 +1709,9 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Locked dashboard mount with subtle road jitter. Occasional cut to passenger-seat profile. Tight head-and-shoulders framing. Native vertical or 16:9',
       referenceFilms: [
-        'James Corden Carpool Karaoke',
+        'celebrity carpool sing-along segments',
         'TikTok Car Confessionals',
-        'Hot Ones In-Car Clips',
+        'in-car interview-show clips',
         'Creator-Driven Monologue Reels',
       ],
       colorGrading:
@@ -1716,8 +1744,8 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Gimbal-stabilized walking shot held at chest height. Subject medium-close-up with environment behind. Occasional cut to subject POV looking around. Steady but not sterile',
       referenceFilms: [
-        'Casey Neistat Walking Vlogs',
-        'Peter McKinnon Cinematic Vlogs',
+        'kinetic city walking vlogs',
+        'polished cinematic creator vlogs',
         'TikTok City Walks',
         'Reels Walk-and-Talk Creators',
       ],
@@ -1751,7 +1779,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Locked webcam or desk-mounted DSLR. Tight punch-in framing. Cuts driven by reaction beats. Native vertical or 16:9. Captions burned in',
       referenceFilms: [
-        'MrBeast Reaction Cuts',
+        'high-stakes viral creator reaction cuts',
         'Twitch Streamer Highlight Reels',
         'TikTok React Trends',
         'YouTube Reaction Channels',
@@ -1787,12 +1815,12 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Implied warm twilight or moonlight. Soft glows on cheeks and lanterns. Gentle gradients in sky and rooms. No harsh shadows',
       colorPalette: ['#1F2A4A', '#7F86D9', '#F6C886', '#F4A4A4', '#E8E1D0'],
       cameraWork:
-        'Static composed scenes with slow Ken-Burns push-ins and gentle parallax between layered illustration planes. The camera lingers. Beats long enough for a parent to point',
+        'Static composed scenes with slow photo-pan push-ins and gentle parallax between layered illustration planes. The camera lingers. Beats long enough for a parent to point',
       referenceFilms: [
-        'Goodnight Moon Illustrations',
-        'Oliver Jeffers Picture Books',
-        'Julia Donaldson Storybooks',
-        'Sandra Boynton Board Books',
+        'classic moonlit-nursery picture-book illustrations',
+        'whimsical contemporary picture books with naive charm',
+        'rhyming woodland storybooks',
+        'chunky friendly-animal board books',
       ],
       colorGrading:
         'Warm, low-contrast, painterly. Cream highlights, dusky shadows. Looks like a beloved storybook illustration',
@@ -1824,10 +1852,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Smear-frame action poses, snappy holds, anticipation-and-overshoot, occasional in-camera shake on impact. Camera mostly static, characters do the work',
       referenceFilms: [
-        'Animaniacs',
-        'Powerpuff Girls',
-        'Dexter’s Laboratory',
-        'SpongeBob SquarePants',
+        'zany 90s variety-cartoon energy',
+        'big-eyed superhero-trio cartoon styling',
+        'boy-genius laboratory cartoon geometry',
+        'rubbery undersea slapstick cartoons',
       ],
       colorGrading:
         'Saturated and punchy with crisp blacks. Looks like a TV broadcast circa 1998',
@@ -1859,13 +1887,13 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Locked tripod with occasional moco moves. Slight strobing motion characteristic of 12-fps stop-motion. Cuts feel theatrical, beats held long',
       referenceFilms: [
-        'Wallace and Gromit',
-        'Chicken Run',
-        'Shaun the Sheep',
-        'Pingu Episodes',
+        'inventor-and-dog clay-animation charm',
+        'plucky farmyard-escape clay features',
+        'wordless sheep-farm clay comedy',
+        'mischievous penguin-family clay shorts',
       ],
       colorGrading:
-        'Warm filmic with rich saturation and soft contrast. Slight tungsten glow. Looks like a beloved Aardman short',
+        'Warm filmic with rich saturation and soft contrast. Slight tungsten glow. Looks like a beloved stop-motion clay short',
     },
     isPublic: true,
     isTemplate: true,
@@ -1894,10 +1922,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Locked top-down or near-top-down camera. Slight stop-motion strobing. Pans by sliding background paper layers. Beats medium-long',
       referenceFilms: [
-        'Lotte Reiniger Films',
-        'South Park Early Episodes',
+        'pioneering silhouette-animation films',
+        'crude construction-paper cutout TV comedy',
         'Drawn-on-Film Animations',
-        'Sesame Street Counting Shorts',
+        'public-television counting shorts',
       ],
       colorGrading:
         'Warm naturalism with vivid paper-print color. Subtle film grain. Looks like a craft-table film',
@@ -1927,12 +1955,12 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Implied soft morning or twilight light. Color and tone do the work of lighting -- darker washes for shadow, paper showing through for light',
       colorPalette: ['#F2E9D8', '#7F9B7F', '#C7A1B2', '#3F4F5F', '#D8B68E'],
       cameraWork:
-        'Static composed scenes with very slow Ken-Burns moves and gentle parallax. Camera reverent. Long beats',
+        'Static composed scenes with very slow drifting pans and gentle parallax. Camera reverent. Long beats',
       referenceFilms: [
-        'Beatrix Potter Illustrations',
-        'Robert McCloskey Picture Books',
-        'Studio Ghibli Concept Watercolors',
-        'Jon Klassen Illustrations',
+        'Edwardian countryside animal-fable watercolours',
+        'mid-century lithograph picture books',
+        'pastoral anime concept watercolours',
+        'deadpan flat-wash animal illustrations',
       ],
       colorGrading:
         'Cream paper white. Pigments rendered faithfully with slight bleed and grain. Looks like a watercolour illustration in afternoon light',
@@ -1964,7 +1992,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Slow push-in revealing the layered paper depth. Gentle drift across the diorama to discover detail. Beats held to admire each cut-paper layer',
       referenceFilms: [
-        'Lotte Reiniger silhouette films',
+        'classic silhouette-animation films',
         'cut-paper stop-motion animation',
         'layered papercraft dioramas',
         'hand-cut paper illustration',
@@ -1999,10 +2027,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Locked tripod with subtle stop-motion strobing. Slow pans across stitched landscapes. Beats long enough to feel the wool',
       referenceFilms: [
-        'Clangers',
-        'Bagpuss',
-        'In the Night Garden',
-        'Wooly and Tig',
+        'whistling knitted-space-creature stop-motion',
+        'cloth-cat curiosity-shop puppet films',
+        'soft twilight puppet-garden television',
+        'felt-puppet preschool storytelling',
       ],
       colorGrading:
         'Warm filmic with rich textile color. Slight grain. Looks like a beloved hand-knit world',
@@ -2034,10 +2062,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Mostly locked frame on the chalk-drawn scene with occasional push-in to highlight a diagram. Beats paced for narration',
       referenceFilms: [
-        'TED-Ed Lessons',
-        'RSA Animate Talks',
-        'Kurzgesagt Whiteboard Variants',
-        'Khan Academy Doodles',
+        'animated explainer-lesson shorts',
+        'live-drawn lecture-illustration talks',
+        'colorful science-explainer whiteboard variants',
+        'digital blackboard tutorial doodles',
       ],
       colorGrading:
         'Slate green or near-black background, pastel chalk colors rendered with slight glow. Looks like a chalk drawing on a sunlit slate surface',
@@ -2069,9 +2097,9 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Long held compositions with subtle parallax pans. Slow zooms into character eyes for emotional beats. Cuts feel weighted, breaths between dialogue',
       referenceFilms: [
-        'Studio Ghibli Films',
-        'Makoto Shinkai Shorts',
-        'Cowboy Bebop Quiet Scenes',
+        'painterly pastoral anime features',
+        'light-drenched luminous-sky anime shorts',
+        'jazz-scored space-western anime quiet scenes',
         'Lo-Fi Hip-Hop Radio Loop Backgrounds',
       ],
       colorGrading:
@@ -2104,10 +2132,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Static composed framing with slow push-ins and gentle parallax between drawn layers. Camera respectful of the artwork',
       referenceFilms: [
-        'Eric Carle Picture Books',
-        'Mo Willems Pigeon Books',
-        'Shaun Tan Illustrations',
-        'Mira Lobe Picture Stories',
+        'painted-tissue collage picture books',
+        'expressive minimal-line cartoon picture books',
+        'surreal painterly picture-book illustrations',
+        'classic European picture stories',
       ],
       colorGrading:
         'Bright, saturated, with paper-cream background and slight crayon grain. Warm, freshly-printed picture-book feel',
@@ -2142,10 +2170,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Static, clearly-staged composition -- a single readable wide, medium, or close. Minimal camera movement. No drawn arrows, nested frames, or move-diagrams in the image -- one staged frame',
       referenceFilms: [
-        'Pixar Storyboard Reels',
-        'DreamWorks Animatic Tests',
-        'Studio Ghibli Imageboards',
-        'The Iron Giant Pre-Vis Reels',
+        'feature-animation storyboard reels',
+        'studio animatic test reels',
+        'painterly hand-drawn imageboards',
+        '90s hand-drawn feature pre-vis reels',
       ],
       colorGrading:
         'Warm paper-tone background with occasional smudge. Marker-bleed mid-tones, cool shadow ink. Looks like a rough hand-drawn sketch',
@@ -2177,9 +2205,9 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'A single wide layout camera with a slow tracking move to verify staging. One clearly-staged composition, no burned-in focal-length or shot-number annotations',
       referenceFilms: [
-        'Pixar Layout Reels',
-        'Disney Animation Previs',
-        'Unreal Engine Greybox Previews',
+        'feature-animation layout reels',
+        'studio animation previs',
+        'game-engine greybox previews',
         'Game Cinematic Blockouts',
       ],
       colorGrading:
@@ -2210,12 +2238,12 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Highly designed cinematic lighting -- single hard key with deep falloff, or saturated practical sources. Every frame considered as a lighting study',
       colorPalette: ['#1F2A40', '#A9633C', '#E8C28C', '#3F3F3F', '#F4E4CF'],
       cameraWork:
-        'A locked static composition held in stillness. Slow Ken-Burns push-in on the key moment. No camera movement that would distract from the composition',
+        'A locked static composition held in stillness. Slow push-in on the key moment. No camera movement that would distract from the composition',
       referenceFilms: [
-        'Roger Deakins Stills',
-        'Emmanuel Lubezki Frame Studies',
-        'Wong Kar-wai Color Lookbooks',
-        'Apichatpong Weerasethakul Stills',
+        'master-cinematographer lighting stills',
+        'natural-light long-take frame studies',
+        'saturated neon-romance color lookbooks',
+        'humid slow-cinema stills',
       ],
       colorGrading:
         'Bold, saturated, painterly. Strong designed color palette. Cinematic black levels',
@@ -2247,10 +2275,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Real production cinematography -- handheld, dolly, crane. Camera moves at intended final pacing. No burned-in shot numbers or lens annotations',
       referenceFilms: [
-        'Schindler’s List Stills',
-        'The Lighthouse',
-        'Roma Pre-Production Reels',
-        'Joker Black-and-White Cut',
+        'stark wartime monochrome drama stills',
+        'storm-lashed monochrome maritime madness',
+        'monochrome memory-film pre-production reels',
+        'gritty character-study monochrome grades',
       ],
       colorGrading:
         'Classic monochrome with rich tonal range. Deep blacks, luminous whites, controlled midtones. Looks like a black-and-white film',
@@ -2282,10 +2310,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Static isometric or perspective framing. Slow zoom into a callout area to draw focus. Camera holds steady on the single diagram',
       referenceFilms: [
-        'Apple Patent Drawings',
-        'Wired How-It-Works Diagrams',
-        'IKEA Assembly Instructions',
-        'NASA Technical Concept Boards',
+        'consumer-electronics patent drawings',
+        'magazine how-it-works diagrams',
+        'flat-pack assembly instructions',
+        'space-agency technical concept boards',
       ],
       colorGrading:
         'Clean, neutral, with crisp linework. Slight paper-grain background. Looks like a polished technical doc',
@@ -2315,12 +2343,12 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Implied flat marker shading. Simple value flats with a single highlight per object',
       colorPalette: ['#F5F1E8', '#2B2826', '#FFCA3A', '#FF595E', '#1982C4'],
       cameraWork:
-        'Static, composed framing with a subtle Ken-Burns drift. Beats sized for narration. A single full-bleed composition -- not a comp page or board carrying multiple thumbnails',
+        'Static, composed framing with a subtle drifting pan. Beats sized for narration. A single full-bleed composition -- not a comp page or board carrying multiple thumbnails',
       referenceFilms: [
-        'Mad Men Pitch Boards',
-        'Saatchi & Saatchi Concept Reels',
-        'BBDO Internal Decks',
-        'Wieden+Kennedy Pitch Boards',
+        '1960s ad-agency pitch boards',
+        'global ad-agency concept reels',
+        'agency internal concept decks',
+        'creative-agency pitch boards',
       ],
       colorGrading:
         'Warm paper background with vivid marker color. Slight grain. Looks like fresh marker on paper',
@@ -2352,10 +2380,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Static or slow drift compositions. Frames feel like paintings. Camera moves are reserved for hero moments',
       referenceFilms: [
-        'Pixar Visual Development Reels',
-        'Dreamworks Concept Paintings',
+        'feature-animation visual-development reels',
+        'studio concept paintings',
         'Animation Master Class Tonal Studies',
-        'Disney Color Script Drafts',
+        'animation color-script drafts',
       ],
       colorGrading:
         'Monochrome with rich tonal range. Looks like a pre-color-script frame',
@@ -2388,9 +2416,9 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'A single composed shot at intended pacing, with sketch-overlay passes and partial renders visible within the one frame. Not a multi-shot reel or jump-cut montage',
       referenceFilms: [
         'Director Treatments',
-        'Spike Jonze Pitch Reels',
-        'A24 Production Lookbooks',
-        'Boards of Canada Visual Treatments',
+        'playful auteur pitch reels',
+        'indie-studio production lookbooks',
+        'nostalgic analog-texture visual treatments',
       ],
       colorGrading:
         'Mixed within the one frame -- finished areas fully graded, rough areas paper-tone, notes flat. The contrast is intentional',
@@ -2426,9 +2454,9 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'Slow gimbal walks through rooms, drone reveal exteriors, locked wide interior frames. Level horizons, plumb verticals. Cuts paced for walkthrough rhythm',
       referenceFilms: [
         'Zillow 3D Tours',
-        'Compass Brand Films',
+        'modern brokerage brand films',
         'Redfin Listing Videos',
-        'The Agency Property Films',
+        'luxury brokerage property films',
       ],
       colorGrading:
         'Bright and clean with neutral whites and slightly warm woods. Greens in landscaping enhanced. Looks like a magazine real estate spread',
@@ -2458,12 +2486,12 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
         'For UI captures, pixel-perfect screen renders. For human moments, soft natural daylight at a desk. Clean, modern, never moody',
       colorPalette: ['#F7F8FB', '#0A2540', '#3478F6', '#22C55E', '#FFFFFF'],
       cameraWork:
-        'Locked UI captures with smooth cursor motion, subtle Ken-Burns zooms on key features. Cuts to medium head-and-shoulders of narrator. B-roll inserts of teammates at laptops',
+        'Locked UI captures with smooth cursor motion, subtle push-in zooms on key features. Cuts to medium head-and-shoulders of narrator. B-roll inserts of teammates at laptops',
       referenceFilms: [
-        'Linear Product Films',
-        'Notion Launch Videos',
-        'Figma Config Spots',
-        'Vercel Product Reveals',
+        'crafted dev-tool product films',
+        'productivity-app launch videos',
+        'design-tool conference spots',
+        'developer-platform product reveals',
       ],
       colorGrading:
         'Bright and clean. UI rendered crisply. Skin tones natural. One brand accent color punches. Looks like a launch-day landing page',
@@ -2495,9 +2523,9 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Light handheld for interview and observation. Locked frames for portraits. Macro detail for tactile moments -- hand on hand, glass of water, photograph on a shelf',
       referenceFilms: [
-        'Cleveland Clinic Brand Films',
-        'Mayo Clinic Patient Stories',
-        'Kaiser Permanente Spots',
+        'academic medical-center brand films',
+        'hospital patient-story films',
+        'health-system brand spots',
         'Pediatric Hospital Brand Reels',
       ],
       colorGrading:
@@ -2530,10 +2558,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Overhead flat-lay reveals, slow tabletop tracks past plated dishes, macro detail of sauces and garnishes. Beats held to feel the texture',
       referenceFilms: [
-        'Eleven Madison Park Brand Films',
-        'Noma Documentary Cuts',
+        'fine-dining tasting-room brand films',
+        'new-nordic restaurant documentary cuts',
         'Doordash Menu Hero Spots',
-        'Salt Fat Acid Heat Episodes',
+        'sensory food-science series episodes',
       ],
       colorGrading:
         'Warm and rich, with vivid greens, golden sauces, deep walnut shadows. Skin tones (if visible) warm. Looks like a restaurant cookbook spread',
@@ -2565,10 +2593,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Mix of locked head-and-shoulders coach pieces, wide form-check angles, and macro detail of grip and footwork. Smooth gimbal moves between camera positions',
       referenceFilms: [
-        'Peloton Instructor Reels',
-        'Apple Fitness+ Spots',
-        'Tonal Workout Demos',
-        'Nike Training Club Sessions',
+        'connected-fitness instructor reels',
+        'studio fitness-app spots',
+        'smart-gym workout demos',
+        'training-app coaching sessions',
       ],
       colorGrading:
         'Bright and energetic. One brand accent. Skin tones warm and healthy. Whites kept clean. Looks like a premium training app',
@@ -2600,10 +2628,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Locked or gently floated handheld for learners. UI inserts flat-on with measured push-ins to specific course elements. Cuts driven by narration',
       referenceFilms: [
-        'Duolingo Brand Films',
-        'Khan Academy Promo Spots',
-        'Coursera Learner Stories',
-        'MasterClass Trailers',
+        'playful language-app brand films',
+        'nonprofit learning-platform promos',
+        'online-course learner stories',
+        'cinematic expert-class trailers',
       ],
       colorGrading:
         'Bright and warm. Skin tones honest, UI surfaces rendered cleanly. One brand accent punches. Looks like a friendly app launch',
@@ -2635,10 +2663,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Slow gimbal walk-around. Locked wides for hero. Macro for badge, stitching, and dash detail. Beats paced for retail browsing',
       referenceFilms: [
-        'CarMax Inventory Videos',
-        'Vroom Listing Films',
-        'Mercedes-Benz Dealer Spots',
-        'Polestar Showroom Reveal Films',
+        'used-car marketplace inventory videos',
+        'online car-listing films',
+        'luxury-marque dealer spots',
+        'minimalist EV showroom reveal films',
       ],
       colorGrading:
         'Bright, clean, with faithful paint color. Whites neutral. Looks like a retail-tour spot',
@@ -2670,10 +2698,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Three-camera coverage -- wide, medium, close. Slow lens-zoom punch-ins. Cuts to slides full-frame. Beats paced for live keynote',
       referenceFilms: [
-        'Apple Keynote Events',
-        'Salesforce Dreamforce Keynotes',
-        'AWS re:Invent Mainstage',
-        'TED Mainstage Talks',
+        'flagship tech keynote events',
+        'enterprise-software conference keynotes',
+        'cloud-conference mainstage productions',
+        'big-ideas conference mainstage talks',
       ],
       colorGrading:
         'Cool, contrasty, with clean blacks and faithful skin tones. Stage glow rendered without bloom. Looks like a live broadcast feed',
@@ -2705,10 +2733,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Light handheld for interview and observation. Locked frames for portraits. Slow wide reveals of environment. Beats let subjects breathe',
       referenceFilms: [
-        'Charity: Water Brand Films',
-        'Doctors Without Borders Spots',
-        'UNICEF Campaign Reels',
-        'WaterAid Documentary Cuts',
+        'clean-water nonprofit brand films',
+        'humanitarian field-medicine spots',
+        'global children’s-aid campaign reels',
+        'water-access documentary cuts',
       ],
       colorGrading:
         'Warm naturalism. Skin tones honest, shadows luminous. Subtle filmic finish. Looks like a respectful documentary short',
@@ -2740,10 +2768,10 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
       cameraWork:
         'Drone reveal aerials, slow tracking landscape moves, intimate handheld portraits. Long beats let the place breathe. Cuts paced like a magazine essay',
       referenceFilms: [
-        'Salt of the Earth',
-        'Anthony Bourdain Parts Unknown',
-        'Airbnb Brand Films',
-        'Visit Iceland Tourism Spots',
+        'monochrome humanist photo-essay documentary',
+        'wandering-chef travelogue intimacy',
+        'home-stay travel brand films',
+        'national tourism-board spots',
       ],
       colorGrading:
         'Warm filmic with rich saturation. Skies pushed lightly toward blue, skin tones golden. Highlights bloomed gently. Looks like a travel-magazine spread',

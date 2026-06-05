@@ -282,14 +282,14 @@ const generateMockStyle = (overrides?: Partial<Style>): Style => {
       mood: faker.helpers.arrayElement(moods),
       referenceFilms: faker.helpers.arrayElements(
         [
-          'Blade Runner',
-          'The Godfather',
-          'Grand Budapest Hotel',
-          'Mad Max: Fury Road',
-          'Moonlight',
-          'Ex Machina',
-          'The Witch',
-          'La La Land',
+          'rain-slicked neon-noir cityscape cinematography',
+          '1970s crime-saga chiaroscuro',
+          'symmetrical pastel grand-hotel caper cinematography',
+          'high-octane desert-chase blockbuster',
+          'intimate moonlit coming-of-age drama',
+          'minimalist AI-laboratory chamber sci-fi',
+          'candle-lit puritan folk-horror naturalism',
+          'technicolor musical romance at magic hour',
         ],
         { min: 1, max: 3 }
       ),

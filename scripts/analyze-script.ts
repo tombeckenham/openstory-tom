@@ -70,7 +70,7 @@ Style config format (JSON):
   "lighting": "Low-key dramatic lighting",
   "colorPalette": ["#1a1a2e", "#16213e"],
   "cameraWork": "Dynamic handheld",
-  "referenceFilms": ["Blade Runner", "Drive"],
+  "referenceFilms": ["rain-slicked neon-noir cityscape cinematography"],
   "colorGrading": "Cool desaturated"
 }
 `);

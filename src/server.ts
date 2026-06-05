@@ -7,6 +7,13 @@
 
 import './instrumentation';
 import handler from '@tanstack/react-start/server-entry';
+import {
+  acceptsMarkdown,
+  getMarkdownForPath,
+  markdownResponse,
+  withDiscoveryLinkHeader,
+  withHtmlAccept,
+} from '@/lib/agent/discovery';
 import { reconcileAllStuckJobs } from '@/lib/cron/reconcile-all';
 
 import { getLogger } from '@/lib/observability/logger';
@@ -60,8 +67,23 @@ interface WorkerEnv {
 }
 
 const exportedHandler: ExportedHandler<WorkerEnv> = {
-  fetch(request) {
-    return handler.fetch(request);
+  async fetch(request) {
+    const { pathname } = new URL(request.url);
+
+    // Markdown content negotiation for agents (#819): serve a real markdown
+    // rendition where one exists; otherwise fall back to HTML rather than
+    // letting the router 500 on a non-HTML Accept header.
+    const wantsMarkdown = acceptsMarkdown(request);
+    if (wantsMarkdown) {
+      const markdown = getMarkdownForPath(pathname);
+      if (markdown !== null) return markdownResponse(markdown, request.method);
+    }
+
+    const response = await handler.fetch(
+      wantsMarkdown ? withHtmlAccept(request) : request
+    );
+    // RFC 8288 Link headers on document responses for agent discovery.
+    return withDiscoveryLinkHeader(response, pathname);
   },
   scheduled(_controller, _env, ctx) {
     // Best-effort sweep for stuck generating-status rows across every table.

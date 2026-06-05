@@ -1,3 +1,4 @@
+import { GitHubIcon } from '@/components/icons/github-icon';
 import {
   OpenStoryIcon,
   OpenStoryLogo,
@@ -16,6 +17,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { useLowBalanceWarning } from '@/hooks/use-low-balance-warning';
+import { SITE_CONFIG } from '@/lib/marketing/constants';
 import { Route as locationsRoute } from '@/routes/_app/locations/index';
 import { Route as sequencesRoute } from '@/routes/_app/sequences/index';
 import { Route as sequencesNewRoute } from '@/routes/_app/sequences/new';
@@ -98,6 +100,14 @@ export function AppSidebar() {
                 <LifeBuoy />
                 <span>Help</span>
               </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="GitHub">
+              <a href={SITE_CONFIG.githubHref} target="_blank" rel="noreferrer">
+                <GitHubIcon className="size-4" />
+                <span>GitHub</span>
+              </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

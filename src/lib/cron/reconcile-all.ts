@@ -25,7 +25,7 @@ import {
   sequences,
 } from '@/lib/db/schema';
 import { resolveRunState, STALE_THRESHOLD_MS } from '@/lib/workflow/reconcile';
-import { and, eq, lt } from 'drizzle-orm';
+import { and, eq, isNotNull, lt } from 'drizzle-orm';
 
 import { getLogger } from '@/lib/observability/logger';
 
@@ -65,6 +65,7 @@ export async function reconcileAllStuckJobs(): Promise<ReconcileCounts> {
       'frame_variants.shot_variant',
       () => reconcileFrameVariantsPass(db, 'shotVariant'),
     ],
+    ['sequences.status', () => reconcileSequencesPass(db)],
     ['sequences.music', () => blindFailPass(db, 'sequencesMusic')],
     ['sequence_elements.vision', () => blindFailPass(db, 'sequenceElements')],
   ];
@@ -211,6 +212,55 @@ async function reconcileFrameVariantsPass(
         .set({ shotVariantStatus: next })
         .where(eq(frameVariants.id, row.id));
     }
+    updated++;
+  }
+  return updated;
+}
+
+/**
+ * Heal sequences stuck in 'processing' whose /storyboard workflow died
+ * without persisting an outcome (engine abort, waitForEvent timeout with a
+ * pre-#839 log-only onFailure, eviction). Verified against the CF instance's
+ * real status via the persisted `workflowRunId` — rows whose instance is
+ * still in flight return `null` from `resolveRunState` and are left alone,
+ * so a legitimately slow (multi-hour) generation is never falsely failed.
+ *
+ * Rows with a NULL `workflowRunId` (created before the column existed, or
+ * whose trigger-site write failed) are skipped entirely: without a run id we
+ * can't distinguish slow-but-alive from dead, and 'processing' has no safe
+ * blind-fail threshold now that full runs can legitimately take hours.
+ */
+async function reconcileSequencesPass(db: Database): Promise<number> {
+  const staleCutoff = new Date(Date.now() - STALE_THRESHOLD_MS);
+
+  const stuck = await db
+    .select({ id: sequences.id, runId: sequences.workflowRunId })
+    .from(sequences)
+    .where(
+      and(
+        eq(sequences.status, 'processing'),
+        isNotNull(sequences.workflowRunId),
+        lt(sequences.updatedAt, staleCutoff)
+      )
+    )
+    .limit(MAX_ROWS_PER_PASS);
+
+  let updated = 0;
+  for (const row of stuck) {
+    const next = await resolveRunState(row.runId ?? '');
+    if (next === null) continue;
+    await db
+      .update(sequences)
+      .set(
+        next === 'failed'
+          ? {
+              status: 'failed',
+              statusError:
+                'Generation was interrupted — use Retry to run it again.',
+            }
+          : { status: 'completed' }
+      )
+      .where(eq(sequences.id, row.id));
     updated++;
   }
   return updated;

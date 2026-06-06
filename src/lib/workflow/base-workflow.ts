@@ -20,7 +20,11 @@
 
 import { configureFalProxyFromEnv } from '@/lib/ai/fal-config';
 import { createScopedDb, type ScopedDb } from '@/lib/db/scoped';
-import { WorkflowValidationError } from '@/lib/workflow/errors';
+import {
+  isEngineAbortError,
+  isRecipientInFiniteStateError,
+  WorkflowValidationError,
+} from '@/lib/workflow/errors';
 import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import type { UserWorkflowContext } from '@/lib/workflow/types';
 import {
@@ -119,10 +123,35 @@ export abstract class OpenStoryWorkflowEntrypoint<
       // Notify the parent on success (Pattern 3 fan-in). No-op for top-level
       // workflows that weren't spawned via spawnAndAwaitChild.
       if (parentHint) {
-        await notifyParent(step, this.env, parentHint, result);
+        try {
+          await notifyParent(step, this.env, parentHint, result);
+        } catch (notifyError) {
+          if (!isRecipientInFiniteStateError(notifyError)) throw notifyError;
+          // The parent already reached a finite state (typically: its
+          // waitForEvent timed out and it errored). This child's work is done
+          // and persisted — failing the child here would retroactively mark
+          // completed work as failed (issue #839). Log and return normally.
+          logger.warn(
+            `[${this.constructor.name}] parent ${parentHint.parentInstanceId} already in a finite state; work completed, skipping notify`,
+            { err: notifyError }
+          );
+        }
       }
       return result;
     } catch (error) {
+      // Engine shutdown ("Aborting engine: Grace period complete") is a
+      // transient interruption — CF resumes the instance from its step cache
+      // afterwards. Running onFailure here would mark user-facing rows failed
+      // for work that is about to continue, and notifying the parent of
+      // failure would poison its waitForEvent. Rethrow untouched. (#839)
+      if (isEngineAbortError(error)) {
+        logger.warn(
+          `[${this.constructor.name}] engine aborted mid-run (transient — instance resumes): ${sanitizeFailResponse(error)}`,
+          { err: error }
+        );
+        throw error;
+      }
+
       const sanitized = sanitizeFailResponse(error);
       // Sanitized message inline in the headline; `err` carries the full
       // original error (with stack) as a structured property.
@@ -158,10 +187,20 @@ export abstract class OpenStoryWorkflowEntrypoint<
         try {
           await notifyParentOfFailure(step, this.env, parentHint, sanitized);
         } catch (notifyError) {
-          logger.error(
-            `[${this.constructor.name}] failure notification to parent exhausted retries`,
-            { err: notifyError }
-          );
+          if (isRecipientInFiniteStateError(notifyError)) {
+            // Expected when the parent's waitForEvent already timed out —
+            // nothing left to notify. Warn (not error) to keep the error
+            // stream meaningful. (#839)
+            logger.warn(
+              `[${this.constructor.name}] parent ${parentHint.parentInstanceId} already in a finite state; failure notification skipped`,
+              { err: notifyError }
+            );
+          } else {
+            logger.error(
+              `[${this.constructor.name}] failure notification to parent exhausted retries`,
+              { err: notifyError }
+            );
+          }
         }
       }
 

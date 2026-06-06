@@ -25,6 +25,10 @@ import { buildCharacterReferenceImages } from '@/lib/prompts/character-prompt';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
 import { triggerWorkflow } from '@/lib/workflow/client';
 import { buildWorkflowLabel } from '@/lib/workflow/labels';
+import {
+  assertNoActiveStoryboard,
+  triggerStoryboard,
+} from '@/lib/workflow/launchers';
 import type {
   ImageWorkflowInput,
   MotionWorkflowInput,
@@ -65,6 +69,13 @@ export const smartRetryFn = createServerFn({ method: 'POST' })
   .inputValidator(zodValidator(z.object({ sequenceId: ulidSchema })))
   .handler(async ({ context }) => {
     const { sequence, user, teamId } = context;
+
+    // A sequence marked failed does NOT imply its workflow tree is dead —
+    // children outlive a timed-out parent (#839). Reject every retry shape
+    // (full and partial) while the last storyboard run is still in flight,
+    // so we never race a live pipeline.
+    await assertNoActiveStoryboard(context.scopedDb, sequence.id);
+
     const frames = await context.scopedDb.frames.listBySequence(sequence.id);
     const summary = analyzeFailures(frames, sequence);
 
@@ -96,8 +107,6 @@ export const smartRetryFn = createServerFn({ method: 'POST' })
         }
       );
 
-      await context.scopedDb.sequence(sequence.id).updateStatus('processing');
-
       const workflowInput: StoryboardWorkflowInput = {
         userId: user.id,
         teamId,
@@ -111,9 +120,9 @@ export const smartRetryFn = createServerFn({ method: 'POST' })
         },
       };
 
-      await triggerWorkflow('/storyboard', workflowInput, {
-        label: buildWorkflowLabel(sequence.id),
-      });
+      // Owns the generation mutex, the 'processing' status write, and the
+      // run-id persistence (#839).
+      await triggerStoryboard(context.scopedDb, workflowInput);
 
       return { retryType: 'full' as const, retriedItems: ['full storyboard'] };
     }

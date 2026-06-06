@@ -5,7 +5,8 @@
  * @tanstack/ai's OpenRouter adapter.
  */
 
-import type { ChatMessage } from '@/lib/prompts';
+import type { ChatMessage, ChatMessageImagePart } from '@/lib/prompts';
+import { toVisionImageSource } from '@/lib/storage/external-url';
 import { chat } from '@tanstack/ai';
 import { z } from 'zod';
 import { createAdapter } from './create-adapter';
@@ -46,7 +47,7 @@ export function normalizeSuggestedToken(raw: string): string {
  */
 export function buildVisionMessages(
   filename: string,
-  imageUrl: string
+  imageSource: ChatMessageImagePart['source']
 ): ChatMessage[] {
   const system = `You are a visual reference describer. You will be shown a single image that will serve as a canonical reference for an element (logo, product, screenshot, or similar object) in a film/video production. Your job is to describe what the image visually contains so that AI image generators can later reproduce the element faithfully across scenes, AND to suggest a concise UPPERCASE token that a screenwriter would type to reference this element in a script.
 
@@ -67,7 +68,7 @@ Describe the element in the image below and suggest a token.`;
       role: 'user',
       content: [
         { type: 'text', content: userText },
-        { type: 'image', source: { type: 'url', value: imageUrl } },
+        { type: 'image', source: imageSource },
       ],
     },
   ];
@@ -76,7 +77,10 @@ Describe the element in the image below and suggest a token.`;
 export async function describeElementImage(
   input: DescribeElementInput
 ): Promise<ElementDescription> {
-  const messages = buildVisionMessages(input.filename, input.imageUrl);
+  // Local /r2/ URLs aren't reachable by real OpenRouter — inline the image
+  // bytes as a data part instead (no-op in prod and e2e replay).
+  const imageSource = await toVisionImageSource(input.imageUrl);
+  const messages = buildVisionMessages(input.filename, imageSource);
 
   const systemPrompts: string[] = [];
   const chatMessages: Array<{

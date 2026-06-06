@@ -52,6 +52,7 @@ export type GenerateMotionOptions = {
   generateAudio?: boolean;
 };
 
+import { ensureExternallyFetchableUrl } from '@/lib/storage/external-url';
 import { buildModelInput } from './build-model-input';
 
 import { getLogger } from '@/lib/observability/logger';
@@ -92,8 +93,16 @@ export async function submitMotionJob(
   const modelKey = options.model || DEFAULT_VIDEO_MODEL;
   const modelConfig = IMAGE_TO_VIDEO_MODELS[modelKey];
 
+  // Locally-served /r2/ image URLs aren't reachable by real fal — swap them
+  // for a fal-storage upload first (no-op in prod and e2e replay).
+  const imageUrl = await ensureExternallyFetchableUrl(options.imageUrl);
+
   // Prepare the model input
-  const modelInput = buildModelInput(options, modelConfig, modelKey);
+  const modelInput = buildModelInput(
+    { ...options, imageUrl },
+    modelConfig,
+    modelKey
+  );
 
   // Separate the prompt from the model options
   const { prompt: optimisedPrompt, ...modelOptions } = modelInput;

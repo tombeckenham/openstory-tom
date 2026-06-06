@@ -19,6 +19,7 @@ import {
 
 import { getEnv } from '#env';
 import type { ScopedDb } from '@/lib/db/scoped';
+import { ensureExternallyFetchableUrls } from '@/lib/storage/external-url';
 import { generateImage } from '@tanstack/ai';
 import { falImage } from '@tanstack/ai-fal';
 
@@ -154,10 +155,20 @@ export async function generateImageWithProvider(
 }
 // @TODO: TB Mar 2026 - this needs to be updated to be typesafe. Especially after the work put in on Tanstack AI to keep it safe
 async function generateImageInternal(
-  params: ImageGenerationParams,
+  rawParams: ImageGenerationParams,
   modelId: string,
   options?: ImageGenerationOptions
 ): Promise<ImageGenerationResult> {
+  // Locally-served /r2/ reference URLs aren't reachable by real fal — swap
+  // them for fal-storage uploads first (no-op in prod and e2e replay).
+  const params: ImageGenerationParams = rawParams.referenceImageUrls?.length
+    ? {
+        ...rawParams,
+        referenceImageUrls: await ensureExternallyFetchableUrls(
+          rawParams.referenceImageUrls
+        ),
+      }
+    : rawParams;
   const prompt = truncatePromptForModel(params.prompt, params.model);
   const startTime = Date.now();
 

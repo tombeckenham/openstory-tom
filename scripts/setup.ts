@@ -1875,9 +1875,14 @@ async function main() {
       saveProgress();
     }
   } else {
+    // Local dev needs NO remote R2: storage uses the local Miniflare binding
+    // and the worker's /r2/$ route serves reads (R2_PUBLIC_STORAGE_DOMAIN
+    // unset). Remote R2 is an explicit opt-in (also requires "remote": true
+    // on the binding in wrangler.jsonc).
     const setupStorage = checkCancel(
       await p.confirm({
-        message: 'Set up cloud storage for media? (Cloudflare R2)',
+        message:
+          'Set up REMOTE cloud storage for media? (optional — local dev uses local R2 by default)',
         initialValue: false,
       })
     );

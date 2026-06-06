@@ -123,3 +123,6 @@ export const fileExists = (
   _bucket: StorageBucket,
   _path: string
 ): Promise<boolean> => throwStub();
+
+export const serveFile = (_key: string, _request: Request): Promise<Response> =>
+  throwStub();

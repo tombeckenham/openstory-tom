@@ -159,13 +159,22 @@ const ULID_OR_UUID_SPLIT_RE = new RegExp(
 const FAL_UPLOAD_SUFFIX_RE = /(?<=[_/])[0-9A-Za-z]{6,16}_openstory\./g;
 const FAL_CDN_PATH_RE =
   /\/files\/b\/[0-9a-f]{6,12}\/[A-Za-z0-9_-]{10,}(?=[_.])/g;
+//   - STORAGE_ORIGIN: our storage origin drifts between record and replay.
+//     Replay serves storage via the worker's local /r2 route
+//     (http://localhost:3001/r2/...), while record runs hand real providers
+//     fal-storage URLs and older fixtures embed the storage-dev CDN domain.
+//     Collapse all three to a single token so body-matched fixtures
+//     (ffmpeg-style models with URL fields) survive the difference.
+const STORAGE_ORIGIN_RE =
+  /https?:\/\/(localhost:\d+\/r2|storage(-[a-z]+)?\.openstory\.so)\//g;
 
 function normalizeFalContent(content: string): string {
   return content
     .replace(ULID_TOKEN_RE, '<ULID>')
     .replace(UUID_TOKEN_RE, '<UUID>')
     .replace(FAL_UPLOAD_SUFFIX_RE, '<HASH>_openstory.')
-    .replace(FAL_CDN_PATH_RE, '/files/b/<FAL>/<FAL>');
+    .replace(FAL_CDN_PATH_RE, '/files/b/<FAL>/<FAL>')
+    .replace(STORAGE_ORIGIN_RE, '<STORAGE>/');
 }
 
 // aimock applies this to both the live request (router.js:38) and the

@@ -1,8 +1,8 @@
 /**
  * Playwright Route Handlers for E2E Tests
  * Intercepts external API calls (fal.ai, QStash) to return mock responses.
- * R2 traffic is handled server-side by the r2-mock sidecar (port 4011) —
- * see e2e/mocks/r2-mock-server.ts.
+ * R2 is NOT mocked: uploads do real puts into the local Miniflare R2 binding
+ * and reads are served by the worker's /r2/$ route (see src/routes/r2.$.ts).
  */
 
 import type { Page, Route } from 'playwright/test';
@@ -98,18 +98,9 @@ export async function setupMockRoutes(page: Page): Promise<void> {
     }
   });
 
-  // Mock upload proxy (used in e2e when getSignedUploadUrl returns proxy URL)
-  await page.route('**/api/storage/upload*', async (route: Route) => {
-    if (route.request().method() === 'PUT') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true }),
-      });
-    } else {
-      await route.continue();
-    }
-  });
+  // Note: /api/storage/upload is NOT mocked — browser uploads go through the
+  // real route into the local Miniflare R2 binding, so downstream copy/move
+  // operations (talent creation, element promotion) find real source objects.
 
   // Safety net: redirect any stray picsum.photos requests to local test image endpoint
   await page.route('**/picsum.photos/**', async (route: Route) => {
@@ -123,9 +114,8 @@ export async function setupMockRoutes(page: Page): Promise<void> {
 
   // R2 traffic note: under the cf-plugin runtime, the browser never PUTs
   // directly to `*.r2.cloudflarestorage.com` — uploads go through the worker
-  // (storage-cloudflare.ts), which routes through the r2-mock sidecar on
-  // :4011 for fixture replay/record. Image reads via R2_PUBLIC_STORAGE_DOMAIN
-  // go straight to real R2 where the bytes were uploaded during recording.
+  // (storage-cloudflare.ts) into the local Miniflare R2 binding. Image/video
+  // reads hit the worker's /r2/$ route, which streams from the same binding.
 }
 
 /**

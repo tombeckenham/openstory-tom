@@ -1,10 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import { startAimockServer } from './mocks/aimock-server';
-import { startR2MockServer } from './mocks/r2-mock-server';
 
 /**
  * Playwright global setup - migrates + seeds the local Wrangler D1 (test env),
- * then starts aimock (LLM/fal on :4010) and r2-mock (R2 fixtures on :4011).
+ * then starts aimock (LLM/fal on :4010).
  */
 export default async function globalSetup() {
   console.log('[e2e] Migrating test D1 (Wrangler local, [env.test])...');
@@ -21,5 +20,4 @@ export default async function globalSetup() {
   });
 
   await startAimockServer();
-  await startR2MockServer();
 }

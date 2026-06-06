@@ -241,9 +241,9 @@ bun db:migrate   # Apply migrations to local.db
 
 **The structure.** `wrangler.jsonc` separates dev from prod via env blocks:
 
-- **default** (no env) — used by `bun dev` / `vite dev`. D1 binding has a **placeholder** `database_id: "dev-local-d1"` so even if cf-plugin promotes it remote, it 404s against Cloudflare rather than silently writing to prod. R2 buckets are `remote: true` (real R2) so public-CDN reads via `R2_PUBLIC_STORAGE_DOMAIN` resolve.
+- **default** (no env) — used by `bun dev` / `vite dev`. D1 binding has a **placeholder** `database_id: "dev-local-d1"` so even if cf-plugin promotes it remote, it 404s against Cloudflare rather than silently writing to prod. R2 buckets are **local Miniflare** too — reads are served by the worker's `/r2/$` route because `getPublicUrl()` falls back to `${VITE_APP_URL}/r2/<key>` when `R2_PUBLIC_STORAGE_DOMAIN` is unset. Local dev needs no Cloudflare credentials. (Opt back into remote R2 by setting `"remote": true` on the binding + `R2_PUBLIC_STORAGE_DOMAIN` in `.env.local`; revert when done.)
 - **`[env.production]`** — real prod D1 (`database_id: d6a35f64-...`). Production deploys MUST use `wrangler deploy --env=production` (already wired in `cf:deploy:prd`).
-- **`[env.test]`** — Playwright e2e. Local Miniflare D1 (`database_id: "openstory-test-local"`), real staging R2. Activated via `CLOUDFLARE_ENV=test` (set in `playwright.config.ts` envPrefix and CI workflow env block) for `vite dev`, or `wrangler dev --env=test` for the built-server path.
+- **`[env.test]`** — Playwright e2e. Local Miniflare D1 (`database_id: "openstory-test-local"`) AND local Miniflare R2 — fully hermetic, no Cloudflare credentials in CI. Activated via `CLOUDFLARE_ENV=test` (set in `playwright.config.ts` envPrefix and CI workflow env block) for `vite dev`, or `wrangler dev --env=test` for the built-server path.
 
 **Rules:**
 
@@ -396,7 +396,7 @@ const { thingUnderTest } = await import('./thing-under-test');
 
 When re-mocking inside an `it()` block to test a different code path, call `vi.resetModules()` first — otherwise the dynamic import returns the cached module from the prior mock.
 
-**E2E:** Playwright drives `vite dev` (cf-plugin → Workerd) on port 3001 with `E2E_TEST=true`. `bun test:e2e:setup` applies D1 migrations against the isolated `[env.test]` block in `wrangler.jsonc` and seeds via `getPlatformProxy()`. Aimock (`:4010`) intercepts LLM/fal calls; the new **r2-mock sidecar** (`:4011`) brokers R2 fixture lookup/record so the worker (no `node:fs`) can replay through `r2-recorder.ts`. Recording (`E2E_RECORD=1`) writes through the `remote: true` R2 binding to staging; replay short-circuits via fixtures.
+**E2E:** Playwright drives `vite dev` (cf-plugin → Workerd) on port 3001 with `E2E_TEST=true`. `bun test:e2e:setup` applies D1 migrations against the isolated `[env.test]` block in `wrangler.jsonc` and seeds via `getPlatformProxy()`. Aimock (`:4010`) intercepts LLM/fal calls. R2 is NOT mocked: uploads do real puts into the local Miniflare R2 binding (asset bytes come from the real `fal.media` URLs recorded in aimock fixtures) and reads are served by the worker's `/r2/$` route. Recording (`E2E_RECORD=1`) hits real LLM/fal; locally-served URLs sent to real providers are made fetchable via `fal.storage.upload` / data-URIs (`src/lib/storage/external-url.ts`).
 
 ## Platform & Deployment
 

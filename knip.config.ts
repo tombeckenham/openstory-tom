@@ -15,8 +15,6 @@ export default {
     // path), so knip can't trace them from an import.
     'src/lib/mocks/server-stub.ts',
     'src/lib/mocks/tanstack-start.ts',
-    // Consumed by the e2e r2-mock sidecar, which is outside knip's project scope.
-    'src/lib/storage/r2-recorder.ts',
   ],
   project: ['src/**/*.{ts,tsx}', 'scripts/**/*.ts'],
   ignore: [

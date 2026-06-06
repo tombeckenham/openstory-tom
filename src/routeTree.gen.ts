@@ -18,6 +18,7 @@ import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as MarketingIndexRouteImport } from './routes/_marketing/index'
+import { Route as R2SplatRouteImport } from './routes/r2.$'
 import { Route as MetaOgLinkedinRouteImport } from './routes/meta/og-linkedin'
 import { Route as MetaOgGithubRouteImport } from './routes/meta/og-github'
 import { Route as MetaOgRouteImport } from './routes/meta/og'
@@ -117,6 +118,11 @@ const MarketingIndexRoute = MarketingIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => MarketingRoute,
+} as any)
+const R2SplatRoute = R2SplatRouteImport.update({
+  id: '/r2/$',
+  path: '/r2/$',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const MetaOgLinkedinRoute = MetaOgLinkedinRouteImport.update({
   id: '/meta/og-linkedin',
@@ -429,6 +435,7 @@ export interface FileRoutesByFullPath {
   '/meta/og': typeof MetaOgRoute
   '/meta/og-github': typeof MetaOgGithubRoute
   '/meta/og-linkedin': typeof MetaOgLinkedinRoute
+  '/r2/$': typeof R2SplatRoute
   '/docs/': typeof DocsIndexRoute
   '/sequences/$id': typeof AppSequencesIdRouteRouteWithChildren
   '/admin/usage': typeof AppAdminUsageRoute
@@ -492,6 +499,7 @@ export interface FileRoutesByTo {
   '/meta/og': typeof MetaOgRoute
   '/meta/og-github': typeof MetaOgGithubRoute
   '/meta/og-linkedin': typeof MetaOgLinkedinRoute
+  '/r2/$': typeof R2SplatRoute
   '/docs': typeof DocsIndexRoute
   '/sequences/$id': typeof AppSequencesIdRouteRouteWithChildren
   '/admin/usage': typeof AppAdminUsageRoute
@@ -560,6 +568,7 @@ export interface FileRoutesById {
   '/meta/og': typeof MetaOgRoute
   '/meta/og-github': typeof MetaOgGithubRoute
   '/meta/og-linkedin': typeof MetaOgLinkedinRoute
+  '/r2/$': typeof R2SplatRoute
   '/_marketing/': typeof MarketingIndexRoute
   '/docs/': typeof DocsIndexRoute
   '/_app/sequences/$id': typeof AppSequencesIdRouteRouteWithChildren
@@ -628,6 +637,7 @@ export interface FileRouteTypes {
     | '/meta/og'
     | '/meta/og-github'
     | '/meta/og-linkedin'
+    | '/r2/$'
     | '/docs/'
     | '/sequences/$id'
     | '/admin/usage'
@@ -691,6 +701,7 @@ export interface FileRouteTypes {
     | '/meta/og'
     | '/meta/og-github'
     | '/meta/og-linkedin'
+    | '/r2/$'
     | '/docs'
     | '/sequences/$id'
     | '/admin/usage'
@@ -758,6 +769,7 @@ export interface FileRouteTypes {
     | '/meta/og'
     | '/meta/og-github'
     | '/meta/og-linkedin'
+    | '/r2/$'
     | '/_marketing/'
     | '/docs/'
     | '/_app/sequences/$id'
@@ -817,6 +829,7 @@ export interface RootRouteChildren {
   MetaOgRoute: typeof MetaOgRoute
   MetaOgGithubRoute: typeof MetaOgGithubRoute
   MetaOgLinkedinRoute: typeof MetaOgLinkedinRoute
+  R2SplatRoute: typeof R2SplatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiBillingWebhookRoute: typeof ApiBillingWebhookRoute
   ApiDevMemoryRoute: typeof ApiDevMemoryRoute
@@ -892,6 +905,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof MarketingIndexRouteImport
       parentRoute: typeof MarketingRoute
+    }
+    '/r2/$': {
+      id: '/r2/$'
+      path: '/r2/$'
+      fullPath: '/r2/$'
+      preLoaderRoute: typeof R2SplatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/meta/og-linkedin': {
       id: '/meta/og-linkedin'
@@ -1484,6 +1504,7 @@ const rootRouteChildren: RootRouteChildren = {
   MetaOgRoute: MetaOgRoute,
   MetaOgGithubRoute: MetaOgGithubRoute,
   MetaOgLinkedinRoute: MetaOgLinkedinRoute,
+  R2SplatRoute: R2SplatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiBillingWebhookRoute: ApiBillingWebhookRoute,
   ApiDevMemoryRoute: ApiDevMemoryRoute,

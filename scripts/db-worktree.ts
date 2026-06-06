@@ -1,5 +1,5 @@
 /**
- * Copy local Wrangler D1 state between the main repo and a worktree.
+ * Copy local Wrangler D1 + R2 state between the main repo and a worktree.
  *
  *   bun scripts/db-worktree.ts --fork      # main repo  → current worktree
  *   bun scripts/db-worktree.ts --promote   # current worktree → main repo
@@ -9,18 +9,25 @@
  * Use --fork right after `git worktree add` so the new worktree starts with the
  * same D1 schema + data as your main checkout (no re-migrate, no re-seed). Use
  * --promote when you've built up useful state inside a worktree and want it to
- * become the "primary" local D1 for future worktrees to fork from.
+ * become the "primary" local state for future worktrees to fork from.
  *
- * Only D1 is copied — R2 is `remote: true` in wrangler.jsonc so local R2 state
- * is unused. KV/cache/workflows aren't copied; they're either regenerated on
- * demand or stateless.
+ * R2 is copied alongside D1: since #771, R2 is a local Miniflare binding and
+ * DB rows reference `/r2/<key>` URLs served from it — forking D1 without the
+ * R2 blobs would leave every stored thumbnail/video 404ing in the worktree.
+ * R2 state is optional on the source (a fresh checkout may have none yet).
+ * KV/cache/workflows aren't copied; they're either regenerated on demand or
+ * stateless. Run with the dev server stopped on both sides.
  */
 
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
-const STATE_SUBDIR = '.wrangler/state/v3/d1';
+// D1 is required (the whole point of the script); R2 is best-effort.
+const STATE_SUBDIRS = [
+  { subdir: '.wrangler/state/v3/d1', label: 'D1', required: true },
+  { subdir: '.wrangler/state/v3/r2', label: 'R2', required: false },
+];
 
 const mode = process.argv[2];
 if (mode !== '--fork' && mode !== '--promote') {
@@ -41,26 +48,27 @@ if (mainRepoRoot === here) {
   process.exit(1);
 }
 
-const [src, dest, label] =
+const [srcRoot, destRoot, verb] =
   mode === '--promote'
-    ? [
-        path.join(here, STATE_SUBDIR),
-        path.join(mainRepoRoot, STATE_SUBDIR),
-        'promoted',
-      ]
-    : [
-        path.join(mainRepoRoot, STATE_SUBDIR),
-        path.join(here, STATE_SUBDIR),
-        'forked',
-      ];
+    ? [here, mainRepoRoot, 'promoted']
+    : [mainRepoRoot, here, 'forked'];
 
-if (!existsSync(src)) {
-  console.error(
-    `[db-worktree] no D1 state at ${src}. ${mode === '--fork' ? 'Bootstrap the main repo first with bun db:migrate:local + bun db:seed:local.' : 'Run bun db:migrate:local + bun db:seed:local in this worktree first.'}`
-  );
-  process.exit(1);
+for (const { subdir, label, required } of STATE_SUBDIRS) {
+  const src = path.join(srcRoot, subdir);
+  const dest = path.join(destRoot, subdir);
+
+  if (!existsSync(src)) {
+    if (required) {
+      console.error(
+        `[db-worktree] no ${label} state at ${src}. ${mode === '--fork' ? 'Bootstrap the main repo first with bun db:migrate:local + bun db:seed:local.' : 'Run bun db:migrate:local + bun db:seed:local in this worktree first.'}`
+      );
+      process.exit(1);
+    }
+    console.log(`[db-worktree] no ${label} state at ${src} — skipped`);
+    continue;
+  }
+
+  rmSync(dest, { recursive: true, force: true });
+  cpSync(src, dest, { recursive: true });
+  console.log(`[db-worktree] ${verb} ${label} state: ${src} → ${dest}`);
 }
-
-rmSync(dest, { recursive: true, force: true });
-cpSync(src, dest, { recursive: true });
-console.log(`[db-worktree] ${label} D1 state: ${src} → ${dest}`);

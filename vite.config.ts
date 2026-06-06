@@ -136,13 +136,15 @@ export default defineConfig({
     tailwindcss(),
     cloudflare({
       viteEnvironment: { name: 'ssr' },
-      // remoteBindings is left at its default (true) so per-binding
-      // `remote: true` in wrangler.jsonc routes the R2 buckets to real
-      // Cloudflare (image-write paths need real R2 so R2_PUBLIC_STORAGE_DOMAIN
-      // reads resolve). The default D1 binding uses a placeholder
-      // `database_id` (see wrangler.jsonc) so even if cf-plugin auto-promotes
-      // it, the request 404s against Cloudflare rather than writing to prod.
-      // The startup banner (wranglerBindingsBanner) confirms per-boot.
+      // remoteBindings is left at its default (true) so an explicit
+      // per-binding `remote: true` in wrangler.jsonc still works as an
+      // opt-in (e.g. temporarily repro'ing a CDN bug against real R2). By
+      // default no binding is remote: R2 is local Miniflare with reads
+      // served by the /r2/$ route, and the default D1 binding uses a
+      // placeholder `database_id` (see wrangler.jsonc) so even if cf-plugin
+      // auto-promotes it, the request 404s against Cloudflare rather than
+      // writing to prod. The startup banner (wranglerBindingsBanner)
+      // confirms per-boot.
     }),
     tanstackStart({
       srcDirectory: 'src',

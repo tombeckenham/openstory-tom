@@ -56,24 +56,25 @@
       "migrations_dir": "drizzle/migrations",
     },
   ],
+  // Local-only R2 (Miniflare state in .wrangler/state). Reads are served by
+  // the worker's /r2/$ route (src/routes/r2.$.ts) because getPublicUrl()
+  // falls back to `${VITE_APP_URL}/r2/<key>` when R2_PUBLIC_STORAGE_DOMAIN
+  // is unset — so local dev needs no remote R2 and no Cloudflare credentials.
+  // To opt back into remote R2 (e.g. to repro a CDN-specific bug), set
+  // `"remote": true` here plus R2_PUBLIC_STORAGE_DOMAIN in .env.local, and
+  // revert when done.
   "r2_buckets": [
     {
       "bucket_name": "openstory-public-assets",
       "binding": "R2_PUBLIC_ASSETS_BUCKET",
-      "remote": true,
     },
     {
       "binding": "R2_STORAGE_BUCKET",
-      // Dev-only bucket — separate from prod's `openstory-storage` so local
-      // dev writes (sequence videos, character images, talent sheets) never
-      // overwrite production user content. PROD bucket lives in
-      // [env.production]; preview deploys patch this default to
-      // `openstory-storage-stg` (see deploy-cloudflare.yml).
+      // Bucket name only matters when remote — locally it just namespaces
+      // the Miniflare state. Kept distinct from prod's `openstory-storage`;
+      // preview deploys patch this default to `openstory-storage-stg`
+      // (see deploy-cloudflare.yml).
       "bucket_name": "openstory-dev",
-      // remote: true so writes go to a real R2 bucket and browser fetches via
-      // R2_PUBLIC_STORAGE_DOMAIN (which must point at the same dev bucket's
-      // public domain for local-dev images to resolve).
-      "remote": true,
     },
   ],
   "workflows": [
@@ -444,16 +445,14 @@
       // tail_consumers is non-inheritable across env blocks.
       "tail_consumers": [{ "service": "openstory-log-forwarder-prd" }],
     },
-    // Playwright e2e environment. D1 stays local (Miniflare) for hermetic
-    // setup/teardown. R2 storage is `remote: true` so RECORD-mode uploads land
-    // in a real R2 bucket whose URLs persist for replay. Replay never invokes
-    // the binding (storage-cloudflare.ts short-circuits via aimock fixture
-    // lookup), so credentials are only required when recording.
-    //
-    // R2_STORAGE_BUCKET = `openstory-dev` — same bucket the developer's local
-    // `bun dev` writes to. Recordings happen locally with
-    // `bun test:e2e:record`; fixtures then reference openstory-dev URLs which
-    // resolve via openstory-dev's public CDN domain anywhere (local or CI).
+    // Playwright e2e environment. D1 AND R2 are local (Miniflare) for
+    // hermetic runs — no remote bindings, so no Cloudflare credentials are
+    // needed (CI included). Uploads do real puts into local R2; reads are
+    // served by the worker's /r2/$ route (R2_PUBLIC_STORAGE_DOMAIN unset).
+    // The actual asset bytes come from the real fal.media URLs recorded in
+    // the aimock fixtures. Record mode (`E2E_RECORD=1`) also stays local:
+    // outbound URLs sent to real fal/OpenRouter are made fetchable via
+    // fal.storage.upload / data-URIs (see src/lib/storage/external-url.ts).
     "test": {
       // These vars are visible inside the worker via getEnv() when
       // CLOUDFLARE_ENV=test (used by Playwright webServer + CI).
@@ -462,6 +461,10 @@
         // E2E_TEST gates /api/test/* routes (via testOnlyGuard) and many
         // test-specific branches in storage / workflow client code.
         "E2E_TEST": "true",
+        // Note: a developer's .env.local R2_PUBLIC_STORAGE_DOMAIN could leak
+        // into this worker env via the env-file merge, but it can't break
+        // e2e: isLocalStorageServing() (src/lib/storage/buckets.ts) forces
+        // local /r2 serving whenever E2E_TEST is true.
         // E2E_FULL_PIPELINE and E2E_RECORD are intentionally NOT hardcoded here.
         // They're per-run flags: Playwright's webServer envPrefix sets them in
         // the launcher's process.env for `test:e2e:full[:record]`. Under
@@ -490,12 +493,10 @@
         {
           "bucket_name": "openstory-public-assets",
           "binding": "R2_PUBLIC_ASSETS_BUCKET",
-          "remote": true,
         },
         {
           "binding": "R2_STORAGE_BUCKET",
-          "bucket_name": "openstory-dev",
-          "remote": true,
+          "bucket_name": "openstory-test",
         },
       ],
       // Workflow bindings are NOT inherited from the top-level block, so

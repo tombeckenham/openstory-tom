@@ -56,6 +56,12 @@ async function getImageDimensions(
  *
  * Reads actual image dimensions from the PNG header (30 bytes) to calculate
  * accurate trim values, rather than assuming fixed tile sizes.
+ *
+ * KNOWN LIMITATION: with locally-served storage (no R2_PUBLIC_STORAGE_DOMAIN)
+ * there is no Cloudflare edge, so the returned trim URL won't resolve when a
+ * real downstream service fetches it. E2E replay is unaffected (aimock only
+ * string-matches); local dev / record runs of the variant-upscale flow would
+ * need an Images-binding-based local crop if this becomes a problem.
  */
 export async function cropTileFromGrid(
   options: CropTileOptions

@@ -1,26 +1,26 @@
 /**
  * Email Service
- * Handles sending transactional emails via Resend
+ * Handles sending transactional emails via Cloudflare Email Service
  */
 
 import { getEnv } from '#env';
-import { Resend } from 'resend';
+import { env as workerEnv } from 'cloudflare:workers';
 import { getLogger } from '@/lib/observability/logger';
 
 const logger = getLogger(['openstory', 'services', 'email-service']);
 
-// @ts-ignore - resolved via package.json imports
-
-let _resend: Resend | undefined = undefined;
-
-function getResend(): Resend | undefined {
-  if (_resend) return _resend;
-
-  const apiKey = getEnv().RESEND_API_KEY;
-  if (apiKey) {
-    _resend = new Resend(apiKey);
+function getSendEmailBinding(): SendEmail {
+  // Reach for the binding via `cloudflare:workers` directly so the type
+  // resolves to SendEmail. `#env` resolves to a process.env shim at typecheck
+  // time (because tsgo doesn't apply the `workerd` import condition), which
+  // would type bindings as `string`.
+  const binding = workerEnv.SEND_EMAIL;
+  if (!binding) {
+    throw new Error(
+      'Email binding "SEND_EMAIL" not found. Ensure send_email is configured in wrangler.jsonc'
+    );
   }
-  return _resend;
+  return binding;
 }
 
 function getAppName(): string {
@@ -41,11 +41,14 @@ function getEmailConfig(): {
   }
 
   if (isDev) {
-    return { fromEmail: 'onboarding@resend.dev', fromName: appName };
+    // Local dev simulates sends (the binding has no `remote` flag in the
+    // default wrangler.jsonc block), so the sender never reaches a real
+    // mailbox — any placeholder address works.
+    return { fromEmail: 'dev@localhost', fromName: appName };
   }
 
   throw new Error(
-    'EMAIL_FROM environment variable is required in production. Must be a verified sender in Resend.'
+    'EMAIL_FROM environment variable is required in production. Must be an address on a domain onboarded in Cloudflare Email Service.'
   );
 }
 
@@ -57,7 +60,7 @@ interface SendEmailParams {
 }
 
 /**
- * Send an email using Resend
+ * Send an email using Cloudflare Email Service
  */
 async function sendEmail({
   to,
@@ -65,37 +68,21 @@ async function sendEmail({
   html,
   text,
 }: SendEmailParams): Promise<{ success: boolean; error?: string }> {
-  const resend = getResend();
-
-  // Check if Resend is configured
-  if (!resend) {
-    logger.error('Resend not configured - missing RESEND_API_KEY');
-    return {
-      success: false,
-      error: 'Email service not configured',
-    };
-  }
-
   try {
     const { fromEmail, fromName } = getEmailConfig();
 
-    const { data, error } = await resend.emails.send({
-      from: `${fromName} <${fromEmail}>`,
+    const result = await getSendEmailBinding().send({
+      from: { name: fromName, email: fromEmail },
       to,
       subject,
       html,
       text: text || html.replace(/<[^>]*>/g, ''), // Strip HTML for text version
     });
 
-    if (error) {
-      logger.error('Failed to send:', { err: error });
-      return { success: false, error: error.message };
-    }
-
-    logger.info('Sent successfully:', { data: data.id });
+    logger.info('Sent successfully:', { data: result.messageId });
     return { success: true };
   } catch (error) {
-    logger.error('Exception:', { err: error });
+    logger.error('Failed to send:', { err: error });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to send email',

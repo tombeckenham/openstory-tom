@@ -77,6 +77,16 @@
       "bucket_name": "openstory-dev",
     },
   ],
+  // Cloudflare Email Service (transactional sending). With no `remote` flag,
+  // local dev SIMULATES sends — wrangler logs the email content to the
+  // console instead of delivering it — so OTP sign-in works hermetically with
+  // no API key. Set `"remote": true` temporarily to send real email from
+  // local dev (requires the sending domain onboarded in the dashboard).
+  "send_email": [
+    {
+      "name": "SEND_EMAIL",
+    },
+  ],
   "workflows": [
     // All durable async work runs on Cloudflare Workflows. Each class is
     // re-exported from src/server.ts (so it lands in the Worker bundle) and
@@ -277,6 +287,14 @@
           "binding": "R2_STORAGE_BUCKET",
           "bucket_name": "openstory-storage",
           "remote": true,
+        },
+      ],
+      // Email Service binding — NOT inherited from the top-level block.
+      // Deployed workers always send real email through Cloudflare Email
+      // Service (the sending domain must be onboarded in the dashboard).
+      "send_email": [
+        {
+          "name": "SEND_EMAIL",
         },
       ],
       // Workflow bindings are NOT inherited from the top-level block, so
@@ -497,6 +515,14 @@
         {
           "binding": "R2_STORAGE_BUCKET",
           "bucket_name": "openstory-test",
+        },
+      ],
+      // Email Service binding — NOT inherited from the top-level block. No
+      // `remote` flag → e2e sends are simulated locally (logged, not
+      // delivered), keeping CI hermetic with no Cloudflare credentials.
+      "send_email": [
+        {
+          "name": "SEND_EMAIL",
         },
       ],
       // Workflow bindings are NOT inherited from the top-level block, so

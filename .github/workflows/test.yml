@@ -119,7 +119,6 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
         run: |
           if [ -z "$BETTER_AUTH_SECRET" ]; then
@@ -138,7 +137,6 @@ jobs:
           GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
           UPSTASH_REDIS_REST_URL=$UPSTASH_REDIS_REST_URL
           UPSTASH_REDIS_REST_TOKEN=$UPSTASH_REDIS_REST_TOKEN
-          RESEND_API_KEY=$RESEND_API_KEY
           EMAIL_FROM=$EMAIL_FROM
           E2E_TEST=true
           VITE_APP_URL=http://localhost:3001
@@ -184,7 +182,6 @@ jobs:
           OPENROUTER_KEY: test-mock-key
           OPENROUTER_BASE_URL: http://localhost:4010
           # Email - preview environment
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
 
   e2e-full-pipeline:
@@ -228,7 +225,6 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
         run: |
           if [ -z "$BETTER_AUTH_SECRET" ]; then
@@ -248,7 +244,6 @@ jobs:
           GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
           UPSTASH_REDIS_REST_URL=$UPSTASH_REDIS_REST_URL
           UPSTASH_REDIS_REST_TOKEN=$UPSTASH_REDIS_REST_TOKEN
-          RESEND_API_KEY=$RESEND_API_KEY
           EMAIL_FROM=$EMAIL_FROM
           E2E_TEST=true
           E2E_FULL_PIPELINE=true
@@ -289,5 +284,4 @@ jobs:
           OPENROUTER_KEY: test-mock-key
           OPENROUTER_BASE_URL: http://localhost:4010
           # Email - preview environment
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}

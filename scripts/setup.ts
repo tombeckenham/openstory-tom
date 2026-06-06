@@ -99,8 +99,8 @@ function writeEnvFile(vars: Map<string, string>) {
       ],
     },
     {
-      header: 'Email (Resend)',
-      keys: ['RESEND_API_KEY', 'EMAIL_FROM'],
+      header: 'Email (Cloudflare Email Service)',
+      keys: ['EMAIL_FROM'],
     },
     {
       header: 'Workflows (QStash)',
@@ -241,7 +241,6 @@ const PR_PREVIEW_SECRETS_BASE = [
   'R2_BUCKET_NAME',
   'R2_PUBLIC_ASSETS_BUCKET',
   'R2_SECRET_ACCESS_KEY',
-  'RESEND_API_KEY',
   'VITE_PUBLIC_POSTHOG_PROJECT_TOKEN',
 ] as const;
 
@@ -1394,20 +1393,15 @@ async function main() {
   }
 
   // -------------------------------------------------------------------------
-  // Email (Resend)
+  // Email (Cloudflare Email Service)
   // -------------------------------------------------------------------------
   if (isProd) {
     p.log.step(chalk.bold('Email Setup'));
-    await promptForKey(
-      'RESEND_API_KEY',
-      'Enter your Resend API key',
-      'Required for production email delivery. Get one at: https://resend.com/api-keys'
+    p.log.info(
+      'Email is sent via Cloudflare Email Service (the SEND_EMAIL binding).\n' +
+        'The sender domain must be onboarded under Email > Email Sending in\n' +
+        'the Cloudflare dashboard before production emails will deliver.'
     );
-    if (!vars.has('RESEND_API_KEY')) {
-      p.log.error('RESEND_API_KEY is required for production.');
-      process.exit(1);
-    }
-
     if (!vars.has('EMAIL_FROM')) {
       const emailFrom = checkCancel(
         await p.text({
@@ -1425,34 +1419,9 @@ async function main() {
       p.log.success('EMAIL_FROM — already configured');
     }
   } else {
-    const setupEmail = checkCancel(
-      await p.confirm({
-        message: 'Set up email delivery? (Resend)',
-        initialValue: !existing.has('RESEND_API_KEY'),
-      })
+    p.log.info(
+      'Email: local dev simulates sends via the SEND_EMAIL binding — OTP email content is logged to the console.'
     );
-
-    if (setupEmail) {
-      await promptForKey(
-        'RESEND_API_KEY',
-        'Enter your Resend API key',
-        'Get one at: https://resend.com/api-keys'
-      );
-      if (vars.has('RESEND_API_KEY') && !vars.has('EMAIL_FROM')) {
-        const emailFrom = checkCancel(
-          await p.text({
-            message: 'Enter sender email address',
-            placeholder: 'noreply@example.com',
-          })
-        );
-        if (emailFrom) {
-          vars.set('EMAIL_FROM', emailFrom);
-          saveProgress();
-        }
-      }
-    } else {
-      p.log.info('Skipped — OTP codes will be logged to the console.');
-    }
   }
 
   // -------------------------------------------------------------------------
@@ -2269,7 +2238,12 @@ async function main() {
     ['Hosting', isProd ? 'Cloudflare Workers' : 'Local'],
     ['Database', isProd ? 'Cloudflare D1' : 'Cloudflare D1 (local Miniflare)'],
     ['Auth', 'Better Auth (secret generated)'],
-    ['Email', vars.has('RESEND_API_KEY') ? 'Configured' : 'Skipped'],
+    [
+      'Email',
+      isProd && vars.has('EMAIL_FROM')
+        ? 'Cloudflare Email Service'
+        : 'Simulated (local binding)',
+    ],
     ['AI Generation', vars.has('FAL_KEY') ? 'Configured' : 'Skipped'],
     ['Script Analysis', vars.has('OPENROUTER_KEY') ? 'Configured' : 'Skipped'],
     ['Workflows', vars.has('QSTASH_TOKEN') ? 'Configured' : 'Skipped'],

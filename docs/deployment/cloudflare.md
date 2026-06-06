@@ -51,16 +51,16 @@ CI runs both before each deploy.
 
 Secrets are pushed to the Worker via `wrangler secret bulk`. The full list is defined in [`.github/workflows/deploy-cloudflare.yml`](https://github.com/anthropics/openstory/blob/main/.github/workflows/deploy-cloudflare.yml). Core secrets include:
 
-| Variable                                    | Description                               |
-| ------------------------------------------- | ----------------------------------------- |
-| `BETTER_AUTH_SECRET`                        | Better Auth signing secret                |
-| `VITE_APP_URL`                              | Public URL of the deployment              |
-| `FAL_KEY`                                   | fal.ai API key for image/video generation |
-| `QSTASH_TOKEN`                              | QStash token for workflow execution       |
-| `QSTASH_CURRENT_SIGNING_KEY`                | QStash request verification               |
-| `QSTASH_NEXT_SIGNING_KEY`                   | QStash request verification (rotation)    |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth credentials                  |
-| `RESEND_API_KEY`                            | Transactional email                       |
+| Variable                                    | Description                                                                           |
+| ------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `BETTER_AUTH_SECRET`                        | Better Auth signing secret                                                            |
+| `VITE_APP_URL`                              | Public URL of the deployment                                                          |
+| `FAL_KEY`                                   | fal.ai API key for image/video generation                                             |
+| `QSTASH_TOKEN`                              | QStash token for workflow execution                                                   |
+| `QSTASH_CURRENT_SIGNING_KEY`                | QStash request verification                                                           |
+| `QSTASH_NEXT_SIGNING_KEY`                   | QStash request verification (rotation)                                                |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth credentials                                                              |
+| `EMAIL_FROM`                                | Sender address for transactional email (domain onboarded in Cloudflare Email Service) |
 
 ## CI/CD
 

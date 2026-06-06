@@ -45,8 +45,8 @@ const UPLOAD_CONCURRENCY = Number(process.env.UPLOAD_CONCURRENCY ?? '12');
  * which authenticates with your account-wide CLOUDFLARE_API_TOKEN / `wrangler
  * login` and reliably has write access to the public bucket. We do NOT
  * auto-select S3 just because R2_* keys exist — those keys are often scoped to
- * a different bucket (e.g. the e2e bucket used by upload-e2e-report.ts), which
- * yields "Access Denied" writing to openstory-public-assets.
+ * a different bucket, which yields "Access Denied" writing to
+ * openstory-public-assets.
  */
 function createR2S3Client(): S3Client | null {
   if (!process.argv.includes('--s3')) return null;

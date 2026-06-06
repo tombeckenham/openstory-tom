@@ -69,7 +69,6 @@ const STAGE_PREFIXES: ReadonlyArray<readonly [string, string]> = [
 
 // Diagnostic dump for unmatched requests — written on shutdown so we can diff
 // the failing userMessage against the closest fixture and find what drifted.
-// CI's upload-e2e-report.ts ships this to R2 alongside the trace bundle.
 const UNMATCHED_DUMP_PATH = resolve(
   import.meta.dirname,
   '../results/aimock-unmatched.json'

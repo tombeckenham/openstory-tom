@@ -213,7 +213,7 @@ export interface ElementSheetWorkflowInput extends UserWorkflowContext {
 }
 
 export interface ElementSheetWorkflowResult {
-  /** Successfully generated + ingested elements (failed entries are skipped) */
+  /** Generated + ingested elements — the run fails if any entry failed */
   elements: SequenceElementMinimal[];
 }
 

@@ -345,7 +345,8 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
     // auto-generated reference image, mirroring the character-sheet
     // treatment. Runs in parallel with the other phase-3 children — visual
     // prompts only consume the bible text, and the generated references are
-    // merged into `elementsMinimal` before phase 4 attaches them to frames.
+    // concatenated with `elementsMinimal` into `allElements` before phase 4
+    // attaches them to frames.
     const missingElementEntries = sequenceId
       ? findMissingElementEntries(elementBible, elementsMinimal)
       : [];
@@ -483,22 +484,16 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
         `Visual prompt generation failed: ${String(visualSettled.reason)}`
       );
     }
-    // Element references degrade gracefully: a failed run means the affected
-    // frames render unanchored (today's behavior) — not a failed analysis.
     if (elementSheetSettled.status === 'rejected') {
-      logger.error(
-        '[AnalyzeScriptWorkflow:cf] Element reference generation failed; continuing without auto-generated references:',
-        { err: elementSheetSettled.reason }
+      throw new Error(
+        `Element reference generation failed: ${String(elementSheetSettled.reason)}`
       );
     }
 
     const charactersWithSheets = charSettled.value;
     const locationsWithSheets = locationSettled.value;
     const scenesWithVisualPrompts = visualSettled.value;
-    const generatedElements =
-      elementSheetSettled.status === 'fulfilled'
-        ? elementSheetSettled.value
-        : [];
+    const generatedElements = elementSheetSettled.value;
     const allElements = [...elementsMinimal, ...generatedElements];
 
     // ----------------------------------------------------------------------

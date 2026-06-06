@@ -13,9 +13,12 @@
  * of the pipeline — scene matching, reference attachment, replace-element —
  * treats it exactly like an uploaded element.
  *
- * Per-entry failures are logged and skipped rather than failing the run:
- * a missing reference degrades to today's behavior (unanchored object), and
- * the surviving entries still anchor their own frames.
+ * All entries run concurrently and every pipeline runs to completion before
+ * failures are surfaced: if any entry fails after its durable steps exhaust
+ * their retries, the whole run fails (and with it the parent analysis) rather
+ * than silently rendering the affected frames unanchored. Entries that
+ * completed are already persisted, so a retried run skips them via the
+ * idempotency guard.
  */
 
 import { DEFAULT_IMAGE_MODEL } from '@/lib/ai/models';
@@ -32,6 +35,7 @@ import {
   type ImageGenerationParams,
 } from '@/lib/image/image-generation';
 import { buildElementSheetPrompt } from '@/lib/prompts/element-prompt';
+import { rejectionReasonMessage } from '@/lib/workflows/replace-element-workflow';
 import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
 import { uploadResponse } from '@/lib/storage/upload-response';
 import { OpenStoryWorkflowEntrypoint } from '@/lib/workflow/base-workflow';
@@ -64,6 +68,34 @@ export function findMissingElementEntries(
   return elementBible.filter((entry) => !existingTokens.has(entry.token));
 }
 
+/**
+ * Reduce the per-entry settled outcomes to the generated elements, failing
+ * loudly when any entry failed: a dropped reference would silently render the
+ * affected frames unanchored, so surface the failure instead of degrading.
+ */
+export function collectElementResults(
+  settled: Array<PromiseSettledResult<SequenceElementMinimal>>,
+  entries: Array<Pick<ElementBibleEntry, 'token'>>
+): SequenceElementMinimal[] {
+  const failures: string[] = [];
+  const elements: SequenceElementMinimal[] = [];
+  for (const [index, outcome] of settled.entries()) {
+    if (outcome.status === 'rejected') {
+      failures.push(
+        `${entries[index]?.token ?? `index ${index}`}: ${rejectionReasonMessage(outcome.reason)}`
+      );
+      continue;
+    }
+    elements.push(outcome.value);
+  }
+  if (failures.length > 0) {
+    throw new Error(
+      `Element reference generation failed for ${failures.length}/${settled.length} element(s) — ${failures.join('; ')}`
+    );
+  }
+  return elements;
+}
+
 export class ElementSheetWorkflow extends OpenStoryWorkflowEntrypoint<ElementSheetWorkflowInput> {
   protected override async runImpl(
     event: Readonly<WorkflowEvent<ElementSheetWorkflowInput>>,
@@ -88,8 +120,10 @@ export class ElementSheetWorkflow extends OpenStoryWorkflowEntrypoint<ElementShe
       `[ElementSheetWorkflow:cf] Generating ${entries.length} element reference(s) for sequence ${sequenceId}: ${entries.map((e) => e.token).join(', ')}`
     );
 
-    // One pipeline per entry, run concurrently. allSettled + inner try/catch
-    // so a single failed generation cannot tank the surviving references.
+    // One pipeline per entry, run concurrently. allSettled so every entry
+    // runs to completion (successful entries persist their rows) before any
+    // failure is surfaced — a retried run then skips the completed entries
+    // via the idempotency guard.
     const settled = await Promise.allSettled(
       entries.map(async (entry, index) => {
         // Idempotency guard: a replayed run (or a token the user uploaded
@@ -228,17 +262,17 @@ export class ElementSheetWorkflow extends OpenStoryWorkflowEntrypoint<ElementShe
       })
     );
 
-    const elements: SequenceElementMinimal[] = [];
+    // Log full rejection objects (stack traces) before the aggregate throw
+    // reduces them to messages.
     for (const [index, outcome] of settled.entries()) {
       if (outcome.status === 'rejected') {
         logger.error(
           `[ElementSheetWorkflow:cf] Reference generation failed for ${entries[index]?.token ?? `index ${index}`}:`,
           { err: outcome.reason }
         );
-        continue;
       }
-      elements.push(outcome.value);
     }
+    const elements = collectElementResults(settled, entries);
 
     logger.info(
       `[ElementSheetWorkflow:cf] Completed: ${elements.length}/${entries.length} element reference(s) for sequence ${sequenceId}`
@@ -256,7 +290,7 @@ export class ElementSheetWorkflow extends OpenStoryWorkflowEntrypoint<ElementShe
     scopedDb: ScopedDb;
   }): void {
     // No row to mark failed — sequence_elements rows are only created on
-    // success. Missing references degrade gracefully to unanchored objects.
+    // success. The parent analysis surfaces this failure to the user.
     logger.error(
       `[ElementSheetWorkflow:cf] Element reference generation failed for sequence ${event.payload.sequenceId}: ${error}`
     );

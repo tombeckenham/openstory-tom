@@ -25,13 +25,15 @@ import {
 export const headingClass = 'mt-0 mb-4 text-2xl font-bold text-gray-900';
 export const paragraphClass = 'mt-0 mb-3 text-base leading-6 text-gray-600';
 
+// Emails can't bundle assets and outlive any single deployment, so the logo
+// is served from the stable public-assets domain (same fallback pattern as
+// src/lib/marketing/constants.ts). Source image is 1146x250.
+const ASSETS_DOMAIN =
+  import.meta.env.VITE_R2_PUBLIC_ASSETS_DOMAIN || 'assets.openstory.so';
+const LOGO_URL = `https://${ASSETS_DOMAIN}/brand/openstory-logo-light.png`;
+
 interface EmailLayoutProps {
   appName: string;
-  /**
-   * Absolute origin the logo image is served from (emails can't bundle
-   * assets). Empty string → text-only header.
-   */
-  appUrl: string;
   /** Inbox preview snippet shown next to the subject line. */
   preview: string;
   children: React.ReactNode;
@@ -39,7 +41,6 @@ interface EmailLayoutProps {
 
 export const EmailLayout: React.FC<EmailLayoutProps> = ({
   appName,
-  appUrl,
   preview,
   children,
 }) => (
@@ -50,22 +51,15 @@ export const EmailLayout: React.FC<EmailLayoutProps> = ({
       <Body className="mx-auto bg-gray-50 p-5 font-sans">
         <Container className="max-w-[600px] rounded-lg border border-solid border-gray-200 bg-white p-8">
           <Section className="mb-8 text-center">
-            {appUrl ? (
-              // Inline SVG is stripped by most email clients, so the wordmark
-              // ships as a hosted PNG (public/logo.png, 550x120 = 2x — rasterized
-              // from OpenStoryLogo's light variant). alt covers blocked images.
-              <Img
-                src={`${appUrl}/logo.png`}
-                width="183"
-                height="40"
-                alt={appName}
-                className="mx-auto"
-              />
-            ) : (
-              <Text className="m-0 text-2xl font-bold tracking-tight text-gray-900">
-                {appName}
-              </Text>
-            )}
+            {/* Inline SVG is stripped by most email clients, so the wordmark
+                ships as a hosted PNG. alt covers blocked-image clients. */}
+            <Img
+              src={LOGO_URL}
+              width="183"
+              height="40"
+              alt={appName}
+              className="mx-auto"
+            />
           </Section>
           {children}
           <Section className="mt-8 border-0 border-t border-solid border-gray-200 pt-6 text-center">

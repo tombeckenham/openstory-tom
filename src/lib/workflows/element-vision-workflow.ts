@@ -76,9 +76,10 @@ export class ElementVisionWorkflow extends OpenStoryWorkflowEntrypoint<ElementVi
     // ensureUniqueToken (suffixes `_2` on collision) because the system is
     // choosing the name — failing the workflow on collision would strand the
     // element with no usable name. Excluding the element's own row keeps a
-    // step retry idempotent: after a successful rename the replay sees the
-    // suggested token on this element only, gets it back un-suffixed, and
-    // the (atomic) cascade re-run yields zero deltas.
+    // step retry idempotent: after a successful rename the replay gets the
+    // suggested token back un-suffixed, and — since the in-memory
+    // `element.token` still holds the pre-rename name, so neither early
+    // return fires — the cascade re-runs, atomically yielding zero deltas.
     const finalToken = await step.do('auto-rename', async () => {
       if (suggestedToken === element.token) return element.token;
       const unique = await scopedDb.sequenceElements.ensureUniqueToken(

@@ -35,6 +35,18 @@ describe('isEngineAbortError', () => {
     );
   });
 
+  test('does not match unrelated errors that mention a grace period', () => {
+    // A true positive skips onFailure and parent notification, so a bare
+    // "grace period" token from another layer must never classify as an
+    // engine abort.
+    expect(
+      isEngineAbortError(new Error('subscription grace period expired'))
+    ).toBe(false);
+    expect(
+      isEngineAbortError(new Error('grace period: 30 days remaining'))
+    ).toBe(false);
+  });
+
   test('does not match ordinary failures', () => {
     expect(isEngineAbortError(new Error('fal request failed: 500'))).toBe(
       false

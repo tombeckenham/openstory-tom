@@ -5,11 +5,12 @@
  *
  * 1. Replay-stable: a retried step must produce the identical id so the
  *    existing child instance is reused instead of spawning a second paid job.
- * 2. Run-scoping hash FIRST: `buildInstanceId` keeps only `100 − prefix`
- *    chars of the suffix, truncating from the END, so the hash that separates
- *    two different runs must lead. Truncation may shear the human-readable
- *    tail, never the part that prevents a new run from colliding with (and
- *    silently reusing) a previous run's instance.
+ * 2. Run-scoping hash FIRST: `buildInstanceId` (instance-id.ts) keeps only
+ *    `100 − prefix` chars of the suffix, truncating from the END, so the hash
+ *    that separates two different runs must lead. Truncation may shear the
+ *    human-readable tail, never the part that prevents a new run from
+ *    colliding with (and silently reusing) a previous run's instance. If
+ *    instance-id.ts ever changes its truncation strategy, revisit this.
  */
 
 import { simpleHash } from '@/lib/utils/hash';
@@ -28,7 +29,8 @@ export function previewImageDedupId(
 }
 
 /**
- * Shot-variant grid spawned by FrameImagesWorkflow, one per (frame, model).
+ * Shot-variant grid spawned by FrameImagesWorkflow, one per (frame, model) —
+ * keyed on the scene id instead when no frame matched the scene.
  */
 export function shotVariantDedupId(
   parentInstanceId: string,

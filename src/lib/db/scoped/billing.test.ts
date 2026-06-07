@@ -130,6 +130,17 @@ describe('deductCredits with an idempotencyKey', () => {
       .where(eq(transactions.teamId, teamId));
     expect(rows).toHaveLength(2);
 
+    // Each ledger row must persist the balance as of ITS charge — a stale
+    // read in the balanceAfter subquery would surface on the second row.
+    const imageRow = rows.find(
+      (r) => r.idempotencyKey === 'wf-instance-1:image'
+    );
+    const motionRow = rows.find(
+      (r) => r.idempotencyKey === 'wf-instance-1:motion'
+    );
+    expect(imageRow?.balanceAfter).toBe(STARTING_BALANCE - charged);
+    expect(motionRow?.balanceAfter).toBe(STARTING_BALANCE - 2 * charged);
+
     const [credit] = await db
       .select({ balance: credits.balance })
       .from(credits)

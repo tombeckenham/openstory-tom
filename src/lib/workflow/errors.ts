@@ -40,7 +40,10 @@ function errorMessage(error: unknown): string {
  * of the public API. See issue #839 (2026-06-06 mass-abort cascade).
  */
 export function isEngineAbortError(error: unknown): boolean {
-  return /aborting engine|grace period/i.test(errorMessage(error));
+  // Matched on the full phrase, not a bare "grace period" token — a true
+  // positive here skips onFailure AND parent notification, so an app error
+  // that merely mentions a grace period must never be classified as one.
+  return /aborting engine|grace period complete/i.test(errorMessage(error));
 }
 
 /**

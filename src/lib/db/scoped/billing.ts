@@ -285,7 +285,9 @@ export function createBillingMethods(
    * transaction INSERT run in one atomic `db.batch`; the UPDATE is guarded on
    * "no transaction with this key exists yet" and the INSERT dedupes via the
    * partial unique index on `(team_id, idempotency_key)`. A replay is a no-op
-   * that returns the original transaction id.
+   * that returns the original transaction id — note that on a replay the
+   * returned `chargedAmount` is what the ORIGINAL attempt charged; nothing
+   * was debited by this call (don't emit "charged $X" side effects from it).
    */
   async function deductCredits(
     rawCostMicros: Microdollars,
@@ -367,6 +369,12 @@ export function createBillingMethods(
       .onConflictDoNothing()
       .returning({ id: transactions.id });
 
+    // Third statement: re-read the balance to return to the caller. Distinct
+    // from the `balanceAfter` ledger column above (that one is persisted into
+    // the transaction row; this one is the authoritative read-back, correct
+    // even on a replay where the UPDATE no-ops) — both rely on running after
+    // `updateBalance` inside the same batch transaction, so don't "optimize"
+    // either away in favor of the other.
     const readBackBalance = db
       .select({ balance: credits.balance })
       .from(credits)

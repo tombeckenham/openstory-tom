@@ -28,7 +28,7 @@ import type { ScopedDb } from '@/lib/db/scoped';
 import { buildCharacterReferenceImages } from '@/lib/prompts/character-prompt';
 import { buildElementReferenceImages } from '@/lib/prompts/element-prompt';
 import { buildLocationReferenceImages } from '@/lib/prompts/location-prompt';
-import { simpleHash } from '@/lib/utils/hash';
+import { shotVariantDedupId } from '@/lib/workflow/dedup-ids';
 import { OpenStoryWorkflowEntrypoint } from '@/lib/workflow/base-workflow';
 import { spawnAndAwaitChild } from '@/lib/workflow/await-child';
 import { triggerWorkflow } from '@/lib/workflow/client';
@@ -313,9 +313,12 @@ export class FrameImagesWorkflow extends OpenStoryWorkflowEntrypoint<FrameImages
                     retryDelay: 'pow(2, retried) * 1000',
                     // Replay-stable: a retry of this step.do must reuse the
                     // existing variant instance instead of spawning a second
-                    // paid job. Discriminators first — buildInstanceId
-                    // truncates the suffix at 100 chars.
-                    deduplicationId: `variant-${matchedFrame?.frameId ?? scene.sceneId}-${model}-${simpleHash(parentInstanceId)}`,
+                    // paid job (see dedup-ids.ts).
+                    deduplicationId: shotVariantDedupId(
+                      parentInstanceId,
+                      matchedFrame?.frameId ?? scene.sceneId,
+                      model
+                    ),
                   }
                 );
               }

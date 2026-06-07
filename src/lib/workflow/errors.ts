@@ -60,8 +60,12 @@ export function isRecipientInFiniteStateError(error: unknown): boolean {
  * already exists`. Match on the message defensively (the thrown value's class
  * isn't part of the public API) so an in-run durable retry — where `create()`
  * succeeded but the step's result wasn't persisted before a crash — is treated
- * as success instead of a hard failure.
+ * as success instead of a hard failure. Anchored on the `instance` token so an
+ * unrelated "already exists" error (user, bucket, table…) from another layer
+ * is never misclassified as a duplicate workflow instance.
  */
 export function isInstanceAlreadyExistsError(error: unknown): boolean {
-  return /already.?exists/i.test(errorMessage(error));
+  return /instance\.already_exists|instance already exists/i.test(
+    errorMessage(error)
+  );
 }

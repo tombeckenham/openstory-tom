@@ -40,7 +40,7 @@ import type { ScopedDb } from '@/lib/db/scoped';
 import { getChatPrompt } from '@/lib/prompts';
 import { buildPreviewPrompt } from '@/lib/prompts/poster-prompt';
 import { getGenerationChannel } from '@/lib/realtime';
-import { simpleHash } from '@/lib/utils/hash';
+import { previewImageDedupId } from '@/lib/workflow/dedup-ids';
 import { OpenStoryWorkflowEntrypoint } from '@/lib/workflow/base-workflow';
 import { triggerWorkflow } from '@/lib/workflow/client';
 import { buildWorkflowLabel } from '@/lib/workflow/labels';
@@ -308,11 +308,7 @@ export class SceneSplitWorkflow extends OpenStoryWorkflowEntrypoint<SceneSplitWo
                   // scene. Routed through `triggerWorkflow` so the engine
                   // registry picks whichever engine is configured for
                   // `/image` at runtime. The deduplicationId makes a replay
-                  // of this mega-step idempotent: frameId is replay-stable
-                  // (frames upsert on (sequenceId, orderIndex)) and the
-                  // instance-id hash scopes per run, so a re-split still
-                  // gets fresh previews while a step retry can't re-spawn
-                  // paid image jobs for already-processed scenes.
+                  // of this mega-step idempotent (see dedup-ids.ts).
                   await triggerWorkflow(
                     '/image',
                     {
@@ -328,7 +324,10 @@ export class SceneSplitWorkflow extends OpenStoryWorkflowEntrypoint<SceneSplitWo
                     } satisfies ImageWorkflowInput,
                     {
                       label: buildWorkflowLabel(sequenceId),
-                      deduplicationId: `preview-${prevFrameId}-${simpleHash(event.instanceId)}`,
+                      deduplicationId: previewImageDedupId(
+                        event.instanceId,
+                        prevFrameId
+                      ),
                     }
                   );
                 }
@@ -365,7 +364,10 @@ export class SceneSplitWorkflow extends OpenStoryWorkflowEntrypoint<SceneSplitWo
             } satisfies ImageWorkflowInput,
             {
               label: buildWorkflowLabel(sequenceId),
-              deduplicationId: `preview-${prevFrameId}-${simpleHash(event.instanceId)}`,
+              deduplicationId: previewImageDedupId(
+                event.instanceId,
+                prevFrameId
+              ),
             }
           );
         }

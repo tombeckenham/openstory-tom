@@ -219,6 +219,73 @@ describe('spawnAndAwaitChild', () => {
       spawnAndAwaitChild(step, { ...baseArgs, binding })
     ).rejects.toThrow('network down');
   });
+
+  /**
+   * Status-fallback harness: `waitForEvent` times out, and the child's
+   * engine-recorded instance status is whatever the test supplies. Regression
+   * for the June 7 burst failure where a finished child's notify didn't land
+   * within the parent's wait window and the parent failed a sequence whose
+   * work was already done.
+   */
+  function timeoutHarness(status: {
+    status: string;
+    output?: unknown;
+    error?: { name: string; message: string };
+  }) {
+    const create = vi.fn(() => Promise.resolve(undefined));
+    const waitForEvent = vi
+      .fn()
+      .mockRejectedValue(
+        new Error('WorkflowTimeoutError: Execution timed out after 1800000ms')
+      );
+    const doSpy = vi.fn((_name: string, fn: () => Promise<unknown>) => fn());
+    const instanceStatus = vi.fn().mockResolvedValue(status);
+    const get = vi.fn(() => Promise.resolve({ status: instanceStatus }));
+    // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion -- minimal WorkflowStep stub exposing only do + waitForEvent
+    const step = { do: doSpy, waitForEvent } as unknown as WorkflowStep;
+    // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion -- minimal Workflow binding stub exposing only create + get
+    const binding = { create, get } as unknown as Workflow<{
+      userId: string;
+      teamId: string;
+    }>;
+    return { step, binding, get };
+  }
+
+  test('recovers a completed child output from instance status when the await times out (lost-notify fallback)', async () => {
+    const { step, binding, get } = timeoutHarness({
+      status: 'complete',
+      output: { frames: 3 },
+    });
+
+    const result = await spawnAndAwaitChild(step, { ...baseArgs, binding });
+
+    expect(result).toEqual({ frames: 3 });
+    // The fallback asks the engine about the same run-scoped instance id.
+    expect(get).toHaveBeenCalledWith(
+      expect.stringMatching(/^motion_01SEQ_01FRAME_r/)
+    );
+  });
+
+  test('surfaces the child error from instance status when the await times out on an errored child', async () => {
+    const { step, binding } = timeoutHarness({
+      status: 'errored',
+      error: { name: 'Error', message: 'fal rejected the job' },
+    });
+
+    await expect(
+      spawnAndAwaitChild(step, { ...baseArgs, binding })
+    ).rejects.toThrow(
+      'Child workflow motion:01SEQ:01FRAME failed: Error: fal rejected the job'
+    );
+  });
+
+  test('rethrows the original timeout when the child is still running', async () => {
+    const { step, binding } = timeoutHarness({ status: 'running' });
+
+    await expect(
+      spawnAndAwaitChild(step, { ...baseArgs, binding })
+    ).rejects.toThrow('Execution timed out after 1800000ms');
+  });
 });
 
 describe('notifyParentOfFailure', () => {
@@ -259,6 +326,44 @@ describe('notifyParentOfFailure', () => {
     await expect(
       notifyParentOfFailure(step, env, HINT, 'edit timeout')
     ).rejects.toThrow('transient blip');
+  });
+});
+
+describe('notifyParent', () => {
+  test('no-ops without a parent hint (top-level workflow)', async () => {
+    const sendEvent = vi.fn();
+    const { env } = fakeEnv(sendEvent);
+    const { step, doSpy } = fakeStep();
+
+    await notifyParent(step, env, undefined, { ok: true });
+
+    expect(doSpy).not.toHaveBeenCalled();
+    expect(sendEvent).not.toHaveBeenCalled();
+  });
+
+  test('sends the ok outcome through a durable step.do', async () => {
+    const sendEvent = vi.fn().mockResolvedValue(undefined);
+    const { env, get } = fakeEnv(sendEvent);
+    const { step, doSpy } = fakeStep();
+
+    await notifyParent(step, env, HINT, { frames: 3 });
+
+    expect(doSpy).toHaveBeenCalledWith('notify-parent', expect.any(Function));
+    expect(get).toHaveBeenCalledWith(HINT.parentInstanceId);
+    expect(sendEvent).toHaveBeenCalledWith({
+      type: HINT.eventType,
+      payload: { status: 'ok', output: { frames: 3 } },
+    });
+  });
+
+  test('propagates other send errors so the engine retries', async () => {
+    const sendEvent = vi.fn().mockRejectedValue(new Error('transient blip'));
+    const { env } = fakeEnv(sendEvent);
+    const { step } = fakeStep();
+
+    await expect(notifyParent(step, env, HINT, { ok: true })).rejects.toThrow(
+      'transient blip'
+    );
   });
 });
 

@@ -350,26 +350,26 @@ export class FrameImagesWorkflow extends OpenStoryWorkflowEntrypoint<FrameImages
       })
     );
 
-    // Collect successes; rejections at the scene level get reported but
-    // don't kill the workflow — same shape as the per-model handling above
-    // so a single scene with no visual prompt (or a deleted frame mid-flight)
-    // can't poison the rest of the batch.
-    const imageUrls: string[] = [];
-    for (let i = 0; i < sceneResults.length; i++) {
-      const r = sceneResults[i];
-      if (!r) continue;
-      if (r.status === 'fulfilled') {
-        imageUrls.push(r.value);
-      } else {
-        const scene = scenesWithVisualPrompts[i];
-        logger.error(
-          `[FrameImagesWorkflow:cf] Scene ${scene?.sceneId ?? '(unknown)'} failed:`,
-          {
-            err: r.reason,
-          }
-        );
-      }
-    }
+    // Collect results ALIGNED to scene order — a rejected scene keeps its
+    // slot as `null` rather than being compacted out. Consumers index
+    // `imageUrls` by scene position (analyze-script phase 5 pairs
+    // `imageUrls[index]` with `completeScenes[index]`), so compaction shifted
+    // every later image onto the wrong scene and made the trailing scene
+    // throw "has no generated image URL" (June 6 sample-run failure).
+    // Rejections get reported but don't kill the workflow, so a single scene
+    // with no visual prompt (or a deleted frame mid-flight) can't poison the
+    // rest of the batch.
+    const imageUrls: (string | null)[] = sceneResults.map((r, i) => {
+      if (r.status === 'fulfilled') return r.value;
+      const scene = scenesWithVisualPrompts[i];
+      logger.error(
+        `[FrameImagesWorkflow:cf] Scene ${scene?.sceneId ?? '(unknown)'} failed: ${String(r.reason)}`,
+        {
+          err: r.reason,
+        }
+      );
+      return null;
+    });
 
     return { imageUrls };
   }

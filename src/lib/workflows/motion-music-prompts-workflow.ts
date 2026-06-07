@@ -115,6 +115,10 @@ export class MotionMusicPromptsWorkflow extends OpenStoryWorkflowEntrypoint<Moti
         },
         spawnStepName: 'spawn-motion-prompts',
         awaitStepName: 'await-motion-prompts',
+        // Must exceed the child's own await budget: motion-prompts awaits
+        // each per-scene grandchild for 30 minutes, plus notify lag under a
+        // burst.
+        timeout: '45 minutes',
       }),
       spawnAndAwaitChild<MusicPromptWorkflowInput, MusicPromptWorkflowResult>(
         step,
@@ -132,6 +136,8 @@ export class MotionMusicPromptsWorkflow extends OpenStoryWorkflowEntrypoint<Moti
           },
           spawnStepName: 'spawn-music-prompt',
           awaitStepName: 'await-music-prompt',
+          // LLM-only child; headroom is for burst notify lag.
+          timeout: '45 minutes',
         }
       ),
     ]);

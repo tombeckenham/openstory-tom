@@ -207,6 +207,10 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
       },
       spawnStepName: 'spawn-scene-split',
       awaitStepName: 'await-scene-split',
+      // LLM-only child, but under a many-sequence burst the engine's notify
+      // delivery alone has been observed to lag >25 minutes — every await in
+      // this workflow carries explicit burst headroom.
+      timeout: '45 minutes',
     });
 
     const {
@@ -239,6 +243,7 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
         },
         spawnStepName: 'spawn-talent-matching',
         awaitStepName: 'await-talent-matching',
+        timeout: '45 minutes',
       }),
       spawnAndAwaitChild<
         LocationMatchingWorkflowInput,
@@ -258,17 +263,18 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
         },
         spawnStepName: 'spawn-location-matching',
         awaitStepName: 'await-location-matching',
+        timeout: '45 minutes',
       }),
     ]);
 
     if (talentSettled.status === 'rejected') {
       throw new Error(
-        `Character sheet generation failed: ${String(talentSettled.reason)}`
+        `Talent matching failed: ${String(talentSettled.reason)}`
       );
     }
     if (locationMatchSettled.status === 'rejected') {
       throw new Error(
-        `Location sheet generation failed: ${String(locationMatchSettled.reason)}`
+        `Location matching failed: ${String(locationMatchSettled.reason)}`
       );
     }
     const { matches: talentCharacterMatches } = talentSettled.value;
@@ -340,6 +346,11 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
             },
             spawnStepName: 'spawn-character-bible',
             awaitStepName: 'await-character-bible',
+            // Must exceed the child's own await budget: the bible awaits each
+            // sheet grandchild for 30 minutes, plus notify lag under a burst
+            // (the June 7 run lost a sequence to the 30-minute default here
+            // when a finished child's notify took >25 minutes to deliver).
+            timeout: '60 minutes',
           }
         ),
         spawnAndAwaitChild<
@@ -356,11 +367,16 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
             teamId: input.teamId,
             locationBible,
             libraryLocationMatches,
+            // Use the sequence's image model for location sheets, mirroring
+            // the character-bible payload above — omitting it silently fell
+            // back to DEFAULT_IMAGE_MODEL for every location reference.
             imageModel,
             styleConfig,
           },
           spawnStepName: 'spawn-location-bible',
           awaitStepName: 'await-location-bible',
+          // See await-character-bible — same grandchild budget + notify lag.
+          timeout: '60 minutes',
         }),
         spawnAndAwaitChild<VisualPromptWorkflowInput, Scene[]>(step, {
           binding: this.env.VISUAL_PROMPT_WORKFLOW,
@@ -382,6 +398,8 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
           },
           spawnStepName: 'spawn-visual-prompts',
           awaitStepName: 'await-visual-prompts',
+          // See await-character-bible — same grandchild budget + notify lag.
+          timeout: '60 minutes',
         }),
         runElementSheets(),
       ]);
@@ -488,6 +506,9 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
           childPayload: frameImagesPayload,
           spawnStepName: 'spawn-frame-images',
           awaitStepName: 'await-frame-images',
+          // Must exceed the child's own budget — under a many-sequence burst
+          // the image queue alone can outlast the 30-minute default.
+          timeout: '90 minutes',
         }
       ),
       spawnAndAwaitChild<
@@ -515,6 +536,9 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
         },
         spawnStepName: 'spawn-motion-music-prompts',
         awaitStepName: 'await-motion-music-prompts',
+        // Must exceed the child's own await budget: motion-prompt scene
+        // children get 30 minutes each, plus notify lag under a burst.
+        timeout: '60 minutes',
       }),
     ]);
 
@@ -546,7 +570,9 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
     // PHASE 5: motion (+ optional music + merge) batch — single child
     // ----------------------------------------------------------------------
     const shouldGenerateMotion =
-      autoGenerateMotion && primaryVideoModel && imageUrls.length > 0;
+      autoGenerateMotion &&
+      primaryVideoModel &&
+      imageUrls.some((url) => url !== null);
     const shouldGenerateMusic = Boolean(
       autoGenerateMusic &&
       sequenceId &&
@@ -561,7 +587,7 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
         totalDuration += scene.metadata?.durationSeconds || 5;
       }
 
-      const batchFrames = completeScenes.map((scene, index) => {
+      const batchFrames = completeScenes.flatMap((scene, index) => {
         const motionPromptData = scene.prompts?.motion;
         if (!motionPromptData?.fullPrompt) {
           throw new WorkflowValidationError(
@@ -569,11 +595,16 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
           );
         }
 
+        // `imageUrls` is aligned to scene order; a null slot means that
+        // scene's image generation failed (the frame is already marked
+        // failed by the image workflow). Skip its motion rather than failing
+        // the whole sequence — the remaining frames' clips still render.
         const imageUrl = imageUrls[index];
         if (!imageUrl) {
-          throw new WorkflowValidationError(
-            `Scene ${scene.sceneId} has no generated image URL at index ${index}`
+          logger.warn(
+            `[AnalyzeScriptWorkflow:cf] Scene ${scene.sceneId} has no generated image (index ${index}); skipping its motion`
           );
+          return [];
         }
 
         const matchedFrame = frameMapping.find(
@@ -629,6 +660,10 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
         },
         spawnStepName: 'spawn-motion-batch',
         awaitStepName: 'await-motion-batch',
+        // Must exceed the child's own await budget: motion-batch waits up to
+        // 45 minutes per motion/music grandchild (in parallel) plus queue
+        // backlog under a many-sequence burst.
+        timeout: '90 minutes',
       });
     }
 

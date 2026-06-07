@@ -868,7 +868,14 @@ export interface FrameImagesWorkflowInput extends SequenceWorkflowContext {
 }
 
 export interface FrameImagesWorkflowResult {
-  imageUrls: string[];
+  /**
+   * Primary image URL per scene, ALIGNED to the input
+   * `scenesWithVisualPrompts` order — a failed scene keeps its slot as
+   * `null`. Consumers index this by scene position (analyze-script phase 5),
+   * so compacting failures out would silently pair the wrong image with the
+   * wrong scene.
+   */
+  imageUrls: (string | null)[];
 }
 
 /**

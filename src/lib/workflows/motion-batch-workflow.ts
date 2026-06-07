@@ -119,7 +119,10 @@ export class MotionBatchWorkflow extends OpenStoryWorkflowEntrypoint<BatchMotion
           childPayload: motionBody,
           spawnStepName: `spawn-motion-${frameIndex}-${model}`,
           awaitStepName: `await-motion-${frameIndex}-${model}`,
-          timeout: '30 minutes',
+          // Must exceed the child's own budget: motion polls fal for up to
+          // 30 minutes (MAX_BATCHES in motion-workflow.ts) plus submit/
+          // compress/persist steps and notify lag under a burst.
+          timeout: '45 minutes',
         }
       );
     });
@@ -165,7 +168,9 @@ export class MotionBatchWorkflow extends OpenStoryWorkflowEntrypoint<BatchMotion
         },
         spawnStepName: `spawn-music-${index}-${model}`,
         awaitStepName: `await-music-${index}-${model}`,
-        timeout: '30 minutes',
+        // Same budget as the motion children — queue backlog under a burst
+        // applies to audio generation too.
+        timeout: '45 minutes',
       });
     });
 
@@ -183,8 +188,11 @@ export class MotionBatchWorkflow extends OpenStoryWorkflowEntrypoint<BatchMotion
       const r = motionResults[i];
       if (r?.status === 'rejected') {
         const job = motionJobs[i];
+        // Include the reason in the message itself — structured `err` fields
+        // don't reliably survive into the log body (the June 7 run produced
+        // bare "Motion failed for frame …:" lines with no cause attached).
         logger.warn(
-          `[MotionBatchWorkflow:cf] Motion failed for frame ${job?.frame.frameId ?? '(unknown)'} model ${job?.model ?? '(unknown)'}:`,
+          `[MotionBatchWorkflow:cf] Motion failed for frame ${job?.frame.frameId ?? '(unknown)'} model ${job?.model ?? '(unknown)'}: ${String(r.reason)}`,
           {
             err: r.reason,
           }
@@ -196,7 +204,7 @@ export class MotionBatchWorkflow extends OpenStoryWorkflowEntrypoint<BatchMotion
         const m = musicResults[i];
         if (m?.status === 'rejected') {
           logger.warn(
-            `[MotionBatchWorkflow:cf] Music generation failed for sequence ${sequenceId} model ${musicJobs[i]?.model ?? '(unknown)'}:`,
+            `[MotionBatchWorkflow:cf] Music generation failed for sequence ${sequenceId} model ${musicJobs[i]?.model ?? '(unknown)'}: ${String(m.reason)}`,
             {
               err: m.reason,
             }

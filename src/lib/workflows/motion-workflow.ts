@@ -49,8 +49,14 @@ const logger = getLogger(['openstory', 'workflow', 'motion']);
 /** Each batch polls in a tight loop for ~30s, then checkpoints for durability */
 const POLL_BATCH_DURATION_MS = 30_000;
 const POLL_INTERVAL_MS = 3_000;
-/** 30 batches × 30s = 15 minutes total timeout */
-const MAX_BATCHES = 30;
+/**
+ * 60 batches × 30s = 30 minutes of polling. Under a many-sequence burst the
+ * fal queue alone can hold a job past 15 minutes (the June 7 sample run lost
+ * 13 frames to the old 30-batch budget while ~95% of jobs completed fine), so
+ * the budget must absorb provider-side queueing — motion-batch's per-child
+ * await (45 minutes) stays comfortably above it.
+ */
+const MAX_BATCHES = 60;
 /** Kling rejects start frame images over 10MB — use 9.5MB safety margin */
 const KLING_MAX_IMAGE_BYTES = 9.5 * 1024 * 1024;
 
@@ -386,7 +392,9 @@ export class MotionWorkflow extends OpenStoryWorkflowEntrypoint<MotionWorkflowIn
     }
 
     if (!videoUrl) {
-      throw new Error('Motion generation timed out after 15 minutes');
+      throw new Error(
+        `Motion generation timed out after ${(MAX_BATCHES * POLL_BATCH_DURATION_MS) / 60_000} minutes`
+      );
     }
 
     await step.do('record-motion-observation', async () => {

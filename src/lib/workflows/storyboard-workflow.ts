@@ -186,12 +186,15 @@ export class StoryboardWorkflow extends OpenStoryWorkflowEntrypoint<StoryboardWo
       },
       spawnStepName: 'spawn-analyze-script',
       awaitStepName: 'await-analyze-script',
-      // analyze-script is the entire pipeline (scene-split → matching →
-      // bibles → frame images → motion). Under concurrent load (issue #839:
-      // ~50 parallel generations contending for fal/LLM concurrency) 30
-      // minutes is routinely exceeded and a timeout here strands the
-      // sequence. 2 hours comfortably bounds the slowest legitimate run.
-      timeout: '2 hours',
+      // Must exceed the child's own await budget: analyze-script's phases run
+      // sequentially — scene-split (45m) + matching (45m) + bibles/visual
+      // prompts (60m) + frame-images (90m) + motion-batch (90m) ≈ 5.5 hours
+      // worst case — a shorter parent wait here times out first and leaves
+      // the still-running child notifying a terminal parent
+      // (`instance.in_finite_state`, the #801/#839 burst failures).
+      // Completion notifies early, so this ceiling costs nothing in the
+      // common case.
+      timeout: '6 hours',
     });
 
     await step.do('mark-completed', async () => {

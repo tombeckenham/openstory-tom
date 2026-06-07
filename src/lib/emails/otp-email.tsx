@@ -12,11 +12,16 @@ import {
 
 interface OtpEmailProps {
   appName: string;
+  appUrl: string;
   otp: string;
 }
 
-export const OtpEmail: React.FC<OtpEmailProps> = ({ appName, otp }) => (
-  <EmailLayout appName={appName} preview={`Your sign-in code is ${otp}`}>
+export const OtpEmail: React.FC<OtpEmailProps> = ({ appName, appUrl, otp }) => (
+  <EmailLayout
+    appName={appName}
+    appUrl={appUrl}
+    preview={`Your sign-in code is ${otp}`}
+  >
     <Section>
       <Heading as="h2" className={headingClass}>
         Your Sign-In Code

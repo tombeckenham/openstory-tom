@@ -104,6 +104,12 @@ export async function sendOtpEmail(
   return sendEmail({
     to: email,
     subject: 'Your sign-in code',
-    body: <OtpEmail appName={getAppName()} otp={otp} />,
+    body: (
+      <OtpEmail
+        appName={getAppName()}
+        appUrl={getEnv().VITE_APP_URL || ''}
+        otp={otp}
+      />
+    ),
   });
 }

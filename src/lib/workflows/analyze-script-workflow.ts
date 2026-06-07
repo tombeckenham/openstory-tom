@@ -186,22 +186,11 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
       consistencyTag: el.consistencyTag,
     }));
 
-    const sceneSplitBinding = this.env.SCENE_SPLIT_WORKFLOW;
-    if (!sceneSplitBinding) {
-      throw new NonRetryableError(
-        '[AnalyzeScriptWorkflow:cf] SCENE_SPLIT_WORKFLOW binding missing on env; check wrangler.jsonc',
-        'WorkflowValidationError'
-      );
-    }
     const sceneSplitResult = await spawnAndAwaitChild<
       SceneSplitWorkflowInput,
       SceneSplitWorkflowResult
     >(step, {
-      binding: sceneSplitBinding as Workflow<
-        SceneSplitWorkflowInput & {
-          _parent: import('@/lib/workflow/await-child').ParentNotifyHint;
-        }
-      >,
+      binding: this.env.SCENE_SPLIT_WORKFLOW,
       parentBindingName: 'ANALYZE_SCRIPT_WORKFLOW',
       parentInstanceId: event.instanceId,
       childId: `scene-split:${sequenceId ?? 'no-seq'}`,
@@ -231,31 +220,12 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
     // ----------------------------------------------------------------------
     // PHASE 2: talent + location matching in parallel
     // ----------------------------------------------------------------------
-    const talentBinding = this.env.TALENT_MATCHING_WORKFLOW;
-    if (!talentBinding) {
-      throw new NonRetryableError(
-        '[AnalyzeScriptWorkflow:cf] TALENT_MATCHING_WORKFLOW binding missing on env; check wrangler.jsonc',
-        'WorkflowValidationError'
-      );
-    }
-    const locationMatchingBinding = this.env.LOCATION_MATCHING_WORKFLOW;
-    if (!locationMatchingBinding) {
-      throw new NonRetryableError(
-        '[AnalyzeScriptWorkflow:cf] LOCATION_MATCHING_WORKFLOW binding missing on env; check wrangler.jsonc',
-        'WorkflowValidationError'
-      );
-    }
-
     const [talentSettled, locationMatchSettled] = await Promise.allSettled([
       spawnAndAwaitChild<
         TalentMatchingWorkflowInput,
         TalentMatchingWorkflowOutput
       >(step, {
-        binding: talentBinding as Workflow<
-          TalentMatchingWorkflowInput & {
-            _parent: import('@/lib/workflow/await-child').ParentNotifyHint;
-          }
-        >,
+        binding: this.env.TALENT_MATCHING_WORKFLOW,
         parentBindingName: PARENT_BINDING_NAME,
         parentInstanceId,
         childId: `talent-matching:${sequenceId ?? 'no-seq'}`,
@@ -274,11 +244,7 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
         LocationMatchingWorkflowInput,
         LocationMatchingWorkflowOutput
       >(step, {
-        binding: locationMatchingBinding as Workflow<
-          LocationMatchingWorkflowInput & {
-            _parent: import('@/lib/workflow/await-child').ParentNotifyHint;
-          }
-        >,
+        binding: this.env.LOCATION_MATCHING_WORKFLOW,
         parentBindingName: PARENT_BINDING_NAME,
         parentInstanceId,
         childId: `location-matching:${sequenceId ?? 'no-seq'}`,
@@ -318,28 +284,6 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
       });
     });
 
-    const characterBibleBinding = this.env.CHARACTER_BIBLE_WORKFLOW;
-    if (!characterBibleBinding) {
-      throw new NonRetryableError(
-        '[AnalyzeScriptWorkflow:cf] CHARACTER_BIBLE_WORKFLOW binding missing on env; check wrangler.jsonc',
-        'WorkflowValidationError'
-      );
-    }
-    const locationBibleBinding = this.env.LOCATION_BIBLE_WORKFLOW;
-    if (!locationBibleBinding) {
-      throw new NonRetryableError(
-        '[AnalyzeScriptWorkflow:cf] LOCATION_BIBLE_WORKFLOW binding missing on env; check wrangler.jsonc',
-        'WorkflowValidationError'
-      );
-    }
-    const visualPromptBinding = this.env.VISUAL_PROMPT_WORKFLOW;
-    if (!visualPromptBinding) {
-      throw new NonRetryableError(
-        '[AnalyzeScriptWorkflow:cf] VISUAL_PROMPT_WORKFLOW binding missing on env; check wrangler.jsonc',
-        'WorkflowValidationError'
-      );
-    }
-
     // #835: element-bible entries the scene-split LLM detected (recurring
     // products/objects) that have no uploaded element row need an
     // auto-generated reference image, mirroring the character-sheet
@@ -350,30 +294,15 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
     const missingElementEntries = sequenceId
       ? findMissingElementEntries(elementBible, elementsMinimal)
       : [];
-    const elementSheetBinding = this.env.ELEMENT_SHEET_WORKFLOW;
-    if (missingElementEntries.length > 0 && !elementSheetBinding) {
-      throw new NonRetryableError(
-        '[AnalyzeScriptWorkflow:cf] ELEMENT_SHEET_WORKFLOW binding missing on env; check wrangler.jsonc',
-        'WorkflowValidationError'
-      );
-    }
     const runElementSheets = async (): Promise<SequenceElementMinimal[]> => {
-      if (
-        !sequenceId ||
-        missingElementEntries.length === 0 ||
-        !elementSheetBinding
-      ) {
+      if (!sequenceId || missingElementEntries.length === 0) {
         return [];
       }
       const result = await spawnAndAwaitChild<
         ElementSheetWorkflowInput,
         ElementSheetWorkflowResult
       >(step, {
-        binding: elementSheetBinding as Workflow<
-          ElementSheetWorkflowInput & {
-            _parent: import('@/lib/workflow/await-child').ParentNotifyHint;
-          }
-        >,
+        binding: this.env.ELEMENT_SHEET_WORKFLOW,
         parentBindingName: PARENT_BINDING_NAME,
         parentInstanceId,
         childId: `element-sheets:${sequenceId}`,
@@ -396,11 +325,7 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
         spawnAndAwaitChild<CharacterBibleWorkflowInput, CharacterMinimal[]>(
           step,
           {
-            binding: characterBibleBinding as Workflow<
-              CharacterBibleWorkflowInput & {
-                _parent: import('@/lib/workflow/await-child').ParentNotifyHint;
-              }
-            >,
+            binding: this.env.CHARACTER_BIBLE_WORKFLOW,
             parentBindingName: PARENT_BINDING_NAME,
             parentInstanceId,
             childId: `character-bible:${sequenceId ?? 'no-seq'}`,
@@ -421,11 +346,7 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
           LocationBibleWorkflowInput,
           SequenceLocationMinimal[]
         >(step, {
-          binding: locationBibleBinding as Workflow<
-            LocationBibleWorkflowInput & {
-              _parent: import('@/lib/workflow/await-child').ParentNotifyHint;
-            }
-          >,
+          binding: this.env.LOCATION_BIBLE_WORKFLOW,
           parentBindingName: PARENT_BINDING_NAME,
           parentInstanceId,
           childId: `location-bible:${sequenceId ?? 'no-seq'}`,
@@ -442,11 +363,7 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
           awaitStepName: 'await-location-bible',
         }),
         spawnAndAwaitChild<VisualPromptWorkflowInput, Scene[]>(step, {
-          binding: visualPromptBinding as Workflow<
-            VisualPromptWorkflowInput & {
-              _parent: import('@/lib/workflow/await-child').ParentNotifyHint;
-            }
-          >,
+          binding: this.env.VISUAL_PROMPT_WORKFLOW,
           parentBindingName: PARENT_BINDING_NAME,
           parentInstanceId,
           childId: `visual-prompts:${sequenceId ?? 'no-seq'}`,
@@ -560,30 +477,11 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
       sceneSnapshots,
     });
 
-    const frameImagesBinding = this.env.FRAME_IMAGES_WORKFLOW;
-    if (!frameImagesBinding) {
-      throw new NonRetryableError(
-        '[AnalyzeScriptWorkflow:cf] FRAME_IMAGES_WORKFLOW binding missing on env; check wrangler.jsonc',
-        'WorkflowValidationError'
-      );
-    }
-    const motionMusicBinding = this.env.MOTION_MUSIC_PROMPTS_WORKFLOW;
-    if (!motionMusicBinding) {
-      throw new NonRetryableError(
-        '[AnalyzeScriptWorkflow:cf] MOTION_MUSIC_PROMPTS_WORKFLOW binding missing on env; check wrangler.jsonc',
-        'WorkflowValidationError'
-      );
-    }
-
     const [frameImagesSettled, motionMusicSettled] = await Promise.allSettled([
       spawnAndAwaitChild<FrameImagesWorkflowInput, FrameImagesWorkflowResult>(
         step,
         {
-          binding: frameImagesBinding as Workflow<
-            FrameImagesWorkflowInput & {
-              _parent: import('@/lib/workflow/await-child').ParentNotifyHint;
-            }
-          >,
+          binding: this.env.FRAME_IMAGES_WORKFLOW,
           parentBindingName: PARENT_BINDING_NAME,
           parentInstanceId,
           childId: `frame-images:${sequenceId ?? 'no-seq'}`,
@@ -596,11 +494,7 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
         MotionMusicPromptsWorkflowInput,
         MotionMusicPromptsWorkflowResult
       >(step, {
-        binding: motionMusicBinding as Workflow<
-          MotionMusicPromptsWorkflowInput & {
-            _parent: import('@/lib/workflow/await-child').ParentNotifyHint;
-          }
-        >,
+        binding: this.env.MOTION_MUSIC_PROMPTS_WORKFLOW,
         parentBindingName: PARENT_BINDING_NAME,
         parentInstanceId,
         childId: `motion-music-prompts:${sequenceId ?? 'no-seq'}`,
@@ -711,19 +605,8 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
         });
       });
 
-      const motionBatchBinding = this.env.MOTION_BATCH_WORKFLOW;
-      if (!motionBatchBinding) {
-        throw new NonRetryableError(
-          '[AnalyzeScriptWorkflow:cf] MOTION_BATCH_WORKFLOW binding missing on env; check wrangler.jsonc',
-          'WorkflowValidationError'
-        );
-      }
       await spawnAndAwaitChild<BatchMotionMusicWorkflowInput, unknown>(step, {
-        binding: motionBatchBinding as Workflow<
-          BatchMotionMusicWorkflowInput & {
-            _parent: import('@/lib/workflow/await-child').ParentNotifyHint;
-          }
-        >,
+        binding: this.env.MOTION_BATCH_WORKFLOW,
         parentBindingName: 'ANALYZE_SCRIPT_WORKFLOW',
         parentInstanceId: event.instanceId,
         childId: `motion-batch:${sequenceId ?? 'no-seq'}`,

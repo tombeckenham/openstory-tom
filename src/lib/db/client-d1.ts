@@ -24,6 +24,7 @@ export const getDb = (): Database => {
   if (_db) return _db;
 
   const d1 = getEnv().DB;
+  // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- generated Env types DB as always-present; guard against wrangler.jsonc drift
   if (!d1) {
     throw new Error(
       'D1 database binding "DB" not found. Ensure d1_databases is configured in wrangler.jsonc'

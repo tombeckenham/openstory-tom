@@ -21,6 +21,7 @@ function getR2Bucket(): R2Bucket {
   // time (because tsgo doesn't apply the `workerd` import condition), which
   // would type bindings as `string`.
   const bucket = workerEnv.R2_STORAGE_BUCKET;
+  // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- generated Env types the bucket as always-present; guard against wrangler.jsonc drift
   if (!bucket) {
     throw new Error(
       'R2 binding "R2_STORAGE_BUCKET" not found. Ensure r2_buckets is configured in wrangler.jsonc'

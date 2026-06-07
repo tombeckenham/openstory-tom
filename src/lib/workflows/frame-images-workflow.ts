@@ -185,15 +185,7 @@ export class FrameImagesWorkflow extends OpenStoryWorkflowEntrypoint<FrameImages
       }
     );
 
-    // Resolve the child IMAGE_WORKFLOW binding once. Missing binding is a
-    // deployment misconfiguration — fail fast with a non-retryable throw so
-    // the dispatcher routes future runs through QStash instead of churning.
     const imageBinding = this.env.IMAGE_WORKFLOW;
-    if (!imageBinding) {
-      throw new WorkflowValidationError(
-        '[FrameImagesWorkflow:cf] IMAGE_WORKFLOW binding missing on env — check wrangler.jsonc and run `bun cf:typegen`'
-      );
-    }
 
     // Fan out one IMAGE_WORKFLOW child per (scene, model). `Promise.allSettled`
     // so a single image timeout / failure doesn't poison the rest of the

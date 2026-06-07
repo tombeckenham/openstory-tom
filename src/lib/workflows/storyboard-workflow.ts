@@ -159,25 +159,9 @@ export class StoryboardWorkflow extends OpenStoryWorkflowEntrypoint<StoryboardWo
       }
     });
 
-    // Resolve the analyze-script child binding. NOTE: the parallel-agent
-    // CF port of analyze-script may not have landed yet — cast to the typed
-    // binding so this file typechecks regardless. The runtime check below
-    // hard-fails if the binding really is missing when the workflow is
-    // canaried to CF.
-    const childBinding = this.env.ANALYZE_SCRIPT_WORKFLOW;
-    if (!childBinding) {
-      throw new NonRetryableError(
-        '[StoryboardWorkflow:cf] ANALYZE_SCRIPT_WORKFLOW binding missing on env; ' +
-          'check wrangler.jsonc and ensure bun cf:typegen has been run'
-      );
-    }
-    // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion -- the registered binding's runtime payload shape is enforced by the child's typed entrypoint
-    const analyzeScriptBinding =
-      childBinding as Workflow<AnalyzeScriptWorkflowInput>;
-
     // Spawn the analyze-script child and block until it returns. Pattern 3.
     await spawnAndAwaitChild<AnalyzeScriptWorkflowInput, unknown>(step, {
-      binding: analyzeScriptBinding,
+      binding: this.env.ANALYZE_SCRIPT_WORKFLOW,
       parentBindingName: 'STORYBOARD_WORKFLOW',
       parentInstanceId: event.instanceId,
       childId: `analyze-script:${sequenceId}`,

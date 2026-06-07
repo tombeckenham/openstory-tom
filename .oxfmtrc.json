@@ -13,6 +13,7 @@
     "bun.lockb",
     "gen.types.ts",
     "routeTree.gen.ts",
+    "worker-configuration.d.ts",
     ".vscode/settings.json"
   ]
 }

@@ -28,7 +28,6 @@ import { getGenerationChannel } from '@/lib/realtime';
 import { spawnAndAwaitChild } from '@/lib/workflow/await-child';
 import { OpenStoryWorkflowEntrypoint } from '@/lib/workflow/base-workflow';
 import type { CloudflareEnv } from '@/lib/workflow/types';
-import { WorkflowValidationError } from '@/lib/workflow/errors';
 import type {
   LocationSheetWorkflowInput,
   LocationSheetWorkflowResult,
@@ -133,19 +132,8 @@ async function regenerateFramesIfNeeded(
     }
   );
 
-  const regenerateBinding = env.REGENERATE_FRAMES_WORKFLOW;
-  if (!regenerateBinding) {
-    throw new NonRetryableError(
-      '[RecastLocationWorkflow:cf] REGENERATE_FRAMES_WORKFLOW binding missing on env',
-      'WorkflowValidationError'
-    );
-  }
   await spawnAndAwaitChild<RegenerateFramesWorkflowInput, unknown>(step, {
-    binding: regenerateBinding as Workflow<
-      RegenerateFramesWorkflowInput & {
-        _parent: import('@/lib/workflow/await-child').ParentNotifyHint;
-      }
-    >,
+    binding: env.REGENERATE_FRAMES_WORKFLOW,
     parentBindingName: 'RECAST_LOCATION_WORKFLOW',
     parentInstanceId,
     childId: `regenerate-frames:location:${input.locationDbId}`,
@@ -203,22 +191,11 @@ export class RecastLocationWorkflow extends OpenStoryWorkflowEntrypoint<RecastLo
       }
     );
 
-    const locationSheetBinding = this.env.LOCATION_SHEET_WORKFLOW;
-    if (!locationSheetBinding) {
-      throw new WorkflowValidationError(
-        '[RecastLocationWorkflow:cf] LOCATION_SHEET_WORKFLOW binding missing on env; check wrangler.jsonc'
-      );
-    }
-
     const sheetResult = await spawnAndAwaitChild<
       LocationSheetWorkflowInput,
       LocationSheetWorkflowResult
     >(step, {
-      binding: locationSheetBinding as Workflow<
-        LocationSheetWorkflowInput & {
-          _parent: import('@/lib/workflow/await-child').ParentNotifyHint;
-        }
-      >,
+      binding: this.env.LOCATION_SHEET_WORKFLOW,
       parentBindingName: 'RECAST_LOCATION_WORKFLOW',
       parentInstanceId: event.instanceId,
       childId: `location-sheet:${input.sequenceId ?? 'no-seq'}:${input.locationDbId}`,

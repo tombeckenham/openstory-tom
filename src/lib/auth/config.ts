@@ -1,6 +1,6 @@
 /**
  * BetterAuth configuration for OpenStory
- * Replaces Supabase Auth with anonymous users and email/password login
+ * Anonymous users + email OTP, passkeys, and Google social login (no passwords)
  */
 
 import { generateId } from '@/lib/db/id';

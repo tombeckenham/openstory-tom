@@ -79,11 +79,6 @@ export class MotionPromptWorkflow extends OpenStoryWorkflowEntrypoint<MotionProm
     }
 
     const childBinding = this.env.MOTION_PROMPT_SCENE_WORKFLOW;
-    if (!childBinding) {
-      throw new WorkflowValidationError(
-        '[MotionPromptWorkflow:cf] MOTION_PROMPT_SCENE_WORKFLOW binding is missing on env; check wrangler.jsonc'
-      );
-    }
 
     // ============================================================
     // PHASE 3: Motion Prompt Generation — fan out per scene

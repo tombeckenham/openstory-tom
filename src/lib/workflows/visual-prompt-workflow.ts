@@ -71,20 +71,7 @@ export class VisualPromptWorkflow extends OpenStoryWorkflowEntrypoint<VisualProm
       return [];
     }
 
-    // Resolve the child binding once. Cast to the typed child binding so
-    // `spawnAndAwaitChild`'s generic param infers correctly. The base-class
-    // payload validation guarantees the binding is present at runtime when
-    // the workflow is canaried.
-    const childBinding = this.env.VISUAL_PROMPT_SCENE_WORKFLOW;
-    if (!childBinding) {
-      throw new NonRetryableError(
-        '[VisualPromptWorkflow:cf] VISUAL_PROMPT_SCENE_WORKFLOW binding missing on env; ' +
-          'check wrangler.jsonc and ensure bun cf:typegen has been run'
-      );
-    }
-    // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion -- the registered binding's runtime payload shape is enforced by the child's typed entrypoint
-    const visualPromptSceneBinding =
-      childBinding as Workflow<VisualPromptSceneWorkflowInput>;
+    const visualPromptSceneBinding = this.env.VISUAL_PROMPT_SCENE_WORKFLOW;
 
     // ============================================================
     // PHASE 3: Visual Prompt Generation — fan out one

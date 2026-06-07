@@ -70,22 +70,6 @@ export class MotionBatchWorkflow extends OpenStoryWorkflowEntrypoint<BatchMotion
       );
     }
 
-    // Resolve required child bindings up front. Missing bindings are a
-    // deployment misconfiguration — fail fast with a non-retryable throw so
-    // the dispatcher routes future runs through QStash instead of churning.
-    const motionBinding = this.env.MOTION_WORKFLOW;
-    if (!motionBinding) {
-      throw new WorkflowValidationError(
-        '[MotionBatchWorkflow:cf] MOTION_WORKFLOW binding missing on env — check wrangler.jsonc and run `bun cf:typegen`'
-      );
-    }
-    const musicBinding = this.env.MUSIC_WORKFLOW;
-    if (includeMusic && !musicBinding) {
-      throw new WorkflowValidationError(
-        '[MotionBatchWorkflow:cf] MUSIC_WORKFLOW binding missing on env (includeMusic=true) — check wrangler.jsonc and run `bun cf:typegen`'
-      );
-    }
-
     // Step 1: Fan out motion workflows + optional music workflow in parallel.
     // Multi-model video (#545): one MOTION_WORKFLOW child per (frame, model)
     // — the motion analog of frame-images' per-(scene, model) fan-out (see
@@ -126,7 +110,7 @@ export class MotionBatchWorkflow extends OpenStoryWorkflowEntrypoint<BatchMotion
       return spawnAndAwaitChild<MotionWorkflowInput, MotionWorkflowResult>(
         step,
         {
-          binding: motionBinding,
+          binding: this.env.MOTION_WORKFLOW,
           parentBindingName: 'MOTION_BATCH_WORKFLOW',
           parentInstanceId,
           // The model token keeps sibling-model children from colliding on the
@@ -152,18 +136,18 @@ export class MotionBatchWorkflow extends OpenStoryWorkflowEntrypoint<BatchMotion
         : [];
 
     const musicJobs =
-      includeMusic && input.music && musicBinding
+      includeMusic && input.music
         ? audioModels.map((model) => ({ model }))
         : [];
 
     const musicAwaits = musicJobs.map(({ model }, index) => {
       // input.music is narrowed truthy by musicJobs construction above.
       const music = input.music;
-      if (!music || !musicBinding) {
+      if (!music) {
         throw new WorkflowValidationError('music config missing for batch');
       }
       return spawnAndAwaitChild<MusicWorkflowInput, MusicWorkflowResult>(step, {
-        binding: musicBinding,
+        binding: this.env.MUSIC_WORKFLOW,
         parentBindingName: 'MOTION_BATCH_WORKFLOW',
         parentInstanceId,
         childId: `music:${sequenceId}:${model}`,

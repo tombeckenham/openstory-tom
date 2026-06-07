@@ -351,17 +351,7 @@ export class ReplaceElementWorkflow extends OpenStoryWorkflowEntrypoint<ReplaceE
       previousDescription: input.previousDescription,
     });
 
-    // Resolve the image child binding once. Cast to the typed child binding
-    // so `spawnAndAwaitChild`'s generic param infers correctly.
-    const imageChildBinding = this.env.IMAGE_WORKFLOW;
-    if (!imageChildBinding) {
-      throw new NonRetryableError(
-        '[ReplaceElementWorkflow:cf] IMAGE_WORKFLOW binding missing on env; ' +
-          'check wrangler.jsonc and ensure bun cf:typegen has been run'
-      );
-    }
-    // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion -- the registered binding's runtime payload shape is enforced by the child's typed entrypoint
-    const imageBinding = imageChildBinding as Workflow<ImageWorkflowInput>;
+    const imageBinding = this.env.IMAGE_WORKFLOW;
 
     // Parallel fan-out — per-child retries handle backpressure.
     // `allSettled` so a per-frame throw (e.g. timed-out child) doesn't abort
@@ -501,15 +491,7 @@ export class ReplaceElementWorkflow extends OpenStoryWorkflowEntrypoint<ReplaceE
         `[ReplaceElementWorkflow:cf] Regenerating video for ${framesNeedingVideoRegen.length} frame(s) tied to element ${token}`
       );
 
-      const motionChildBinding = this.env.MOTION_WORKFLOW;
-      if (!motionChildBinding) {
-        throw new NonRetryableError(
-          '[ReplaceElementWorkflow:cf] MOTION_WORKFLOW binding missing on env; ' +
-            'check wrangler.jsonc and ensure bun cf:typegen has been run'
-        );
-      }
-      // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion -- the registered binding's runtime payload shape is enforced by the child's typed entrypoint
-      const motionBinding = motionChildBinding as Workflow<MotionWorkflowInput>;
+      const motionBinding = this.env.MOTION_WORKFLOW;
 
       const motionSpawnPromises = framesNeedingVideoRegen.map(
         async (frame, index) => {

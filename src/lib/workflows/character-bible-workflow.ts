@@ -31,24 +31,11 @@ import type {
   TalentCharacterMatch,
 } from '@/lib/workflow/types';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
-import { NonRetryableError } from 'cloudflare:workflows';
 import { getLogger } from '@/lib/observability/logger';
 
 const logger = getLogger(['openstory', 'workflow', 'character-bible']);
 
-// NOTE: `CHARACTER_BIBLE_WORKFLOW` is not yet declared on `CloudflareEnv` —
-// the parent binding gets wired into `src/lib/workflow/types.ts` and
-// `wrangler.jsonc` as part of the follow-on infra PR. Until then, the
-// `parentBindingName` below is a string cast; the runtime lookup in
-// `notifyParent` / `notifyParentOfFailure` would only fire if this workflow
-// itself were spawned as a child (it's a top-level orchestrator today, so
-// `_parent` is always undefined and the cast is dormant).
-// TODO(#728-wire-up): drop the cast once types.ts knows about
-// CHARACTER_BIBLE_WORKFLOW.
-// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion -- binding name not yet declared on CloudflareEnv; see TODO above
-const PARENT_BINDING_NAME = 'CHARACTER_BIBLE_WORKFLOW' as unknown as Parameters<
-  typeof spawnAndAwaitChild
->[1]['parentBindingName'];
+const PARENT_BINDING_NAME = 'CHARACTER_BIBLE_WORKFLOW';
 
 export class CharacterBibleWorkflow extends OpenStoryWorkflowEntrypoint<CharacterBibleWorkflowInput> {
   protected override async runImpl(
@@ -121,20 +108,7 @@ export class CharacterBibleWorkflow extends OpenStoryWorkflowEntrypoint<Characte
       createdCharacters.map((c) => [c.characterId, c.id])
     );
 
-    // Resolve the child binding once. Cast to the typed child binding so
-    // `spawnAndAwaitChild`'s generic param infers correctly. The base-class
-    // payload validation guarantees the binding is present at runtime when
-    // the workflow is canaried.
-    const childBinding = this.env.CHARACTER_SHEET_WORKFLOW;
-    if (!childBinding) {
-      throw new NonRetryableError(
-        '[CharacterBibleWorkflow:cf] CHARACTER_SHEET_WORKFLOW binding missing on env; ' +
-          'check wrangler.jsonc and ensure bun cf:typegen has been run'
-      );
-    }
-    // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion -- the registered binding's runtime payload shape is enforced by the child's typed entrypoint
-    const characterSheetBinding =
-      childBinding as Workflow<CharacterSheetWorkflowInput>;
+    const characterSheetBinding = this.env.CHARACTER_SHEET_WORKFLOW;
 
     const imageModel = input.imageModel ?? DEFAULT_IMAGE_MODEL;
 

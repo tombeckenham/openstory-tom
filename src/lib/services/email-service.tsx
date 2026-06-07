@@ -19,6 +19,7 @@ function getSendEmailBinding(): SendEmail {
   // time (because tsgo doesn't apply the `workerd` import condition), which
   // would type bindings as `string`.
   const binding = workerEnv.SEND_EMAIL;
+  // oxlint-disable-next-line typescript-eslint/no-unnecessary-condition -- generated Env types the binding as always-present; guard against wrangler.jsonc drift
   if (!binding) {
     throw new Error(
       'Email binding "SEND_EMAIL" not found. Ensure send_email is configured in wrangler.jsonc'

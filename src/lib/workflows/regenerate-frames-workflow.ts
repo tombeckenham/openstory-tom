@@ -90,11 +90,6 @@ export class RegenerateFramesWorkflow extends OpenStoryWorkflowEntrypoint<Regene
     }
 
     const childBinding = this.env.IMAGE_WORKFLOW;
-    if (!childBinding) {
-      throw new WorkflowValidationError(
-        '[RegenerateFramesWorkflow:cf] IMAGE_WORKFLOW binding is missing on env; check wrangler.jsonc'
-      );
-    }
 
     // Validate the snapshot hash inside the workflow body. Mirrors the QStash
     // `validate-snapshot` step but calls the DTO computer directly because CF

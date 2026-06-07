@@ -25,7 +25,6 @@ import { snapDuration } from '@/lib/motion/motion-generation';
 import { reinforceInstrumentalTags } from '@/lib/prompts/music-prompt';
 import { OpenStoryWorkflowEntrypoint } from '@/lib/workflow/base-workflow';
 import { spawnAndAwaitChild } from '@/lib/workflow/await-child';
-import { WorkflowValidationError } from '@/lib/workflow/errors';
 import type {
   MotionMusicPromptsWorkflowInput,
   MotionMusicPromptsWorkflowResult,
@@ -95,21 +94,9 @@ export class MotionMusicPromptsWorkflow extends OpenStoryWorkflowEntrypoint<Moti
     const sceneSummaries = buildMusicSceneSummaries(scenesWithSnappedDurations);
 
     // Run motion prompts and music design in parallel via Pattern 3.
-    const musicBinding = this.env.MUSIC_PROMPT_WORKFLOW;
-    const motionBinding = this.env.MOTION_PROMPT_WORKFLOW;
-    if (!musicBinding || !motionBinding) {
-      throw new WorkflowValidationError(
-        '[MotionMusicPromptsWorkflow:cf] MUSIC_PROMPT_WORKFLOW or MOTION_PROMPT_WORKFLOW binding missing on env; check wrangler.jsonc'
-      );
-    }
-
     const [motionPrompts, musicDesign] = await Promise.all([
       spawnAndAwaitChild<MotionPromptWorkflowInput, MotionPromptsResult>(step, {
-        binding: motionBinding as Workflow<
-          MotionPromptWorkflowInput & {
-            _parent: import('@/lib/workflow/await-child').ParentNotifyHint;
-          }
-        >,
+        binding: this.env.MOTION_PROMPT_WORKFLOW,
         parentBindingName: 'MOTION_MUSIC_PROMPTS_WORKFLOW',
         parentInstanceId: event.instanceId,
         childId: `motion-prompts:${sequenceId}`,
@@ -132,11 +119,7 @@ export class MotionMusicPromptsWorkflow extends OpenStoryWorkflowEntrypoint<Moti
       spawnAndAwaitChild<MusicPromptWorkflowInput, MusicPromptWorkflowResult>(
         step,
         {
-          binding: musicBinding as Workflow<
-            MusicPromptWorkflowInput & {
-              _parent: import('@/lib/workflow/await-child').ParentNotifyHint;
-            }
-          >,
+          binding: this.env.MUSIC_PROMPT_WORKFLOW,
           parentBindingName: 'MOTION_MUSIC_PROMPTS_WORKFLOW',
           parentInstanceId: event.instanceId,
           childId: `music-prompt:${sequenceId}`,

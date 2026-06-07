@@ -89,7 +89,6 @@
         "@chromatic-com/storybook": "^5.2.1",
         "@clack/prompts": "^1.4.0",
         "@cloudflare/vite-plugin": "^1.37.0",
-        "@cloudflare/workers-types": "^4.20260511.1",
         "@copilotkit/aimock": "^1.24.1",
         "@faker-js/faker": "^10.4.0",
         "@logtape/pretty": "^2.1.1",

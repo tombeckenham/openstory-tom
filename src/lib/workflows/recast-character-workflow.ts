@@ -24,10 +24,7 @@
 import { DEFAULT_IMAGE_MODEL } from '@/lib/ai/models';
 import type { ScopedDb } from '@/lib/db/scoped';
 import { getGenerationChannel } from '@/lib/realtime';
-import {
-  spawnAndAwaitChild,
-  type ParentNotifyHint,
-} from '@/lib/workflow/await-child';
+import { spawnAndAwaitChild } from '@/lib/workflow/await-child';
 import { OpenStoryWorkflowEntrypoint } from '@/lib/workflow/base-workflow';
 import type { CloudflareEnv } from '@/lib/workflow/types';
 import type {
@@ -75,22 +72,13 @@ async function regenerateFramesIfNeeded(
     return { framesRegenerated: 0, framesFailed: 0 };
   }
 
-  const regenerateBinding = env.REGENERATE_FRAMES_WORKFLOW;
-  if (!regenerateBinding) {
-    throw new NonRetryableError(
-      '[RecastCharacterWorkflow:cf] REGENERATE_FRAMES_WORKFLOW binding missing on env',
-      'WorkflowValidationError'
-    );
-  }
   // The actual payload is rebuilt inside the spawn step from the previous
   // step's output. CF persists the previous step.do return, so we read it
   // back from a separate step.do that wraps the snapshot construction —
   // but here we keep it inline because the `build-regenerate-snapshot`
   // step above already computed everything we need.
   await spawnAndAwaitChild<RegenerateFramesWorkflowInput, unknown>(step, {
-    binding: regenerateBinding as Workflow<
-      RegenerateFramesWorkflowInput & { _parent: ParentNotifyHint }
-    >,
+    binding: env.REGENERATE_FRAMES_WORKFLOW,
     parentBindingName: 'RECAST_CHARACTER_WORKFLOW',
     parentInstanceId,
     childId: `regenerate-frames:character:${input.characterDbId}`,
@@ -205,20 +193,11 @@ export class RecastCharacterWorkflow extends OpenStoryWorkflowEntrypoint<RecastC
       }
     );
 
-    const sheetBinding = this.env.CHARACTER_SHEET_WORKFLOW;
-    if (!sheetBinding) {
-      throw new NonRetryableError(
-        '[RecastCharacterWorkflow:cf] CHARACTER_SHEET_WORKFLOW binding missing on env',
-        'WorkflowValidationError'
-      );
-    }
     const sheetResult = await spawnAndAwaitChild<
       CharacterSheetWorkflowInput,
       CharacterSheetWorkflowResult
     >(step, {
-      binding: sheetBinding as Workflow<
-        CharacterSheetWorkflowInput & { _parent: ParentNotifyHint }
-      >,
+      binding: this.env.CHARACTER_SHEET_WORKFLOW,
       parentBindingName: 'RECAST_CHARACTER_WORKFLOW',
       parentInstanceId: event.instanceId,
       childId: `character-sheet:recast:${input.characterDbId}`,

@@ -134,11 +134,6 @@ export class LocationBibleWorkflow extends OpenStoryWorkflowEntrypoint<LocationB
     );
 
     const childBinding = this.env.LOCATION_SHEET_WORKFLOW;
-    if (!childBinding) {
-      throw new NonRetryableError(
-        '[LocationBibleWorkflow:cf] LOCATION_SHEET_WORKFLOW binding is missing from env — check wrangler.jsonc'
-      );
-    }
 
     const model = input.imageModel ?? DEFAULT_IMAGE_MODEL;
 

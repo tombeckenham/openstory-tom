@@ -1,14 +1,12 @@
 /**
  * Wiring consistency checks for Cloudflare Workflows.
  *
- * Every workflow needs entries in four places:
+ * Every workflow needs entries in three places:
  *
  *   1. `wrangler.jsonc` workflows[]   — declares the runtime binding so
  *                                       miniflare/CF actually creates it
  *   2. `src/server.ts` re-export      — keeps the class in the Worker bundle
- *   3. `src/lib/workflow/types.ts`    — adds the binding to `CloudflareEnv`
- *                                       so TypeScript can see it
- *   4. `src/lib/workflow/trigger-bindings.ts` `TRIGGER_TO_BINDING`
+ *   3. `src/lib/workflow/trigger-bindings.ts` `TRIGGER_TO_BINDING`
  *                                     — maps the trigger path that
  *                                       `triggerWorkflow('/foo', ...)` uses
  *                                       to the env binding name
@@ -16,11 +14,15 @@
  * Missing any one of these silently breaks the workflow:
  *   - wrangler.jsonc missing → "env binding is missing or not a Workflow"
  *   - server.ts missing → wrangler can't find the class on deploy
- *   - types.ts missing → typecheck blocks `this.env.X`
  *   - trigger map missing → "no workflow binding mapped for trigger path"
  *
+ * (TypeScript's view of the bindings is generated from wrangler.jsonc by
+ * `bun cf:typegen` into `worker-configuration.d.ts`, so a missing binding
+ * also fails `bun typecheck` on the `this.env.X` access — no hand-written
+ * declaration to keep in sync.)
+ *
  * These tests fail loudly the next time someone adds a workflow and forgets
- * one of the four steps.
+ * one of the three steps.
  *
  * Plus one structural check on instance IDs: every output of `buildInstanceId`
  * must match CF's `^[a-zA-Z0-9_-]+$` rule.
@@ -32,7 +34,6 @@ import { buildInstanceId } from '@/lib/workflow/instance-id';
 
 const WRANGLER_PATH = 'wrangler.jsonc';
 const SERVER_PATH = 'src/server.ts';
-const TYPES_PATH = 'src/lib/workflow/types.ts';
 const TRIGGER_BINDINGS_PATH = 'src/lib/workflow/trigger-bindings.ts';
 
 type WranglerWorkflowEntry = {
@@ -93,13 +94,6 @@ function parseAllWranglerWorkflowBlocks(): WranglerWorkflowEntry[][] {
   return blocks;
 }
 
-function extractBindingNamesFromTypes(): Set<string> {
-  const text = readFileSync(TYPES_PATH, 'utf8');
-  // Match lines like `  IMAGE_WORKFLOW?: Workflow<unknown>;` inside the
-  // CloudflareEnv type. Loose match — any `<NAME>?: Workflow<...>` shape.
-  return new Set(captureAll(text, /([A-Z][A-Z0-9_]+)\??:\s*Workflow</g));
-}
-
 function extractTriggerMapValues(): Set<string> {
   const text = readFileSync(TRIGGER_BINDINGS_PATH, 'utf8');
   const block = text.match(/TRIGGER_TO_BINDING[^=]*=\s*\{([\s\S]*?)\};/);
@@ -123,18 +117,12 @@ function extractServerExports(): Set<string> {
   );
 }
 
-describe('CF workflow wiring is consistent across all four declaration sites', () => {
+describe('CF workflow wiring is consistent across all three declaration sites', () => {
   const wranglerWorkflows = parseWranglerWorkflows();
   const wranglerBindings = new Set(wranglerWorkflows.map((w) => w.binding));
   const wranglerClasses = new Set(wranglerWorkflows.map((w) => w.class_name));
-  const typeBindings = extractBindingNamesFromTypes();
   const triggerMapBindings = extractTriggerMapValues();
   const serverExports = extractServerExports();
-
-  test('every wrangler binding is declared on CloudflareEnv', () => {
-    const missing = [...wranglerBindings].filter((b) => !typeBindings.has(b));
-    expect(missing).toEqual([]);
-  });
 
   test('every wrangler binding has a matching server.ts re-export of its class', () => {
     const missing = wranglerWorkflows.filter(
@@ -151,11 +139,11 @@ describe('CF workflow wiring is consistent across all four declaration sites', (
     expect(missing).toEqual([]);
   });
 
-  test('every CloudflareEnv binding has either a TRIGGER_TO_BINDING entry or a comment-tracked exemption', () => {
+  test('every wrangler binding has either a TRIGGER_TO_BINDING entry or a comment-tracked exemption', () => {
     // Some bindings may legitimately not have a trigger path (e.g. only
     // invoked as Pattern 3 children from other workflows). For now, every
-    // binding in types.ts that exists in wrangler.jsonc should also exist
-    // in the trigger map — none of our ports are children-only today.
+    // binding in wrangler.jsonc should also exist in the trigger map —
+    // none of our ports are children-only today.
     const unrouted = [...wranglerBindings].filter(
       (b) => !triggerMapBindings.has(b)
     );

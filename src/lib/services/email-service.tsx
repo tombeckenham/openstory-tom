@@ -5,10 +5,10 @@
  * email-safe HTML (and a plain-text version) by @react-email/render.
  */
 
-import { render } from '@react-email/components';
 import { getEnv } from '#env';
 import { env as workerEnv } from 'cloudflare:workers';
 import { OtpEmail } from '@/lib/emails/otp-email';
+import { renderEmail } from '@/lib/emails/render-email';
 import { getLogger } from '@/lib/observability/logger';
 
 const logger = getLogger(['openstory', 'services', 'email-service']);
@@ -73,10 +73,7 @@ async function sendEmail({
   try {
     const { fromEmail, fromName } = getEmailConfig();
 
-    const [html, text] = await Promise.all([
-      render(body),
-      render(body, { plainText: true }),
-    ]);
+    const { html, text } = await renderEmail(body);
 
     const result = await getSendEmailBinding().send({
       from: { name: fromName, email: fromEmail },

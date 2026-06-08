@@ -8,8 +8,11 @@ const items: MentionItem[] = [
     section: 'cast',
     label: 'Jack',
     sublabel: 'jack-denim-jacket',
-    tag: 'jack-denim-jacket',
-    haystack: 'jack jack-denim-jacket',
+    // Cast tag is the ALL-CAPS name; slug/id ride along as aliases so legacy
+    // prompts still pill (and re-pill to the name).
+    tag: 'JACK',
+    aliases: ['jack-denim-jacket', 'char_001'],
+    haystack: 'jack jack-denim-jacket char_001',
     thumbnailUrl: null,
   },
   {
@@ -39,19 +42,41 @@ describe('tagifyMarkdown', () => {
     expect(result.content).toBe('hello jack-denim-jacket');
   });
 
-  it('wraps a known slug in a mention span', () => {
-    const result = tagifyMarkdown('hello jack-denim-jacket', items);
+  // --- Cast: highlight the ALL-CAPS name in place, no `@` ------------------
+
+  it('pills a cast member by their ALL-CAPS name with no @ prefix', () => {
+    const result = tagifyMarkdown('JACK pulls on his jacket', items);
     expect(result.matched).toBe(true);
-    expect(result.content).toContain('data-type="mention"');
-    expect(result.content).toContain('data-id="jack-denim-jacket"');
+    expect(result.content).toContain('data-id="JACK"');
     expect(result.content).toContain('data-section="cast"');
-    expect(result.content).toContain('@jack-denim-jacket');
+    // Visible text is the bare name — not `@JACK`.
+    expect(result.content).toContain('>JACK</span>');
+    expect(result.content).not.toContain('@JACK');
   });
 
-  it('is case-insensitive but preserves the canonical tag as the data-id', () => {
+  it('does NOT pill a lowercase prose mention of a cast name', () => {
+    const result = tagifyMarkdown('then jack walked away', items);
+    expect(result.matched).toBe(false);
+    expect(result.content).toBe('then jack walked away');
+  });
+
+  it('pills a legacy cast consistencyTag alias, re-pilling to the name', () => {
+    const result = tagifyMarkdown('hero is jack-denim-jacket here', items);
+    expect(result.matched).toBe(true);
+    // Alias matched, but the canonical data-id + visible text is the name.
+    expect(result.content).toContain('data-id="JACK"');
+    expect(result.content).toContain('data-section="cast"');
+    expect(result.content).toContain('>JACK</span>');
+  });
+
+  // --- Elements / locations: `@slug`, case-insensitive --------------------
+
+  it('pills an element with a leading @ and canonical data-id', () => {
     const result = tagifyMarkdown('logo: RED-hex-LOGO appears', items);
     expect(result.matched).toBe(true);
     expect(result.content).toContain('data-id="RED-HEX-LOGO"');
+    expect(result.content).toContain('@RED-HEX-LOGO');
+    expect(result.content).toContain('data-section="elements"');
   });
 
   it('respects word boundaries — no false positives on substring matches', () => {
@@ -61,24 +86,11 @@ describe('tagifyMarkdown', () => {
   });
 
   it('handles hyphenated tags as single tokens', () => {
-    // `jack-denim-jacket` should match the full slug, not just `jack`.
-    const result = tagifyMarkdown(
-      'see jack-denim-jacket later',
-      items.slice(0, 1)
-    );
-    expect(result.matched).toBe(true);
-    expect(result.content).toContain('data-id="jack-denim-jacket"');
-    expect(result.content).not.toContain('data-id="jack"');
-  });
-
-  it('matches an uppercase element token verbatim', () => {
-    const result = tagifyMarkdown(
-      'A close-up of the RED-HEX-LOGO on his jacket',
-      items
-    );
+    // `RED-HEX-LOGO` should match the full token, not just `RED`.
+    const result = tagifyMarkdown('see RED-HEX-LOGO later', items.slice(1, 2));
     expect(result.matched).toBe(true);
     expect(result.content).toContain('data-id="RED-HEX-LOGO"');
-    expect(result.content).toContain('data-section="elements"');
+    expect(result.content).not.toContain('data-id="RED"');
   });
 
   it('matches an underscore-style token wrapped in parentheses (visual-prompt format)', () => {
@@ -126,23 +138,42 @@ describe('tagifyMarkdown', () => {
     expect(result.content).toContain('@red-hex-logo');
   });
 
-  it('matches multiple distinct slugs in one pass', () => {
-    const result = tagifyMarkdown(
-      'jack-denim-jacket in office-modern-steel',
-      items
-    );
+  it('matches multiple distinct mentions in one pass', () => {
+    const result = tagifyMarkdown('JACK in office-modern-steel', items);
     expect(result.matched).toBe(true);
     const spans = result.content.match(/data-type="mention"/g) ?? [];
     expect(spans.length).toBe(2);
   });
 
-  it('escapes characters in the surrounding text', () => {
-    // Bare text should NOT be HTML-escaped — Tiptap's setContent will treat
-    // it as markdown. tagifyMarkdown only emits markup for the spans
-    // themselves; ambient `<` are caller-controlled (or never present).
-    const result = tagifyMarkdown('jack-denim-jacket', items);
-    // The span attributes themselves must escape quotes/angle brackets so an
-    // adversarial label can't break out of the span.
-    expect(result.content).toMatch(/data-id="jack-denim-jacket"/);
+  it('escapes quotes/brackets in span attributes', () => {
+    // Bare surrounding text is NOT HTML-escaped (Tiptap treats it as markdown);
+    // the span attributes ARE, so an adversarial label can't break out.
+    const result = tagifyMarkdown('office-modern-steel', items);
+    expect(result.content).toMatch(/data-id="office-modern-steel"/);
+  });
+
+  it('consumes a leading @ on an element tag (no doubled @)', () => {
+    const elementItems: MentionItem[] = [
+      {
+        id: 'element:e2',
+        section: 'elements',
+        label: 'bondi-screen',
+        sublabel: '',
+        tag: 'bondi-screen',
+        haystack: 'bondi-screen',
+        thumbnailUrl: null,
+      },
+    ];
+    // LLM prompts emit `@bondi-screen`; the source @ is the trigger and must be
+    // consumed so it isn't left dangling before the pill (which re-adds its @).
+    const result = tagifyMarkdown(
+      'the screen shows @bondi-screen here',
+      elementItems
+    );
+    expect(result.matched).toBe(true);
+    expect(result.content).not.toContain('@<span');
+    expect(result.content).not.toContain('@@');
+    expect(result.content).toContain('shows <span');
+    expect(result.content).toContain('>@bondi-screen</span>');
   });
 });

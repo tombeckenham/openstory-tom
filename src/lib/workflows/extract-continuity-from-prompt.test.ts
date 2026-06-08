@@ -68,7 +68,9 @@ describe('extractContinuityFromPrompt', () => {
     const result = extractContinuityFromPrompt({
       ...baseArgs,
       promptText: 'char_001 walks into frame.',
-      characters: [{ characterId: 'char_001', consistencyTag: null }],
+      characters: [
+        { name: 'Jack', characterId: 'char_001', consistencyTag: null },
+      ],
     });
     expect(result.characterTags).toEqual(['char_001']);
   });
@@ -79,6 +81,7 @@ describe('extractContinuityFromPrompt', () => {
       promptText: 'Tight shot of jack-denim-jacket leaning on the bar.',
       characters: [
         {
+          name: 'Jack',
           characterId: 'char_001',
           consistencyTag: 'char_001: jack-denim-jacket',
         },
@@ -87,11 +90,35 @@ describe('extractContinuityFromPrompt', () => {
     expect(result.characterTags).toEqual(['jack-denim-jacket']);
   });
 
+  it('matches a character by their ALL-CAPS name (case-sensitive)', () => {
+    const result = extractContinuityFromPrompt({
+      ...baseArgs,
+      promptText: 'JACK leans on the bar.',
+      characters: [
+        { name: 'Jack', characterId: 'char_001', consistencyTag: null },
+      ],
+    });
+    expect(result.characterTags).toEqual(['jack']);
+  });
+
+  it('does not match a lowercase prose mention of a character name', () => {
+    const result = extractContinuityFromPrompt({
+      ...baseArgs,
+      promptText: 'then jack leaned on the bar.',
+      characters: [
+        { name: 'Jack', characterId: 'char_001', consistencyTag: null },
+      ],
+    });
+    expect(result.characterTags).toEqual([]);
+  });
+
   it('character matching is case-insensitive', () => {
     const result = extractContinuityFromPrompt({
       ...baseArgs,
       promptText: 'CHAR_001 looks up.',
-      characters: [{ characterId: 'char_001', consistencyTag: null }],
+      characters: [
+        { name: 'Jack', characterId: 'char_001', consistencyTag: null },
+      ],
     });
     expect(result.characterTags).toEqual(['char_001']);
   });
@@ -101,8 +128,8 @@ describe('extractContinuityFromPrompt', () => {
       ...baseArgs,
       promptText: 'char_001 and char_002 meet.',
       characters: [
-        { characterId: 'char_001', consistencyTag: null },
-        { characterId: 'char_002', consistencyTag: null },
+        { name: 'Jack', characterId: 'char_001', consistencyTag: null },
+        { name: 'Mara', characterId: 'char_002', consistencyTag: null },
       ],
       existing: { ...baseArgs.existing, characterTags: ['char_001'] },
     });
@@ -163,7 +190,9 @@ describe('extractContinuityFromPrompt', () => {
       ...baseArgs,
       promptText: '   ',
       elements: [el('LOGO')],
-      characters: [{ characterId: 'char_001', consistencyTag: null }],
+      characters: [
+        { name: 'Jack', characterId: 'char_001', consistencyTag: null },
+      ],
       locations: [{ locationId: 'loc_001', consistencyTag: 'loc_001: office' }],
     });
     expect(hasContinuityAdditions(result)).toBe(false);

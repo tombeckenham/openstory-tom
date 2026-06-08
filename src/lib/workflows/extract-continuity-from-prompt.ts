@@ -17,7 +17,10 @@ import type {
 } from '@/lib/db/schema';
 import { matchElementsToScene } from '@/lib/workflows/scene-matching';
 
-type CharacterTerm = Pick<CharacterMinimal, 'characterId' | 'consistencyTag'>;
+type CharacterTerm = Pick<
+  CharacterMinimal,
+  'name' | 'characterId' | 'consistencyTag'
+>;
 type LocationTerm = Pick<
   SequenceLocationMinimal,
   'locationId' | 'consistencyTag'
@@ -53,11 +56,15 @@ function escapeForRegex(s: string): string {
  * boundary class excludes hyphen so `jack-denim-jacket` matches a single
  * term and isn't broken into pieces.
  */
-function tagMatchesText(tag: string, text: string): boolean {
+function tagMatchesText(
+  tag: string,
+  text: string,
+  caseSensitive = false
+): boolean {
   const escaped = escapeForRegex(tag);
   const re = new RegExp(
     `(?:^|[^A-Za-z0-9_-])${escaped}(?:[^A-Za-z0-9_-]|$)`,
-    'i'
+    caseSensitive ? '' : 'i'
   );
   return re.test(text);
 }
@@ -96,11 +103,18 @@ export function extractContinuityFromPrompt(args: {
 
   const characterAdditions: string[] = [];
   for (const char of characters) {
-    const terms = termsFromConsistencyTag(
+    // Cast mentions insert the ALL-CAPS name — match it case-sensitively so we
+    // link the deliberate `SCARLETT` reference, not a lowercase prose mention
+    // (mirrors tagify's pill rule). The characterId / consistencyTag slug stay
+    // case-insensitive — they're the canonical continuity forms.
+    const nameUpper = char.name.toUpperCase();
+    const idSlugTerms = termsFromConsistencyTag(
       char.characterId,
       char.consistencyTag
     );
-    const matched = terms.find((term) => tagMatchesText(term, promptText));
+    const matched = tagMatchesText(nameUpper, promptText, true)
+      ? nameUpper
+      : idSlugTerms.find((term) => tagMatchesText(term, promptText));
     if (!matched) continue;
     const canonical = matched.toLowerCase();
     if (existingCharacterTagsLower.has(canonical)) continue;

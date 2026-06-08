@@ -9,10 +9,19 @@
  * The mention's `id` attr IS the canonical tag. `section` drives the chip
  * colour. `label` is the display name (Jack, INT. OFFICE) used in the
  * dropdown — never serialised back out (only the slug is).
+ *
+ * Render prefix: element/location pills show a leading `@` (the `@slug` is a
+ * render-only flourish over the bare stored slug). Cast pills do NOT — the tag
+ * IS the character's ALL-CAPS name as it already reads in the script/prompt
+ * (`SCARLETT`), so it's highlighted in place with no `@`.
  */
 
 import { Mention } from '@tiptap/extension-mention';
 import type { MarkdownNodeSpec } from 'tiptap-markdown';
+import {
+  MENTION_PILL_BASE_CLASS as BASE_PILL_CLASS,
+  MENTION_SECTION_CLASS as SECTION_CLASS,
+} from './mention-styles';
 
 export type MentionSection = 'cast' | 'elements' | 'locations';
 
@@ -40,17 +49,6 @@ function readPromptAttrs(attrs: Record<string, unknown>): PromptMentionAttrs {
     label: typeof labelRaw === 'string' ? labelRaw : null,
   };
 }
-
-const SECTION_CLASS: Record<MentionSection, string> = {
-  cast: 'bg-sky-500/10 text-sky-700 ring-sky-500/30 dark:text-sky-300',
-  elements:
-    'bg-amber-500/10 text-amber-800 ring-amber-500/30 dark:text-amber-300',
-  locations:
-    'bg-emerald-500/10 text-emerald-800 ring-emerald-500/30 dark:text-emerald-300',
-};
-
-const BASE_PILL_CLASS =
-  'inline rounded px-1.5 py-0.5 text-[0.95em] font-medium leading-tight align-baseline ring-1 ring-inset whitespace-nowrap';
 
 function isMentionSection(value: string): value is MentionSection {
   return value === 'cast' || value === 'elements' || value === 'locations';
@@ -117,7 +115,7 @@ export const PromptMention = Mention.extend({
         ...(attrs.section ? { 'data-section': attrs.section } : {}),
         ...(attrs.label ? { 'data-label': attrs.label } : {}),
       },
-      `@${attrs.id ?? ''}`,
+      attrs.section === 'cast' ? (attrs.id ?? '') : `@${attrs.id ?? ''}`,
     ];
   },
   renderText: ({ node }) => {

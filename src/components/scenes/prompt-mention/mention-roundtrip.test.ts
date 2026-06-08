@@ -69,21 +69,35 @@ describe('mention round-trip: tagify → serialize → parse', () => {
     locations: [location],
   });
 
-  it('tagify wraps known slugs in mention spans carrying the canonical tag', () => {
-    const { content, matched } = tagifyMarkdown(
-      'A wide shot featuring jack-denim-jacket on screen',
+  it('tagify highlights the ALL-CAPS cast name (no @); legacy slug re-pills to it', () => {
+    const byName = tagifyMarkdown(
+      'A wide shot featuring JACK on screen',
       items
     );
-    expect(matched).toBe(true);
-    expect(content).toContain('data-type="mention"');
-    expect(content).toContain('data-id="jack-denim-jacket"');
-    expect(content).toContain('data-section="cast"');
-    // Display form keeps the @, but data-id IS the slug — getMarkdown()
-    // writes data-id back out and nothing else.
-    expect(content).toContain('@jack-denim-jacket');
+    expect(byName.matched).toBe(true);
+    expect(byName.content).toContain('data-type="mention"');
+    expect(byName.content).toContain('data-id="JACK"');
+    expect(byName.content).toContain('data-section="cast"');
+    // Visible text is the bare name — no leading @ (unlike elements).
+    expect(byName.content).toContain('>JACK</span>');
+    expect(byName.content).not.toContain('@JACK');
+    // A legacy consistencyTag slug still pills, re-pilling to the name.
+    const bySlug = tagifyMarkdown('hero is jack-denim-jacket here', items);
+    expect(bySlug.content).toContain('data-id="JACK"');
   });
 
-  it('serialized character slug is recognised by extractContinuityFromPrompt', () => {
+  it('inserted ALL-CAPS cast name is recognised by extractContinuityFromPrompt', () => {
+    const result = extractContinuityFromPrompt({
+      promptText: 'A wide shot featuring JACK on screen',
+      characters: [character],
+      elements: [],
+      locations: [],
+      existing: baseExisting,
+    });
+    expect(result.characterTags).toEqual(['jack']);
+  });
+
+  it('legacy character consistencyTag slug is still recognised', () => {
     const prompt = `A wide shot featuring ${character.consistencyTag?.split(':')[1]?.trim()} on screen`;
     const result = extractContinuityFromPrompt({
       promptText: prompt,

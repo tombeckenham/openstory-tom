@@ -45,8 +45,13 @@ describe('buildMentionItems', () => {
     // canonical, matches the cast/location consistencyTag convention).
     expect(byId['element:e1']?.tag).toBe('red-hex-logo');
     expect(byId['element:e1']?.section).toBe('elements');
-    expect(byId['character:c1']?.tag).toBe('jack-denim-jacket');
+    // Cast tag is the ALL-CAPS name; slug + id ride along as aliases.
+    expect(byId['character:c1']?.tag).toBe('JACK');
     expect(byId['character:c1']?.section).toBe('cast');
+    expect(byId['character:c1']?.aliases).toEqual([
+      'jack-denim-jacket',
+      'char_001',
+    ]);
     expect(byId['location:l1']?.tag).toBe('office-modern-steel');
     expect(byId['location:l1']?.section).toBe('locations');
   });
@@ -88,13 +93,14 @@ describe('buildMentionItems', () => {
     expect(item?.aliases).toEqual(['PEPSI_LOGO']);
   });
 
-  it('falls back to characterId / locationId when no consistencyTag slug', () => {
+  it('uses the ALL-CAPS name for cast; falls back to locationId for locations', () => {
     const items = buildMentionItems({
       characters: [{ ...noopCharacter, consistencyTag: null }],
       elements: [],
       locations: [{ ...noopLocation, consistencyTag: null }],
     });
-    expect(items.find((i) => i.id === 'character:c1')?.tag).toBe('char_001');
+    // Cast tag is always the name — independent of consistencyTag.
+    expect(items.find((i) => i.id === 'character:c1')?.tag).toBe('JACK');
     expect(items.find((i) => i.id === 'location:l1')?.tag).toBe('loc_001');
   });
 

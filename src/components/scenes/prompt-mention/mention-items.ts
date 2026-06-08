@@ -87,14 +87,24 @@ export function buildMentionItems(args: {
 
   for (const c of args.characters) {
     const slug = consistencyTagSlug(c.consistencyTag);
-    // Prefer the human-readable slug; fall back to the stable id.
-    const tag = slug ?? c.characterId;
+    // The cast tag is the character's ALL-CAPS name — the exact form the script
+    // and the visual/motion prompts already use ("NAME IN CAPS"). The mention
+    // selector inserts it and tagify highlights it in place; unlike elements /
+    // locations it renders with no `@` prefix (see mention-extension/tagify).
+    const tag = c.name.toUpperCase();
+    // The consistencyTag slug and characterId are the canonical forms the
+    // server-side continuity parser emits — keep them as aliases so prompts
+    // already carrying those still pill (and re-pill to the name on save).
+    const aliases = [slug, c.characterId].filter(
+      (a): a is string => a !== null && a !== tag
+    );
     items.push({
       id: `character:${c.id}`,
       section: 'cast',
       label: c.name,
-      sublabel: tag,
+      sublabel: slug ?? c.characterId,
       tag,
+      ...(aliases.length > 0 ? { aliases } : {}),
       haystack: [c.name, tag, c.characterId, slug ?? '']
         .join(' ')
         .toLowerCase(),

@@ -15,13 +15,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { VideoPlayer } from '@/components/motion/video-player';
+import { buildMentionItems } from '@/components/scenes/prompt-mention/mention-items';
+import { HighlightedPrompt } from '@/components/text-editor/mention/highlighted-prompt';
+import { useSequenceCharacters } from '@/hooks/use-sequence-characters';
+import { useSequenceElements } from '@/hooks/use-sequence-elements';
+import { useSequenceLocations } from '@/hooks/use-sequence-locations';
 import type { Frame } from '@/types/database';
 import type { AspectRatio } from '@/lib/constants/aspect-ratios';
 import { stripMarkdown } from '@/lib/utils/markdown-plain';
 import { Clapperboard, FileTextIcon, ImageIcon, TextIcon } from 'lucide-react';
 import { AppImage } from '@/components/ui/app-image';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   getMotionPrompt,
   getSceneScript,
@@ -71,6 +76,23 @@ export const EvalCellDialog: React.FC<EvalCellDialogProps> = ({
   const motionPrompt = getMotionPrompt(frame);
   const script = getSceneScript(frame);
   const [selectedTab, setSelectedTab] = useState<DialogTab>(initialTab);
+
+  // Mention pills for the prompt text. Gated on `open` so the lists are only
+  // fetched for the dialog the user actually opened — each grid cell mounts its
+  // own dialog, so unconditional fetching would hit every sequence at once.
+  const seqId = open ? frame.sequenceId : undefined;
+  const { data: mentionElements } = useSequenceElements(seqId);
+  const { data: mentionCharacters } = useSequenceCharacters(seqId ?? '');
+  const { data: mentionLocations } = useSequenceLocations(seqId ?? '');
+  const mentionItems = useMemo(
+    () =>
+      buildMentionItems({
+        characters: mentionCharacters ?? [],
+        elements: mentionElements ?? [],
+        locations: mentionLocations ?? [],
+      }),
+    [mentionCharacters, mentionElements, mentionLocations]
+  );
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -216,9 +238,11 @@ export const EvalCellDialog: React.FC<EvalCellDialogProps> = ({
                     <p className="text-xs font-medium text-muted-foreground mb-1">
                       Visual
                     </p>
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                      {prompt}
-                    </p>
+                    <HighlightedPrompt
+                      text={prompt}
+                      items={mentionItems}
+                      className="text-sm leading-relaxed"
+                    />
                   </div>
                 )}
                 {prompt && motionPrompt && <hr className="my-3 border-muted" />}
@@ -227,9 +251,11 @@ export const EvalCellDialog: React.FC<EvalCellDialogProps> = ({
                     <p className="text-xs font-medium text-muted-foreground mb-1">
                       Motion
                     </p>
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                      {motionPrompt}
-                    </p>
+                    <HighlightedPrompt
+                      text={motionPrompt}
+                      items={mentionItems}
+                      className="text-sm leading-relaxed"
+                    />
                   </div>
                 )}
               </ScrollArea>

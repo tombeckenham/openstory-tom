@@ -262,18 +262,22 @@ export function useSetSequenceMusic(sequenceId: string) {
   const posthog = usePostHog();
 
   return useMutation({
+    // Serialize per-sequence writes so a quick off→on double-toggle can't have
+    // its two POSTs resolve out of order and persist the stale value (#834).
+    scope: { id: `set-sequence-music-${sequenceId}` },
     mutationFn: (includeMusic: boolean) =>
       setSequenceMusicFn({ data: { sequenceId, includeMusic } }),
-    onMutate: (includeMusic) => {
+    onMutate: async (includeMusic) => {
       const key = sequenceKeys.detail(sequenceId);
+      // Cancel in-flight reads before patching: this query refetches on mount
+      // and window focus and is invalidated by the generation stream, so an
+      // outstanding refetch could otherwise resolve with the stale row and
+      // silently flip the toggle back (#834).
+      await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<Sequence>(key);
       queryClient.setQueryData<Sequence>(key, (old) =>
         old ? { ...old, includeMusic } : old
       );
-      posthog.capture('sequence_music_toggled', {
-        sequence_id: sequenceId,
-        include_music: includeMusic,
-      });
       return { previous };
     },
     onError: (error, _includeMusic, ctx) => {
@@ -285,6 +289,18 @@ export function useSetSequenceMusic(sequenceId: string) {
     },
     onSuccess: (updated) => {
       queryClient.setQueryData(sequenceKeys.detail(sequenceId), updated);
+      // Capture only on confirmed persistence so the metric isn't inflated by
+      // toggles that later roll back.
+      posthog.capture('sequence_music_toggled', {
+        sequence_id: sequenceId,
+        include_music: updated.includeMusic,
+      });
+    },
+    onSettled: () => {
+      // Reconcile against the server's true state once the write settles.
+      void queryClient.invalidateQueries({
+        queryKey: sequenceKeys.detail(sequenceId),
+      });
     },
   });
 }

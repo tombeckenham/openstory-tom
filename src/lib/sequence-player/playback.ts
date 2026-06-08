@@ -34,6 +34,7 @@ import {
   type SceneInput,
 } from './concatenated-video-source';
 import { decodeAudioTrack } from './decode-audio-track';
+import { computeMusicGain } from './music-gain';
 
 import { getLogger } from '@/lib/observability/logger';
 
@@ -352,9 +353,10 @@ export class SequencePlayerEngine {
     if (!this.masterGain || !this.musicGain) return;
     const masterLinear = this.muted ? 0 : this.volume ** 2;
     this.masterGain.gain.value = masterLinear;
-    this.musicGain.gain.value = this.musicEnabled
-      ? loudnessDbToLinear(this.opts.musicLoudnessGainDb)
-      : 0;
+    this.musicGain.gain.value = computeMusicGain(
+      this.musicEnabled,
+      this.opts.musicLoudnessGainDb
+    );
   }
 
   /**
@@ -528,9 +530,4 @@ export class SequencePlayerEngine {
       }
     }
   }
-}
-
-function loudnessDbToLinear(loudnessGainDb: number | null): number {
-  if (loudnessGainDb === null || !Number.isFinite(loudnessGainDb)) return 1;
-  return Math.pow(10, loudnessGainDb / 20);
 }

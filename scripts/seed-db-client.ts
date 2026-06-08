@@ -12,7 +12,7 @@
  */
 import { createD1HttpClient } from '@/lib/db/client-d1-http';
 import { drizzle as drizzleD1 } from 'drizzle-orm/d1';
-import { getPlatformProxy } from 'wrangler';
+import { getLocalPlatformProxy } from './local-platform-proxy';
 
 export type SeedTarget = 'local' | 'test' | 'd1';
 
@@ -48,11 +48,8 @@ export async function createSeedDb(target: SeedTarget): Promise<SeedDb> {
   console.log(
     `🗄️  Using Wrangler local D1 (${environment ?? 'default'} env)\n`
   );
-  // remoteBindings: false skips the remote-proxy session for `remote: true`
-  // bindings (R2 buckets); seeding only writes local D1.
-  const platformProxy = await getPlatformProxy<{ DB?: D1Database }>({
+  const platformProxy = await getLocalPlatformProxy<{ DB?: D1Database }>({
     environment,
-    remoteBindings: false,
   });
   const d1Binding = platformProxy.env.DB;
   if (!d1Binding) {

@@ -19,18 +19,13 @@
 
 import { drizzle } from 'drizzle-orm/d1';
 import { migrate } from 'drizzle-orm/d1/migrator';
-import { getPlatformProxy } from 'wrangler';
+import { getLocalPlatformProxy } from './local-platform-proxy';
 
 const isTest = process.argv.includes('--test');
 const environment = isTest ? 'test' : undefined;
 
-// remoteBindings: false skips wrangler's remote-proxy session for any
-// `remote: true` bindings in wrangler.jsonc (R2 buckets in [env.test]).
-// We only touch local D1 here, so the proxy session would just demand a
-// CLOUDFLARE_API_TOKEN we don't need for migrations.
-const proxy = await getPlatformProxy<{ DB?: D1Database }>({
+const proxy = await getLocalPlatformProxy<{ DB?: D1Database }>({
   environment,
-  remoteBindings: false,
 });
 const d1 = proxy.env.DB;
 if (!d1) {

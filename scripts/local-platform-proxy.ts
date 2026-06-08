@@ -1,0 +1,101 @@
+/**
+ * `getPlatformProxy()` for local CLI scripts, without the spurious workerd
+ * warnings about Durable Object / Workflow classes (#859).
+ *
+ * `getPlatformProxy` reads `wrangler.jsonc` but starts Miniflare with an **empty
+ * worker** (`script: ""`) — it never bundles our `main` entry (`src/server.ts`)
+ * where `RealtimeChannel` and the workflow classes are exported. So workerd is
+ * handed the `REALTIME → RealtimeChannel` DO namespace (and the workflow
+ * bindings) from the config but finds no such class in the worker it's running,
+ * and warns:
+ *
+ *   "A DurableObjectNamespace in the config referenced the class
+ *    "RealtimeChannel", but no such Durable Object class is exported ...
+ *    Future versions of workerd may make this a startup-time error."
+ *
+ * These scripts only touch D1 (and R2 for the import script); they never call
+ * `env.REALTIME` or the workflow bindings. So we hand `getPlatformProxy` a
+ * slimmed copy of the config with the un-hostable class declarations stripped.
+ * That silences both warnings and pre-empts the future startup-error.
+ *
+ * The slimmed config is written to the **repo root** (next to `wrangler.jsonc`),
+ * not a temp dir, because `getPlatformProxy` resolves several things relative to
+ * the config file's directory (verified against wrangler 4.91 source):
+ *   - `.env` / `.env.local` discovery (so local vars resolve)
+ *   - `main` and `migrations_dir`
+ * and keys local D1/R2 persistence by binding identity (`database_id` etc.).
+ * Keeping the D1/R2 bindings byte-identical and the file at the repo root means
+ * the proxy lands on the exact same `.wrangler/state` SQLite files that
+ * `bun dev` / `wrangler dev` use.
+ */
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import JSON5 from 'json5';
+import { getPlatformProxy, type PlatformProxy } from 'wrangler';
+
+const WRANGLER_CONFIG = fileURLToPath(
+  new URL('../wrangler.jsonc', import.meta.url)
+);
+
+/**
+ * Config keys declaring classes the empty proxy worker can't host. `migrations`
+ * is the DO class-migration list (`new_sqlite_classes`), meaningless once
+ * `durable_objects` is gone.
+ */
+const UNHOSTABLE_KEYS = ['durable_objects', 'workflows', 'migrations'] as const;
+
+type WranglerConfigShape = Record<string, unknown> & {
+  env?: Record<string, Record<string, unknown>>;
+};
+
+function stripUnhostable(block: Record<string, unknown>): void {
+  for (const key of UNHOSTABLE_KEYS) delete block[key];
+}
+
+/**
+ * Write a DO/Workflow-stripped copy of `wrangler.jsonc` to the repo root and
+ * return its path. Per-pid filename so concurrent runs don't clobber each other.
+ */
+function writeSlimmedConfig(): string {
+  // JSON5 handles wrangler.jsonc's comments + trailing commas. Parsing untyped
+  // config is an inherent type boundary; we only read/delete top-level and
+  // per-env keys on the result.
+  // oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion -- JSON parse boundary
+  const config = JSON5.parse(
+    readFileSync(WRANGLER_CONFIG, 'utf8')
+  ) as WranglerConfigShape;
+
+  stripUnhostable(config);
+  if (config.env) {
+    for (const block of Object.values(config.env)) stripUnhostable(block);
+  }
+
+  const slimmedPath = fileURLToPath(
+    new URL(`../wrangler.local-proxy.${process.pid}.jsonc`, import.meta.url)
+  );
+  writeFileSync(slimmedPath, JSON.stringify(config, null, 2));
+  return slimmedPath;
+}
+
+/**
+ * Drop-in for `getPlatformProxy({ environment, remoteBindings: false })` that
+ * uses the slimmed config. Local scripts only read local D1/R2, so
+ * `remoteBindings` is always disabled (skips the remote-proxy session that
+ * `remote: true` bindings would otherwise need a CLOUDFLARE_API_TOKEN for).
+ */
+export async function getLocalPlatformProxy<Env = Record<string, unknown>>(
+  options: { environment?: string } = {}
+): Promise<PlatformProxy<Env>> {
+  const configPath = writeSlimmedConfig();
+  try {
+    // getPlatformProxy reads configPath synchronously before this resolves, so
+    // the file can be removed as soon as the proxy is built.
+    return await getPlatformProxy<Env>({
+      configPath,
+      environment: options.environment,
+      remoteBindings: false,
+    });
+  } finally {
+    rmSync(configPath, { force: true });
+  }
+}

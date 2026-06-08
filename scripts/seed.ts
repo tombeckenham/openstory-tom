@@ -29,7 +29,7 @@ import {
 } from '@/lib/talent/talent-templates';
 import { and, eq } from 'drizzle-orm';
 import { drizzle as drizzleD1 } from 'drizzle-orm/d1';
-import { getPlatformProxy } from 'wrangler';
+import { getLocalPlatformProxy } from './local-platform-proxy';
 
 const SYSTEM_TEAM_SLUG = 'system-templates';
 
@@ -58,7 +58,7 @@ async function seed() {
   const { local, test, d1 } = parseArgs();
 
   let platformProxy:
-    | Awaited<ReturnType<typeof getPlatformProxy<{ DB?: D1Database }>>>
+    | Awaited<ReturnType<typeof getLocalPlatformProxy<{ DB?: D1Database }>>>
     | undefined;
   let db: ReturnType<typeof drizzleD1> | ReturnType<typeof createD1HttpClient>;
 
@@ -78,7 +78,7 @@ async function seed() {
       token,
     });
   } else if (test || local) {
-    // getPlatformProxy spins up Miniflare against the bindings defined in
+    // getLocalPlatformProxy spins up Miniflare against the bindings defined in
     // wrangler.jsonc (test → [env.test] block) and hands back live D1/R2
     // bindings backed by the same SQLite files that `wrangler dev --env=test`
     // uses. Same code path as production via drizzle-orm/d1.
@@ -86,13 +86,8 @@ async function seed() {
     console.log(
       `🗄️  Using Wrangler local D1 (${environment ?? 'default'} env)\n`
     );
-    // remoteBindings: false skips the remote-proxy session for any
-    // `remote: true` bindings (R2 buckets in [env.test]). Seeding only
-    // writes to local D1; the proxy session would otherwise demand
-    // CLOUDFLARE_API_TOKEN that CI's setup step doesn't need.
-    platformProxy = await getPlatformProxy<{ DB?: D1Database }>({
+    platformProxy = await getLocalPlatformProxy<{ DB?: D1Database }>({
       environment,
-      remoteBindings: false,
     });
     const d1Binding = platformProxy.env.DB;
     if (!d1Binding) {

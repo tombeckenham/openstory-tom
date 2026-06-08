@@ -25,7 +25,7 @@
  * the dev server stopped (same contract as db:fork:local).
  */
 
-import { getPlatformProxy } from 'wrangler';
+import { getLocalPlatformProxy } from './local-platform-proxy';
 
 const SOURCE_DOMAINS = [
   'storage-dev.openstory.so',
@@ -65,10 +65,10 @@ const urlRe = new RegExp(
   'g'
 );
 
-const proxy = await getPlatformProxy<{
+const proxy = await getLocalPlatformProxy<{
   DB?: D1Database;
   R2_STORAGE_BUCKET?: R2Bucket;
-}>({ remoteBindings: false });
+}>();
 
 const db = proxy.env.DB;
 const r2 = proxy.env.R2_STORAGE_BUCKET;

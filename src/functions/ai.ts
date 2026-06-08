@@ -4,6 +4,7 @@
  */
 
 import { getEnv } from '#env';
+import { toVisionImageSource } from '@/lib/storage/external-url';
 import {
   callLLM,
   callLLMStream,
@@ -329,15 +330,20 @@ export async function* streamScriptEnhancement(
 
   const systemMessage = `${compiled}\n\nReturn ONLY the enhanced script text. No JSON, no markdown formatting, no explanations.`;
 
+  // Element images must be made externally fetchable: in local dev they're
+  // `http://localhost/r2/…` URLs, which providers like xAI refuse to fetch
+  // ("Fetching images over plain http:// is not supported"). toVisionImageSource
+  // inlines local URLs as base64 data parts and passes public URLs through —
+  // same shim the element-vision call already uses.
+  const imageParts = await Promise.all(
+    elements.map<Promise<ChatMessageContentPart>>(async (el) => ({
+      type: 'image',
+      source: await toVisionImageSource(el.imageUrl),
+    }))
+  );
   const userContent: string | ChatMessageContentPart[] =
     elements.length > 0
-      ? [
-          { type: 'text', content: userPrompt },
-          ...elements.map<ChatMessageContentPart>((el) => ({
-            type: 'image',
-            source: { type: 'url', value: el.imageUrl },
-          })),
-        ]
+      ? [{ type: 'text', content: userPrompt }, ...imageParts]
       : userPrompt;
 
   const messages: ChatMessage[] = [

@@ -3,6 +3,7 @@ import { MusicModelSelector } from '@/components/model/music-model-selector';
 import { PromptHistorySheet } from '@/components/prompts/prompt-history-sheet';
 import { StalenessIndicator } from '@/components/staleness/staleness-indicator';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -54,6 +55,12 @@ type MusicViewProps = {
   isMusicPromptStale?: boolean;
   onRegenerateMusicPrompt?: () => void;
   isRegeneratingMusicPrompt?: boolean;
+  /**
+   * Toggle whether this sequence's music plays in the theatre and is bundled
+   * into MP4 exports (#834). Bound to `sequence.includeMusic`; persisted by the
+   * route via `useSetSequenceMusic`.
+   */
+  onIncludeMusicChange?: (includeMusic: boolean) => void;
 };
 
 type LoadingButtonProps = React.ComponentProps<typeof Button> & {
@@ -156,6 +163,7 @@ export const MusicView: React.FC<MusicViewProps> = ({
   isMusicPromptStale,
   onRegenerateMusicPrompt,
   isRegeneratingMusicPrompt,
+  onIncludeMusicChange,
 }) => {
   const { musicStatus, musicUrl, musicError, musicPrompt, musicTags } =
     sequence;
@@ -283,6 +291,22 @@ export const MusicView: React.FC<MusicViewProps> = ({
 
         <ReadOnlyField label="Prompt" value={musicPrompt ?? 'Missing prompt'} />
         <ReadOnlyField label="Tags" value={musicTags ?? 'Missing tags'} />
+
+        {onIncludeMusicChange && (
+          <label
+            htmlFor="include-music"
+            className="flex items-center gap-2 self-center text-sm text-muted-foreground"
+          >
+            <Checkbox
+              id="include-music"
+              checked={sequence.includeMusic}
+              onCheckedChange={(checked) =>
+                onIncludeMusicChange(checked === true)
+              }
+            />
+            <span>Include music in playback &amp; export</span>
+          </label>
+        )}
 
         <div className="flex justify-center gap-3">
           {historyButton}

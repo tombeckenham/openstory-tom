@@ -10,6 +10,7 @@ import { useFramesBySequence } from '@/hooks/use-frames';
 import {
   useSequence,
   useSequenceAudioVariants,
+  useSetSequenceMusic,
   sequenceKeys,
 } from '@/hooks/use-sequences';
 import {
@@ -130,6 +131,8 @@ function MusicPage() {
     sequenceId,
     generating ? { refetchInterval: 2000 } : undefined
   );
+
+  const setMusicEnabled = useSetSequenceMusic(sequenceId);
 
   const promoteVariant = usePromoteSequenceMusicVariant();
   const discardVariant = useDiscardSequenceMusicVariant();
@@ -328,6 +331,9 @@ function MusicPage() {
           isMusicPromptStale={musicPromptStaleness?.musicPrompt === 'stale'}
           onRegenerateMusicPrompt={() => regenerateMusicPrompt.mutate()}
           isRegeneratingMusicPrompt={regenerateMusicPrompt.isPending}
+          onIncludeMusicChange={(includeMusic) =>
+            setMusicEnabled.mutate(includeMusic)
+          }
         />
       </div>
     </div>

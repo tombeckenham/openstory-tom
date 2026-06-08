@@ -17,14 +17,12 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { SequencePlayer } from '@/components/theatre/sequence-player';
 import { useSequenceExport } from '@/components/theatre/use-sequence-export';
-import { setSequenceMusicFn } from '@/functions/sequences';
 import { useFramesBySequence } from '@/hooks/use-frames';
-import { sequenceKeys } from '@/hooks/use-sequences';
+import { useSetSequenceMusic } from '@/hooks/use-sequences';
 import type { ExportProgress } from '@/lib/sequence-player/export';
 import type { Sequence } from '@/types/database';
 import { Download, Film, Link, Loader2, Share2 } from 'lucide-react';
 import { usePostHog } from '@posthog/react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 
@@ -34,42 +32,9 @@ type TheatreViewProps = {
 
 export const TheatreView: React.FC<TheatreViewProps> = ({ sequence }) => {
   const posthog = usePostHog();
-  const queryClient = useQueryClient();
   const { data: frames } = useFramesBySequence(sequence.id);
   const sequenceExport = useSequenceExport(sequence);
-
-  // Music on/off is persisted per sequence (sequences.includeMusic). Update the
-  // detail cache optimistically so both the live player's music gain and the
-  // next export react instantly; roll back if the write fails (#834).
-  const setMusicEnabled = useMutation({
-    mutationFn: (includeMusic: boolean) =>
-      setSequenceMusicFn({ data: { sequenceId: sequence.id, includeMusic } }),
-    onMutate: (includeMusic) => {
-      const key = sequenceKeys.detail(sequence.id);
-      const previous = queryClient.getQueryData<Sequence>(key);
-      queryClient.setQueryData<Sequence>(key, (old) =>
-        old ? { ...old, includeMusic } : old
-      );
-      posthog.capture('sequence_music_toggled', {
-        sequence_id: sequence.id,
-        include_music: includeMusic,
-      });
-      return { previous };
-    },
-    onError: (error, _includeMusic, ctx) => {
-      if (ctx?.previous) {
-        queryClient.setQueryData(
-          sequenceKeys.detail(sequence.id),
-          ctx.previous
-        );
-      }
-      toast.error('Could not save the music setting.');
-      posthog.captureException(error, { sequence_id: sequence.id });
-    },
-    onSuccess: (updated) => {
-      queryClient.setQueryData(sequenceKeys.detail(sequence.id), updated);
-    },
-  });
+  const setMusicEnabled = useSetSequenceMusic(sequence.id);
 
   const scenes = useMemo(() => {
     if (!frames) return [];

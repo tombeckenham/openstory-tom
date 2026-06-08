@@ -7,6 +7,7 @@ import {
   getSequenceFn,
   getSequencesFn,
   setSequenceModelFn,
+  setSequenceMusicFn,
   updateSequenceFn,
   type AddModelResult,
 } from '@/functions/sequences';
@@ -19,6 +20,8 @@ import {
 } from '@/lib/schemas/sequence.schemas';
 import type { Sequence } from '@/types/database';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePostHog } from '@posthog/react';
+import { toast } from 'sonner';
 
 import { getLogger } from '@/lib/observability/logger';
 
@@ -244,6 +247,44 @@ export function useUpdateSequence() {
             err: error,
           });
         });
+    },
+  });
+}
+
+/**
+ * Persist the per-sequence "include music in playback + export" toggle (#834).
+ * Shared by the theatre player's music button and the music tab's checkbox.
+ * Optimistically patches the sequence detail cache so the live player's music
+ * gain and the next export react instantly; rolls back if the write fails.
+ */
+export function useSetSequenceMusic(sequenceId: string) {
+  const queryClient = useQueryClient();
+  const posthog = usePostHog();
+
+  return useMutation({
+    mutationFn: (includeMusic: boolean) =>
+      setSequenceMusicFn({ data: { sequenceId, includeMusic } }),
+    onMutate: (includeMusic) => {
+      const key = sequenceKeys.detail(sequenceId);
+      const previous = queryClient.getQueryData<Sequence>(key);
+      queryClient.setQueryData<Sequence>(key, (old) =>
+        old ? { ...old, includeMusic } : old
+      );
+      posthog.capture('sequence_music_toggled', {
+        sequence_id: sequenceId,
+        include_music: includeMusic,
+      });
+      return { previous };
+    },
+    onError: (error, _includeMusic, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(sequenceKeys.detail(sequenceId), ctx.previous);
+      }
+      toast.error('Could not save the music setting.');
+      posthog.captureException(error, { sequence_id: sequenceId });
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData(sequenceKeys.detail(sequenceId), updated);
     },
   });
 }

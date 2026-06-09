@@ -231,6 +231,9 @@ export class RegenerateFramesWorkflow extends OpenStoryWorkflowEntrypoint<Regene
     const allLocations = await step.do('load-locations', () =>
       scopedDb.sequenceLocations.listWithReferences(sequenceId)
     );
+    const allElements = await step.do('load-elements', () =>
+      scopedDb.sequenceElements.list(sequenceId)
+    );
 
     type ReconcileOutcome =
       | { kind: 'convergent' }
@@ -277,6 +280,7 @@ export class RegenerateFramesWorkflow extends OpenStoryWorkflowEntrypoint<Regene
               frame: liveFrame,
               characters: allCharacters,
               locations: allLocations,
+              elements: allElements,
               imageModel,
               aspectRatio,
             });

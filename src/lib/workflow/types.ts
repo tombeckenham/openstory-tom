@@ -298,13 +298,16 @@ export type RegenerateFrameSnapshot = {
   characterSheetHashes: string[];
   /** Sorted location-sheet input_hashes referenced by this frame. */
   locationSheetHashes: string[];
+  /** Sorted element reference-image identities referenced by this frame. */
+  elementReferenceHashes: string[];
   /** Reference image descriptions used for image generation. */
   characterRefs: ReferenceImageDescription[];
   locationRefs: ReferenceImageDescription[];
   /**
    * Per-frame hash of `(prompt, model, aspect, characterSheetHashes,
-   * locationSheetHashes)`. Stored on the artifact row at write time and
-   * compared to a freshly recomputed hash to detect divergence.
+   * locationSheetHashes, elementReferenceHashes)`. Stored on the artifact row
+   * at write time and compared to a freshly recomputed hash to detect
+   * divergence.
    */
   snapshotInputHash: string;
 };

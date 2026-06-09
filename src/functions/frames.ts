@@ -589,15 +589,17 @@ export const getFrameStalenessFn = createServerFn({ method: 'GET' })
       if (frame.thumbnailInputHash === null) {
         thumbnail = 'untracked';
       } else {
-        const [characters, locations] = await Promise.all([
+        const [characters, locations, elements] = await Promise.all([
           scopedDb.characters.listWithSheets(sequence.id),
           scopedDb.sequenceLocations.listWithReferences(sequence.id),
+          scopedDb.sequenceElements.list(sequence.id),
         ]);
 
         const snapshot = await buildRegenerateFrameSnapshot({
           frame,
           characters,
           locations,
+          elements,
           imageModel: safeTextToImageModel(
             frame.imageModel,
             DEFAULT_IMAGE_MODEL

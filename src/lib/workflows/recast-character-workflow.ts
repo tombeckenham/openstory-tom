@@ -112,9 +112,10 @@ async function buildRegeneratePayload(
     );
   }
   const imageModel = input.imageModel ?? DEFAULT_IMAGE_MODEL;
-  const [characters, locations, frames] = await Promise.all([
+  const [characters, locations, elements, frames] = await Promise.all([
     scopedDb.characters.listWithSheets(sequenceId),
     scopedDb.sequenceLocations.listWithReferences(sequenceId),
+    scopedDb.sequenceElements.list(sequenceId),
     scopedDb.frames.getByIds(input.affectedFrameIds),
   ]);
   if (frames.length !== input.affectedFrameIds.length) {
@@ -131,6 +132,7 @@ async function buildRegeneratePayload(
         frame,
         characters,
         locations,
+        elements,
         imageModel,
         aspectRatio,
       })

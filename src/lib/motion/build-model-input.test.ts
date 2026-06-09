@@ -141,6 +141,9 @@ describe('buildModelInput', () => {
         '15',
       ],
       grok_imagine_video: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+      grok_imagine_video_1_5: [
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+      ],
       veo3_1: ['4s', '6s', '8s'],
       ltx_2_3_pro: [6, 8, 10],
       seedance_v1_5_pro: ['4', '5', '6', '7', '8', '9', '10', '11', '12'],
@@ -193,9 +196,11 @@ describe('buildModelInput', () => {
       expect(result.aspect_ratio).toBe('9:16');
     });
 
-    it('omits aspect_ratio when not provided (API uses its own default)', () => {
+    it('applies the schema default aspect_ratio when not provided', () => {
+      // Seedance v1.5's generated schema bakes in a 16:9 default, so the
+      // transform fills it when no aspect ratio is passed.
       const result = build('seedance_v1_5_pro', { aspectRatio: undefined });
-      expect(result.aspect_ratio).toBeUndefined();
+      expect(result.aspect_ratio).toBe('16:9');
     });
   });
 });

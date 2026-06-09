@@ -216,6 +216,26 @@ describe('calculateVideoCost', () => {
     expect(cost).toBe(micros(422_000));
   });
 
+  test('Grok Video 1.5 480p ($0.08/s + $0.01)', () => {
+    const cost = calculateVideoCost({
+      endpointId: 'xai/grok-imagine-video/v1.5/image-to-video',
+      durationSeconds: 6,
+      resolution: '480p',
+    });
+    // 80_000 * 6 + 10_000 = 490_000
+    expect(cost).toBe(micros(490_000));
+  });
+
+  test('Grok Video 1.5 720p ($0.14/s + $0.01)', () => {
+    const cost = calculateVideoCost({
+      endpointId: 'xai/grok-imagine-video/v1.5/image-to-video',
+      durationSeconds: 6,
+      resolution: '720p',
+    });
+    // 140_000 * 6 + 10_000 = 850_000
+    expect(cost).toBe(micros(850_000));
+  });
+
   test('Seedance v1.5 Pro 5s ($1.2/s)', () => {
     const cost = calculateVideoCost({
       endpointId: 'fal-ai/bytedance/seedance/v1.5/pro/image-to-video',

@@ -2,6 +2,7 @@ import { BillingGateDialog } from '@/components/billing/billing-gate-dialog';
 import { ImageModelSelector } from '@/components/model/image-model-selector';
 import { MotionModelSelector } from '@/components/model/motion-model-selector';
 import { type ModelGenerationStatus } from '@/components/model/base-model-selector';
+import { ThinkingBar } from '@/components/ai/thinking-bar';
 import { PromptHistorySheet } from '@/components/prompts/prompt-history-sheet';
 import { DivergentAlternateBanner } from '@/components/staleness/divergent-alternate-banner';
 import { StalenessIndicator } from '@/components/staleness/staleness-indicator';
@@ -1021,6 +1022,10 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
 
       <TabsContent value="image-prompt">
         <div className="space-y-4">
+          {/* Thinking bar while the model reasons, before the regenerated
+              prompt starts streaming back ('pending' → first delta). */}
+          <ThinkingBar active={framePromptStream.visual.status === 'pending'} />
+
           {/* Error/Success Messages */}
           {shortenStatus.error && (
             <Alert variant="destructive">
@@ -1220,6 +1225,10 @@ export const SceneScriptPrompts: React.FC<SceneScriptPromptsProps> = ({
 
       <TabsContent value="motion-prompt">
         <div className="space-y-4">
+          {/* Thinking bar while the model reasons, before the regenerated
+              prompt starts streaming back ('pending' → first delta). */}
+          <ThinkingBar active={framePromptStream.motion.status === 'pending'} />
+
           {/* Editable raw motion prompt */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">

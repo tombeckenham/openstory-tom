@@ -18,7 +18,11 @@
 
 import { createAdapter } from '@/lib/ai/create-adapter';
 import { computeVisualPromptInputHash } from '@/lib/ai/input-hash';
-import { extractRunError, formatRunErrorMessage } from '@/lib/ai/llm-client';
+import {
+  extractRunError,
+  formatRunErrorMessage,
+  PROMPT_REASONING,
+} from '@/lib/ai/llm-client';
 import { getContextWindow } from '@/lib/ai/models.config';
 import { narrowFramePromptContext } from '@/lib/ai/prompt-context';
 import {
@@ -178,6 +182,10 @@ export class VisualPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Visua
       const abortController = new AbortController();
       const timeout = setTimeout(() => abortController.abort(), 300_000);
 
+      // Reasoning lifts prompt-generation quality. Enabled in E2E too — it's
+      // deterministic once recorded, so aimock records + replays it normally.
+      const reasoningOptions = { reasoning: PROMPT_REASONING };
+
       try {
         if (!streamConfig) {
           const text = await chat({
@@ -188,6 +196,7 @@ export class VisualPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Visua
             stream: false,
             maxTokens: Math.floor(getContextWindow(analysisModelId) * 0.5),
             abortController,
+            modelOptions: reasoningOptions,
             metadata: {
               observationName: LOG_NAME,
               prompt: promptReference,
@@ -229,6 +238,7 @@ export class VisualPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Visua
           stream: true,
           maxTokens: Math.floor(getContextWindow(analysisModelId) * 0.5),
           abortController,
+          modelOptions: reasoningOptions,
           metadata: {
             observationName: LOG_NAME,
             prompt: promptReference,

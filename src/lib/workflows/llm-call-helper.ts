@@ -10,7 +10,11 @@
 
 import { getEnv } from '#env';
 import { createAdapter } from '@/lib/ai/create-adapter';
-import { extractRunError, formatRunErrorMessage } from '@/lib/ai/llm-client';
+import {
+  extractRunError,
+  formatRunErrorMessage,
+  PROMPT_REASONING,
+} from '@/lib/ai/llm-client';
 import type { TextModel } from '@/lib/ai/models';
 import { getContextWindow } from '@/lib/ai/models.config';
 import { extractStreamingStringField } from '@/lib/ai/stream-extract';
@@ -35,7 +39,23 @@ export type DurableLLMCallConfig<TSchema extends z.ZodType> = {
   modelId: TextModel;
   responseSchema: TSchema;
   additionalMetadata?: Record<string, unknown>;
+  /**
+   * Turn on the model's reasoning/thinking pass for this call (creative
+   * prompt-generation flows).
+   */
+  reasoning?: boolean;
 };
+
+/**
+ * Resolve the `modelOptions.reasoning` config for a call. Returns `{}` (no
+ * reasoning) when not requested, so it can be spread into `modelOptions`
+ * unconditionally.
+ */
+function reasoningModelOptions(reasoning: boolean | undefined): {
+  reasoning?: typeof PROMPT_REASONING;
+} {
+  return reasoning ? { reasoning: PROMPT_REASONING } : {};
+}
 
 export type DurableLLMCallContext = {
   sequenceId?: string;
@@ -154,6 +174,7 @@ export async function durableLLMCallCf<TSchema extends z.ZodType>(
         stream: false,
         maxTokens: Math.floor(getContextWindow(config.modelId) * 0.5),
         abortController,
+        modelOptions: reasoningModelOptions(config.reasoning),
         metadata: {
           observationName: logName,
           prompt: promptReference,
@@ -308,6 +329,7 @@ export async function durableStreamingLLMCallCf<TSchema extends z.ZodType>(
           stream: true,
           maxTokens: Math.floor(getContextWindow(config.modelId) * 0.5),
           abortController,
+          modelOptions: reasoningModelOptions(config.reasoning),
           metadata: {
             observationName: logName,
             prompt: promptReference,

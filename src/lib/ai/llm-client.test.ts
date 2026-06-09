@@ -395,6 +395,77 @@ describe('llm-client', () => {
       });
     });
 
+    describe('reasoning', () => {
+      it('ignores REASONING_MESSAGE_CONTENT events (reasoning is not surfaced)', async () => {
+        // Reasoning is enabled for quality, but its tokens are scratch work —
+        // never accumulated into the answer or yielded to the caller.
+        mockChat.mockReturnValue(
+          (async function* () {
+            yield { type: 'REASONING_MESSAGE_CONTENT', delta: 'let me think' };
+            yield { type: 'TEXT_MESSAGE_CONTENT', delta: 'Hello' };
+            yield { type: 'REASONING_MESSAGE_CONTENT', delta: ' more' };
+            yield { type: 'TEXT_MESSAGE_CONTENT', delta: ' World' };
+          })()
+        );
+
+        const answer: string[] = [];
+        let finalAccumulated = '';
+        for await (const chunk of callLLMStream({
+          model: 'anthropic/claude-sonnet-4.6',
+          messages: [{ role: 'user', content: 'test' }],
+          reasoning: { enabled: true, effort: 'medium' },
+        })) {
+          if (chunk.delta) answer.push(chunk.delta);
+          finalAccumulated = chunk.accumulated;
+        }
+
+        expect(answer).toEqual(['Hello', ' World']);
+        expect(finalAccumulated).toBe('Hello World');
+      });
+
+      it('forwards the reasoning config to chat modelOptions', async () => {
+        mockChat.mockReturnValue(
+          (async function* () {
+            yield { type: 'TEXT_MESSAGE_CONTENT', delta: 'ok' };
+          })()
+        );
+
+        await drain(
+          callLLMStream({
+            model: 'anthropic/claude-sonnet-4.6',
+            messages: [{ role: 'user', content: 'test' }],
+            reasoning: { enabled: true, effort: 'medium' },
+          })
+        );
+
+        const callArgs = mockChat.mock.calls[0]?.[0];
+        if (!callArgs) throw new Error('expected mockChat to have been called');
+        expect(callArgs.modelOptions.reasoning).toEqual({
+          enabled: true,
+          effort: 'medium',
+        });
+      });
+
+      it('omits reasoning from modelOptions when not requested', async () => {
+        mockChat.mockReturnValue(
+          (async function* () {
+            yield { type: 'TEXT_MESSAGE_CONTENT', delta: 'ok' };
+          })()
+        );
+
+        await drain(
+          callLLMStream({
+            model: 'anthropic/claude-sonnet-4.6',
+            messages: [{ role: 'user', content: 'test' }],
+          })
+        );
+
+        const callArgs = mockChat.mock.calls[0]?.[0];
+        if (!callArgs) throw new Error('expected mockChat to have been called');
+        expect(callArgs.modelOptions.reasoning).toBeUndefined();
+      });
+    });
+
     describe('web search tool', () => {
       it('wires the OpenRouter web search server tool when webSearch is enabled', async () => {
         mockChat.mockReturnValue(

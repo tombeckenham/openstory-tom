@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { ThinkingBar } from '@/components/ai/thinking-bar';
 import { PremiumCard } from '@/components/cards/premium-card';
 import { Kbd, KbdGroup } from '@/components/ui/kbd';
 import {
@@ -802,6 +803,12 @@ export const ScriptView: FC<{
         </CardHeader>
 
         <CardContent className="min-h-0 @container flex flex-col gap-4 py-6 overflow-hidden">
+          {/* Thinking bar shows during the reasoning pass — i.e. while
+              enhancing but before any enhanced text has streamed back. */}
+          <ThinkingBar
+            active={isEnhancing && !scriptValue}
+            className="shrink-0"
+          />
           <div className="relative min-h-0 flex flex-col">
             <ScriptEditor
               ref={textareaRef}

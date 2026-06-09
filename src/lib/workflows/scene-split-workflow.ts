@@ -21,7 +21,7 @@
  *     JSON-stringify around the step boundary (same pattern as
  *     `visual-prompt-scene-workflow.ts`). */
 
-import { callLLMStream } from '@/lib/ai/llm-client';
+import { callLLMStream, PROMPT_REASONING } from '@/lib/ai/llm-client';
 import { PREVIEW_IMAGE_MODEL } from '@/lib/ai/models';
 import { getContextWindow } from '@/lib/ai/models.config';
 import {
@@ -161,6 +161,7 @@ export class SceneSplitWorkflow extends OpenStoryWorkflowEntrypoint<SceneSplitWo
           max_tokens: Math.floor(getContextWindow(modelId) * 0.65),
           responseSchema: sceneSplittingResultSchema,
           apiKey: openRouterApiKeyInfo.key,
+          reasoning: PROMPT_REASONING,
           observationName: LOG_NAME,
           prompt: promptReference,
           tags: LOG_TAGS,

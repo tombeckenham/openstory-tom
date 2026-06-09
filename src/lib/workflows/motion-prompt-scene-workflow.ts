@@ -99,6 +99,7 @@ export class MotionPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Motio
         modelId: analysisModelId,
         responseSchema: motionPromptSchema,
         additionalMetadata: { frameId },
+        reasoning: true,
       },
       {
         sequenceId,

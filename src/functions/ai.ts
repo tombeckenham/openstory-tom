@@ -7,6 +7,7 @@ import { getEnv } from '#env';
 import {
   callLLM,
   callLLMStream,
+  PROMPT_REASONING,
   RECOMMENDED_MODELS,
 } from '@/lib/ai/llm-client';
 import { isValidAnalysisModelId } from '@/lib/ai/models.config';
@@ -381,7 +382,9 @@ export async function* streamScriptEnhancement(
   // Web search runs as OpenRouter's server tool — the model decides when to
   // search and OpenRouter executes it server-side within the agent loop.
   // Gate it out of E2E entirely (record + replay): live search results would
-  // make the recorded OpenRouter request/response non-deterministic.
+  // make the recorded OpenRouter request/response non-deterministic. Reasoning
+  // is NOT gated — it's deterministic once recorded, so E2E records + replays
+  // it like any other request.
   const useWebSearch = getEnv().E2E_TEST !== 'true';
   for await (const chunk of callLLMStream({
     model,
@@ -389,6 +392,7 @@ export async function* streamScriptEnhancement(
     max_tokens: 4000,
     temperature: 0.7,
     ...(useWebSearch && { webSearch: true }),
+    reasoning: PROMPT_REASONING,
     observationName: 'script-enhance',
     prompt: promptRef,
     tags: ['script-enhance', model],

@@ -1,10 +1,11 @@
 /**
  * Mention extension configured for character/element/location pills.
  *
- * Storage roundtrip: the markdown serializer writes the bare slug
- * (`jack-denim-jacket`), with no leading `@`. That keeps the persisted
- * prompt/script identical to what `extract-continuity-from-prompt.ts`
- * recognises today — the `@` is purely a render concern.
+ * Storage roundtrip: the markdown serializer writes the bare canonical tag
+ * (`JACK`, `BONDI_SCREEN`, or a location's `office-modern-steel` slug), with
+ * no leading `@`. That keeps the persisted prompt/script identical to what
+ * `extract-continuity-from-prompt.ts` recognises today — the `@` is purely a
+ * render concern.
  *
  * The mention's `id` attr IS the canonical tag. `section` drives the chip
  * colour. `label` is the display name (Jack, INT. OFFICE) used in the
@@ -17,14 +18,13 @@
  * over the bare stored slug).
  */
 
+import type { MentionSection } from '@/components/scenes/prompt-mention/mention-items';
 import { Mention } from '@tiptap/extension-mention';
 import type { MarkdownNodeSpec } from 'tiptap-markdown';
 import {
   MENTION_PILL_BASE_CLASS as BASE_PILL_CLASS,
   MENTION_SECTION_CLASS as SECTION_CLASS,
 } from './mention-styles';
-
-export type MentionSection = 'cast' | 'elements' | 'locations';
 
 /**
  * All attrs are nullable because Tiptap defaults them to null at the schema

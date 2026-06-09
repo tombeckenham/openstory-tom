@@ -4,7 +4,7 @@
  * Shared by `tagifyMarkdown` (the editor) and `HighlightedPrompt` (read-only,
  * e.g. eval views) so both surfaces pill identically.
  *
- * Rules mirror `extract-continuity-from-prompt.ts`:
+ * Rules track the CAST path of `extract-continuity-from-prompt.ts`:
  *  - Cast names (`SCARLETT`) and element tokens (`BONDI_SCREEN`) are highlighted
  *    in place — they pill ONLY in their ALL-CAPS form (never lowercase prose or
  *    a stale lowercased form), with no `@`. Aliases (a legacy kebab slug) are
@@ -12,6 +12,13 @@
  *  - Locations have no UPPERCASE token, so they use the kebab consistencyTag,
  *    shown as `@slug`. A leading `@` before a location tag is the mention
  *    trigger and is consumed into the pill (which re-adds its `@`).
+ *
+ * Deliberate asymmetry for ELEMENTS: the server-side continuity extractor
+ * uppercases the whole prompt before matching elements, so a lowercase
+ * `bondi_screen` still links into `continuity.elementTags` even though it does
+ * NOT pill here. The pill is a deliberate-reference affordance (ALL-CAPS only);
+ * continuity extraction is intentionally permissive. Tokens are UPPERCASE by
+ * convention, so the two agree in the normal flow.
  */
 
 import type { MentionItem } from '@/components/scenes/prompt-mention/mention-items';
@@ -35,13 +42,16 @@ export function splitMentions(
   // so a longer slug wins over a shorter one that's a prefix of it.
   const forms: Array<{ form: string; item: MentionItem }> = [];
   for (const item of items) {
-    forms.push({ form: item.tag, item });
+    // Skip empty forms: a malformed row with an empty `tag` would otherwise add
+    // an empty alternation member, making the regex match at every position.
+    if (item.tag) forms.push({ form: item.tag, item });
     if (item.aliases) {
       for (const alias of item.aliases) {
         if (alias && alias !== item.tag) forms.push({ form: alias, item });
       }
     }
   }
+  if (forms.length === 0) return [{ type: 'text', value: text }];
   forms.sort((a, b) => b.form.length - a.form.length);
 
   const byForm = new Map<string, MentionItem>();

@@ -54,6 +54,19 @@ describe('extractContinuityFromPrompt', () => {
     expect(result.elementTags).toEqual([]);
   });
 
+  it('matches an element token case-insensitively (more permissive than the editor pill)', () => {
+    const result = extractContinuityFromPrompt({
+      ...baseArgs,
+      promptText: 'A close-up of the logo on the table.',
+      elements: [el('LOGO')],
+    });
+    // The extractor uppercases the whole prompt, so a lowercase prose mention
+    // still links the element — DELIBERATELY more permissive than tagify's pill
+    // (which requires the ALL-CAPS token; see mention-match.ts). Tokens are
+    // UPPERCASE by convention, so the two agree in the normal flow.
+    expect(result.elementTags).toEqual(['LOGO']);
+  });
+
   it('skips elements already in existing tags', () => {
     const result = extractContinuityFromPrompt({
       ...baseArgs,
@@ -121,6 +134,21 @@ describe('extractContinuityFromPrompt', () => {
       ],
     });
     expect(result.characterTags).toEqual(['char_001']);
+  });
+
+  it('collapses duplicate cast names to a single canonical tag', () => {
+    const result = extractContinuityFromPrompt({
+      ...baseArgs,
+      promptText: 'JACK leans on the bar.',
+      characters: [
+        { name: 'Jack', characterId: 'char_001', consistencyTag: null },
+        { name: 'Jack', characterId: 'char_002', consistencyTag: null },
+      ],
+    });
+    // Two characters share the name "Jack" → both resolve to canonical `jack`;
+    // the dedup keeps a single entry (first loop match wins) rather than
+    // emitting `['jack', 'jack']`. Documents the name-collision ambiguity.
+    expect(result.characterTags).toEqual(['jack']);
   });
 
   it('skips characters already linked', () => {

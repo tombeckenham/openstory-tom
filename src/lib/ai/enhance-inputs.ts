@@ -1,10 +1,14 @@
 /**
  * Shared construction of the style/element inputs the script enhancer reads, so
  * the UI (`enhanceScriptStreamFn`) and the public API (`runOneShotCreate`) feed
- * the enhancer IDENTICALLY (issue #855). Kept dependency-free (type-only import
- * of StyleConfig) so it is safe to import from the client bundle.
+ * the enhancer IDENTICALLY (issue #855). Runtime deps are limited to the
+ * client-safe logger (type-only import of StyleConfig otherwise) so this stays
+ * safe to import from the client bundle.
  */
+import { getLogger } from '@/lib/observability/logger';
 import type { StyleConfig } from '@/lib/db/schema/libraries';
+
+const logger = getLogger(['openstory', 'ai', 'enhance-inputs']);
 
 /**
  * A style as the enhancer sees it: the aesthetic recipe (`config`) plus the
@@ -66,9 +70,13 @@ export function toEnhanceInputs(args: {
   // An element can be woven into the script only if it has BOTH a token (the
   // script reference) and an image URL (draft `tempPublicUrl` or persisted
   // `imageUrl`). Drop the rest.
+  const dropped: string[] = [];
   const mapped = (elements ?? []).flatMap((el): EnhanceElement[] => {
     const imageUrl = el.tempPublicUrl ?? el.imageUrl;
-    if (!el.token || !imageUrl) return [];
+    if (!el.token || !imageUrl) {
+      dropped.push(el.token ?? '(untokened)');
+      return [];
+    }
     return [
       {
         token: el.token,
@@ -77,6 +85,16 @@ export function toEnhanceInputs(args: {
       },
     ];
   });
+
+  if (dropped.length > 0) {
+    // The user attached these elements but they can't be woven in (no token or
+    // no reference image). Surface it so "my reference image was ignored" is
+    // diagnosable instead of silent.
+    logger.warn(
+      'enhance-inputs dropped {count} element(s) missing token/image: {tokens}',
+      { count: dropped.length, tokens: dropped.join(', ') }
+    );
+  }
 
   return {
     style: style

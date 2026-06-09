@@ -155,8 +155,25 @@ describe('tagifyMarkdown', () => {
   it('escapes quotes/brackets in span attributes', () => {
     // Bare surrounding text is NOT HTML-escaped (Tiptap treats it as markdown);
     // the span attributes ARE, so an adversarial label can't break out.
-    const result = tagifyMarkdown('office-modern-steel', items);
-    expect(result.content).toMatch(/data-id="office-modern-steel"/);
+    const adversarial: MentionItem[] = [
+      {
+        id: 'element:eX',
+        section: 'elements',
+        label: 'Logo "v2" <b>&',
+        sublabel: '',
+        tag: 'LOGO_V2',
+        haystack: 'logo_v2',
+        thumbnailUrl: null,
+      },
+    ];
+    const result = tagifyMarkdown('show the LOGO_V2 now', adversarial);
+    expect(result.matched).toBe(true);
+    // The adversarial label is entity-encoded in data-label — no raw quote or
+    // bracket survives to break out of the attribute.
+    expect(result.content).toContain(
+      'data-label="Logo &quot;v2&quot; &lt;b&gt;&amp;"'
+    );
+    expect(result.content).not.toContain('data-label="Logo "v2"');
   });
 
   it('consumes a leading @ on a location tag (no doubled @)', () => {

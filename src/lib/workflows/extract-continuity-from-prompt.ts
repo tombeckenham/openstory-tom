@@ -3,10 +3,13 @@
  * user-edited prompt, so the next regeneration picks them up via
  * `frame.metadata.continuity`.
  *
- * Strict matching: each entity is searched by its stable identifier(s)
- * (whole-word, case-insensitive). No fuzzy name matching — predictable, no
- * false positives. Returns additions only; the caller merges them with the
- * existing continuity so removals from the prompt don't drop linked items.
+ * Strict matching: each entity is searched whole-word. Identifier/slug forms
+ * (characterId, consistencyTag slug, element token, location slug) match
+ * case-insensitively. Cast ALSO matches by ALL-CAPS name, but case-SENSITIVELY
+ * — the deliberate `SCARLETT` reference, not a lowercase prose mention (mirrors
+ * tagify's pill rule). No fuzzy name matching — predictable, no false
+ * positives. Returns additions only; the caller merges them with the existing
+ * continuity so removals from the prompt don't drop linked items.
  */
 
 import type { Continuity } from '@/lib/ai/scene-analysis.schema';

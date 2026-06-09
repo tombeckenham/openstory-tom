@@ -22,7 +22,12 @@ import {
 } from '@/lib/ai/input-hash';
 import { DEFAULT_IMAGE_MODEL } from '@/lib/ai/models';
 import type { ScopedDb } from '@/lib/db/scoped';
-import type { StyleConfig } from '@/lib/db/schema';
+import type {
+  CharacterMinimal,
+  SequenceElementMinimal,
+  SequenceLocationMinimal,
+  StyleConfig,
+} from '@/lib/db/schema';
 import type {
   CharacterSheetWorkflowInput,
   FrameImageSceneSnapshot,
@@ -30,6 +35,11 @@ import type {
   LibraryTalentSheetWorkflowInput,
   LocationSheetWorkflowInput,
 } from '@/lib/workflow/types';
+import {
+  matchCharactersToScene,
+  matchElementsToScene,
+  matchLocationsToScene,
+} from './scene-matching';
 
 export type { FrameImageSceneSnapshot } from '@/lib/workflow/types';
 
@@ -220,6 +230,80 @@ export async function computeLibraryTalentSheetHashCurrent(
     ...input,
     referenceImageUrls: currentImageUrls,
   });
+}
+
+/** Drop nulls/empties and sort so order-insensitive comparisons match. */
+function sortedRefHashes(values: Array<string | null | undefined>): string[] {
+  return values
+    .filter((v): v is string => typeof v === 'string' && v.length > 0)
+    .sort();
+}
+
+/**
+ * Match a scene's referenced characters / locations / elements from live DB
+ * rows and resolve the three reference-hash sets that feed the frame-image
+ * input hash: character `sheetInputHash`, location `referenceInputHash`, and
+ * element `imageUrl`.
+ *
+ * Single source of truth so the image-generation **stamp**
+ * (`computeImageWorkflowHashCurrent`) and the staleness **verify**
+ * (`buildRegenerateFrameSnapshot`) cannot drift — drift on the element /
+ * location sets (verify hard-coded them to `[]` and used a different location
+ * matcher) made every element- or location-bearing frame report permanently
+ * "Inputs changed". See #867.
+ */
+export function resolveSceneFrameImageReferences(params: {
+  // Structural (not `Scene`) so it accepts both the strict scene and the
+  // looser `frame.metadata` shapes callers hold; only these fields are read.
+  scene: {
+    continuity?: {
+      characterTags?: string[];
+      environmentTag?: string;
+      elementTags?: string[] | null;
+    } | null;
+    metadata?: { location?: string } | null;
+    originalScript?: { extract?: string } | null;
+  } | null;
+  characters: CharacterMinimal[];
+  locations: SequenceLocationMinimal[];
+  elements: SequenceElementMinimal[];
+}): {
+  characters: CharacterMinimal[];
+  locations: SequenceLocationMinimal[];
+  elements: SequenceElementMinimal[];
+  characterSheetHashes: string[];
+  locationSheetHashes: string[];
+  elementReferenceHashes: string[];
+} {
+  const { scene, characters, locations, elements } = params;
+  const matchedCharacters = matchCharactersToScene(
+    characters,
+    scene?.continuity?.characterTags ?? []
+  );
+  const matchedLocations = matchLocationsToScene(
+    locations,
+    scene?.continuity?.environmentTag ?? '',
+    scene?.metadata?.location ?? ''
+  );
+  const matchedElements = matchElementsToScene(
+    elements,
+    scene?.continuity?.elementTags ?? [],
+    scene?.originalScript?.extract ?? ''
+  );
+  return {
+    characters: matchedCharacters,
+    locations: matchedLocations,
+    elements: matchedElements,
+    characterSheetHashes: sortedRefHashes(
+      matchedCharacters.map((c) => c.sheetInputHash)
+    ),
+    locationSheetHashes: sortedRefHashes(
+      matchedLocations.map((l) => l.referenceInputHash)
+    ),
+    elementReferenceHashes: sortedRefHashes(
+      matchedElements.map((e) => e.imageUrl)
+    ),
+  };
 }
 
 /**

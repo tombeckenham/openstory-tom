@@ -32,6 +32,7 @@ import type { Scene } from '@/lib/ai/scene-analysis.schema';
 import type { ScopedDb } from '@/lib/db/scoped';
 import { assembleMotionPrompt } from '@/lib/motion/assemble-motion-prompt';
 import { recordWorkflowTrace } from '@/lib/observability/langfuse';
+import { buildCastCharacterBible } from '@/lib/prompts/character-prompt';
 import { getGenerationChannel } from '@/lib/realtime';
 import { spawnAndAwaitChild } from '@/lib/workflow/await-child';
 import { OpenStoryWorkflowEntrypoint } from '@/lib/workflow/base-workflow';
@@ -61,13 +62,9 @@ import type {
 } from '@/lib/workflow/types';
 import { findMissingElementEntries } from '@/lib/workflows/element-sheet-workflow';
 import {
-  matchCharactersToScene,
-  matchElementsToScene,
-  matchLocationsToScene,
-} from '@/lib/workflows/scene-matching';
-import {
   computeFrameImagesHashFromDto,
   type FrameImageSceneSnapshot,
+  resolveSceneFrameImageReferences,
 } from '@/lib/workflows/sheet-snapshots';
 import { waitForElementVision } from '@/lib/workflows/wait-for-sheets';
 import type {
@@ -280,6 +277,19 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
     const { matches: talentCharacterMatches } = talentSettled.value;
     const { matches: libraryLocationMatches } = locationMatchSettled.value;
 
+    // Apply casting to the bible NOW, before prompt generation. Talent matching
+    // (above) has resolved, so casting is known. Feeding the cast bible into the
+    // visual/motion prompt children means those prompts are generated from — and
+    // hashed against — the exact values the character-bible workflow persists, so
+    // staleness verification (which reads the cast DB row) matches by
+    // construction. Unmatched characters pass through unchanged. The character-
+    // bible child still receives the raw bible + matches (its sheet-generation
+    // path is unchanged). See #867.
+    const castCharacterBible = buildCastCharacterBible(
+      characterBible,
+      talentCharacterMatches
+    );
+
     // ----------------------------------------------------------------------
     // PHASE 3: character bible + location bible + visual prompts in parallel
     // ----------------------------------------------------------------------
@@ -389,7 +399,7 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
             sequenceId,
             scenes,
             aspectRatio,
-            characterBible,
+            characterBible: castCharacterBible,
             locationBible,
             elementBible,
             styleConfig,
@@ -441,38 +451,24 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
       });
     });
 
-    // Build per-scene snapshots for frame-images divergence detection.
+    // Build per-scene snapshots for frame-images divergence detection. Resolve
+    // references through the SAME helper the image-gen stamp and staleness
+    // verify use (`resolveSceneFrameImageReferences`) so the three sites can't
+    // drift on matcher choice or hash-filtering — that drift was the #867 bug.
     const sceneSnapshots: FrameImageSceneSnapshot[] =
       scenesWithVisualPrompts.map((scene) => {
-        const characters = matchCharactersToScene(
-          charactersWithSheets,
-          scene.continuity?.characterTags ?? []
-        );
-        const locations = matchLocationsToScene(
-          locationsWithSheets,
-          scene.continuity?.environmentTag ?? '',
-          scene.metadata?.location ?? ''
-        );
-        const elementsMatched = matchElementsToScene(
-          allElements,
-          scene.continuity?.elementTags ?? [],
-          scene.originalScript.extract
-        );
+        const refs = resolveSceneFrameImageReferences({
+          scene,
+          characters: charactersWithSheets,
+          locations: locationsWithSheets,
+          elements: allElements,
+        });
         return {
           sceneId: scene.sceneId,
           visualPrompt: scene.prompts?.visual?.fullPrompt ?? '',
-          characterSheetHashes: characters
-            .map((c) => c.sheetInputHash)
-            .filter((h): h is string => typeof h === 'string')
-            .sort(),
-          locationSheetHashes: locations
-            .map((l) => l.referenceInputHash)
-            .filter((h): h is string => typeof h === 'string')
-            .sort(),
-          elementReferenceHashes: elementsMatched
-            .map((e) => e.imageUrl)
-            .filter((u) => u.length > 0)
-            .sort(),
+          characterSheetHashes: refs.characterSheetHashes,
+          locationSheetHashes: refs.locationSheetHashes,
+          elementReferenceHashes: refs.elementReferenceHashes,
         };
       });
 
@@ -526,7 +522,7 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
           scenesWithVisualPrompts,
           frameMapping,
           aspectRatio,
-          characterBible,
+          characterBible: castCharacterBible,
           locationBible,
           elementBible,
           styleConfig,

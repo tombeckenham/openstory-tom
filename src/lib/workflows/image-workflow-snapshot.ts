@@ -26,12 +26,10 @@ import type {
   ImageWorkflowInput,
 } from '@/lib/workflow/types';
 import { buildDivergentRevertWrites } from './divergence-writes';
-import { computeFrameImageSceneHash } from './sheet-snapshots';
 import {
-  matchCharactersToScene,
-  matchElementsToScene,
-  matchLocationsToScene,
-} from './scene-matching';
+  computeFrameImageSceneHash,
+  resolveSceneFrameImageReferences,
+} from './sheet-snapshots';
 
 export type ImageStorageResult = { url: string; path: string };
 
@@ -99,12 +97,6 @@ export type PersistImageScopedDb = {
 
 const NO_SNAPSHOT_SENTINEL = '';
 
-function sortedHashes(values: Array<string | null | undefined>): string[] {
-  return values
-    .filter((v): v is string => typeof v === 'string' && v.length > 0)
-    .sort();
-}
-
 function requireAspectRatio(
   input: ImageWorkflowInput
 ): NonNullable<ImageWorkflowInput['aspectRatio']> {
@@ -162,34 +154,19 @@ export async function computeImageWorkflowHashCurrent(
     scopedDb.sequenceElements.list(input.sequenceId),
   ]);
 
-  const scene = frame.metadata;
-  const matchedCharacters = matchCharactersToScene(
+  const refs = resolveSceneFrameImageReferences({
+    scene: frame.metadata,
     characters,
-    scene.continuity?.characterTags ?? []
-  );
-  const matchedLocations = matchLocationsToScene(
     locations,
-    scene.continuity?.environmentTag ?? '',
-    scene.metadata?.location ?? ''
-  );
-  const matchedElements = matchElementsToScene(
     elements,
-    scene.continuity?.elementTags ?? [],
-    scene.originalScript?.extract ?? ''
-  );
+  });
 
   const currentSnapshot: FrameImageSceneSnapshot = {
     sceneId: input.sceneSnapshot.sceneId,
     visualPrompt: input.sceneSnapshot.visualPrompt,
-    characterSheetHashes: sortedHashes(
-      matchedCharacters.map((c) => c.sheetInputHash)
-    ),
-    locationSheetHashes: sortedHashes(
-      matchedLocations.map((l) => l.referenceInputHash)
-    ),
-    elementReferenceHashes: sortedHashes(
-      matchedElements.map((e) => e.imageUrl)
-    ),
+    characterSheetHashes: refs.characterSheetHashes,
+    locationSheetHashes: refs.locationSheetHashes,
+    elementReferenceHashes: refs.elementReferenceHashes,
   };
 
   return computeFrameImageSceneHash(currentSnapshot, model, aspectRatio);

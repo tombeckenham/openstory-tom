@@ -10,7 +10,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { Character, Frame, SequenceLocation } from '@/lib/db/schema';
+import type {
+  Character,
+  Frame,
+  SequenceElement,
+  SequenceLocation,
+} from '@/lib/db/schema';
 import {
   buildConvergentWrites,
   buildDivergentWrites,
@@ -110,6 +115,31 @@ function makeFrame(overrides: Partial<Frame> = {}): Frame {
 }
 
 const NO_LOCATIONS: SequenceLocation[] = [];
+const NO_ELEMENTS: SequenceElement[] = [];
+
+function makeElement(
+  overrides: Partial<SequenceElement> = {}
+): SequenceElement {
+  const element: SequenceElement = {
+    id: 'e1',
+    sequenceId: 'seq1',
+    uploadedFilename: 'bottle.png',
+    token: 'BOTTLE',
+    description: 'A silver bottle',
+    consistencyTag: 'silver-bottle',
+    imageUrl: 'https://example.com/bottle.png',
+    imagePath: 'elements/seq1/bottle.png',
+    visionStatus: 'completed',
+    visionError: null,
+    visionGeneratedAt: NOW,
+    firstMentionSceneId: null,
+    firstMentionText: null,
+    firstMentionLine: null,
+    createdAt: NOW,
+    updatedAt: NOW,
+  };
+  return { ...element, ...overrides };
+}
 
 describe('buildRegenerateFrameSnapshot', () => {
   it('produces a deterministic snapshotInputHash for identical inputs', async () => {
@@ -120,6 +150,7 @@ describe('buildRegenerateFrameSnapshot', () => {
       frame,
       characters,
       locations: NO_LOCATIONS,
+      elements: NO_ELEMENTS,
       imageModel: 'nano_banana_2',
       aspectRatio: '16:9',
     });
@@ -127,6 +158,7 @@ describe('buildRegenerateFrameSnapshot', () => {
       frame,
       characters,
       locations: NO_LOCATIONS,
+      elements: NO_ELEMENTS,
       imageModel: 'nano_banana_2',
       aspectRatio: '16:9',
     });
@@ -141,6 +173,7 @@ describe('buildRegenerateFrameSnapshot', () => {
       frame,
       characters: [makeCharacter({ sheetInputHash: 'jack-hash-v1' })],
       locations: NO_LOCATIONS,
+      elements: NO_ELEMENTS,
       imageModel: 'nano_banana_2',
       aspectRatio: '16:9',
     });
@@ -148,6 +181,7 @@ describe('buildRegenerateFrameSnapshot', () => {
       frame,
       characters: [makeCharacter({ sheetInputHash: 'jack-hash-v2' })],
       locations: NO_LOCATIONS,
+      elements: NO_ELEMENTS,
       imageModel: 'nano_banana_2',
       aspectRatio: '16:9',
     });
@@ -161,6 +195,7 @@ describe('buildRegenerateFrameSnapshot', () => {
       frame: makeFrame({ imagePrompt: 'Original prompt' }),
       characters,
       locations: NO_LOCATIONS,
+      elements: NO_ELEMENTS,
       imageModel: 'nano_banana_2',
       aspectRatio: '16:9',
     });
@@ -168,6 +203,7 @@ describe('buildRegenerateFrameSnapshot', () => {
       frame: makeFrame({ imagePrompt: 'Edited prompt' }),
       characters,
       locations: NO_LOCATIONS,
+      elements: NO_ELEMENTS,
       imageModel: 'nano_banana_2',
       aspectRatio: '16:9',
     });
@@ -180,6 +216,7 @@ describe('buildRegenerateFrameSnapshot', () => {
       frame,
       characters: [makeCharacter({ sheetInputHash: null })],
       locations: NO_LOCATIONS,
+      elements: NO_ELEMENTS,
       imageModel: 'nano_banana_2',
       aspectRatio: '16:9',
     });
@@ -216,6 +253,7 @@ describe('buildRegenerateFrameSnapshot', () => {
       frame,
       characters: [makeCharacter()],
       locations: NO_LOCATIONS,
+      elements: NO_ELEMENTS,
       imageModel: 'nano_banana_2',
       aspectRatio: '16:9',
     });
@@ -252,6 +290,7 @@ describe('buildRegenerateFrameSnapshot', () => {
         }),
         characters: [makeCharacter()],
         locations: NO_LOCATIONS,
+        elements: NO_ELEMENTS,
         imageModel: 'nano_banana_2',
         aspectRatio: '16:9',
       });
@@ -267,6 +306,7 @@ describe('buildRegenerateFrameSnapshot', () => {
         frame: makeFrame({ imagePrompt: null }),
         characters: [makeCharacter()],
         locations: NO_LOCATIONS,
+        elements: NO_ELEMENTS,
         imageModel: 'nano_banana_2',
         aspectRatio: '16:9',
       })
@@ -279,10 +319,74 @@ describe('buildRegenerateFrameSnapshot', () => {
         frame: makeFrame({ imagePrompt: '' }),
         characters: [makeCharacter()],
         locations: NO_LOCATIONS,
+        elements: NO_ELEMENTS,
         imageModel: 'nano_banana_2',
         aspectRatio: '16:9',
       })
     ).rejects.toThrow(/has no visual prompt/);
+  });
+
+  // #867 (image): a frame that references a product element must hash that
+  // element's reference — verify previously hard-coded `[]`, so every
+  // element-bearing frame reported permanently stale.
+  const frameMentioning = (token: string): Frame => {
+    const base = makeFrame().metadata;
+    if (!base) throw new Error('test setup: metadata missing');
+    return makeFrame({
+      metadata: {
+        ...base,
+        originalScript: { extract: `The ${token} sits here.`, dialogue: [] },
+      },
+    });
+  };
+
+  it('includes a referenced element’s reference hash in the snapshot', async () => {
+    const snapshot = await buildRegenerateFrameSnapshot({
+      frame: frameMentioning('BOTTLE'),
+      characters: [makeCharacter()],
+      locations: NO_LOCATIONS,
+      elements: [makeElement()],
+      imageModel: 'nano_banana_2',
+      aspectRatio: '16:9',
+    });
+    expect(snapshot.elementReferenceHashes).toEqual([
+      'https://example.com/bottle.png',
+    ]);
+  });
+
+  it('changes the snapshotInputHash when a referenced element image changes', async () => {
+    const opts = {
+      frame: frameMentioning('BOTTLE'),
+      characters: [makeCharacter()],
+      locations: NO_LOCATIONS,
+      imageModel: 'nano_banana_2' as const,
+      aspectRatio: '16:9' as const,
+    };
+    const before = await buildRegenerateFrameSnapshot({
+      ...opts,
+      elements: [
+        makeElement({ imageUrl: 'https://example.com/bottle-v1.png' }),
+      ],
+    });
+    const after = await buildRegenerateFrameSnapshot({
+      ...opts,
+      elements: [
+        makeElement({ imageUrl: 'https://example.com/bottle-v2.png' }),
+      ],
+    });
+    expect(after.snapshotInputHash).not.toBe(before.snapshotInputHash);
+  });
+
+  it('ignores elements the frame does not reference', async () => {
+    const snapshot = await buildRegenerateFrameSnapshot({
+      frame: makeFrame(), // empty script + no elementTags → no element matches
+      characters: [makeCharacter()],
+      locations: NO_LOCATIONS,
+      elements: [makeElement()],
+      imageModel: 'nano_banana_2',
+      aspectRatio: '16:9',
+    });
+    expect(snapshot.elementReferenceHashes).toEqual([]);
   });
 });
 
@@ -294,6 +398,7 @@ describe('computeRegenerateFramesBatchHash', () => {
     const opts = {
       characters,
       locations: NO_LOCATIONS,
+      elements: NO_ELEMENTS,
       imageModel: 'nano_banana_2' as const,
       aspectRatio: '16:9' as const,
     };
@@ -321,6 +426,7 @@ describe('computeRegenerateFramesBatchHash', () => {
     const opts = {
       frame,
       locations: NO_LOCATIONS,
+      elements: NO_ELEMENTS,
       imageModel: 'nano_banana_2' as const,
       aspectRatio: '16:9' as const,
     };
@@ -368,6 +474,7 @@ describe('computeRegenerateFramesBatchHash', () => {
       frame,
       characters: [makeCharacter()],
       locations: NO_LOCATIONS,
+      elements: NO_ELEMENTS,
       imageModel: 'nano_banana_2',
       aspectRatio: '16:9',
     });

@@ -21,9 +21,9 @@ import type {
   Frame,
   NewFrame,
   NewFrameVariant,
+  SequenceElement,
   SequenceLocation,
 } from '@/lib/db/schema';
-import { matchLocationsToFrame } from '@/lib/db/scoped/sequence-locations';
 import { buildDivergentRevertWrites } from './divergence-writes';
 import { buildCharacterReferenceImages } from '@/lib/prompts/character-prompt';
 import { buildLocationReferenceImages } from '@/lib/prompts/location-prompt';
@@ -32,24 +32,7 @@ import type {
   RegenerateFrameSnapshot,
   RegenerateFramesWorkflowInput,
 } from '@/lib/workflow/types';
-import { matchCharactersToScene } from './scene-matching';
-
-import { getLogger } from '@/lib/observability/logger';
-
-const logger = getLogger([
-  'openstory',
-  'workflow',
-  'regenerate-frames-snapshot',
-]);
-
-/** Drop nulls and sort so order-insensitive comparisons match. */
-function collectSortedHashes(
-  hashes: Array<string | null | undefined>
-): string[] {
-  return hashes
-    .filter((h): h is string => typeof h === 'string' && h.length > 0)
-    .sort();
-}
+import { resolveSceneFrameImageReferences } from './sheet-snapshots';
 
 /**
  * Build one frame's snapshot DTO from the live scoped state. Used at trigger
@@ -59,10 +42,12 @@ export async function buildRegenerateFrameSnapshot(params: {
   frame: Pick<Frame, 'id' | 'imagePrompt' | 'metadata'>;
   characters: Character[];
   locations: SequenceLocation[];
+  elements: SequenceElement[];
   imageModel: TextToImageModel;
   aspectRatio: AspectRatio;
 }): Promise<RegenerateFrameSnapshot> {
-  const { frame, characters, locations, imageModel, aspectRatio } = params;
+  const { frame, characters, locations, elements, imageModel, aspectRatio } =
+    params;
 
   // Effective prompt: user-override column wins over the AI-generated prompt
   // stored in scene metadata. Both sites must read this same fallback chain
@@ -79,37 +64,29 @@ export async function buildRegenerateFrameSnapshot(params: {
     throw new Error(`Frame ${frame.id} has no visual prompt; cannot snapshot`);
   }
 
-  const characterTags = frame.metadata?.continuity?.characterTags ?? [];
-  const frameCharacters = matchCharactersToScene(characters, characterTags);
-  const frameLocations = matchLocationsToFrame(frame, locations);
+  // Resolve the scene's character / location / element references exactly the
+  // way image generation does (`computeImageWorkflowHashCurrent`) — same
+  // matchers, same reference-hash sets — so this verify-time hash equals the
+  // thumbnail hash stamped at generation. Omitting the element/location sets
+  // here made every product-/location-bearing frame report stale. See #867.
+  const refs = resolveSceneFrameImageReferences({
+    scene: frame.metadata,
+    characters,
+    locations,
+    elements,
+  });
 
-  const characterSheetHashes = collectSortedHashes(
-    frameCharacters.map((c) => c.sheetInputHash)
-  );
-  // `sequence_locations` does not yet carry its own input_hash column (Stage 1
-  // put hashes on `location_sheets` and `locationLibrary`). For now we skip
-  // them — character-recast divergence is the headline case this PR proves
-  // out, and sequence-location hashes drop in here without other changes
-  // when that column lands. Log when this gap is exercised so a recast that
-  // should invalidate location-dependent frames is observable.
-  const locationSheetHashes: string[] = [];
-  if (frameLocations.length > 0) {
-    logger.warn(
-      `Frame ${frame.id} matched ${frameLocations.length} location(s) but locationSheetHashes is omitted from the snapshot hash — location recasts will not invalidate this frame until sequence_locations.input_hash lands`
-    );
-  }
-
-  const characterRefs = buildCharacterReferenceImages(frameCharacters);
-  const locationRefs = buildLocationReferenceImages(frameLocations);
+  const characterRefs = buildCharacterReferenceImages(refs.characters);
+  const locationRefs = buildLocationReferenceImages(refs.locations);
 
   const hashInput: FrameImageHashInput = {
     kind: 'thumbnail',
     visualPrompt: effectivePrompt,
     imageModel,
     aspectRatio,
-    characterSheetHashes,
-    locationSheetHashes,
-    elementReferenceHashes: [],
+    characterSheetHashes: refs.characterSheetHashes,
+    locationSheetHashes: refs.locationSheetHashes,
+    elementReferenceHashes: refs.elementReferenceHashes,
   };
 
   const snapshotInputHash = await computeFrameImageInputHash(hashInput);
@@ -117,8 +94,9 @@ export async function buildRegenerateFrameSnapshot(params: {
   return {
     frameId: frame.id,
     imagePrompt: effectivePrompt,
-    characterSheetHashes,
-    locationSheetHashes,
+    characterSheetHashes: refs.characterSheetHashes,
+    locationSheetHashes: refs.locationSheetHashes,
+    elementReferenceHashes: refs.elementReferenceHashes,
     characterRefs,
     locationRefs,
     snapshotInputHash,

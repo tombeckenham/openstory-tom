@@ -589,28 +589,42 @@ export const getFrameStalenessFn = createServerFn({ method: 'GET' })
       if (frame.thumbnailInputHash === null) {
         thumbnail = 'untracked';
       } else {
-        const [characters, locations, elements] = await Promise.all([
-          scopedDb.characters.listWithSheets(sequence.id),
-          scopedDb.sequenceLocations.listWithReferences(sequence.id),
-          scopedDb.sequenceElements.list(sequence.id),
-        ]);
+        try {
+          const [characters, locations, elements] = await Promise.all([
+            scopedDb.characters.listWithSheets(sequence.id),
+            scopedDb.sequenceLocations.listWithReferences(sequence.id),
+            scopedDb.sequenceElements.list(sequence.id),
+          ]);
 
-        const snapshot = await buildRegenerateFrameSnapshot({
-          frame,
-          characters,
-          locations,
-          elements,
-          imageModel: safeTextToImageModel(
-            frame.imageModel,
-            DEFAULT_IMAGE_MODEL
-          ),
-          aspectRatio: sequence.aspectRatio,
-        });
+          const snapshot = await buildRegenerateFrameSnapshot({
+            frame,
+            characters,
+            locations,
+            elements,
+            imageModel: safeTextToImageModel(
+              frame.imageModel,
+              DEFAULT_IMAGE_MODEL
+            ),
+            aspectRatio: sequence.aspectRatio,
+          });
 
-        thumbnail =
-          snapshot.snapshotInputHash !== frame.thumbnailInputHash
-            ? 'stale'
-            : 'fresh';
+          thumbnail =
+            snapshot.snapshotInputHash !== frame.thumbnailInputHash
+              ? 'stale'
+              : 'fresh';
+        } catch (error) {
+          // Mirror the visual/motion branches: a thumbnail-hash failure (e.g.
+          // transient D1 read, malformed element/location row) must not throw
+          // out of the whole handler — that would null the entire staleness
+          // result and silently suppress the visual/motion banners too. Stay
+          // 'untracked' (fail-open as 'fresh' would lie about freshness).
+          logger.warn(
+            `thumbnail staleness uncomputable for frame ${frame.id}:`,
+            {
+              err: error,
+            }
+          );
+        }
       }
     }
 

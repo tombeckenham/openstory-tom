@@ -62,13 +62,9 @@ import type {
 } from '@/lib/workflow/types';
 import { findMissingElementEntries } from '@/lib/workflows/element-sheet-workflow';
 import {
-  matchCharactersToScene,
-  matchElementsToScene,
-  matchLocationsToScene,
-} from '@/lib/workflows/scene-matching';
-import {
   computeFrameImagesHashFromDto,
   type FrameImageSceneSnapshot,
+  resolveSceneFrameImageReferences,
 } from '@/lib/workflows/sheet-snapshots';
 import { waitForElementVision } from '@/lib/workflows/wait-for-sheets';
 import type {
@@ -455,38 +451,24 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
       });
     });
 
-    // Build per-scene snapshots for frame-images divergence detection.
+    // Build per-scene snapshots for frame-images divergence detection. Resolve
+    // references through the SAME helper the image-gen stamp and staleness
+    // verify use (`resolveSceneFrameImageReferences`) so the three sites can't
+    // drift on matcher choice or hash-filtering — that drift was the #867 bug.
     const sceneSnapshots: FrameImageSceneSnapshot[] =
       scenesWithVisualPrompts.map((scene) => {
-        const characters = matchCharactersToScene(
-          charactersWithSheets,
-          scene.continuity?.characterTags ?? []
-        );
-        const locations = matchLocationsToScene(
-          locationsWithSheets,
-          scene.continuity?.environmentTag ?? '',
-          scene.metadata?.location ?? ''
-        );
-        const elementsMatched = matchElementsToScene(
-          allElements,
-          scene.continuity?.elementTags ?? [],
-          scene.originalScript.extract
-        );
+        const refs = resolveSceneFrameImageReferences({
+          scene,
+          characters: charactersWithSheets,
+          locations: locationsWithSheets,
+          elements: allElements,
+        });
         return {
           sceneId: scene.sceneId,
           visualPrompt: scene.prompts?.visual?.fullPrompt ?? '',
-          characterSheetHashes: characters
-            .map((c) => c.sheetInputHash)
-            .filter((h): h is string => typeof h === 'string')
-            .sort(),
-          locationSheetHashes: locations
-            .map((l) => l.referenceInputHash)
-            .filter((h): h is string => typeof h === 'string')
-            .sort(),
-          elementReferenceHashes: elementsMatched
-            .map((e) => e.imageUrl)
-            .filter((u) => u.length > 0)
-            .sort(),
+          characterSheetHashes: refs.characterSheetHashes,
+          locationSheetHashes: refs.locationSheetHashes,
+          elementReferenceHashes: refs.elementReferenceHashes,
         };
       });
 

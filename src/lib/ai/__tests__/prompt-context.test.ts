@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { buildCastCharacterBible } from '@/lib/prompts/character-prompt';
-import type { Character, StyleConfig } from '@/lib/db/schema';
-import { charactersToBible } from '../bibles-from-scoped';
+import type {
+  Character,
+  SequenceElement,
+  SequenceLocation,
+  StyleConfig,
+} from '@/lib/db/schema';
+import {
+  charactersToBible,
+  sequenceElementsToBible,
+  sequenceLocationsToBible,
+} from '../bibles-from-scoped';
 import {
   computeMotionPromptInputHash,
   computeVisualPromptInputHash,
@@ -440,5 +449,169 @@ describe('casting round-trip — stamp matches verify (#867)', () => {
     // physicalDescription + age/gender/ethnicity differ between raw and cast, so
     // the pre-fix stamp could never match the cast DB row — permanent staleness.
     expect(rawHash).not.toBe(castHash);
+  });
+
+  // The MOTION child receives the same cast bible as the visual child
+  // (analyze-script-workflow builds `castCharacterBible` once and feeds both).
+  // Mirror the visual round-trip for motion so the motion stamp can't silently
+  // regress to hashing the raw bible — that would make every talent-matched
+  // frame's motion prompt permanently stale, exactly like the visual case.
+  it('motion: stamp (cast bible) equals verify (cast bible read from the DB)', async () => {
+    const [castSarah] = buildCastCharacterBible([rawSarah], [match]);
+    if (!castSarah) throw new Error('expected one cast entry');
+    const verifyBible = charactersToBible([makeCharacterRow(castSarah)]);
+
+    const stampHash = await computeMotionPromptInputHash(ctxWith([castSarah]));
+    const verifyHash = await computeMotionPromptInputHash(ctxWith(verifyBible));
+    expect(stampHash).toBe(verifyHash);
+  });
+
+  it('motion: hashing the raw pre-cast bible diverged from the cast DB row', async () => {
+    const cast = buildCastCharacterBible([rawSarah], [match]);
+    const rawHash = await computeMotionPromptInputHash(ctxWith([rawSarah]));
+    const castHash = await computeMotionPromptInputHash(ctxWith(cast));
+    expect(rawHash).not.toBe(castHash);
+  });
+});
+
+// Characters are aligned to the DB via `buildCastCharacterBible`; locations and
+// elements have no such transform — the prompt STAMP hashes the raw scene-split
+// bible while VERIFY hashes the DB readback (`sequenceLocationsToBible` /
+// `sequenceElementsToBible`). Those readbacks coerce nulls/`type`, so a coercion
+// that diverged from the raw bible's projected fields would resurrect the #867
+// false-staleness for every location-/element-bearing frame. Pin the round-trip.
+describe('location/element bible round-trip — stamp matches verify (#867)', () => {
+  const scene = sceneReferencing({
+    environmentTag: 'beach',
+    elementTags: ['LOGO'],
+    script: 'The LOGO glows on the beach.',
+  });
+
+  const ctxWith = (
+    locationBible: LocationBibleEntry[],
+    elementBible: ElementBibleEntry[]
+  ) =>
+    narrowFramePromptContext({
+      scene,
+      styleConfig: style,
+      characterBible: [],
+      locationBible,
+      elementBible,
+      aspectRatio: '16:9',
+      analysisModel: 'anthropic/claude-haiku-4.5',
+    });
+
+  const makeLocationRow = (l: LocationBibleEntry): SequenceLocation => ({
+    id: `row_${l.locationId}`,
+    sequenceId: 'seq_1',
+    libraryLocationId: null,
+    locationId: l.locationId,
+    name: l.name,
+    type: l.type,
+    timeOfDay: l.timeOfDay,
+    description: l.description,
+    architecturalStyle: l.architecturalStyle,
+    keyFeatures: l.keyFeatures,
+    colorPalette: l.colorPalette,
+    lightingSetup: l.lightingSetup,
+    ambiance: l.ambiance,
+    consistencyTag: l.consistencyTag,
+    firstMentionSceneId: l.firstMention.sceneId || null,
+    firstMentionText: l.firstMention.text || null,
+    firstMentionLine: l.firstMention.lineNumber || null,
+    referenceImageUrl: null,
+    referenceImagePath: null,
+    referenceStatus: 'completed',
+    referenceGeneratedAt: null,
+    referenceError: null,
+    referenceInputHash: null,
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+  });
+
+  const makeElementRow = (e: ElementBibleEntry): SequenceElement => ({
+    id: `row_${e.token}`,
+    sequenceId: 'seq_1',
+    uploadedFilename: 'logo.png',
+    token: e.token,
+    description: e.description,
+    consistencyTag: e.consistencyTag,
+    imageUrl: 'https://example.com/logo.png',
+    imagePath: 'elements/logo.png',
+    visionStatus: 'completed',
+    visionError: null,
+    visionGeneratedAt: null,
+    firstMentionSceneId: e.firstMention.sceneId || null,
+    firstMentionText: e.firstMention.text || null,
+    firstMentionLine: e.firstMention.lineNumber || null,
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+  });
+
+  it.each(['interior', 'exterior', 'both'] as const)(
+    'location: stamp == verify for a %s location (type coercion is faithful)',
+    async (type) => {
+      const stampLocation: LocationBibleEntry = {
+        ...beach,
+        type,
+        timeOfDay: 'dawn',
+        description: 'sand and surf',
+        keyFeatures: 'pier, dunes',
+      };
+      const verifyBible = sequenceLocationsToBible([
+        makeLocationRow(stampLocation),
+      ]);
+      const stamp = await computeVisualPromptInputHash(
+        ctxWith([stampLocation], [])
+      );
+      const verify = await computeVisualPromptInputHash(
+        ctxWith(verifyBible, [])
+      );
+      expect(stamp).toBe(verify);
+    }
+  );
+
+  it('location: a firstMention/consistencyTag-only difference (raw stamp vs coerced DB row) does not move the hash', async () => {
+    // Production reality: scene-split's raw bible carries a populated
+    // firstMention; the DB row may have nulls → readback coerces to ''/0. Those
+    // fields aren't projected, so the hashes must still match.
+    const stampLocation: LocationBibleEntry = {
+      ...beach,
+      description: 'sand and surf',
+      consistencyTag: 'beach_raw_tag',
+      firstMention: { sceneId: 's9', text: 'the beach', lineNumber: 42 },
+    };
+    const dbReadback = sequenceLocationsToBible([
+      makeLocationRow({
+        ...stampLocation,
+        consistencyTag: '',
+        firstMention: { sceneId: '', text: '', lineNumber: 0 },
+      }),
+    ]);
+    const stamp = await computeVisualPromptInputHash(
+      ctxWith([stampLocation], [])
+    );
+    const verify = await computeVisualPromptInputHash(ctxWith(dbReadback, []));
+    expect(stamp).toBe(verify);
+  });
+
+  it('element: stamp == verify through the DB readback', async () => {
+    const verifyBible = sequenceElementsToBible([makeElementRow(logo)]);
+    const stamp = await computeVisualPromptInputHash(ctxWith([], [logo]));
+    const verify = await computeVisualPromptInputHash(ctxWith([], verifyBible));
+    expect(stamp).toBe(verify);
+  });
+
+  it('element: a firstMention/consistencyTag-only difference does not move the hash', async () => {
+    const dbReadback = sequenceElementsToBible([
+      makeElementRow({
+        ...logo,
+        consistencyTag: '',
+        firstMention: { sceneId: '', text: '', lineNumber: 0 },
+      }),
+    ]);
+    const stamp = await computeVisualPromptInputHash(ctxWith([], [logo]));
+    const verify = await computeVisualPromptInputHash(ctxWith([], dbReadback));
+    expect(stamp).toBe(verify);
   });
 });

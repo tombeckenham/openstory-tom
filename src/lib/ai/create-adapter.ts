@@ -31,6 +31,9 @@ type BaseAdapter = OpenRouterTextAdapter<AdapterModel>;
  * event stream, not the adapter, so observability is unaffected. This
  * restores the 0.12 wire shape; if we ever want OpenRouter-side request
  * metadata, it belongs in `modelOptions.metadata` as plain strings.
+ *
+ * Reported upstream as https://github.com/TanStack/ai/issues/735 — remove
+ * this wrapper once a fixed @tanstack/ai-openrouter ships.
  */
 class WireSafeOpenRouterTextAdapter extends OpenRouterTextAdapter<AdapterModel> {
   override chatStream(options: Parameters<BaseAdapter['chatStream']>[0]) {

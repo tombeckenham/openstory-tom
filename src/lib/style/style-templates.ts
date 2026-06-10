@@ -873,7 +873,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
     usageCount: null,
     recommendedImageModel: 'grok_imagine_image',
     recommendedVideoModel: 'grok_imagine_video_1_5',
-    defaultAspectRatio: '1:1',
+    defaultAspectRatio: '16:9',
     useCases: ['product'],
   },
   {
@@ -978,7 +978,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
     usageCount: null,
     recommendedImageModel: 'grok_imagine_image',
     recommendedVideoModel: 'grok_imagine_video_1_5',
-    defaultAspectRatio: '1:1',
+    defaultAspectRatio: '16:9',
     useCases: ['product'],
   },
   {
@@ -1051,7 +1051,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
     usageCount: null,
     recommendedImageModel: 'grok_imagine_image',
     recommendedVideoModel: 'grok_imagine_video_1_5',
-    defaultAspectRatio: '1:1',
+    defaultAspectRatio: '16:9',
     useCases: ['product'],
   },
   {
@@ -1086,7 +1086,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
     usageCount: null,
     recommendedImageModel: 'nano_banana_2',
     recommendedVideoModel: 'grok_imagine_video_1_5',
-    defaultAspectRatio: '1:1',
+    defaultAspectRatio: '16:9',
     useCases: ['lifestyle', 'product'],
   },
   {
@@ -1156,7 +1156,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
     usageCount: null,
     recommendedImageModel: 'nano_banana_2',
     recommendedVideoModel: 'grok_imagine_video_1_5',
-    defaultAspectRatio: '1:1',
+    defaultAspectRatio: '16:9',
     useCases: ['product', 'lifestyle'],
   },
   {
@@ -1191,7 +1191,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
     usageCount: null,
     recommendedImageModel: 'grok_imagine_image',
     recommendedVideoModel: 'grok_imagine_video_1_5',
-    defaultAspectRatio: '1:1',
+    defaultAspectRatio: '16:9',
     useCases: ['product'],
   },
   {
@@ -1261,7 +1261,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
     usageCount: null,
     recommendedImageModel: 'grok_imagine_image',
     recommendedVideoModel: 'grok_imagine_video_1_5',
-    defaultAspectRatio: '1:1',
+    defaultAspectRatio: '16:9',
     useCases: ['product'],
   },
   {
@@ -1366,7 +1366,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
     usageCount: null,
     recommendedImageModel: 'gpt_image_2',
     recommendedVideoModel: 'grok_imagine_video_1_5',
-    defaultAspectRatio: '1:1',
+    defaultAspectRatio: '16:9',
     useCases: ['product', 'tutorial'],
   },
   {
@@ -2574,7 +2574,7 @@ export const DEFAULT_STYLE_TEMPLATES: StyleTemplateEntry[] = [
     usageCount: null,
     recommendedImageModel: 'nano_banana_2',
     recommendedVideoModel: 'grok_imagine_video_1_5',
-    defaultAspectRatio: '1:1',
+    defaultAspectRatio: '16:9',
     useCases: ['product', 'b-roll'],
   },
   {

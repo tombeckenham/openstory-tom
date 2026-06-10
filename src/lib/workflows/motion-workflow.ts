@@ -16,6 +16,10 @@
  *     the old Upstash workflow `WorkflowNonRetryableError`. */
 
 import { extractFalErrorMessage } from '@/lib/ai/fal-error';
+import {
+  CONTENT_REJECTION_RETRY_EVENT,
+  isContentRejectionError,
+} from '@/lib/ai/content-rejection';
 import { computeMotionPromptInputHash } from '@/lib/ai/input-hash';
 import { DEFAULT_VIDEO_MODEL, IMAGE_TO_VIDEO_MODELS } from '@/lib/ai/models';
 import { loadNarrowFramePromptContext } from '@/lib/ai/prompt-context';
@@ -61,10 +65,35 @@ const MAX_BATCHES = 60;
 /** Kling rejects start frame images over 10MB — use 9.5MB safety margin */
 const KLING_MAX_IMAGE_BYTES = 9.5 * 1024 * 1024;
 
+/**
+ * Total clip generation attempts on a content-flag rejection (#881): the
+ * initial attempt plus 2 resubmits. The veo "could not generate / didn't
+ * generate expected output" rejections are largely stochastic and clear on a
+ * fresh resubmit; deterministic content-checker / sensitive-audio hits exhaust
+ * this budget and fail as before.
+ */
+const MAX_MOTION_ATTEMPTS = 3;
+
+/** Per-attempt poll outcome. A content-flag rejection (`rejected`) re-rolls the
+ *  whole submit→poll cycle; a non-content `failed` is a hard stop as today. */
+type MotionPollOutcome =
+  | { kind: 'pending' }
+  | { kind: 'completed'; url: string }
+  | { kind: 'rejected'; rejection: string }
+  | { kind: 'failed'; error: string };
+
 type MotionWorkflowResult = {
   videoUrl: string;
   duration: number;
 };
+
+/** Route a provider clip failure: a content flag re-rolls the attempt (#881);
+ *  anything else is a hard stop, matching the pre-#881 behaviour. */
+function classifyMotionFailure(message: string): MotionPollOutcome {
+  return isContentRejectionError(message)
+    ? { kind: 'rejected', rejection: message }
+    : { kind: 'failed', error: `Motion generation failed: ${message}` };
+}
 
 function recordMotionObservation(params: {
   model: string;
@@ -290,113 +319,217 @@ export class MotionWorkflow extends OpenStoryWorkflowEntrypoint<MotionWorkflowIn
       return compressed.url;
     });
 
-    // Step 3a: Submit the motion generation job
-    const job = await step.do('submit-motion', async () => {
-      return await submitMotionJob({
-        imageUrl: startImageUrl,
-        prompt: input.prompt,
-        model,
-        duration: input.duration,
-        fps: input.fps,
-        motionBucket: input.motionBucket,
-        aspectRatio: input.aspectRatio,
-        generateAudio: input.generateAudio,
-        scopedDb,
-      }).catch((error) => {
-        if (
-          error instanceof Error &&
-          'status' in error &&
-          error.status === 422
-        ) {
-          throw new NonRetryableError(
-            `Motion job submission rejected (422): ${extractFalErrorMessage(error)}`
-          );
-        }
-        // If the error is not a 422, throw it. We'll retry
-        throw error;
-      });
-    });
-
-    // Step 3b: Batched polling — tight loop inside each step.do, checkpoint between batches
+    // Step 3: Submit + poll with a bounded same-model retry on content-flag
+    // rejections (#881). Each attempt resubmits a fresh fal job; a content
+    // rejection from submit OR poll re-rolls the whole cycle, while
+    // genuine transient errors still throw and lean on CF's per-step retries.
+    // Non-content provider failures remain a hard stop as before. A clip that
+    // exhausts its budget fails only its own slot — motion-batch's
+    // Promise.allSettled keeps sibling clips and the sequence alive.
     let videoUrl = '';
+    let lastRejection: string | null = null;
+    // The job behind the clip that ultimately succeeded — its `submittedAt` /
+    // `usedOwnKey` drive observation timing and credit deduction below.
+    let succeededJob: Awaited<ReturnType<typeof submitMotionJob>> | null = null;
 
-    // Note how this works with workflow
-    // The loop will run from 0 every time, but
-    // the serialized result from step.do will be returned immediately from previous runs,
-    //  so the loop will properly execute pollMotionJob a max of MAX_BATCHES times
-    for (let batch = 0; batch < MAX_BATCHES; batch++) {
-      if (batch > 0) {
-        await step.sleep(`motion-batch-wait-${batch}`, 1);
+    for (let attempt = 0; attempt < MAX_MOTION_ATTEMPTS; attempt++) {
+      const tag = attempt === 0 ? '' : `-retry-${attempt}`;
+
+      // Step 3a: Submit. A content rejection surfaces as a sentinel (not
+      // thrown) so the loop owns the retry; a non-content 422 stays a hard
+      // stop; anything else throws for CF's per-step retry.
+      const submitOutcome = await step.do(`submit-motion${tag}`, async () => {
+        try {
+          const job = await submitMotionJob({
+            imageUrl: startImageUrl,
+            prompt: input.prompt,
+            model,
+            duration: input.duration,
+            fps: input.fps,
+            motionBucket: input.motionBucket,
+            aspectRatio: input.aspectRatio,
+            generateAudio: input.generateAudio,
+            scopedDb,
+          });
+          return { ok: true as const, job };
+        } catch (error) {
+          if (isContentRejectionError(error)) {
+            return {
+              ok: false as const,
+              rejection: extractFalErrorMessage(error),
+            };
+          }
+          if (
+            error instanceof Error &&
+            'status' in error &&
+            error.status === 422
+          ) {
+            throw new NonRetryableError(
+              `Motion job submission rejected (422): ${extractFalErrorMessage(error)}`
+            );
+          }
+          // Not a 422 / not a content flag → transient. Let CF retry the step.
+          throw error;
+        }
+      });
+
+      if (!submitOutcome.ok) {
+        lastRejection = submitOutcome.rejection;
+        logger.warn(
+          `[MotionWorkflow:cf] content-flag rejection on submit attempt ${attempt + 1}/${MAX_MOTION_ATTEMPTS} for frame ${input.frameId}: ${submitOutcome.rejection}`
+        );
+        continue;
+      }
+      const { job } = submitOutcome;
+
+      // Step 3b: Batched polling — tight loop inside each step.do, checkpoint
+      // between batches. A content-flag failure ends this attempt and re-rolls;
+      // a non-content failure is a hard stop.
+      let rejected: string | null = null;
+      for (let batch = 0; batch < MAX_BATCHES; batch++) {
+        if (batch > 0) {
+          await step.sleep(`motion-batch-wait-${attempt}-${batch}`, 1);
+        }
+
+        const poll = await step.do(
+          `motion-poll-batch-${attempt}-${batch}`,
+          async (): Promise<MotionPollOutcome> => {
+            const deadline = Date.now() + POLL_BATCH_DURATION_MS;
+
+            while (Date.now() < deadline) {
+              let pollResult: Awaited<ReturnType<typeof pollMotionJob>>;
+              try {
+                pollResult = await pollMotionJob(
+                  job.jobId,
+                  job.modelKey,
+                  scopedDb
+                );
+              } catch (error) {
+                if (isContentRejectionError(error)) {
+                  return {
+                    kind: 'rejected',
+                    rejection: extractFalErrorMessage(error),
+                  };
+                }
+                if (
+                  error instanceof Error &&
+                  'status' in error &&
+                  error.status === 422
+                ) {
+                  return {
+                    kind: 'failed',
+                    error: `Motion job polling failed (422): ${extractFalErrorMessage(error)}`,
+                  };
+                }
+                // Transient → let CF retry the poll step.
+                throw error;
+              }
+
+              if (pollResult.progress !== undefined) {
+                logger.info(
+                  `[MotionWorkflow:cf] Progress: ${pollResult.progress}%`
+                );
+              }
+
+              if (pollResult.status === 'completed') {
+                if (pollResult.url) {
+                  logger.info(`[MotionWorkflow:cf] Generation completed`);
+                  return { kind: 'completed', url: pollResult.url };
+                }
+                return classifyMotionFailure(
+                  pollResult.error || 'No URL returned'
+                );
+              }
+              if (pollResult.status === 'failed') {
+                return classifyMotionFailure(
+                  pollResult.error || 'Unknown error'
+                );
+              }
+
+              await new Promise((resolve) =>
+                setTimeout(resolve, POLL_INTERVAL_MS)
+              );
+            }
+
+            return { kind: 'pending' };
+          }
+        );
+
+        if (poll.kind === 'completed') {
+          videoUrl = poll.url;
+          break;
+        }
+        if (poll.kind === 'rejected') {
+          rejected = poll.rejection;
+          break;
+        }
+        if (poll.kind === 'failed') {
+          throw new NonRetryableError(poll.error);
+        }
+        // pending → poll the next batch
       }
 
-      const poll = await step.do(`motion-poll-batch-${batch}`, async () => {
-        const deadline = Date.now() + POLL_BATCH_DURATION_MS;
-
-        while (Date.now() < deadline) {
-          const pollResult = await pollMotionJob(
-            job.jobId,
-            job.modelKey,
-            scopedDb
-          ).catch((error) => {
-            if (
-              error instanceof Error &&
-              'status' in error &&
-              error.status === 422
-            ) {
-              throw new NonRetryableError(
-                `Motion job polling failed (422): ${extractFalErrorMessage(error)}`
-              );
+      if (videoUrl) {
+        succeededJob = job;
+        if (attempt > 0) {
+          logger.info(
+            `[MotionWorkflow:cf] content-flag retry rescued clip for frame ${input.frameId} on attempt ${attempt + 1}`,
+            {
+              event: CONTENT_REJECTION_RETRY_EVENT,
+              outcome: 'rescued',
+              kind: 'motion',
+              model,
+              attempts: attempt + 1,
+              frameId: input.frameId,
+              sequenceId: input.sequenceId,
             }
-            // If the error is not a 422, throw it. We'll retry
-            throw error;
-          });
-
-          if (pollResult.progress !== undefined) {
-            logger.info(
-              `[MotionWorkflow:cf] Progress: ${pollResult.progress}%`
-            );
-          }
-
-          if (pollResult.status === 'completed') {
-            if (pollResult.url) {
-              logger.info(`[MotionWorkflow:cf] Generation completed`);
-              return pollResult;
-            } else {
-              throw new NonRetryableError(
-                `Motion generation failed: ${pollResult.error || 'No URL returned'}`
-              );
-            }
-          }
-          if (pollResult.status === 'failed') {
-            throw new NonRetryableError(
-              `Motion generation failed: ${pollResult.error || 'Unknown error'}`
-            );
-          }
-
-          await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+          );
         }
-
-        return { status: 'pending' as const };
-      });
-      // Note poll is serialised by the workflow
-      // this loop will run again, but always break as status will be completed
-      if (poll.status === 'completed' && 'url' in poll && poll.url) {
-        videoUrl = poll.url;
         break;
       }
 
-      if (poll.status === 'failed') {
-        throw new Error(
-          ('error' in poll && poll.error) || 'Motion generation failed'
+      if (rejected) {
+        lastRejection = rejected;
+        logger.warn(
+          `[MotionWorkflow:cf] content-flag rejection on poll attempt ${attempt + 1}/${MAX_MOTION_ATTEMPTS} for frame ${input.frameId}: ${rejected}`
         );
+        continue;
       }
-    }
 
-    if (!videoUrl) {
+      // Neither completed nor content-rejected → this attempt timed out. A
+      // timeout isn't a content flag; reseeding won't help and would burn
+      // another full poll budget, so stop here as before.
       throw new Error(
         `Motion generation timed out after ${(MAX_BATCHES * POLL_BATCH_DURATION_MS) / 60_000} minutes`
       );
     }
+
+    if (!videoUrl) {
+      logger.error(
+        `[MotionWorkflow:cf] content-flag retry exhausted for frame ${input.frameId} after ${MAX_MOTION_ATTEMPTS} attempts`,
+        {
+          event: CONTENT_REJECTION_RETRY_EVENT,
+          outcome: 'exhausted',
+          kind: 'motion',
+          model,
+          attempts: MAX_MOTION_ATTEMPTS,
+          frameId: input.frameId,
+          sequenceId: input.sequenceId,
+          rejection: lastRejection,
+        }
+      );
+      throw new NonRetryableError(
+        `Motion generation rejected by content filter after ${MAX_MOTION_ATTEMPTS} attempts: ${lastRejection ?? 'unknown rejection'}`,
+        'ContentRejectionExhausted'
+      );
+    }
+    if (!succeededJob) {
+      // Unreachable: a non-empty videoUrl is only ever set alongside its job.
+      throw new Error('Motion generation produced a video without a job');
+    }
+    // Capture into a const so the step closures below keep the non-null
+    // narrowing (a `let` could be reassigned, so TS widens it inside closures).
+    const job = succeededJob;
 
     await step.do('record-motion-observation', async () => {
       recordMotionObservation({

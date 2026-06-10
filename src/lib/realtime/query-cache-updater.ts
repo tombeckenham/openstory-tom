@@ -129,6 +129,7 @@ export function updateQueryCacheFromEvent(
         'previewThumbnailUrl'
       );
       const status = data.status;
+      const errorMessage = getOptionalString(data, 'error');
       // Variant-only (#547): an added (alternate) model finished — its output
       // belongs in `frame_variants`, NOT on the live primary. Skip the
       // primary frames-list write (which would flip the displayed thumbnail to
@@ -147,6 +148,15 @@ export function updateQueryCacheFromEvent(
                   thumbnailStatus: isValidFrameStatus(status)
                     ? status
                     : f.thumbnailStatus,
+                  // Surface the failure reason live (#881): set on `failed`,
+                  // clear when a new attempt starts/succeeds, and leave
+                  // untouched for status-less emits (e.g. preview-url).
+                  thumbnailError:
+                    status === 'failed'
+                      ? (errorMessage ?? f.thumbnailError)
+                      : isValidFrameStatus(status)
+                        ? null
+                        : f.thumbnailError,
                 }
               : f
           )
@@ -175,6 +185,7 @@ export function updateQueryCacheFromEvent(
     case 'generation.video:progress': {
       const videoUrl = getOptionalString(data, 'videoUrl');
       const status = data.status;
+      const errorMessage = getOptionalString(data, 'error');
       // Variant-only (#547): an added (alternate) video model finished/failed —
       // its output belongs in `frame_variants`, NOT the live primary. Skip the
       // primary frames-list write (which would flip the displayed video to the
@@ -191,6 +202,13 @@ export function updateQueryCacheFromEvent(
                   videoStatus: isValidFrameStatus(status)
                     ? status
                     : f.videoStatus,
+                  // Surface the failure reason live (#881) — see image handler.
+                  videoError:
+                    status === 'failed'
+                      ? (errorMessage ?? f.videoError)
+                      : isValidFrameStatus(status)
+                        ? null
+                        : f.videoError,
                 }
               : f
           )

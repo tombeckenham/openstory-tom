@@ -49,6 +49,7 @@ import { Route as ApiTestStyleRouteImport } from './routes/api/test/style'
 import { Route as ApiTestSequenceRouteImport } from './routes/api/test/sequence'
 import { Route as ApiTestLocationRouteImport } from './routes/api/test/location'
 import { Route as ApiTestImageRouteImport } from './routes/api/test/image'
+import { Route as ApiTestGenerateRouteImport } from './routes/api/test/generate'
 import { Route as ApiTestFrameRouteImport } from './routes/api/test/frame'
 import { Route as ApiTestCleanupRouteImport } from './routes/api/test/cleanup'
 import { Route as ApiTestCharacterRouteImport } from './routes/api/test/character'
@@ -274,6 +275,11 @@ const ApiTestImageRoute = ApiTestImageRouteImport.update({
   path: '/image',
   getParentRoute: () => ApiTestRouteRoute,
 } as any)
+const ApiTestGenerateRoute = ApiTestGenerateRouteImport.update({
+  id: '/generate',
+  path: '/generate',
+  getParentRoute: () => ApiTestRouteRoute,
+} as any)
 const ApiTestFrameRoute = ApiTestFrameRouteImport.update({
   id: '/frame',
   path: '/frame',
@@ -454,6 +460,7 @@ export interface FileRoutesByFullPath {
   '/api/test/character': typeof ApiTestCharacterRoute
   '/api/test/cleanup': typeof ApiTestCleanupRoute
   '/api/test/frame': typeof ApiTestFrameRoute
+  '/api/test/generate': typeof ApiTestGenerateRoute
   '/api/test/image': typeof ApiTestImageRoute
   '/api/test/location': typeof ApiTestLocationRoute
   '/api/test/sequence': typeof ApiTestSequenceRoute
@@ -518,6 +525,7 @@ export interface FileRoutesByTo {
   '/api/test/character': typeof ApiTestCharacterRoute
   '/api/test/cleanup': typeof ApiTestCleanupRoute
   '/api/test/frame': typeof ApiTestFrameRoute
+  '/api/test/generate': typeof ApiTestGenerateRoute
   '/api/test/image': typeof ApiTestImageRoute
   '/api/test/location': typeof ApiTestLocationRoute
   '/api/test/sequence': typeof ApiTestSequenceRoute
@@ -588,6 +596,7 @@ export interface FileRoutesById {
   '/api/test/character': typeof ApiTestCharacterRoute
   '/api/test/cleanup': typeof ApiTestCleanupRoute
   '/api/test/frame': typeof ApiTestFrameRoute
+  '/api/test/generate': typeof ApiTestGenerateRoute
   '/api/test/image': typeof ApiTestImageRoute
   '/api/test/location': typeof ApiTestLocationRoute
   '/api/test/sequence': typeof ApiTestSequenceRoute
@@ -656,6 +665,7 @@ export interface FileRouteTypes {
     | '/api/test/character'
     | '/api/test/cleanup'
     | '/api/test/frame'
+    | '/api/test/generate'
     | '/api/test/image'
     | '/api/test/location'
     | '/api/test/sequence'
@@ -720,6 +730,7 @@ export interface FileRouteTypes {
     | '/api/test/character'
     | '/api/test/cleanup'
     | '/api/test/frame'
+    | '/api/test/generate'
     | '/api/test/image'
     | '/api/test/location'
     | '/api/test/sequence'
@@ -789,6 +800,7 @@ export interface FileRouteTypes {
     | '/api/test/character'
     | '/api/test/cleanup'
     | '/api/test/frame'
+    | '/api/test/generate'
     | '/api/test/image'
     | '/api/test/location'
     | '/api/test/sequence'
@@ -1123,6 +1135,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTestImageRouteImport
       parentRoute: typeof ApiTestRouteRoute
     }
+    '/api/test/generate': {
+      id: '/api/test/generate'
+      path: '/generate'
+      fullPath: '/api/test/generate'
+      preLoaderRoute: typeof ApiTestGenerateRouteImport
+      parentRoute: typeof ApiTestRouteRoute
+    }
     '/api/test/frame': {
       id: '/api/test/frame'
       path: '/frame'
@@ -1452,6 +1471,7 @@ interface ApiTestRouteRouteChildren {
   ApiTestCharacterRoute: typeof ApiTestCharacterRoute
   ApiTestCleanupRoute: typeof ApiTestCleanupRoute
   ApiTestFrameRoute: typeof ApiTestFrameRoute
+  ApiTestGenerateRoute: typeof ApiTestGenerateRoute
   ApiTestImageRoute: typeof ApiTestImageRoute
   ApiTestLocationRoute: typeof ApiTestLocationRoute
   ApiTestSequenceRoute: typeof ApiTestSequenceRoute
@@ -1465,6 +1485,7 @@ const ApiTestRouteRouteChildren: ApiTestRouteRouteChildren = {
   ApiTestCharacterRoute: ApiTestCharacterRoute,
   ApiTestCleanupRoute: ApiTestCleanupRoute,
   ApiTestFrameRoute: ApiTestFrameRoute,
+  ApiTestGenerateRoute: ApiTestGenerateRoute,
   ApiTestImageRoute: ApiTestImageRoute,
   ApiTestLocationRoute: ApiTestLocationRoute,
   ApiTestSequenceRoute: ApiTestSequenceRoute,

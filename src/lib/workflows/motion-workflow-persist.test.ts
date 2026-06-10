@@ -285,7 +285,14 @@ describe('persistMotionFailure', () => {
     expect(emits).toEqual([
       {
         event: 'generation.video:progress',
-        payload: { frameId: 'f1', status: 'failed', model: 'veo3' },
+        payload: {
+          frameId: 'f1',
+          status: 'failed',
+          model: 'veo3',
+          // #881: the reason is now carried so the cache updater writes
+          // `videoError` live (non-variant path).
+          error: 'fal 500',
+        },
       },
     ]);
   });

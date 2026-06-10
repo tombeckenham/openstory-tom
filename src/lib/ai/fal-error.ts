@@ -6,18 +6,29 @@
  * `body.message || statusText` — which for 422s is just "Unprocessable Entity".
  *
  * The actual detail lives in `error.body.detail` (FastAPI/Pydantic format).
+ * Some fal endpoints (and the aimock fal handler used in e2e replay) instead
+ * return an OpenAI-style `{ error: { message } }` body, so we also fall back to
+ * that shape — otherwise the fal client surfaces only `statusText`
+ * ("Unprocessable Entity") and the real reason is lost.
  */
+type FalErrorBody = {
+  detail?: Array<{ msg: string; type?: string }> | string;
+  error?: { message?: string } | string;
+  message?: string;
+};
+
 export function extractFalErrorMessage(error: unknown): string {
   if (!(error instanceof Error)) return String(error);
 
   // Check for fal-ai client error shape: { body: { detail: ... }, status: number }
   const falError = error as Error & {
-    body?: { detail?: Array<{ msg: string; type?: string }> | string };
+    body?: FalErrorBody;
     status?: number;
   };
+  const body = falError.body;
 
-  if (falError.body?.detail) {
-    const { detail } = falError.body;
+  if (body?.detail) {
+    const { detail } = body;
 
     if (typeof detail === 'string') {
       return detail;
@@ -28,6 +39,15 @@ export function extractFalErrorMessage(error: unknown): string {
       return detail.map((d) => d.msg).join('; ');
     }
   }
+
+  // OpenAI-style `{ error: { message } }` / `{ error: "..." }`.
+  if (body?.error) {
+    const bodyError = body.error;
+    if (typeof bodyError === 'string') return bodyError;
+    if (typeof bodyError.message === 'string') return bodyError.message;
+  }
+
+  if (typeof body?.message === 'string') return body.message;
 
   return error.message;
 }

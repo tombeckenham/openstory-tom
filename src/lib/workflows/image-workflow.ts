@@ -21,9 +21,15 @@ import { ZERO_MICROS } from '@/lib/billing/money';
 import { deductWorkflowCredits } from '@/lib/billing/workflow-deduction';
 import { DEFAULT_IMAGE_SIZE } from '@/lib/constants/aspect-ratios';
 import type { ScopedDb } from '@/lib/db/scoped';
+import { extractFalErrorMessage } from '@/lib/ai/fal-error';
+import {
+  CONTENT_REJECTION_RETRY_EVENT,
+  isContentRejectionError,
+} from '@/lib/ai/content-rejection';
 import {
   generateImageWithProvider,
   type ImageGenerationParams,
+  type ImageGenerationResult,
 } from '@/lib/image/image-generation';
 import { uploadImageToStorage } from '@/lib/image/image-storage';
 import { buildReferenceImagePrompt } from '@/lib/prompts/reference-image-prompt';
@@ -31,6 +37,7 @@ import { getGenerationChannel } from '@/lib/realtime';
 import { simpleHash } from '@/lib/utils/hash';
 import { OpenStoryWorkflowEntrypoint } from '@/lib/workflow/base-workflow';
 import { WorkflowValidationError } from '@/lib/workflow/errors';
+import { NonRetryableError } from 'cloudflare:workflows';
 import type { ImageWorkflowInput } from '@/lib/workflow/types';
 import type { ReferenceImageDescription } from '@/lib/prompts/reference-image-prompt';
 import type { WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
@@ -43,6 +50,14 @@ import { shouldRecordUserEdit } from '@/lib/workflows/user-edit-predicate';
 import { getLogger } from '@/lib/observability/logger';
 
 const logger = getLogger(['openstory', 'workflow', 'image']);
+
+/**
+ * Total primary-image generation attempts on a content-flag rejection (#881):
+ * the initial attempt plus 2 retries. Stochastic provider rejections usually
+ * clear on a fresh call; deterministic content-checker hits exhaust this budget
+ * and fail as before.
+ */
+const MAX_IMAGE_ATTEMPTS = 3;
 
 type ImageWorkflowResult = {
   imageUrl: string;
@@ -216,12 +231,82 @@ export class ImageWorkflow extends OpenStoryWorkflowEntrypoint<ImageWorkflowInpu
       };
     }
 
-    const imageResult = await step.do('generate-image', async () => {
-      logger.info(
-        `[ImageWorkflow:cf] Generating image ${input.frameId} with model ${generationParams.model}`
+    // Generate with a bounded same-model retry on content-flag rejections
+    // (#881). Each attempt is its own durable step — a fresh model call. A
+    // content rejection is caught INSIDE the step and surfaced as a sentinel
+    // (not thrown) so CF's per-step retry machinery doesn't fire on it — the
+    // loop owns the retry. Genuine transient errors still throw out of the step
+    // and lean on CF's per-step retries as before.
+    let imageResult: ImageGenerationResult | null = null;
+    let lastRejection: string | null = null;
+    for (let attempt = 0; attempt < MAX_IMAGE_ATTEMPTS; attempt++) {
+      const stepName =
+        attempt === 0 ? 'generate-image' : `generate-image-retry-${attempt}`;
+
+      const outcome = await step.do(stepName, async () => {
+        logger.info(
+          `[ImageWorkflow:cf] Generating image ${input.frameId} with model ${generationParams.model} (attempt ${attempt + 1}/${MAX_IMAGE_ATTEMPTS})`
+        );
+        try {
+          const result = await generateImageWithProvider(generationParams, {
+            scopedDb,
+          });
+          return { ok: true as const, result };
+        } catch (error) {
+          if (isContentRejectionError(error)) {
+            return {
+              ok: false as const,
+              rejection: extractFalErrorMessage(error),
+            };
+          }
+          throw error;
+        }
+      });
+
+      if (outcome.ok) {
+        imageResult = outcome.result;
+        if (attempt > 0) {
+          logger.info(
+            `[ImageWorkflow:cf] content-flag retry rescued image for frame ${input.frameId} on attempt ${attempt + 1}`,
+            {
+              event: CONTENT_REJECTION_RETRY_EVENT,
+              outcome: 'rescued',
+              kind: 'image',
+              model: generationParams.model,
+              attempts: attempt + 1,
+              frameId: input.frameId,
+              sequenceId: input.sequenceId,
+            }
+          );
+        }
+        break;
+      }
+
+      lastRejection = outcome.rejection;
+      logger.warn(
+        `[ImageWorkflow:cf] content-flag rejection on attempt ${attempt + 1}/${MAX_IMAGE_ATTEMPTS} for frame ${input.frameId}: ${outcome.rejection}`
       );
-      return generateImageWithProvider(generationParams, { scopedDb });
-    });
+    }
+
+    if (!imageResult) {
+      logger.error(
+        `[ImageWorkflow:cf] content-flag retry exhausted for frame ${input.frameId} after ${MAX_IMAGE_ATTEMPTS} attempts`,
+        {
+          event: CONTENT_REJECTION_RETRY_EVENT,
+          outcome: 'exhausted',
+          kind: 'image',
+          model: generationParams.model,
+          attempts: MAX_IMAGE_ATTEMPTS,
+          frameId: input.frameId,
+          sequenceId: input.sequenceId,
+          rejection: lastRejection,
+        }
+      );
+      throw new NonRetryableError(
+        `Image generation rejected by content filter after ${MAX_IMAGE_ATTEMPTS} attempts: ${lastRejection ?? 'unknown rejection'}`,
+        'ContentRejectionExhausted'
+      );
+    }
 
     const imageCostMicros = imageResult.metadata.cost ?? ZERO_MICROS;
     const { teamId, frameId, sequenceId } = input;
@@ -372,6 +457,11 @@ export class ImageWorkflow extends OpenStoryWorkflowEntrypoint<ImageWorkflowInpu
             frameId: input.frameId,
             status: 'failed',
             model,
+            // Carry the reason so the cache updater writes `thumbnailError`
+            // live — otherwise the FailureSummaryBanner shows "Unknown error"
+            // until a full refetch (#881). Skip for variant-only (the primary
+            // row isn't touched).
+            ...(input.variantOnly ? {} : { error }),
             // Variant-only (#547): a failed alternate must not flip the primary
             // thumbnail to "failed" in cache (the DB write above is already
             // guarded on variantOnly).

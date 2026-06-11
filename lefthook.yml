@@ -32,6 +32,13 @@ pre-commit:
       glob: '*.{ts,tsx,mts,cts}'
       run: bun run --bun tsgo --noEmit
       stage_fixed: true
+    dead-code:
+      # Whole-repo analysis (knip can't scope to staged files), ~1.5s. Gated
+      # on globs that can change the import graph so docs/SQL-only commits
+      # skip it. If a commit legitimately introduces a not-yet-consumed
+      # export, wire up a consumer in the same commit or tag it `@public`.
+      glob: '{*.{js,ts,cjs,mjs,jsx,tsx},package.json,knip.config.ts}'
+      run: bun dead-code
     migration-safety:
       glob: 'drizzle/migrations/**/*.sql'
       run: bun scripts/check-migrations.ts {staged_files}

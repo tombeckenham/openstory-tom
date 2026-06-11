@@ -126,10 +126,6 @@ export const shortenPromptFn = createServerFn({ method: 'POST' })
   .handler(async ({ data, context }) => {
     enforceRateLimit(promptShorteningRateLimiter, getClientIP());
 
-    if (!getEnv().OPENROUTER_KEY) {
-      throw new Error('AI service not configured');
-    }
-
     const { llmKey, deduct } = await prepareBilling(
       context.scopedDb,
       `Prompt shortening (${RECOMMENDED_MODELS.fast})`,
@@ -216,10 +212,6 @@ export const estimateSceneDurationFn = createServerFn({ method: 'POST' })
   .inputValidator(zodValidator(estimateSceneDurationInputSchema))
   .handler(async ({ data, context }) => {
     enforceRateLimit(sceneDurationEstimationRateLimiter, getClientIP());
-
-    if (!getEnv().OPENROUTER_KEY) {
-      throw new Error('AI service not configured');
-    }
 
     const analysisModel =
       (isValidAnalysisModelId(context.sequence.analysisModel)

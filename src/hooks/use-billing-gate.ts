@@ -15,6 +15,7 @@ type BillingGateStatus = {
   hasFalKey: boolean;
   hasOpenRouterKey: boolean;
   openRouterKeyInvalid: boolean;
+  falKeyInvalid: boolean;
   balance: number;
   hasAutoTopUp: boolean;
   stripeEnabled: boolean;
@@ -67,6 +68,7 @@ export function useBillingGate() {
     hasFalKey: data?.hasFalKey ?? false,
     hasOpenRouterKey: data?.hasOpenRouterKey ?? false,
     openRouterKeyInvalid: data?.openRouterKeyInvalid ?? false,
+    falKeyInvalid: data?.falKeyInvalid ?? false,
     hasCredits: data?.hasCredits ?? true,
     hasAutoTopUp: data?.hasAutoTopUp ?? false,
     stripeEnabled: data?.stripeEnabled ?? true,
@@ -76,9 +78,7 @@ export function useBillingGate() {
   };
 }
 
-/**
- * Gate for image/motion generation (only needs fal.ai BYOK key to bypass credits)
- */
+/** Alias kept for call-site readability at image/motion call sites. */
 export function useFalBillingGate() {
   return useBillingGate();
 }

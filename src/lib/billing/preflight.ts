@@ -34,11 +34,15 @@ export async function requireCredits(
   // Check if team has all required BYOK keys (any missing = need credits).
   // A fal key also satisfies the openrouter requirement: LLM calls route
   // through fal's OpenRouter endpoint on the team's fal key (issue #895).
+  // `hasUsableKey` (not `hasKey`): a key flagged invalid is skipped by
+  // resolveKey/resolveLlmKey at call time — the platform key pays — so it
+  // must not bypass the credit check here.
   const keyChecks = await Promise.all(
     providers.map(
       async (provider) =>
-        (await scopedDb.apiKeys.hasKey(provider)) ||
-        (provider === 'openrouter' && (await scopedDb.apiKeys.hasKey('fal')))
+        (await scopedDb.apiKeys.hasUsableKey(provider)) ||
+        (provider === 'openrouter' &&
+          (await scopedDb.apiKeys.hasUsableKey('fal')))
     )
   );
   const hasAllKeys = keyChecks.every(Boolean);

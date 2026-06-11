@@ -80,9 +80,9 @@ export function createAdapter(model: TextModel, keyInfo?: string | LlmKeyInfo) {
   // can trip the SDK's default backoff retry, producing two upstream calls
   // and two fixture files for the same prompt. Disable retry and stretch
   // the per-request timeout so the single proxied call has time to land.
-  // QStash retries failed steps at the workflow layer, so this doesn't
-  // remove all retry coverage — only the SDK-internal retry that fights
-  // with aimock's buffering during record.
+  // Cloudflare Workflows retries failed `step.do` units at the workflow
+  // layer, so this doesn't remove all retry coverage — only the SDK-internal
+  // retry that fights with aimock's buffering during record.
   const isRecording = env.E2E_RECORD === '1';
 
   if (!loggedRetryMode) {

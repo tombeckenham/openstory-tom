@@ -83,11 +83,12 @@ function extractRawMessage(value: unknown): string {
 }
 
 /**
- * Detect whether an error message indicates OpenRouter rejected the API key
- * (revoked, expired, or otherwise unauthorised). Used by workflow failure
- * handlers to mark a stored BYOK key invalid.
+ * Detect whether an error message indicates the LLM provider rejected the API
+ * key (revoked, expired, or otherwise unauthorised) — OpenRouter directly, or
+ * fal's OpenRouter endpoint when the call was fal-routed (issue #895). Used by
+ * workflow failure handlers to mark a stored BYOK key invalid.
  */
-export function isOpenRouterAuthError(message: string): boolean {
+export function isLlmAuthError(message: string): boolean {
   return /\b(401|403|unauthori[sz]ed|forbidden|no auth credentials|invalid api key)\b/i.test(
     message
   );

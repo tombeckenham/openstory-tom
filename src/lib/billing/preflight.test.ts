@@ -13,13 +13,16 @@ import { requireCredits } from './preflight';
 
 function fakeScopedDb(opts: {
   keys: Array<'fal' | 'openrouter'>;
+  invalidKeys?: Array<'fal' | 'openrouter'>;
   canAfford?: boolean;
 }): ScopedDb {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- minimal stub of the two methods requireCredits touches
   return {
     apiKeys: {
-      hasKey: (provider: 'fal' | 'openrouter') =>
-        Promise.resolve(opts.keys.includes(provider)),
+      hasUsableKey: (provider: 'fal' | 'openrouter') =>
+        Promise.resolve(
+          opts.keys.includes(provider) && !opts.invalidKeys?.includes(provider)
+        ),
     },
     billing: {
       hasEnoughCredits: () => Promise.resolve(opts.canAfford ?? false),
@@ -66,5 +69,30 @@ describe('requireCredits BYOK coverage', () => {
         errorMessage: 'Insufficient credits to create sequences',
       })
     ).rejects.toThrow('Insufficient credits to create sequences');
+  });
+
+  it('does not let an invalid fal key bypass the credit check', async () => {
+    // An invalid key is skipped by resolveKey/resolveLlmKey at call time —
+    // the platform key would pay — so preflight must fall through to credits.
+    const db = fakeScopedDb({ keys: ['fal'], invalidKeys: ['fal'] });
+    await expect(
+      requireCredits(db, COST, { providers: ['fal', 'openrouter'] })
+    ).rejects.toThrow(InsufficientCreditsError);
+  });
+
+  it('passes with only a fal key for an LLM-only preflight', async () => {
+    const db = fakeScopedDb({ keys: ['fal'] });
+    await expect(
+      requireCredits(db, COST, { providers: ['openrouter'] })
+    ).resolves.toBeUndefined();
+  });
+
+  it('defaults to requiring a fal key when providers is omitted', async () => {
+    await expect(
+      requireCredits(fakeScopedDb({ keys: ['fal'] }), COST)
+    ).resolves.toBeUndefined();
+    await expect(
+      requireCredits(fakeScopedDb({ keys: ['openrouter'] }), COST)
+    ).rejects.toThrow(InsufficientCreditsError);
   });
 });

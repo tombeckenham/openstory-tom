@@ -17,17 +17,22 @@ export const getBillingGateStatusFn = createServerFn({ method: 'GET' })
   .handler(async ({ context }) => {
     const { scopedDb } = context;
 
+    // `hasUsableKey` (not `hasKey`): these flags render as "connected"/BYOK
+    // coverage in the billing gate — a key flagged invalid is skipped at call
+    // time (the platform key pays), so it must not count as coverage.
     const [
       balance,
       hasFalKey,
       hasOpenRouterKey,
       openRouterKeyInvalid,
+      falKeyInvalid,
       billingSettings,
     ] = await Promise.all([
       scopedDb.billing.getBalance(),
-      scopedDb.apiKeys.hasKey('fal'),
-      scopedDb.apiKeys.hasKey('openrouter'),
+      scopedDb.apiKeys.hasUsableKey('fal'),
+      scopedDb.apiKeys.hasUsableKey('openrouter'),
       scopedDb.apiKeys.hasInvalidKey('openrouter'),
+      scopedDb.apiKeys.hasInvalidKey('fal'),
       scopedDb.billing.getBillingSettings(),
     ]);
 
@@ -36,6 +41,7 @@ export const getBillingGateStatusFn = createServerFn({ method: 'GET' })
       hasFalKey,
       hasOpenRouterKey,
       openRouterKeyInvalid,
+      falKeyInvalid,
       balance: microsToUsd(balance),
       hasAutoTopUp:
         billingSettings.autoTopUpEnabled && !!billingSettings.stripeCustomerId,

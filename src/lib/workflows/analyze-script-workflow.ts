@@ -37,10 +37,8 @@ import { getGenerationChannel } from '@/lib/realtime';
 import { spawnAndAwaitChild } from '@/lib/workflow/await-child';
 import { OpenStoryWorkflowEntrypoint } from '@/lib/workflow/base-workflow';
 import { WorkflowValidationError } from '@/lib/workflow/errors';
-import {
-  isOpenRouterAuthError,
-  sanitizeFailResponse,
-} from '@/lib/workflow/sanitize-fail-response';
+import { handleLlmAuthFailure } from '@/lib/workflow/llm-auth-failure';
+import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import type {
   AnalyzeScriptWorkflowInput,
   BatchMotionMusicWorkflowInput,
@@ -697,15 +695,8 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
       sanitized,
     });
 
-    let userMessage = sanitized;
-    if (
-      isOpenRouterAuthError(sanitized) &&
-      (await scopedDb.apiKeys.hasKey('openrouter'))
-    ) {
-      await scopedDb.apiKeys.markKeyInvalid('openrouter', sanitized);
-      userMessage =
-        'Your OpenRouter API key is invalid — update it in Settings.';
-    }
+    const userMessage =
+      (await handleLlmAuthFailure(scopedDb, sanitized)) ?? sanitized;
 
     await scopedDb.sequence(sequenceId).updateStatus('failed', userMessage);
     await getGenerationChannel(sequenceId).emit('generation.failed', {

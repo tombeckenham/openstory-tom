@@ -1,8 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import {
-  isOpenRouterAuthError,
-  sanitizeFailResponse,
-} from './sanitize-fail-response';
+import { isLlmAuthError, sanitizeFailResponse } from './sanitize-fail-response';
 
 describe('sanitizeFailResponse', () => {
   test('passes through a normal error string unchanged', () => {
@@ -83,29 +80,27 @@ describe('sanitizeFailResponse', () => {
   });
 });
 
-describe('isOpenRouterAuthError', () => {
+describe('isLlmAuthError', () => {
   test('detects 401 / Unauthorized', () => {
-    expect(isOpenRouterAuthError('LLM stream error: 401 Unauthorized')).toBe(
-      true
-    );
-    expect(isOpenRouterAuthError('OpenRouter returned 401')).toBe(true);
+    expect(isLlmAuthError('LLM stream error: 401 Unauthorized')).toBe(true);
+    expect(isLlmAuthError('OpenRouter returned 401')).toBe(true);
   });
 
   test('detects 403 / Forbidden', () => {
-    expect(isOpenRouterAuthError('403 Forbidden')).toBe(true);
+    expect(isLlmAuthError('403 Forbidden')).toBe(true);
   });
 
   test('detects OpenRouter no-auth-credentials message', () => {
-    expect(isOpenRouterAuthError('No auth credentials found')).toBe(true);
+    expect(isLlmAuthError('No auth credentials found')).toBe(true);
   });
 
   test('detects invalid-api-key message case-insensitively', () => {
-    expect(isOpenRouterAuthError('Invalid API key: sk-or-...')).toBe(true);
+    expect(isLlmAuthError('Invalid API key: sk-or-...')).toBe(true);
   });
 
   test('does not match unrelated errors', () => {
-    expect(isOpenRouterAuthError('Request timed out')).toBe(false);
-    expect(isOpenRouterAuthError('500 Internal Server Error')).toBe(false);
-    expect(isOpenRouterAuthError('Rate limit exceeded')).toBe(false);
+    expect(isLlmAuthError('Request timed out')).toBe(false);
+    expect(isLlmAuthError('500 Internal Server Error')).toBe(false);
+    expect(isLlmAuthError('Rate limit exceeded')).toBe(false);
   });
 });

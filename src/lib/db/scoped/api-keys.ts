@@ -41,7 +41,7 @@ export type ResolvedApiKey =
 // LLM-call key resolution. `via` says which API the call must be routed
 // through: 'openrouter' = OpenRouter directly (Bearer auth), 'fal' = fal's
 // OpenAI-compatible OpenRouter endpoint (`Key` auth) so a team with only a
-// fal key still covers script analysis (issue #895).
+// fal key still covers LLM calls (issue #895).
 export type ResolvedLlmKey = ResolvedApiKey & { via: 'openrouter' | 'fal' };
 
 // The cached shape of a `team_api_keys` lookup. Holds the *encrypted* row
@@ -110,6 +110,27 @@ export function createApiKeysReadMethods(db: Database, teamId: string) {
           eq(teamApiKeys.teamId, teamId),
           eq(teamApiKeys.provider, provider),
           eq(teamApiKeys.isActive, true)
+        )
+      )
+      .limit(1);
+
+    return !!row;
+  }
+
+  // Like `hasKey` but excludes keys flagged invalid. Billing gates must use
+  // this: an invalid key can't pay for anything — `resolveKey`/`resolveLlmKey`
+  // skip it and fall back to the platform key, which deducts credits — so it
+  // must not bypass a credit check or render as covering generation.
+  async function hasUsableKey(provider: ApiKeyProvider): Promise<boolean> {
+    const [row] = await db
+      .select({ id: teamApiKeys.id })
+      .from(teamApiKeys)
+      .where(
+        and(
+          eq(teamApiKeys.teamId, teamId),
+          eq(teamApiKeys.provider, provider),
+          eq(teamApiKeys.isActive, true),
+          eq(teamApiKeys.isInvalid, false)
         )
       )
       .limit(1);
@@ -287,8 +308,11 @@ export function createApiKeysReadMethods(db: Database, teamId: string) {
   // Resolve the key for an LLM call. Preference order:
   //   1. team OpenRouter key (direct OpenRouter)
   //   2. team fal key (routed through fal's OpenRouter endpoint) — a fal-only
-  //      team still covers script analysis on their own key (issue #895)
+  //      team still covers LLM calls on their own key (issue #895)
   //   3. platform key (OPENROUTER_KEY, or FAL_KEY routed through fal)
+  // A skipped OpenRouter key that a working fal key supersedes returns
+  // `source: 'team'` with no fallbackReason — the reason only surfaces when
+  // resolution falls all the way through to the platform key.
   async function resolveLlmKey(): Promise<ResolvedLlmKey> {
     let fallbackReason: string | undefined;
 
@@ -307,12 +331,17 @@ export function createApiKeysReadMethods(db: Database, teamId: string) {
     }
 
     const falLookup = await readKeyRowLogged('fal');
-    if (falLookup.found && !falLookup.isInvalid) {
-      const result = await decryptOrMarkInvalid('fal', falLookup);
-      if ('key' in result) {
-        return { key: result.key, source: 'team', via: 'fal' };
+    if (falLookup.found) {
+      if (falLookup.isInvalid) {
+        fallbackReason ??=
+          falLookup.invalidReason ?? 'Team fal key marked invalid';
+      } else {
+        const result = await decryptOrMarkInvalid('fal', falLookup);
+        if ('key' in result) {
+          return { key: result.key, source: 'team', via: 'fal' };
+        }
+        fallbackReason ??= result.skippedReason;
       }
-      fallbackReason ??= result.skippedReason;
     }
 
     const platform = getPlatformLlmKey();
@@ -368,6 +397,7 @@ export function createApiKeysReadMethods(db: Database, teamId: string) {
   return {
     listKeys,
     hasKey,
+    hasUsableKey,
     hasInvalidKey,
     resolveKey,
     resolveLlmKey,

@@ -78,6 +78,28 @@ export type DurableStreamingLLMCallContext = DurableLLMCallContext & {
 };
 
 /**
+ * Resolve the key for the LLM call — the team's key via ScopedDb, or the
+ * platform key for anonymous workflows. Resolved ONCE per helper invocation,
+ * outside the steps, so the LLM call and the credit-deduction step attribute
+ * billing to the same key (re-resolving inside the deduct step could diverge
+ * if the key was marked invalid mid-run, and could throw after the LLM call
+ * already succeeded). The per-scope row cache makes this at most one D1 read.
+ */
+async function resolveCallKey(callContext: DurableLLMCallContext) {
+  if (callContext.scopedDb) {
+    return callContext.scopedDb.apiKeys.resolveLlmKey();
+  }
+  const platform = getPlatformLlmKey();
+  if (!platform) {
+    throw new NonRetryableError(
+      'No platform LLM key available (set OPENROUTER_KEY or FAL_KEY)',
+      'WorkflowValidationError'
+    );
+  }
+  return platform;
+}
+
+/**
  * Execute a durable LLM call. Returns the validated parsed object.
  *
  * Step layout (deterministic names):
@@ -110,21 +132,11 @@ export async function durableLLMCallCf<TSchema extends z.ZodType>(
     return { messages };
   });
 
+  const llmKeyInfo = await resolveCallKey(callContext);
+
   // Step 2: Durable LLM call. JSON-stringifies the parsed object so CF's
   // Rpc.Serializable<T> check passes regardless of the Zod-inferred shape.
   const jsonText = await step.do(name, async (): Promise<string> => {
-    const llmKeyInfo = callContext.scopedDb
-      ? await callContext.scopedDb.apiKeys.resolveLlmKey()
-      : (() => {
-          const platform = getPlatformLlmKey();
-          if (!platform) {
-            throw new NonRetryableError(
-              'No platform LLM key available (set OPENROUTER_KEY or FAL_KEY)',
-              'WorkflowValidationError'
-            );
-          }
-          return platform;
-        })();
     const adapter = createAdapter(modelId, llmKeyInfo);
 
     // Refetch prompt inside the LLM step — promptReference can't cross the
@@ -196,7 +208,6 @@ export async function durableLLMCallCf<TSchema extends z.ZodType>(
   if (callContext.scopedDb) {
     const scopedDb = callContext.scopedDb;
     await step.do(`deduct-llm-credits-${name}`, async () => {
-      const llmKeyInfo = await scopedDb.apiKeys.resolveLlmKey();
       await deductWorkflowCredits({
         scopedDb,
         costMicros: ZERO_MICROS,
@@ -218,10 +229,10 @@ export async function durableLLMCallCf<TSchema extends z.ZodType>(
 }
 
 /**
- * Streaming variant of {@link durableLLMCallCf}. Same semantics as the QStash
- * `durableStreamingLLMCall`: degrades to the non-streaming path when
- * `framePromptStream` is omitted, so script-analysis flows that share these
- * workflows don't burn realtime publishes nobody is listening to.
+ * Streaming variant of {@link durableLLMCallCf}: degrades to the
+ * non-streaming path when `framePromptStream` is omitted, so script-analysis
+ * flows that share these workflows don't burn realtime publishes nobody is
+ * listening to.
  */
 export async function durableStreamingLLMCallCf<TSchema extends z.ZodType>(
   step: WorkflowStep,
@@ -254,21 +265,11 @@ export async function durableStreamingLLMCallCf<TSchema extends z.ZodType>(
     return { messages };
   });
 
+  const llmKeyInfo = await resolveCallKey(callContext);
+
   const jsonText = await step.do(
     `${name}-stream`,
     async (): Promise<string> => {
-      const llmKeyInfo = callContext.scopedDb
-        ? await callContext.scopedDb.apiKeys.resolveLlmKey()
-        : (() => {
-            const platform = getPlatformLlmKey();
-            if (!platform) {
-              throw new NonRetryableError(
-                'No platform LLM key available (set OPENROUTER_KEY or FAL_KEY)',
-                'WorkflowValidationError'
-              );
-            }
-            return platform;
-          })();
       const adapter = createAdapter(modelId, llmKeyInfo);
       const { prompt: promptReference } = await getChatPrompt(
         config.promptName,
@@ -376,7 +377,6 @@ export async function durableStreamingLLMCallCf<TSchema extends z.ZodType>(
   if (callContext.scopedDb) {
     const scopedDb = callContext.scopedDb;
     await step.do(`deduct-llm-credits-${name}`, async () => {
-      const llmKeyInfo = await scopedDb.apiKeys.resolveLlmKey();
       await deductWorkflowCredits({
         scopedDb,
         costMicros: ZERO_MICROS,

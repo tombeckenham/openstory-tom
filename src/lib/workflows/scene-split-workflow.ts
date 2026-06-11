@@ -44,10 +44,8 @@ import { previewImageDedupId } from '@/lib/workflow/dedup-ids';
 import { OpenStoryWorkflowEntrypoint } from '@/lib/workflow/base-workflow';
 import { triggerWorkflow } from '@/lib/workflow/client';
 import { buildWorkflowLabel } from '@/lib/workflow/labels';
-import {
-  isOpenRouterAuthError,
-  sanitizeFailResponse,
-} from '@/lib/workflow/sanitize-fail-response';
+import { handleLlmAuthFailure } from '@/lib/workflow/llm-auth-failure';
+import { sanitizeFailResponse } from '@/lib/workflow/sanitize-fail-response';
 import type {
   ImageWorkflowInput,
   SceneSplitWorkflowInput,
@@ -562,18 +560,9 @@ export class SceneSplitWorkflow extends OpenStoryWorkflowEntrypoint<SceneSplitWo
       err: error,
     });
 
-    let userMessage = 'Scene splitting failed';
-    if (
-      isOpenRouterAuthError(error) &&
-      (await scopedDb.apiKeys.hasKey('openrouter'))
-    ) {
-      await scopedDb.apiKeys.markKeyInvalid(
-        'openrouter',
-        sanitizeFailResponse(error)
-      );
-      userMessage =
-        'Your OpenRouter API key is invalid — update it in Settings.';
-    }
+    const userMessage =
+      (await handleLlmAuthFailure(scopedDb, sanitizeFailResponse(error))) ??
+      'Scene splitting failed';
 
     if (sequenceId) {
       try {

@@ -265,8 +265,8 @@
     "bindings": [
       {
         "name": "REALTIME",
-        "class_name": "RealtimeChannel"
-      }
+        "class_name": "RealtimeChannel",
+      },
     ],
   },
   "migrations": [
@@ -274,8 +274,8 @@
       "tag": "v1",
       "new_sqlite_classes": [
         "RealtimeChannel"
-      ]
-    }
+      ],
+    },
   ],
   "env": {
     // Production deploy target. @cloudflare/vite-plugin selects the env at
@@ -491,8 +491,8 @@
         "bindings": [
           {
             "name": "REALTIME",
-            "class_name": "RealtimeChannel"
-          }
+            "class_name": "RealtimeChannel",
+          },
         ],
       },
       "migrations": [
@@ -500,7 +500,7 @@
           "tag": "v1",
           "new_sqlite_classes": [
             "RealtimeChannel"
-          ]
+          ],
         },
       ],
       "triggers": {
@@ -512,8 +512,8 @@
       // tail_consumers is non-inheritable across env blocks.
       "tail_consumers": [
         {
-          "service": "openstory-log-forwarder-prd"
-        }
+          "service": "openstory-log-forwarder-prd",
+        },
       ],
     },
     // Playwright e2e environment. D1 AND R2 are local (Miniflare) for
@@ -740,8 +740,8 @@
         "bindings": [
           {
             "name": "REALTIME",
-            "class_name": "RealtimeChannel"
-          }
+            "class_name": "RealtimeChannel",
+          },
         ],
       },
       "migrations": [
@@ -749,7 +749,7 @@
           "tag": "v1",
           "new_sqlite_classes": [
             "RealtimeChannel"
-          ]
+          ],
         },
       ],
       // Explicit empty array opts out of inheritance and silences wrangler's

@@ -22,6 +22,10 @@ import { deductWorkflowCredits } from '@/lib/billing/workflow-deduction';
 import { DEFAULT_IMAGE_SIZE } from '@/lib/constants/aspect-ratios';
 import type { ScopedDb } from '@/lib/db/scoped';
 import {
+  CONTENT_REJECTION_EVENT,
+  isContentRejectionError,
+} from '@/lib/ai/content-rejection';
+import {
   generateImageWithProvider,
   type ImageGenerationParams,
 } from '@/lib/image/image-generation';
@@ -396,6 +400,20 @@ export class ImageWorkflow extends OpenStoryWorkflowEntrypoint<ImageWorkflowInpu
           }
         );
       }
+    }
+
+    if (isContentRejectionError(error)) {
+      logger.warn(
+        `[ImageWorkflow:cf] frame ${input.frameId} failed a content checker`,
+        {
+          event: CONTENT_REJECTION_EVENT,
+          kind: 'image',
+          model,
+          frameId: input.frameId,
+          sequenceId: input.sequenceId,
+          error,
+        }
+      );
     }
 
     logger.error(

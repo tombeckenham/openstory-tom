@@ -50,6 +50,14 @@ export const CONTENT_REJECTION_PATTERNS: readonly RegExp[] = [
 export const CONTENT_REJECTION_RETRY_EVENT = 'content_rejection_retry' as const;
 
 /**
+ * Stable marker for the structured log emitted when a frame/clip's TERMINAL
+ * failure was a content rejection — fired from both image and motion
+ * `onFailure`, so "how many frames failed a content checker" is one queryable
+ * PostHog Logs metric across both paths, regardless of the retry mechanism.
+ */
+export const CONTENT_REJECTION_EVENT = 'content_rejection' as const;
+
+/**
  * True when `error` looks like a provider content-filter / model-rejection
  * hit. Operates on the extracted fal message so it works whether the caller
  * hands us the raw fal `ApiError` (422 with `body.detail`) or an already

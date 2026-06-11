@@ -17,6 +17,7 @@
 
 import { extractFalErrorMessage } from '@/lib/ai/fal-error';
 import {
+  CONTENT_REJECTION_EVENT,
   CONTENT_REJECTION_RETRY_EVENT,
   isContentRejectionError,
 } from '@/lib/ai/content-rejection';
@@ -674,6 +675,20 @@ export class MotionWorkflow extends OpenStoryWorkflowEntrypoint<MotionWorkflowIn
           }
         },
       });
+    }
+
+    if (isContentRejectionError(error)) {
+      logger.warn(
+        `[MotionWorkflow:cf] frame ${input.frameId} failed a content checker`,
+        {
+          event: CONTENT_REJECTION_EVENT,
+          kind: 'motion',
+          model,
+          frameId: input.frameId,
+          sequenceId: input.sequenceId,
+          error,
+        }
+      );
     }
 
     logger.error(

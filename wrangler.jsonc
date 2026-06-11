@@ -3,15 +3,11 @@
   "main": "./src/server.ts",
   "name": "openstory",
   "compatibility_date": "2025-11-18",
-  "compatibility_flags": [
-    "nodejs_compat"
-  ],
+  "compatibility_flags": ["nodejs_compat"],
   "triggers": {
     // Sweep stuck generating-status rows every 5 minutes. See
     // src/lib/cron/reconcile-all.ts and issue #727.
-    "crons": [
-      "*/5 * * * *"
-    ],
+    "crons": ["*/5 * * * *"],
   },
   "observability": {
     "enabled": true,
@@ -272,9 +268,7 @@
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": [
-        "RealtimeChannel"
-      ],
+      "new_sqlite_classes": ["RealtimeChannel"],
     },
   ],
   "env": {
@@ -498,15 +492,11 @@
       "migrations": [
         {
           "tag": "v1",
-          "new_sqlite_classes": [
-            "RealtimeChannel"
-          ],
+          "new_sqlite_classes": ["RealtimeChannel"],
         },
       ],
       "triggers": {
-        "crons": [
-          "*/5 * * * *"
-        ],
+        "crons": ["*/5 * * * *"],
       },
       // Same forwarder as the top-level default — redeclared because
       // tail_consumers is non-inheritable across env blocks.
@@ -747,9 +737,7 @@
       "migrations": [
         {
           "tag": "v1",
-          "new_sqlite_classes": [
-            "RealtimeChannel"
-          ],
+          "new_sqlite_classes": ["RealtimeChannel"],
         },
       ],
       // Explicit empty array opts out of inheritance and silences wrangler's

@@ -226,7 +226,7 @@ async function scoreScript(task: StyleTask): Promise<ScriptVerdict> {
     max_tokens: 1200,
     temperature: 0,
     observationName: 'score-style-script',
-    apiKey: openRouterKey,
+    apiKey: { key: openRouterKey, via: 'openrouter' },
   });
   return scriptVerdictSchema.parse(JSON.parse(extractJson(reply)));
 }

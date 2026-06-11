@@ -8,6 +8,7 @@
  * isolation; the anatomy flag is deliberately calibrated to clear/gross errors
  * only (LLM anatomy detection is unreliable — see score-style-previews.ts).
  */
+import type { LlmKeyInfo } from '@/lib/ai/create-adapter';
 import { callLLM } from '@/lib/ai/llm-client';
 import type { TextModel } from '@/lib/ai/models';
 import type { StyleConfig } from '@/lib/db/schema/libraries';
@@ -55,7 +56,7 @@ export async function scoreStill(args: {
   sceneDescription: string;
   config: StyleConfig;
   model: TextModel;
-  apiKey: string;
+  apiKey: LlmKeyInfo;
 }): Promise<StillVerdict> {
   const c = args.config;
   const messages: ChatMessage[] = [

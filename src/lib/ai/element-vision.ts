@@ -9,7 +9,7 @@ import type { ChatMessage, ChatMessageImagePart } from '@/lib/prompts';
 import { toVisionImageSource } from '@/lib/storage/external-url';
 import { chat } from '@tanstack/ai';
 import { z } from 'zod';
-import { createAdapter } from './create-adapter';
+import { createAdapter, type LlmKeyInfo } from './create-adapter';
 
 const VISION_MODEL = 'anthropic/claude-sonnet-4.6';
 
@@ -24,8 +24,8 @@ export type ElementDescription = z.infer<typeof responseSchema>;
 export type DescribeElementInput = {
   imageUrl: string;
   filename: string;
-  /** Override OpenRouter API key (team-provided) */
-  openRouterApiKey?: string;
+  /** Resolved LLM key (team OpenRouter, team fal, or platform) */
+  llmKey?: LlmKeyInfo;
 };
 
 /**
@@ -96,7 +96,7 @@ export async function describeElementImage(
     }
   }
 
-  const adapter = createAdapter(VISION_MODEL, input.openRouterApiKey);
+  const adapter = createAdapter(VISION_MODEL, input.llmKey);
 
   const result = await chat({
     adapter,

@@ -11,6 +11,7 @@
  * Only the render script imports this; the seed + unit tests stay light.
  */
 import { getEnv } from '#env';
+import type { LlmKeyInfo } from '@/lib/ai/create-adapter';
 import { callLLM, RECOMMENDED_MODELS } from '@/lib/ai/llm-client';
 import type { EnhanceStyle } from '@/lib/ai/enhance-inputs';
 import { createUserPrompt } from '@/lib/ai/script-enhancer';
@@ -51,11 +52,11 @@ function extractJson(text: string): string {
   return candidate.slice(start, end + 1);
 }
 
-function openRouterKey(): string {
+function openRouterKeyInfo(): LlmKeyInfo {
   const key = getEnv().OPENROUTER_KEY;
   if (!key)
     throw new Error('OPENROUTER_KEY is required to enhance sample scripts');
-  return key;
+  return { key, via: 'openrouter' };
 }
 
 /** Run the brief through the app's `script/enhance` prompt → enhanced script prose. */
@@ -85,7 +86,7 @@ async function enhanceBrief(args: {
       ? { name: prompt.name, version: prompt.version, isFallback: false }
       : undefined,
     observationName: 'sample-script-enhance',
-    apiKey: openRouterKey(),
+    apiKey: openRouterKeyInfo(),
   });
 }
 
@@ -125,7 +126,7 @@ async function splitIntoBeats(args: {
     max_tokens: 1500,
     temperature: 0.4,
     observationName: 'sample-script-split',
-    apiKey: openRouterKey(),
+    apiKey: openRouterKeyInfo(),
   });
 
   const result = sceneSplitSchema.parse(JSON.parse(extractJson(reply)));

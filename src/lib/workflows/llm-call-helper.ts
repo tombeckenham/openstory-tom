@@ -8,8 +8,7 @@
  *     re-wraps at the runImpl boundary).
  */
 
-import { getEnv } from '#env';
-import { createAdapter } from '@/lib/ai/create-adapter';
+import { createAdapter, getPlatformLlmKey } from '@/lib/ai/create-adapter';
 import {
   extractRunError,
   formatRunErrorMessage,
@@ -66,8 +65,6 @@ export type DurableLLMCallContext = {
    * can't double-charge.
    */
   workflowRunId: string;
-  /** Override OpenRouter API key (e.g. user-provided). Falls back to platform env key. */
-  openRouterApiKey?: string;
   /** Scoped DB context for resolving team API keys + deducting credits. */
   scopedDb?: ScopedDb;
 };
@@ -79,6 +76,28 @@ export type DurableStreamingLLMCallContext = DurableLLMCallContext & {
     flushIntervalMs?: number;
   };
 };
+
+/**
+ * Resolve the key for the LLM call — the team's key via ScopedDb, or the
+ * platform key for anonymous workflows. Resolved ONCE per helper invocation,
+ * outside the steps, so the LLM call and the credit-deduction step attribute
+ * billing to the same key (re-resolving inside the deduct step could diverge
+ * if the key was marked invalid mid-run, and could throw after the LLM call
+ * already succeeded). The per-scope row cache makes this at most one D1 read.
+ */
+async function resolveCallKey(callContext: DurableLLMCallContext) {
+  if (callContext.scopedDb) {
+    return callContext.scopedDb.apiKeys.resolveLlmKey();
+  }
+  const platform = getPlatformLlmKey();
+  if (!platform) {
+    throw new NonRetryableError(
+      'No platform LLM key available (set OPENROUTER_KEY or FAL_KEY)',
+      'WorkflowValidationError'
+    );
+  }
+  return platform;
+}
 
 /**
  * Execute a durable LLM call. Returns the validated parsed object.
@@ -113,22 +132,12 @@ export async function durableLLMCallCf<TSchema extends z.ZodType>(
     return { messages };
   });
 
+  const llmKeyInfo = await resolveCallKey(callContext);
+
   // Step 2: Durable LLM call. JSON-stringifies the parsed object so CF's
   // Rpc.Serializable<T> check passes regardless of the Zod-inferred shape.
   const jsonText = await step.do(name, async (): Promise<string> => {
-    const openRouterApiKeyInfo = callContext.scopedDb
-      ? await callContext.scopedDb.apiKeys.resolveKey('openrouter')
-      : (() => {
-          const env = getEnv();
-          if (!env.OPENROUTER_KEY) {
-            throw new NonRetryableError(
-              'No API key available for provider: openrouter',
-              'WorkflowValidationError'
-            );
-          }
-          return { key: env.OPENROUTER_KEY, source: 'platform' as const };
-        })();
-    const adapter = createAdapter(modelId, openRouterApiKeyInfo.key);
+    const adapter = createAdapter(modelId, llmKeyInfo);
 
     // Refetch prompt inside the LLM step — promptReference can't cross the
     // step boundary (not Rpc.Serializable).
@@ -139,7 +148,8 @@ export async function durableLLMCallCf<TSchema extends z.ZodType>(
 
     logger.info(`[LLM:${logName}:cf] Starting call`, {
       model: modelId,
-      keySource: openRouterApiKeyInfo.source,
+      keySource: llmKeyInfo.source,
+      keyVia: llmKeyInfo.via,
       messageCount: messages.length,
     });
 
@@ -201,7 +211,7 @@ export async function durableLLMCallCf<TSchema extends z.ZodType>(
       await deductWorkflowCredits({
         scopedDb,
         costMicros: ZERO_MICROS,
-        usedOwnKey: !!callContext.openRouterApiKey,
+        usedOwnKey: llmKeyInfo.source === 'team',
         description: `LLM analysis (${modelId})`,
         idempotencyKey: `${callContext.workflowRunId}:llm-${name}`,
         metadata: {
@@ -219,10 +229,10 @@ export async function durableLLMCallCf<TSchema extends z.ZodType>(
 }
 
 /**
- * Streaming variant of {@link durableLLMCallCf}. Same semantics as the QStash
- * `durableStreamingLLMCall`: degrades to the non-streaming path when
- * `framePromptStream` is omitted, so script-analysis flows that share these
- * workflows don't burn realtime publishes nobody is listening to.
+ * Streaming variant of {@link durableLLMCallCf}: degrades to the
+ * non-streaming path when `framePromptStream` is omitted, so script-analysis
+ * flows that share these workflows don't burn realtime publishes nobody is
+ * listening to.
  */
 export async function durableStreamingLLMCallCf<TSchema extends z.ZodType>(
   step: WorkflowStep,
@@ -255,22 +265,12 @@ export async function durableStreamingLLMCallCf<TSchema extends z.ZodType>(
     return { messages };
   });
 
+  const llmKeyInfo = await resolveCallKey(callContext);
+
   const jsonText = await step.do(
     `${name}-stream`,
     async (): Promise<string> => {
-      const openRouterApiKeyInfo = callContext.scopedDb
-        ? await callContext.scopedDb.apiKeys.resolveKey('openrouter')
-        : (() => {
-            const env = getEnv();
-            if (!env.OPENROUTER_KEY) {
-              throw new NonRetryableError(
-                'No API key available for provider: openrouter',
-                'WorkflowValidationError'
-              );
-            }
-            return { key: env.OPENROUTER_KEY, source: 'platform' as const };
-          })();
-      const adapter = createAdapter(modelId, openRouterApiKeyInfo.key);
+      const adapter = createAdapter(modelId, llmKeyInfo);
       const { prompt: promptReference } = await getChatPrompt(
         config.promptName,
         config.promptVariables
@@ -278,7 +278,8 @@ export async function durableStreamingLLMCallCf<TSchema extends z.ZodType>(
 
       logger.info(`[LLM:${logName}:cf] Starting streaming call`, {
         model: modelId,
-        keySource: openRouterApiKeyInfo.source,
+        keySource: llmKeyInfo.source,
+        keyVia: llmKeyInfo.via,
         messageCount: messages.length,
         frameId,
         promptType,
@@ -379,7 +380,7 @@ export async function durableStreamingLLMCallCf<TSchema extends z.ZodType>(
       await deductWorkflowCredits({
         scopedDb,
         costMicros: ZERO_MICROS,
-        usedOwnKey: !!callContext.openRouterApiKey,
+        usedOwnKey: llmKeyInfo.source === 'team',
         description: `LLM analysis (${modelId})`,
         idempotencyKey: `${callContext.workflowRunId}:llm-${name}`,
         metadata: {

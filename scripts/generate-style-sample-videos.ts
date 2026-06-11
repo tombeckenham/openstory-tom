@@ -337,7 +337,7 @@ async function renderStill(
       sceneDescription: beat.imagePrompt,
       config: job.config,
       model: GATE_MODEL,
-      apiKey: OPENROUTER_KEY,
+      apiKey: { key: OPENROUTER_KEY, via: 'openrouter' },
     });
     if (!best || verdict.styleAdherence > best.adherence) {
       best = { url, webp, adherence: verdict.styleAdherence };

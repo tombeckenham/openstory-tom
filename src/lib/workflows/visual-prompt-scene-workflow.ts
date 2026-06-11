@@ -132,15 +132,18 @@ export class VisualPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Visua
     // `durableStreamingLLMCall`'s exactly so trace parity holds.
     const llmStepName = streamConfig ? `${STEP_NAME}-stream` : STEP_NAME;
 
+    // Resolved once, outside the steps, so the LLM call and the deduction
+    // step attribute billing to the same key (the per-scope row cache makes
+    // this at most one D1 read).
+    const llmKeyInfo = await scopedDb.apiKeys.resolveLlmKey();
+
     // VisualPromptResult is a Zod-inferred object that doesn't satisfy CF's
     // `Rpc.Serializable<T>` constraint structurally (the discriminated union
     // members confuse the check), but is JSON-safe at runtime. JSON-stringify
     // around the step boundary so the type round-trips through Serializable
     // cleanly.
     const resultJson = await step.do(llmStepName, async (): Promise<string> => {
-      const openRouterApiKeyInfo =
-        await scopedDb.apiKeys.resolveKey('openrouter');
-      const adapter = createAdapter(analysisModelId, openRouterApiKeyInfo.key);
+      const adapter = createAdapter(analysisModelId, llmKeyInfo);
 
       logger.info(
         `[VisualPromptSceneWorkflow:cf] [LLM:${LOG_NAME}] Starting${
@@ -148,7 +151,8 @@ export class VisualPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Visua
         } call`,
         {
           model: analysisModelId,
-          keySource: openRouterApiKeyInfo.source,
+          keySource: llmKeyInfo.source,
+          keyVia: llmKeyInfo.via,
           messageCount: messages.length,
           ...(streamConfig
             ? {
@@ -297,7 +301,7 @@ export class VisualPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Visua
       await deductWorkflowCredits({
         scopedDb,
         costMicros: ZERO_MICROS,
-        usedOwnKey: false,
+        usedOwnKey: llmKeyInfo.source === 'team',
         description: `LLM analysis (${analysisModelId})`,
         idempotencyKey: `${event.instanceId}:llm-${STEP_NAME}`,
         metadata: {

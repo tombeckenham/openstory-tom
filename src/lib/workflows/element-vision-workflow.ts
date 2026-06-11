@@ -53,12 +53,11 @@ export class ElementVisionWorkflow extends OpenStoryWorkflowEntrypoint<ElementVi
     const { description, consistencyTag, suggestedToken } = await step.do(
       'describe-element',
       async () => {
-        const openRouterApiKeyInfo =
-          await scopedDb.apiKeys.resolveKey('openrouter');
+        const llmKeyInfo = await scopedDb.apiKeys.resolveLlmKey();
         return await describeElementImage({
           imageUrl,
           filename,
-          openRouterApiKey: openRouterApiKeyInfo.key,
+          llmKey: llmKeyInfo,
         });
       }
     );

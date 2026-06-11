@@ -32,12 +32,19 @@ import {
   vi,
 } from 'vitest';
 
+// Mutable so individual tests can unset platform keys (restored in beforeEach).
+const testEnv: {
+  API_KEY_ENCRYPTION_KEY: string;
+  OPENROUTER_KEY: string | undefined;
+  FAL_KEY: string | undefined;
+} = {
+  API_KEY_ENCRYPTION_KEY: 'test-secret-for-api-keys-memoization',
+  OPENROUTER_KEY: 'platform-openrouter-key',
+  FAL_KEY: 'platform-fal-key',
+};
+
 vi.doMock('#env', () => ({
-  getEnv: () => ({
-    API_KEY_ENCRYPTION_KEY: 'test-secret-for-api-keys-memoization',
-    OPENROUTER_KEY: 'platform-openrouter-key',
-    FAL_KEY: 'platform-fal-key',
-  }),
+  getEnv: () => testEnv,
 }));
 
 // Wrap the real `decryptApiKey` in a spy (delegating to the actual impl) so a
@@ -103,6 +110,8 @@ afterAll(() => {
 });
 
 beforeEach(async () => {
+  testEnv.OPENROUTER_KEY = 'platform-openrouter-key';
+  testEnv.FAL_KEY = 'platform-fal-key';
   await seed();
 });
 
@@ -243,6 +252,18 @@ describe('resolveKey memoization (issue #864)', () => {
     });
   });
 
+  it('falls back to the platform key when the team key is marked invalid', async () => {
+    const scope = createApiKeysMethods(db, teamId, userId);
+    await scope.saveKey({ provider: 'openrouter', apiKey: 'sk-bad' });
+    await scope.markKeyInvalid('openrouter', 'rejected by provider');
+
+    expect(await scope.resolveKey('openrouter')).toEqual({
+      key: 'platform-openrouter-key',
+      source: 'platform',
+      fallbackReason: 'rejected by provider',
+    });
+  });
+
   it('does not cache a failed resolve, so a retry can re-read', async () => {
     await createApiKeysMethods(db, teamId, userId).saveKey({
       provider: 'openrouter',
@@ -278,5 +299,200 @@ describe('resolveKey memoization (issue #864)', () => {
     // The rejection must have been evicted — a second call re-reads and wins.
     const r = await scope.resolveKey('openrouter');
     expect(r).toEqual({ key: 'sk-team-xyz', source: 'team' });
+  });
+});
+
+describe('resolveLlmKey (issue #895 — fal key covers LLM calls)', () => {
+  it('prefers the team OpenRouter key when present', async () => {
+    const writeScope = createApiKeysMethods(db, teamId, userId);
+    await writeScope.saveKey({ provider: 'openrouter', apiKey: 'sk-or' });
+    await writeScope.saveKey({ provider: 'fal', apiKey: 'sk-fal' });
+
+    expect(await writeScope.resolveLlmKey()).toEqual({
+      key: 'sk-or',
+      source: 'team',
+      via: 'openrouter',
+    });
+  });
+
+  it('routes through fal when the team only has a fal key', async () => {
+    const scope = createApiKeysMethods(db, teamId, userId);
+    await scope.saveKey({ provider: 'fal', apiKey: 'sk-fal-only' });
+
+    expect(await scope.resolveLlmKey()).toEqual({
+      key: 'sk-fal-only',
+      source: 'team',
+      via: 'fal',
+    });
+  });
+
+  it('falls back to the platform OpenRouter key when the team has no keys', async () => {
+    const scope = createApiKeysReadMethods(db, teamId);
+
+    // toStrictEqual: `fallbackReason` must really be absent/undefined —
+    // toEqual would treat `{ fallbackReason: 'x' }` as matching too few keys.
+    expect(await scope.resolveLlmKey()).toStrictEqual({
+      key: 'platform-openrouter-key',
+      source: 'platform',
+      via: 'openrouter',
+      fallbackReason: undefined,
+    });
+  });
+
+  it('skips an invalid team OpenRouter key and uses the fal key instead', async () => {
+    const scope = createApiKeysMethods(db, teamId, userId);
+    await scope.saveKey({ provider: 'openrouter', apiKey: 'sk-or-bad' });
+    await scope.saveKey({ provider: 'fal', apiKey: 'sk-fal-good' });
+    await scope.markKeyInvalid('openrouter', 'rejected by provider');
+
+    expect(await scope.resolveLlmKey()).toEqual({
+      key: 'sk-fal-good',
+      source: 'team',
+      via: 'fal',
+    });
+  });
+
+  it('falls back to platform with the skip reason when both team keys are invalid', async () => {
+    const scope = createApiKeysMethods(db, teamId, userId);
+    await scope.saveKey({ provider: 'openrouter', apiKey: 'sk-or-bad' });
+    await scope.saveKey({ provider: 'fal', apiKey: 'sk-fal-bad' });
+    await scope.markKeyInvalid('openrouter', 'openrouter rejected');
+    await scope.markKeyInvalid('fal', 'fal rejected');
+
+    expect(await scope.resolveLlmKey()).toEqual({
+      key: 'platform-openrouter-key',
+      source: 'platform',
+      via: 'openrouter',
+      fallbackReason: 'openrouter rejected',
+    });
+  });
+
+  it('routes the platform fallback through fal when OPENROUTER_KEY is unset', async () => {
+    testEnv.OPENROUTER_KEY = undefined;
+    const scope = createApiKeysReadMethods(db, teamId);
+
+    expect(await scope.resolveLlmKey()).toStrictEqual({
+      key: 'platform-fal-key',
+      source: 'platform',
+      via: 'fal',
+      fallbackReason: undefined,
+    });
+  });
+
+  it('falls back to platform with the reason when a fal-only team key is invalid', async () => {
+    const scope = createApiKeysMethods(db, teamId, userId);
+    await scope.saveKey({ provider: 'fal', apiKey: 'sk-fal-bad' });
+    await scope.markKeyInvalid('fal', 'fal rejected');
+
+    // The skip must NOT be silent: callers surface fallbackReason so a
+    // fal-only team learns their BYOK key stopped covering generation.
+    expect(await scope.resolveLlmKey()).toStrictEqual({
+      key: 'platform-openrouter-key',
+      source: 'platform',
+      via: 'openrouter',
+      fallbackReason: 'fal rejected',
+    });
+  });
+
+  it('skips an undecryptable OpenRouter key, marks it invalid, and uses the fal key', async () => {
+    const scope = createApiKeysMethods(db, teamId, userId);
+    await scope.saveKey({ provider: 'openrouter', apiKey: 'sk-or' });
+    await scope.saveKey({ provider: 'fal', apiKey: 'sk-fal' });
+
+    decryptSpy.mockRejectedValueOnce(new Error('bad auth tag'));
+
+    expect(await scope.resolveLlmKey()).toStrictEqual({
+      key: 'sk-fal',
+      source: 'team',
+      via: 'fal',
+    });
+
+    const orKey = (await scope.listKeys()).find(
+      (k) => k.provider === 'openrouter'
+    );
+    expect(orKey?.isInvalid).toBe(true);
+    expect(orKey?.invalidReason).toBe(
+      'Could not decrypt stored key: bad auth tag'
+    );
+  });
+
+  it('falls back to platform with the decrypt-failure reason for a fal-only key', async () => {
+    const scope = createApiKeysMethods(db, teamId, userId);
+    await scope.saveKey({ provider: 'fal', apiKey: 'sk-fal-corrupt' });
+
+    decryptSpy.mockRejectedValueOnce(new Error('bad auth tag'));
+
+    expect(await scope.resolveLlmKey()).toStrictEqual({
+      key: 'platform-openrouter-key',
+      source: 'platform',
+      via: 'openrouter',
+      fallbackReason: 'Could not decrypt stored key: bad auth tag',
+    });
+  });
+
+  it('skips the doomed decrypt on later calls in the same scope', async () => {
+    const scope = createApiKeysMethods(db, teamId, userId);
+    await scope.saveKey({ provider: 'fal', apiKey: 'sk-fal-corrupt' });
+
+    decryptSpy.mockRejectedValueOnce(new Error('bad auth tag'));
+    await scope.resolveLlmKey();
+
+    // The cached lookup was flipped to invalid in place — the second call
+    // must not retry the decrypt (or re-issue the mark-invalid UPDATE).
+    decryptSpy.mockClear();
+    const r = await scope.resolveLlmKey();
+    expect(r.source).toBe('platform');
+    expect(decryptSpy).not.toHaveBeenCalled();
+  });
+
+  it('throws when neither platform key is configured', async () => {
+    testEnv.OPENROUTER_KEY = undefined;
+    testEnv.FAL_KEY = undefined;
+    const scope = createApiKeysReadMethods(db, teamId);
+
+    await expect(scope.resolveLlmKey()).rejects.toThrow(
+      'No platform LLM key available'
+    );
+  });
+
+  it('shares the per-provider row cache with resolveKey (one read per provider)', async () => {
+    await createApiKeysMethods(db, teamId, userId).saveKey({
+      provider: 'fal',
+      apiKey: 'sk-fal-cache',
+    });
+
+    const { db: cdb, selects } = countingDb();
+    const scope = createApiKeysReadMethods(cdb, teamId);
+
+    await scope.resolveLlmKey();
+    await scope.resolveLlmKey();
+    await scope.resolveKey('fal');
+
+    // openrouter row (miss) + fal row, each read once across all calls.
+    expect(selects()).toBe(2);
+  });
+});
+
+describe('hasUsableKey (billing gates must not count invalid keys)', () => {
+  it('is false for an invalid-flagged key that hasKey still reports', async () => {
+    const scope = createApiKeysMethods(db, teamId, userId);
+    await scope.saveKey({ provider: 'fal', apiKey: 'sk-fal' });
+
+    expect(await scope.hasUsableKey('fal')).toBe(true);
+
+    await scope.markKeyInvalid('fal', 'revoked');
+
+    // hasKey stays true (the row is active) — that's why billing gates must
+    // use hasUsableKey: this key won't pay for anything at call time.
+    expect(await scope.hasKey('fal')).toBe(true);
+    expect(await scope.hasUsableKey('fal')).toBe(false);
+
+    await scope.markKeyValid('fal');
+    expect(await scope.hasUsableKey('fal')).toBe(true);
+  });
+
+  it('is false when no key exists', async () => {
+    const scope = createApiKeysReadMethods(db, teamId);
+    expect(await scope.hasUsableKey('openrouter')).toBe(false);
   });
 });

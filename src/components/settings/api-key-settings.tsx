@@ -13,6 +13,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { FalLogo } from '@/components/icons/fal-logo';
+import { OpenRouterLogo } from '@/components/icons/openrouter-logo';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -28,13 +30,7 @@ import { BILLING_GATE_KEY } from '@/hooks/use-billing-gate';
 import { usePostHog } from '@posthog/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import {
-  AlertTriangle,
-  ExternalLink,
-  Key,
-  RotateCcw,
-  Trash2,
-} from 'lucide-react';
+import { AlertTriangle, ExternalLink, RotateCcw, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -97,17 +93,21 @@ function ApiKeySettingsContent({
     staleTime: 5 * 60 * 1000,
   });
 
-  // Show toast when both keys become configured and there's a return path
+  // Show toast once generation is covered and there's a return path. A fal
+  // key alone is enough — LLM calls route through fal's OpenRouter endpoint.
   useEffect(() => {
     if (hasShownToastRef.current) return;
-    if (keyStatus?.fal !== 'team' || keyStatus.openrouter !== 'team') return;
+    if (keyStatus?.fal !== 'team') return;
     const returnTo = localStorage.getItem(RETURN_KEY);
     if (!returnTo) return;
 
     hasShownToastRef.current = true;
     localStorage.removeItem(RETURN_KEY);
     toast.success('API keys configured', {
-      description: 'Both fal.ai and OpenRouter are connected.',
+      description:
+        keyStatus.openrouter === 'team'
+          ? 'Both fal.ai and OpenRouter are connected.'
+          : 'fal.ai is connected — that covers everything.',
       action: {
         label: 'Continue creating',
         onClick: () => void navigate({ to: returnTo }),
@@ -232,65 +232,127 @@ function ApiKeySettingsContent({
 
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-              <Key className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle>API Keys</CardTitle>
-              <CardDescription>
-                Use your own API keys for AI generation, or fall back to
-                platform keys
-              </CardDescription>
-            </div>
-          </div>
+          <CardTitle>API Keys</CardTitle>
+          <CardDescription>
+            Bring your own keys and pay providers directly. A fal.ai key alone
+            covers everything — script analysis included.
+          </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-6">
-          {/* OpenRouter Section */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium">OpenRouter</h3>
-                <p className="text-xs text-muted-foreground">
-                  AI model routing for image generation
-                </p>
+        <CardContent className="flex flex-col gap-3">
+          {/* fal.ai */}
+          <div className="flex flex-col gap-3 rounded-xl border p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+                  <FalLogo className="size-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-medium">fal.ai</h3>
+                    {isLoading ? (
+                      <Skeleton className="h-5 w-20" />
+                    ) : (
+                      <StatusBadge source={keyStatus?.fal} />
+                    )}
+                  </div>
+                  <p className="truncate text-xs text-muted-foreground">
+                    Images, video & audio. Covers script analysis too.
+                  </p>
+                </div>
               </div>
-              {isLoading ? (
-                <Skeleton className="h-5 w-20" />
-              ) : openrouterKey?.isInvalid ? (
-                <Badge variant="destructive" className="text-xs">
-                  Invalid
-                </Badge>
-              ) : (
-                <StatusBadge source={keyStatus?.openrouter} />
+              {!isLoading && falKey && (
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="font-mono text-xs text-muted-foreground">
+                    ••••{falKey.keyHint}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => deleteMutation.mutate('fal')}
+                    disabled={deleteMutation.isPending}
+                    aria-label="Delete Fal.ai key"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
               )}
             </div>
 
             {isLoading ? (
               <Skeleton className="h-10 w-full" />
-            ) : openrouterKey ? (
-              <div className="space-y-2">
-                <div
-                  className={`flex items-center justify-between rounded-lg border p-3 ${
-                    openrouterKey.isInvalid ? 'border-destructive' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Key className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">
-                        Connected via{' '}
-                        {openrouterKey.source === 'oauth'
-                          ? 'OAuth'
-                          : 'manual entry'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Key ending in {openrouterKey.keyHint}
-                      </p>
-                    </div>
+            ) : (
+              !falKey && (
+                <div className="flex flex-col gap-2">
+                  <form onSubmit={handleSaveFalKey} className="flex gap-2">
+                    <Input
+                      name="falKey"
+                      type="password"
+                      placeholder="fal_..."
+                      value={falKeyInput}
+                      onChange={(e) => setFalKeyInput(e.target.value)}
+                      autoComplete="off"
+                      spellCheck={false}
+                      required
+                    />
+                    <Button
+                      type="submit"
+                      disabled={
+                        saveFalKeyMutation.isPending || !falKeyInput.trim()
+                      }
+                    >
+                      {saveFalKeyMutation.isPending ? 'Saving…' : 'Save'}
+                    </Button>
+                  </form>
+                  <a
+                    href="https://fal.ai/dashboard/keys"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+                  >
+                    Get a key from fal.ai
+                    <ExternalLink className="size-3" />
+                  </a>
+                </div>
+              )
+            )}
+          </div>
+
+          {/* OpenRouter */}
+          <div
+            className={`flex flex-col gap-3 rounded-xl border p-4 ${
+              openrouterKey?.isInvalid ? 'border-destructive' : ''
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+                  <OpenRouterLogo className="size-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-medium">OpenRouter</h3>
+                    {isLoading ? (
+                      <Skeleton className="h-5 w-20" />
+                    ) : openrouterKey?.isInvalid ? (
+                      <Badge variant="destructive" className="text-xs">
+                        Invalid
+                      </Badge>
+                    ) : (
+                      <StatusBadge source={keyStatus?.openrouter} />
+                    )}
                   </div>
-                  <div className="flex items-center gap-1">
+                  <p className="truncate text-xs text-muted-foreground">
+                    Optional — script analysis falls back to your fal.ai key.
+                  </p>
+                </div>
+              </div>
+              {!isLoading &&
+                (openrouterKey ? (
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="font-mono text-xs text-muted-foreground">
+                      ••••{openrouterKey.keyHint}
+                    </span>
                     {openrouterKey.isInvalid && (
                       <Button
                         variant="ghost"
@@ -314,114 +376,50 @@ function ApiKeySettingsContent({
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
-                </div>
-                {openrouterKey.isInvalid && (
-                  <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription>
-                      {openrouterKey.invalidReason ||
-                        'OpenRouter rejected this key.'}{' '}
-                      Re-validate, or reconnect via OAuth to replace it.
-                      <div className="mt-2 flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            revalidateMutation.mutate('openrouter')
-                          }
-                          disabled={revalidateMutation.isPending}
-                        >
-                          {revalidateMutation.isPending
-                            ? 'Checking…'
-                            : 'Re-validate'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => oauthMutation.mutate()}
-                          disabled={oauthMutation.isPending}
-                        >
-                          <ExternalLink className="mr-2 h-4 w-4" />
-                          Reconnect
-                        </Button>
-                      </div>
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-            ) : (
-              <Button
-                onClick={() => oauthMutation.mutate()}
-                disabled={oauthMutation.isPending}
-                className="w-full"
-              >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                {oauthMutation.isPending
-                  ? 'Connecting…'
-                  : 'Connect with OpenRouter'}
-              </Button>
-            )}
-          </div>
-
-          <div className="border-t" />
-
-          {/* Fal.ai Section */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium">Fal.ai</h3>
-                <p className="text-xs text-muted-foreground">
-                  Image and video generation
-                </p>
-              </div>
-              {isLoading ? (
-                <Skeleton className="h-5 w-20" />
-              ) : (
-                <StatusBadge source={keyStatus?.fal} />
-              )}
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => oauthMutation.mutate()}
+                    disabled={oauthMutation.isPending}
+                    aria-label="Connect with OpenRouter"
+                  >
+                    <ExternalLink className="mr-2 size-3.5" />
+                    {oauthMutation.isPending ? 'Connecting…' : 'Connect'}
+                  </Button>
+                ))}
             </div>
 
-            {isLoading ? (
-              <Skeleton className="h-10 w-full" />
-            ) : falKey ? (
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <div className="flex items-center gap-3">
-                  <Key className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">Manual key</p>
-                    <p className="text-xs text-muted-foreground">
-                      Key ending in {falKey.keyHint}
-                    </p>
+            {openrouterKey?.isInvalid && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  {openrouterKey.invalidReason ||
+                    'OpenRouter rejected this key.'}{' '}
+                  Re-validate, or reconnect via OAuth to replace it.
+                  <div className="mt-2 flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => revalidateMutation.mutate('openrouter')}
+                      disabled={revalidateMutation.isPending}
+                    >
+                      {revalidateMutation.isPending
+                        ? 'Checking…'
+                        : 'Re-validate'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => oauthMutation.mutate()}
+                      disabled={oauthMutation.isPending}
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Reconnect
+                    </Button>
                   </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteMutation.mutate('fal')}
-                  disabled={deleteMutation.isPending}
-                  aria-label="Delete Fal.ai key"
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </div>
-            ) : (
-              <form onSubmit={handleSaveFalKey} className="flex gap-2">
-                <Input
-                  name="falKey"
-                  type="password"
-                  placeholder="fal_..."
-                  value={falKeyInput}
-                  onChange={(e) => setFalKeyInput(e.target.value)}
-                  autoComplete="off"
-                  spellCheck={false}
-                  required
-                />
-                <Button
-                  type="submit"
-                  disabled={saveFalKeyMutation.isPending || !falKeyInput.trim()}
-                >
-                  {saveFalKeyMutation.isPending ? 'Saving…' : 'Save'}
-                </Button>
-              </form>
+                </AlertDescription>
+              </Alert>
             )}
           </div>
         </CardContent>

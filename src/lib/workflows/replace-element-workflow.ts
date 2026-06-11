@@ -220,12 +220,11 @@ export class ReplaceElementWorkflow extends OpenStoryWorkflowEntrypoint<ReplaceE
         elementId,
         'analyzing'
       );
-      const openRouterApiKeyInfo =
-        await scopedDb.apiKeys.resolveKey('openrouter');
+      const llmKeyInfo = await scopedDb.apiKeys.resolveLlmKey();
       const result = await describeElementImage({
         imageUrl: newImageUrl,
         filename: input.newFilename,
-        openRouterApiKey: openRouterApiKeyInfo.key,
+        llmKey: llmKeyInfo,
       });
       await scopedDb.sequenceElements.updateVisionResult(
         elementId,

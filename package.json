@@ -58,6 +58,8 @@
     "db:studio:local": "bun drizzle-kit studio --config=drizzle.config.local.ts",
     "db:studio:d1": "bun drizzle-kit studio --config=drizzle.config.d1.ts",
     "db:seed:local": "bun scripts/seed.ts --local",
+    "db:fork:local": "bun scripts/db-worktree.ts --fork",
+    "db:promote:local": "bun scripts/db-worktree.ts --promote",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "motion:codegen": "bun scripts/pull-motion-schemas.ts",

@@ -3,6 +3,7 @@
  * Team-scoped sequence CRUD and per-sequence update methods.
  */
 
+import { DEFAULT_VIDEO_MODEL } from '@/lib/ai/models';
 import {
   type AspectRatio,
   DEFAULT_ASPECT_RATIO,
@@ -114,7 +115,10 @@ export function createSequencesMethods(
         aspectRatio: params.aspectRatio ?? DEFAULT_ASPECT_RATIO,
         analysisModel: params.analysisModel,
         imageModel: params.imageModel,
-        videoModel: params.videoModel,
+        // The sequences SQL column default is the stale 'kling_v3_pro' (see
+        // schema/sequences.ts) and can't be changed without a D1 table
+        // rebuild, so default the app's choice here instead of relying on it.
+        videoModel: params.videoModel ?? DEFAULT_VIDEO_MODEL,
         musicModel: params.musicModel,
         autoGenerateMotion: params.autoGenerateMotion ?? false,
         autoGenerateMusic: params.autoGenerateMusic ?? false,

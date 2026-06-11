@@ -1,12 +1,13 @@
 /**
- * fal.ai brand mark (the pinwheel symbol from fal's wordmark).
+ * fal.ai brand mark (the pinwheel symbol from fal's wordmark) in fal's brand
+ * pink (#EC0648, sampled from their favicon — fal publishes no brand kit).
  * Source: fal.ai site logo, mark path only.
  */
 export const FalLogo: React.FC<{ className?: string }> = ({ className }) => {
   return (
     <svg
       viewBox="0 0 47 48"
-      fill="currentColor"
+      fill="#EC0648"
       className={className}
       aria-hidden="true"
     >

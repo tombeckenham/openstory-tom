@@ -1,5 +1,6 @@
 /**
- * OpenRouter brand mark.
+ * OpenRouter brand mark in its official slate blue (#94A3B8 — the brand
+ * color simple-icons registers, matching openrouter.ai's own mark).
  * Source: simple-icons (CC0) `openrouter` icon.
  */
 export const OpenRouterLogo: React.FC<{ className?: string }> = ({
@@ -8,7 +9,7 @@ export const OpenRouterLogo: React.FC<{ className?: string }> = ({
   return (
     <svg
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#94A3B8"
       className={className}
       aria-hidden="true"
     >

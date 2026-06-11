@@ -267,6 +267,15 @@ export const BillingGateDialog: React.FC<BillingGateDialogProps> = ({
                 {saveFalKeyMutation.isPending ? 'Saving…' : 'Save'}
               </Button>
             </form>
+            <a
+              href="https://fal.ai/dashboard/keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+            >
+              Get a key from fal.ai
+              <ExternalLink className="size-3" />
+            </a>
           </ProviderCard>
 
           <ProviderCard

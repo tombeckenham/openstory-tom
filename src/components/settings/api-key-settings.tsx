@@ -299,24 +299,37 @@ function ApiKeySettingsContent({
                 </Button>
               </div>
             ) : (
-              <form onSubmit={handleSaveFalKey} className="flex gap-2">
-                <Input
-                  name="falKey"
-                  type="password"
-                  placeholder="fal_..."
-                  value={falKeyInput}
-                  onChange={(e) => setFalKeyInput(e.target.value)}
-                  autoComplete="off"
-                  spellCheck={false}
-                  required
-                />
-                <Button
-                  type="submit"
-                  disabled={saveFalKeyMutation.isPending || !falKeyInput.trim()}
+              <div className="space-y-2">
+                <form onSubmit={handleSaveFalKey} className="flex gap-2">
+                  <Input
+                    name="falKey"
+                    type="password"
+                    placeholder="fal_..."
+                    value={falKeyInput}
+                    onChange={(e) => setFalKeyInput(e.target.value)}
+                    autoComplete="off"
+                    spellCheck={false}
+                    required
+                  />
+                  <Button
+                    type="submit"
+                    disabled={
+                      saveFalKeyMutation.isPending || !falKeyInput.trim()
+                    }
+                  >
+                    {saveFalKeyMutation.isPending ? 'Saving…' : 'Save'}
+                  </Button>
+                </form>
+                <a
+                  href="https://fal.ai/dashboard/keys"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
                 >
-                  {saveFalKeyMutation.isPending ? 'Saving…' : 'Save'}
-                </Button>
-              </form>
+                  Get a key from fal.ai
+                  <ExternalLink className="size-3" />
+                </a>
+              </div>
             )}
           </div>
 

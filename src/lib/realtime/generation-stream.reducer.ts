@@ -50,7 +50,7 @@ type UnusedTalent = {
  * per-step retry budget (image side, #881) and so has no fixed denominator —
  * the overlay then shows a bare "Retrying…".
  */
-export type FrameRetryInfo = {
+type FrameRetryInfo = {
   attempt: number;
   maxAttempts?: number;
 };
@@ -60,7 +60,7 @@ export type FrameRetryInfo = {
  * image and/or its video independently; each key is cleared on the next
  * non-retry update for that artifact (terminal or a fresh first attempt).
  */
-export type FrameRetryState = {
+type FrameRetryState = {
   image?: FrameRetryInfo;
   video?: FrameRetryInfo;
 };
@@ -238,7 +238,7 @@ export function createInitialState(
   };
 }
 
-export const initialGenerationStreamState: GenerationStreamState =
+const initialGenerationStreamState: GenerationStreamState =
   createInitialState();
 
 export function generationStreamReducer(

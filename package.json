@@ -215,12 +215,6 @@
       "API_KEY_ENCRYPTION_KEY": {
         "description": "Encrypts AI keys that teams add in-app (bring-your-own-key). Generate with `openssl rand -hex 32`."
       },
-      "FAL_KEY": {
-        "description": "**Optional.** [fal.ai API key](https://fal.ai/dashboard/keys) for image, video & audio generation. Skip it and each team can add their own fal.ai key in the app instead (requires API_KEY_ENCRYPTION_KEY)."
-      },
-      "OPENROUTER_KEY": {
-        "description": "**Optional.** [OpenRouter API key](https://openrouter.ai/settings/keys) for LLM script analysis. Skip it and each team can connect their own OpenRouter account in the app (OAuth or API key) instead."
-      },
       "DB": {
         "description": "D1 database for app data. Created automatically — migrations and seeding run on deploy."
       },

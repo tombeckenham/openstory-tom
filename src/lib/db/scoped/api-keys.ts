@@ -7,6 +7,7 @@
 import { and, eq } from 'drizzle-orm';
 import type { Database } from '@/lib/db/client';
 import { getEnv } from '#env';
+import { getPlatformLlmKey } from '@/lib/ai/create-adapter';
 import {
   decryptApiKey,
   encryptApiKey,
@@ -36,6 +37,12 @@ type ApiKeyInfo = {
 export type ResolvedApiKey =
   | { key: string; source: 'team' }
   | { key: string; source: 'platform'; fallbackReason?: string };
+
+// LLM-call key resolution. `via` says which API the call must be routed
+// through: 'openrouter' = OpenRouter directly (Bearer auth), 'fal' = fal's
+// OpenAI-compatible OpenRouter endpoint (`Key` auth) so a team with only a
+// fal key still covers script analysis (issue #895).
+export type ResolvedLlmKey = ResolvedApiKey & { via: 'openrouter' | 'fal' };
 
 // The cached shape of a `team_api_keys` lookup. Holds the *encrypted* row
 // (ciphertext + invalid flag) only — never the decrypted key. `resolveKey`
@@ -171,23 +178,12 @@ export function createApiKeysReadMethods(db: Database, teamId: string) {
     return { found: true, ...row };
   }
 
-  // Resolve the usable key for `provider`. The D1 lookup is memoized per scope;
-  // the decrypted key is produced fresh on every call (and is GC-eligible as
-  // soon as the caller is done), so plaintext is never retained in the cache.
-  async function resolveKey(provider: ApiKeyProvider): Promise<ResolvedApiKey> {
-    const platformFallback = (fallbackReason?: string): ResolvedApiKey => {
-      const env = getEnv();
-      const platformKey =
-        provider === 'openrouter' ? env.OPENROUTER_KEY : env.FAL_KEY;
-      if (!platformKey) {
-        throw new Error(`No API key available for provider: ${provider}`);
-      }
-      return { key: platformKey, source: 'platform', fallbackReason };
-    };
-
-    let lookup: CachedKeyLookup;
+  // Read + memoize the row for `provider`, logging D1 failures in-isolate.
+  async function readKeyRowLogged(
+    provider: ApiKeyProvider
+  ): Promise<CachedKeyLookup> {
     try {
-      lookup = await readKeyRow(provider);
+      return await readKeyRow(provider);
     } catch (err) {
       // The D1 read failed. Log the FULL cause chain here, in-isolate, while
       // the underlying driver error is still on `DrizzleQueryError.cause` —
@@ -202,29 +198,25 @@ export function createApiKeysReadMethods(db: Database, teamId: string) {
       });
       throw err;
     }
+  }
 
-    if (!lookup.found) return platformFallback();
-
-    if (lookup.isInvalid) {
-      const reason = lookup.invalidReason ?? 'Team API key marked invalid';
-      logger.warn('Falling back to platform key', {
-        provider,
-        teamId,
-        reason,
-      });
-      return platformFallback(reason);
-    }
-
+  // Decrypt a found, non-invalid row. On decryption failure, marks the row
+  // invalid (so the invalid-key banner surfaces and later calls skip the
+  // doomed decrypt) and returns the skip reason instead of a key.
+  async function decryptOrMarkInvalid(
+    provider: ApiKeyProvider,
+    lookup: CachedKeyLookup & { found: true }
+  ): Promise<{ key: string } | { skippedReason: string }> {
     try {
       const decrypted = await decryptApiKey({
         encryptedKey: lookup.encryptedKey,
         keyIv: lookup.keyIv,
         keyTag: lookup.keyTag,
       });
-      return { key: decrypted, source: 'team' };
+      return { key: decrypted };
     } catch (err) {
       // Mark the row invalid inline so the invalid-key banner surfaces and
-      // subsequent calls skip straight to the platform key without retrying
+      // subsequent calls skip straight to the fallback without retrying
       // decryption (covers secret rotation and corrupt ciphertext).
       const reason =
         err instanceof Error
@@ -255,8 +247,88 @@ export function createApiKeysReadMethods(db: Database, teamId: string) {
         provider,
         Promise.resolve({ ...lookup, isInvalid: true, invalidReason: reason })
       );
+      return { skippedReason: reason };
+    }
+  }
+
+  // Resolve the usable key for `provider`. The D1 lookup is memoized per scope;
+  // the decrypted key is produced fresh on every call (and is GC-eligible as
+  // soon as the caller is done), so plaintext is never retained in the cache.
+  async function resolveKey(provider: ApiKeyProvider): Promise<ResolvedApiKey> {
+    const platformFallback = (fallbackReason?: string): ResolvedApiKey => {
+      const env = getEnv();
+      const platformKey =
+        provider === 'openrouter' ? env.OPENROUTER_KEY : env.FAL_KEY;
+      if (!platformKey) {
+        throw new Error(`No API key available for provider: ${provider}`);
+      }
+      return { key: platformKey, source: 'platform', fallbackReason };
+    };
+
+    const lookup = await readKeyRowLogged(provider);
+
+    if (!lookup.found) return platformFallback();
+
+    if (lookup.isInvalid) {
+      const reason = lookup.invalidReason ?? 'Team API key marked invalid';
+      logger.warn('Falling back to platform key', {
+        provider,
+        teamId,
+        reason,
+      });
       return platformFallback(reason);
     }
+
+    const result = await decryptOrMarkInvalid(provider, lookup);
+    if ('key' in result) return { key: result.key, source: 'team' };
+    return platformFallback(result.skippedReason);
+  }
+
+  // Resolve the key for an LLM call. Preference order:
+  //   1. team OpenRouter key (direct OpenRouter)
+  //   2. team fal key (routed through fal's OpenRouter endpoint) — a fal-only
+  //      team still covers script analysis on their own key (issue #895)
+  //   3. platform key (OPENROUTER_KEY, or FAL_KEY routed through fal)
+  async function resolveLlmKey(): Promise<ResolvedLlmKey> {
+    let fallbackReason: string | undefined;
+
+    const orLookup = await readKeyRowLogged('openrouter');
+    if (orLookup.found) {
+      if (orLookup.isInvalid) {
+        fallbackReason =
+          orLookup.invalidReason ?? 'Team OpenRouter key marked invalid';
+      } else {
+        const result = await decryptOrMarkInvalid('openrouter', orLookup);
+        if ('key' in result) {
+          return { key: result.key, source: 'team', via: 'openrouter' };
+        }
+        fallbackReason = result.skippedReason;
+      }
+    }
+
+    const falLookup = await readKeyRowLogged('fal');
+    if (falLookup.found && !falLookup.isInvalid) {
+      const result = await decryptOrMarkInvalid('fal', falLookup);
+      if ('key' in result) {
+        return { key: result.key, source: 'team', via: 'fal' };
+      }
+      fallbackReason ??= result.skippedReason;
+    }
+
+    const platform = getPlatformLlmKey();
+    if (!platform) {
+      throw new Error(
+        'No platform LLM key available (set OPENROUTER_KEY or FAL_KEY)'
+      );
+    }
+    if (fallbackReason) {
+      logger.warn('Falling back to platform key', {
+        provider: platform.via,
+        teamId,
+        reason: fallbackReason,
+      });
+    }
+    return { ...platform, fallbackReason };
   }
 
   async function validateKey(
@@ -298,6 +370,7 @@ export function createApiKeysReadMethods(db: Database, teamId: string) {
     hasKey,
     hasInvalidKey,
     resolveKey,
+    resolveLlmKey,
     validateKey,
     invalidateResolveKeyCache,
   };

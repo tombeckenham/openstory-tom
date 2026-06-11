@@ -25,10 +25,9 @@ export const CreditBalancePill: React.FC = () => {
   const { showBalance } = useShowBalance();
   const { isFlashing } = useBalanceFlash();
 
-  const hasSafetyNet =
-    gateStatus?.hasAutoTopUp ||
-    gateStatus?.hasFalKey ||
-    gateStatus?.hasOpenRouterKey;
+  // A fal key alone covers generation (LLM calls route through fal's
+  // OpenRouter endpoint); an OpenRouter key alone doesn't cover media.
+  const hasSafetyNet = gateStatus?.hasAutoTopUp || gateStatus?.hasFalKey;
 
   const isLowBalanceVisible = isLowBalance && !hasSafetyNet;
   const isVisible = isLowBalanceVisible || showBalance || isFlashing;

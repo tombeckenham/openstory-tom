@@ -32,37 +32,31 @@ export function useBillingGateQuery() {
 }
 
 /**
- * Check if BYOK keys cover the required providers.
- *
- * - 'all': team has both fal + openrouter keys (sequence creation)
- * - 'fal': team has fal key (image/motion generation)
+ * Check if BYOK keys cover generation. A fal key alone is enough: media
+ * calls hit fal directly and LLM calls route through fal's OpenRouter
+ * endpoint (issue #895). An OpenRouter key alone is NOT enough — image,
+ * video, and audio generation all need fal.
  */
-function hasByokCoverage(
-  data: BillingGateStatus,
-  mode: 'all' | 'fal'
-): boolean {
-  if (mode === 'fal') return data.hasFalKey;
-  return data.hasFalKey && data.hasOpenRouterKey;
+function hasByokCoverage(data: BillingGateStatus): boolean {
+  return data.hasFalKey;
 }
 
 /**
- * Gate for credit-consuming actions.
- *
- * @param mode - 'all' requires both fal + openrouter BYOK keys to bypass credits.
- *               'fal' only requires fal key (default).
+ * Gate for credit-consuming actions. A team fal key bypasses credits for
+ * everything (LLM calls route through fal's OpenRouter endpoint).
  */
-export function useBillingGate(mode: 'all' | 'fal' = 'all') {
+export function useBillingGate() {
   const query = useBillingGateQuery();
   const [open, setOpen] = useState(false);
 
   const data: BillingGateStatus | undefined = query.data;
 
   const canGenerate = data
-    ? data.hasCredits || hasByokCoverage(data, mode) || data.hasAutoTopUp
+    ? data.hasCredits || hasByokCoverage(data) || data.hasAutoTopUp
     : true; // Don't block while loading
 
   const needsBillingSetup = data
-    ? !data.hasCredits && !hasByokCoverage(data, mode) && !data.hasAutoTopUp
+    ? !data.hasCredits && !hasByokCoverage(data) && !data.hasAutoTopUp
     : false;
 
   const showGate = useCallback(() => setOpen(true), []);
@@ -86,5 +80,5 @@ export function useBillingGate(mode: 'all' | 'fal' = 'all') {
  * Gate for image/motion generation (only needs fal.ai BYOK key to bypass credits)
  */
 export function useFalBillingGate() {
-  return useBillingGate('fal');
+  return useBillingGate();
 }

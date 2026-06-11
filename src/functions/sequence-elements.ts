@@ -132,12 +132,11 @@ export const analyzeDraftElementFn = createServerFn({ method: 'POST' })
     )
   )
   .handler(async ({ context, data }) => {
-    const openRouterApiKeyInfo =
-      await context.scopedDb.apiKeys.resolveKey('openrouter');
+    const llmKeyInfo = await context.scopedDb.apiKeys.resolveLlmKey();
     const result = await describeElementImage({
       imageUrl: data.publicUrl,
       filename: data.filename,
-      openRouterApiKey: openRouterApiKeyInfo.key,
+      llmKey: llmKeyInfo,
     });
     return {
       description: result.description,

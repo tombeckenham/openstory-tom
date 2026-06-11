@@ -1,21 +1,75 @@
 /**
  * Shared OpenRouter adapter factory
- * Creates TanStack AI adapters for OpenRouter models
+ * Creates TanStack AI adapters for OpenRouter models. Calls route either to
+ * OpenRouter directly or through fal's OpenAI-compatible OpenRouter endpoint
+ * (so a team with only a fal key still covers LLM calls — issue #895).
  */
 
 import { getEnv } from '#env';
 import type { TextModel } from '@/lib/ai/models';
+import { HTTPClient } from '@openrouter/sdk/lib/http';
 import { createOpenRouterText, openRouterText } from '@tanstack/ai-openrouter';
 
 import { getLogger } from '@/lib/observability/logger';
 
 const logger = getLogger(['openstory', 'ai', 'create-adapter']);
 
+/**
+ * fal's OpenAI-compatible OpenRouter proxy. Same model slugs and wire format
+ * as OpenRouter's own `/api/v1`, billed to the fal account.
+ */
+const FAL_OPENROUTER_BASE_URL = 'https://fal.run/openrouter/router/openai/v1';
+
+export type LlmKeyInfo = {
+  key: string;
+  /**
+   * Which API the key belongs to: 'openrouter' calls OpenRouter directly
+   * (Bearer auth), 'fal' routes through fal's OpenRouter endpoint (`Key`
+   * auth — fal rejects Bearer there).
+   */
+  via: 'openrouter' | 'fal';
+};
+
+// fal's endpoint authenticates with `Authorization: Key <FAL_KEY>` while the
+// OpenRouter SDK hardcodes `Bearer`; rewrite the header on the way out.
+function falAuthHttpClient(falKey: string): HTTPClient {
+  const client = new HTTPClient();
+  client.addHook('beforeRequest', (request) => {
+    request.headers.set('Authorization', `Key ${falKey}`);
+    return request;
+  });
+  return client;
+}
+
+/**
+ * Resolve the platform-level LLM key from env. Prefers OPENROUTER_KEY; with
+ * only FAL_KEY set, LLM calls route through fal's OpenRouter endpoint — the
+ * platform can run on a single fal key (issue #895). Returns undefined when
+ * neither is configured.
+ */
+export function getPlatformLlmKey():
+  | (LlmKeyInfo & { source: 'platform' })
+  | undefined {
+  const env = getEnv();
+  if (env.OPENROUTER_KEY) {
+    return { key: env.OPENROUTER_KEY, via: 'openrouter', source: 'platform' };
+  }
+  if (env.FAL_KEY) {
+    return { key: env.FAL_KEY, via: 'fal', source: 'platform' };
+  }
+  return undefined;
+}
+
 let loggedRetryMode = false;
 
-export function createAdapter(model: TextModel, apiKey?: string) {
+export function createAdapter(model: TextModel, keyInfo?: string | LlmKeyInfo) {
   const env = getEnv();
-  const key = apiKey ?? env.OPENROUTER_KEY;
+  const resolved: LlmKeyInfo | undefined =
+    typeof keyInfo === 'string'
+      ? { key: keyInfo, via: 'openrouter' }
+      : (keyInfo ?? getPlatformLlmKey());
+  const key = resolved?.key;
+  const via = resolved?.via ?? 'openrouter';
   // Adapter type list lags behind OpenRouter's catalog — cast at the boundary
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Model is dynamic from config but always a valid OpenRouter model ID
   const adapterModel = model as Parameters<typeof openRouterText>[0];
@@ -38,10 +92,17 @@ export function createAdapter(model: TextModel, apiKey?: string) {
     );
   }
 
+  // OPENROUTER_BASE_URL (aimock in e2e) wins over the fal proxy so tests stay
+  // hermetic regardless of which key the team resolved.
+  const serverURL =
+    env.OPENROUTER_BASE_URL ??
+    (via === 'fal' ? FAL_OPENROUTER_BASE_URL : undefined);
+
   const config = {
     httpReferer: env.VITE_APP_URL || 'http://localhost:3000',
     xTitle: env.VITE_APP_NAME || 'OpenStory',
-    ...(env.OPENROUTER_BASE_URL && { serverURL: env.OPENROUTER_BASE_URL }),
+    ...(serverURL && { serverURL }),
+    ...(via === 'fal' && key && { httpClient: falAuthHttpClient(key) }),
     ...(isRecording && {
       retryConfig: { strategy: 'none' as const },
       timeoutMs: 600_000,

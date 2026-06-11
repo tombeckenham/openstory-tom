@@ -9,7 +9,7 @@ import { chat, type DebugOption } from '@tanstack/ai';
 import { webSearchTool } from '@tanstack/ai-openrouter/tools';
 import { z } from 'zod';
 import { aiDebugLogger } from './ai-debug-logger';
-import { createAdapter } from './create-adapter';
+import { createAdapter, type LlmKeyInfo } from './create-adapter';
 
 import { getLogger } from '@/lib/observability/logger';
 
@@ -59,7 +59,8 @@ export type LLMRequestParams<T = unknown> = {
   /** Session id for Langfuse trace grouping (typically sequenceId) */
   sessionId?: string;
   responseSchema?: z.ZodType<T>;
-  apiKey?: string;
+  /** Resolved LLM key info, or a bare OpenRouter key string. */
+  apiKey?: string | LlmKeyInfo;
   /**
    * Enable OpenRouter's web-search server tool for this request. The model
    * decides when to search; OpenRouter runs the search server-side inside the

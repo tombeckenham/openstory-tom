@@ -138,9 +138,8 @@ export class VisualPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Visua
     // around the step boundary so the type round-trips through Serializable
     // cleanly.
     const resultJson = await step.do(llmStepName, async (): Promise<string> => {
-      const openRouterApiKeyInfo =
-        await scopedDb.apiKeys.resolveKey('openrouter');
-      const adapter = createAdapter(analysisModelId, openRouterApiKeyInfo.key);
+      const llmKeyInfo = await scopedDb.apiKeys.resolveLlmKey();
+      const adapter = createAdapter(analysisModelId, llmKeyInfo);
 
       logger.info(
         `[VisualPromptSceneWorkflow:cf] [LLM:${LOG_NAME}] Starting${
@@ -148,7 +147,8 @@ export class VisualPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Visua
         } call`,
         {
           model: analysisModelId,
-          keySource: openRouterApiKeyInfo.source,
+          keySource: llmKeyInfo.source,
+          keyVia: llmKeyInfo.via,
           messageCount: messages.length,
           ...(streamConfig
             ? {

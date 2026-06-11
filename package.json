@@ -204,6 +204,34 @@
     "bun": ">=1.3.0 < 2",
     "node": ">=24 < 25"
   },
+  "cloudflare": {
+    "bindings": {
+      "VITE_APP_URL": {
+        "description": "Public URL of this deployment, e.g. `https://<worker-name>.<your-subdomain>.workers.dev` ([find your subdomain](https://dash.cloudflare.com/?to=/:account/workers-and-pages)). Media URLs are served under this origin until you configure a custom R2 domain."
+      },
+      "BETTER_AUTH_SECRET": {
+        "description": "Signs session cookies. Generate a random string with `openssl rand -hex 32`."
+      },
+      "API_KEY_ENCRYPTION_KEY": {
+        "description": "Encrypts AI keys that teams add in-app (bring-your-own-key). Generate with `openssl rand -hex 32`."
+      },
+      "FAL_KEY": {
+        "description": "**Optional.** [fal.ai API key](https://fal.ai/dashboard/keys) for image, video & audio generation. Skip it and each team can add their own fal.ai key in the app instead (requires API_KEY_ENCRYPTION_KEY)."
+      },
+      "OPENROUTER_KEY": {
+        "description": "**Optional.** [OpenRouter API key](https://openrouter.ai/settings/keys) for LLM script analysis. Skip it and each team can connect their own OpenRouter account in the app (OAuth or API key) instead."
+      },
+      "DB": {
+        "description": "D1 database for app data. Created automatically — migrations and seeding run on deploy."
+      },
+      "R2_STORAGE_BUCKET": {
+        "description": "R2 bucket for generated media (images, video, audio). Created automatically."
+      },
+      "R2_PUBLIC_ASSETS_BUCKET": {
+        "description": "R2 bucket for public marketing/template assets. Created automatically."
+      }
+    }
+  },
   "msw": {
     "workerDirectory": [
       "public"

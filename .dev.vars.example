@@ -1,17 +1,27 @@
-# Secrets for Cloudflare Workers deploys (read by the Deploy to Cloudflare
-# button flow, which prompts for each value during setup).
+# Secrets for Cloudflare Workers deploys. The Deploy to Cloudflare button
+# reads this file and prompts for each value — the on-screen notes for each
+# one come from the "cloudflare".bindings map in package.json.
 #
 # Local development does NOT use this file — `bun dev` auto-generates
 # .env.local. See .env.example for the full list of options.
 
-# Better Auth signing secret. Generate with: openssl rand -hex 32
+# Public URL of the deployment (required — media URLs are served under
+# <VITE_APP_URL>/r2/ until a custom R2 domain is configured). For a Workers
+# deploy this is https://<worker-name>.<account-subdomain>.workers.dev
+VITE_APP_URL=
+
+# Better Auth signing secret (required). Generate with: openssl rand -hex 32
 BETTER_AUTH_SECRET=
 
-# Encryption key for bring-your-own AI keys. Generate with: openssl rand -hex 32
+# Encrypts AI keys that teams add in-app via bring-your-own-key (required for
+# BYOK). Generate with: openssl rand -hex 32
 API_KEY_ENCRYPTION_KEY=
 
 # fal.ai — image, video & audio generation. https://fal.ai/dashboard/keys
+# Optional: skip it and each team can add their own fal.ai key in the app.
 FAL_KEY=
 
 # OpenRouter — LLM access for script analysis. https://openrouter.ai/settings/keys
+# Optional: skip it and each team can connect their own OpenRouter account
+# in the app (OAuth or API key).
 OPENROUTER_KEY=

@@ -14,11 +14,7 @@
   <img src="https://img.shields.io/badge/bun-%3E%3D1.3.0-f9f1e1" alt="Bun >= 1.3.0" />
 </p>
 
-<p align="center">
-  <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/openstory-so/openstory"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare" /></a>
-</p>
-
----
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/openstory-so/openstory)
 
 OpenStory takes a script and produces a sequence of AI-generated frames — images, motion video, audio — with consistent style across every scene. Teams collaborate on shared libraries of characters, locations, and visual styles, and the platform handles the heavy lifting of prompt engineering, generation, and compositing.
 

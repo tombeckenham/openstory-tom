@@ -271,6 +271,16 @@ SUPER:  CORAL.  OUT NOW.
       createdSequenceId = sequenceId;
 
       // 9. Wait for storyboard + frame images to land in the DB.
+      //
+      // Content-flag retry coverage (#881): two recorded fixtures inject a
+      // first-attempt content-checker 422 (sequenceIndex 0) then succeed —
+      //   - image: nano-banana-2-edit "Cinematic realistic still of SCARLETT…"
+      //   - video: grok "Handheld camera tracks forward…"
+      // so the vanity scene's primary image and that clip's video each fail
+      // once and are rescued by the workflow retry (image: CF default step
+      // retry; motion: submit→poll loop). The "every frame completed" /
+      // "every frame has video" assertions below therefore also prove the
+      // retry path end-to-end — no separate spec needed.
       await expect
         .poll(
           async () => {

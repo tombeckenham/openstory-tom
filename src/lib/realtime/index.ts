@@ -121,6 +121,11 @@ export const realtimeSchema = {
       // per-model variant/model-list queries so the new model surfaces in the
       // dropdown without clobbering the displayed primary thumbnail.
       variantOnly: z.boolean().optional(),
+      // Failure reason (e.g. content-filter rejection). Carried on `failed`
+      // so the cache updater can write `frames.thumbnailError` live — without
+      // it the FailureSummaryBanner only ever shows "Unknown error" until a
+      // full refetch (#881).
+      error: z.string().optional(),
     }),
 
     // Fast preview frames replaced by AI-analyzed frames
@@ -150,6 +155,9 @@ export const realtimeSchema = {
       // variant/model-list queries so the new model surfaces in the dropdown
       // without clobbering the displayed primary video.
       variantOnly: z.boolean().optional(),
+      // Failure reason — carried on `failed` so the cache updater writes
+      // `frames.videoError` live (see image:progress.error above). (#881)
+      error: z.string().optional(),
     }),
 
     // Audio/music generation progress (frameId optional for sequence-level music)

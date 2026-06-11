@@ -126,6 +126,37 @@ describe('updateQueryCacheFromEvent — variant-only guard (#547)', () => {
       expect(frame?.thumbnailStatus).toBe('completed');
     });
 
+    it('primary failure writes the reason onto thumbnailError so the banner shows it live (#881)', () => {
+      qc.setQueryData(frameKeys.list(SEQ), [
+        makeFrame({ thumbnailStatus: 'generating', thumbnailError: null }),
+      ]);
+
+      updateQueryCacheFromEvent(qc, SEQ, 'generation.image:progress', {
+        frameId: 'frame-1',
+        status: 'failed',
+        model: 'nano_banana_2',
+        error: 'Blocked by content filter',
+      });
+
+      const frame = getCachedFrame(qc);
+      expect(frame?.thumbnailStatus).toBe('failed');
+      expect(frame?.thumbnailError).toBe('Blocked by content filter');
+    });
+
+    it('a fresh generating attempt clears a stale thumbnailError', () => {
+      qc.setQueryData(frameKeys.list(SEQ), [
+        makeFrame({ thumbnailStatus: 'failed', thumbnailError: 'old error' }),
+      ]);
+
+      updateQueryCacheFromEvent(qc, SEQ, 'generation.image:progress', {
+        frameId: 'frame-1',
+        status: 'generating',
+        model: 'nano_banana_2',
+      });
+
+      expect(getCachedFrame(qc)?.thumbnailError).toBeNull();
+    });
+
     it('variant-only failure refreshes the model/variant queries so the coverage marker leaves the spinner', () => {
       const invalidate = vi.spyOn(qc, 'invalidateQueries');
 
@@ -196,6 +227,25 @@ describe('updateQueryCacheFromEvent — variant-only guard (#547)', () => {
       const frame = getCachedFrame(qc);
       expect(frame?.videoUrl).toBe(NEW_URL);
       expect(frame?.videoStatus).toBe('completed');
+    });
+
+    it('primary failure writes the reason onto videoError so the banner shows it live (#881)', () => {
+      qc.setQueryData(frameKeys.list(SEQ), [
+        makeFrame({ videoStatus: 'generating', videoError: null }),
+      ]);
+
+      updateQueryCacheFromEvent(qc, SEQ, 'generation.video:progress', {
+        frameId: 'frame-1',
+        status: 'failed',
+        model: 'veo3',
+        error: 'Motion generation rejected by content filter',
+      });
+
+      const frame = getCachedFrame(qc);
+      expect(frame?.videoStatus).toBe('failed');
+      expect(frame?.videoError).toBe(
+        'Motion generation rejected by content filter'
+      );
     });
   });
 });

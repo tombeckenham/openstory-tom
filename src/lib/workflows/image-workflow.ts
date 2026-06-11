@@ -22,6 +22,10 @@ import { deductWorkflowCredits } from '@/lib/billing/workflow-deduction';
 import { DEFAULT_IMAGE_SIZE } from '@/lib/constants/aspect-ratios';
 import type { ScopedDb } from '@/lib/db/scoped';
 import {
+  CONTENT_REJECTION_EVENT,
+  isContentRejectionError,
+} from '@/lib/ai/content-rejection';
+import {
   generateImageWithProvider,
   type ImageGenerationParams,
 } from '@/lib/image/image-generation';
@@ -216,6 +220,11 @@ export class ImageWorkflow extends OpenStoryWorkflowEntrypoint<ImageWorkflowInpu
       };
     }
 
+    // Generate the image. CF's default per-step retry handles content-flag and
+    // transient errors (#881): a stochastic rejection clears on a fresh
+    // same-model call; a deterministic content-checker hit exhausts the retries
+    // and fails with its real message — recorded on the frame by onFailure and
+    // surfaced in the failure banner.
     const imageResult = await step.do('generate-image', async () => {
       logger.info(
         `[ImageWorkflow:cf] Generating image ${input.frameId} with model ${generationParams.model}`
@@ -372,6 +381,11 @@ export class ImageWorkflow extends OpenStoryWorkflowEntrypoint<ImageWorkflowInpu
             frameId: input.frameId,
             status: 'failed',
             model,
+            // Carry the reason so the cache updater writes `thumbnailError`
+            // live — otherwise the FailureSummaryBanner shows "Unknown error"
+            // until a full refetch (#881). Skip for variant-only (the primary
+            // row isn't touched).
+            ...(input.variantOnly ? {} : { error }),
             // Variant-only (#547): a failed alternate must not flip the primary
             // thumbnail to "failed" in cache (the DB write above is already
             // guarded on variantOnly).
@@ -386,6 +400,20 @@ export class ImageWorkflow extends OpenStoryWorkflowEntrypoint<ImageWorkflowInpu
           }
         );
       }
+    }
+
+    if (isContentRejectionError(error)) {
+      logger.warn(
+        `[ImageWorkflow:cf] frame ${input.frameId} failed a content checker`,
+        {
+          event: CONTENT_REJECTION_EVENT,
+          kind: 'image',
+          model,
+          frameId: input.frameId,
+          sequenceId: input.sequenceId,
+          error,
+        }
+      );
     }
 
     logger.error(

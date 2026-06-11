@@ -59,7 +59,15 @@ export type MotionVideoProgressPayload =
       // primary video.
       variantOnly?: boolean;
     }
-  | { frameId: string; status: 'failed'; model: string; variantOnly?: boolean };
+  | {
+      frameId: string;
+      status: 'failed';
+      model: string;
+      variantOnly?: boolean;
+      // Failure reason so the cache updater writes `frames.videoError` live
+      // (else the FailureSummaryBanner shows "Unknown error" until refetch). (#881)
+      error?: string;
+    };
 
 export type MotionEmit = (
   event: 'generation.video:progress',
@@ -295,6 +303,9 @@ export async function persistMotionFailure(opts: {
     frameId,
     status: 'failed',
     model,
+    // Carry the reason so the cache updater writes `videoError` live (skip for
+    // variant-only — the primary row isn't touched). (#881)
+    ...(variantOnly ? {} : { error }),
     // A failed alternate must not flip the primary video to `failed` in cache.
     variantOnly,
   });

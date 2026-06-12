@@ -9,10 +9,19 @@ import { z } from 'zod';
  * outputs, user-supplied references) are absolute http(s) URLs. `z.url()`
  * would reject the relative form, so every validator that handles our media
  * URLs uses this instead.
+ *
+ * Protocol-relative `//host/...` is rejected: browsers resolve it
+ * cross-origin (`<img src>`, `new URL(url, origin)`), so accepting it would
+ * let a user-supplied "path" smuggle in a foreign host.
  */
 export const mediaUrlSchema = z
   .string()
   .min(1)
-  .refine((value) => value.startsWith('/') || /^https?:\/\//.test(value), {
-    message: 'Must be an absolute http(s) URL or an origin-relative path',
-  });
+  .refine(
+    (value) =>
+      (value.startsWith('/') && !value.startsWith('//')) ||
+      /^https?:\/\//.test(value),
+    {
+      message: 'Must be an absolute http(s) URL or an origin-relative path',
+    }
+  );

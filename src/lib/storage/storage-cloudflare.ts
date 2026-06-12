@@ -320,10 +320,12 @@ export async function readStorageObject(
 }
 
 /**
- * Serve a storage object straight from the R2 binding. Backs the local
- * `/r2/$` route (see src/routes/r2.$.ts) that stands in for the public CDN
- * domain when `R2_PUBLIC_STORAGE_DOMAIN` is unset (local dev + e2e). Supports
- * Range requests so `<video>` seeking works.
+ * Serve a storage object straight from the R2 binding. Backs the `/r2/$`
+ * route (see src/routes/r2.$.ts), which streams stored media whenever no
+ * public CDN domain is configured — local dev, e2e, and CDN-less production
+ * deployments (deploy-button workers). With a CDN domain set the route
+ * redirects instead and this is not called. Supports Range requests so
+ * `<video>` seeking works.
  */
 export async function serveFile(
   key: string,

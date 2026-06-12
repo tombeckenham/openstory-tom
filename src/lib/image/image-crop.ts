@@ -43,6 +43,11 @@ async function getImageDimensions(
     const response = await fetch(imageUrl, {
       headers: { Range: 'bytes=0-29' },
     });
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch grid image header ${imageUrl}: ${response.status}`
+      );
+    }
     bytes = new Uint8Array(await response.arrayBuffer());
   }
 

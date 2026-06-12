@@ -161,11 +161,13 @@ const FAL_CDN_PATH_RE =
   /\/files\/b\/[0-9a-f]{6,12}\/[A-Za-z0-9_-]{10,}(?=[_.])/g;
 //   - STORAGE_ORIGIN: our storage URL form drifts between record and replay.
 //     Stored URLs are origin-relative (`/r2/...`, #894), so replay sends
-//     bare `/r2/` paths, while record runs hand real providers fal-storage
-//     URLs, older fixtures embed absolute local-route URLs
-//     (http://localhost:3001/r2/...) or the storage-dev CDN domain.
-//     Collapse all four to a single token so body-matched fixtures
+//     bare `/r2/` paths, while older fixtures embed absolute local-route
+//     URLs (http://localhost:3001/r2/...) or the storage-dev CDN domain.
+//     Collapse those three to a single token so body-matched fixtures
 //     (ffmpeg-style models with URL fields) survive the difference.
+//     (Record runs hand real providers fal-storage URLs instead; those are
+//     normalized separately by FAL_UPLOAD_SUFFIX_RE / FAL_CDN_PATH_RE, not
+//     collapsed to <STORAGE>.)
 const STORAGE_ORIGIN_RE =
   /(https?:\/\/(localhost:\d+\/r2|storage(-[a-z]+)?\.openstory\.so)\/|\/r2\/)/g;
 //   - LOCAL_CDN_CGI_ORIGIN: derived transform URLs (variant-crop trim URLs)

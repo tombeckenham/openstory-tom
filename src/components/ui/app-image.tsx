@@ -35,8 +35,12 @@ const APP_ORIGIN = (import.meta.env.VITE_APP_URL || '').replace(/\/$/, '');
 /**
  * Absolute form of an image src: origin-relative srcs resolve against the
  * configured app origin (or null without one); absolute srcs pass through.
+ * Protocol-relative `//host/...` is treated as not-ours (null → plain img):
+ * it resolves cross-origin in the browser, so it must never be joined onto
+ * the app origin or routed through the transform endpoint.
  */
 function toAbsoluteSrc(src: string): string | null {
+  if (src.startsWith('//')) return null;
   if (!src.startsWith('/')) return src;
   return APP_ORIGIN ? `${APP_ORIGIN}${src}` : null;
 }

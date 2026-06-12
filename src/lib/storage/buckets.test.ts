@@ -111,6 +111,15 @@ describe('toShareableUrl', () => {
     );
   });
 
+  it('does not join protocol-relative URLs onto the origin', () => {
+    setEnv({});
+    // Blocked at ingress by mediaUrlSchema; pre-#894 rows pass through
+    // unchanged rather than being mis-joined as an origin path.
+    expect(toShareableUrl('//evil.example.com/x.png', origin)).toBe(
+      '//evil.example.com/x.png'
+    );
+  });
+
   it('passes through already-absolute external and legacy URLs', () => {
     setEnv({});
     expect(

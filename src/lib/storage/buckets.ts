@@ -126,8 +126,10 @@ export function toCdnUrl(url: string): string | null {
 
 /**
  * Absolute, externally-shareable URL for a stored media URL — for the few
- * egress points that hand a URL to something off the current origin (public
- * API responses, the "copy share link" action). Stored rows are
+ * egress points that hand a URL to something off the current origin
+ * (currently the public API responses; the client-side copy-share-link
+ * action in theatre-view inlines the same absolutization because
+ * `R2_PUBLIC_STORAGE_DOMAIN` is server-only). Stored rows are
  * origin-relative (#894), which only resolve in-page; this absolutizes them:
  *
  *  - our `/r2/<key>` URLs → the CDN domain when configured, else the given
@@ -143,7 +145,12 @@ export function toCdnUrl(url: string): string | null {
 export function toShareableUrl(url: string, origin: string): string {
   const cdnUrl = toCdnUrl(url);
   if (cdnUrl) return cdnUrl;
-  if (url.startsWith('/')) return `${origin.replace(/\/$/, '')}${url}`;
+  // Exclude protocol-relative `//host/...` (blocked at ingress by
+  // mediaUrlSchema, but pre-#894 rows weren't validated against it): joining
+  // it onto the origin would produce a path that isn't what the row meant.
+  if (url.startsWith('/') && !url.startsWith('//')) {
+    return `${origin.replace(/\/$/, '')}${url}`;
+  }
   return url;
 }
 

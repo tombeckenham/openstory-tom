@@ -7,7 +7,9 @@
  *
  * - With a public CDN domain configured (production / opt-in remote dev):
  *   absolutize against `R2_PUBLIC_STORAGE_DOMAIN` at the moment of use.
- * - Without one (local dev / e2e record), there is no public URL at all:
+ * - Without one (local dev / e2e record, but also CDN-less production
+ *   deploy-button workers — this path is load-bearing in real deployments,
+ *   not just a dev convenience), there is no public URL at all:
  *   - fal model inputs (Kling `image_url`, nano-banana `image_urls`, …) →
  *     read the bytes from the R2 binding and upload them to fal storage,
  *     substituting the returned fal URL.

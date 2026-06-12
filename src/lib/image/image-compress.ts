@@ -36,9 +36,17 @@ export async function ensureImageUnderLimit(
   const cdnUrl = toCdnUrl(imageUrl);
   const absoluteUrl =
     cdnUrl ?? (/^https?:\/\//.test(imageUrl) ? imageUrl : null);
-  if (!absoluteUrl || isLocalStorageServing()) {
+  if (isLocalStorageServing()) {
+    // Fires regardless of image size (the size check below needs an
+    // absolute URL to HEAD) — "unavailable", not "image was oversize".
     logger.warn(
-      `Skipping image compression for ${imageUrl} — local storage serving has no Image Resizing edge`
+      `Image compression unavailable for ${imageUrl} — local storage serving has no Image Resizing edge; passing the original through`
+    );
+    return null;
+  }
+  if (!absoluteUrl) {
+    logger.warn(
+      `Image compression unavailable for ${imageUrl} — relative non-/r2/ URL cannot be absolutized for the transform edge; passing the original through`
     );
     return null;
   }

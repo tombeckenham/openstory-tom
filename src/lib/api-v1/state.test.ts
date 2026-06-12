@@ -1,11 +1,20 @@
 import type { Frame } from '@/lib/db/schema/frames';
 import type { Sequence } from '@/lib/db/schema/sequences';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
   buildSequenceState as buildSequenceStateRaw,
   isTerminalSequenceState,
   sequenceStateCursor,
 } from './state';
+
+// toShareableUrl reads R2_PUBLIC_STORAGE_DOMAIN via getEnv() — process.env
+// under vitest, which bun-as-launcher fills from .env.local. A developer who
+// opted into remote R2 (the documented wrangler.jsonc workflow) would flip
+// the origin-fallback assertions below to their CDN domain; pin local
+// serving so the tests are environment-independent.
+beforeAll(() => {
+  delete process.env.R2_PUBLIC_STORAGE_DOMAIN;
+});
 
 const TEST_ORIGIN = 'https://api.example.com';
 

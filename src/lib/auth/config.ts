@@ -49,10 +49,24 @@ const betterAuthLogger = getLogger(['openstory', 'auth', 'better-auth']);
  *  2. `isLocalRequestHost()` — runtime backstop that cannot be flipped by
  *     env: the request must arrive on localhost or a bare IP. Fails closed
  *     when there is no request context.
+ *
+ * Opt out by setting `EMAIL_FROM` in `.env.local` — that var exists solely to
+ * address OTP emails, so setting it means "I want the real email-OTP flow":
+ * a random code per sign-in, delivered via the SEND_EMAIL binding (simulated
+ * locally — the code lands in the dev console — unless the binding is flipped
+ * to `"remote": true` in wrangler.jsonc). The login form asks the server
+ * which mode is active (getDevFixedOtpStatusFn) to show a dev note and skip
+ * the auto-sign-in when the real flow is on.
  */
+export function isDevFixedOtpActive(request: Request | undefined): boolean {
+  if (!import.meta.env.DEV) return false;
+  if (getEnv().EMAIL_FROM) return false;
+  if (!request || !isLocalRequestHost(request)) return false;
+  return true;
+}
+
 function devFixedOtp(request: Request | undefined): string | undefined {
-  if (!import.meta.env.DEV) return undefined;
-  if (!request || !isLocalRequestHost(request)) return undefined;
+  if (!isDevFixedOtpActive(request)) return undefined;
   logger.info(`[dev] Sign-in OTP is fixed to ${DEV_OTP_CODE}`);
   return DEV_OTP_CODE;
 }

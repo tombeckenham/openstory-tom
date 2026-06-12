@@ -14,9 +14,11 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { getDevFixedOtpStatusFn } from '@/functions/dev-auth';
 import { authClient } from '@/lib/auth/client';
 import { DEV_OTP_CODE } from '@/lib/auth/dev-otp';
 import { usePostHog } from '@posthog/react';
+import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
@@ -40,6 +42,19 @@ export function AuthForm({
   const [email, setEmail] = useState(emailEntered || '');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Dev only: is the server stamping the fixed OTP (no EMAIL_FROM set)?
+  // Drives the zero-friction note below and skips the auto-sign-in attempt
+  // when the real email flow is active. Disabled (and DCE'd where referenced)
+  // in production builds.
+  const { data: devOtpStatus } = useQuery({
+    queryKey: ['dev-fixed-otp-status'],
+    queryFn: () => getDevFixedOtpStatusFn(),
+    enabled: import.meta.env.DEV,
+    staleTime: Infinity,
+  });
+  const devFixedOtpActive =
+    import.meta.env.DEV && devOtpStatus?.fixedOtp === true;
 
   // Preload passkeys for conditional UI (browser autofill)
   useEffect(() => {
@@ -93,9 +108,11 @@ export function AuthForm({
       // Local dev: the server stamps a fixed OTP (see devFixedOtp in
       // src/lib/auth/config.ts), so sign in straight away and skip the verify
       // page — no code typed at all. Eliminated from production builds
-      // (`import.meta.env.DEV` define-replaced with false). Falls through to
-      // the normal verify page if the dev sign-in doesn't take.
-      if (import.meta.env.DEV) {
+      // (`import.meta.env.DEV` define-replaced with false). Skipped when the
+      // server reports the real email-OTP flow is on (EMAIL_FROM set); only
+      // an unresolved status query falls back to attempting the fixed code,
+      // and either way a failed attempt falls through to the verify page.
+      if (import.meta.env.DEV && devOtpStatus?.fixedOtp !== false) {
         const signIn = await authClient.signIn.emailOtp({
           email,
           otp: DEV_OTP_CODE,
@@ -233,9 +250,17 @@ export function AuthForm({
           </Button>
         </form>
 
-        <p className="text-center text-xs text-muted-foreground">
-          No password needed — we'll send you a code.
-        </p>
+        {devFixedOtpActive ? (
+          <p className="text-center text-xs text-muted-foreground">
+            Dev mode: no email OTP necessary — submitting an email signs you
+            straight in. Set <code>EMAIL_FROM</code> in <code>.env.local</code>{' '}
+            to use the real email flow.
+          </p>
+        ) : (
+          <p className="text-center text-xs text-muted-foreground">
+            No password needed — we'll send you a code.
+          </p>
+        )}
 
         <p className="text-center text-xs text-muted-foreground">
           By signing in, you agree to our{' '}

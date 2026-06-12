@@ -392,7 +392,12 @@ export async function* streamScriptEnhancement(
   for await (const chunk of callLLMStream({
     model,
     messages,
-    max_tokens: 4000,
+    // Must hold reasoning tokens (PROMPT_REASONING, medium) PLUS a full
+    // multi-scene script (up to ~3500 words / 180s). At 4000 the reasoning ate
+    // the budget and the visible script truncated mid-first-scene, so 30s+
+    // targets rendered as a single scene (#915). Sized like the other
+    // reasoning calls (scene-split/visual-prompt) which scale to the model.
+    max_tokens: 16000,
     temperature: 0.7,
     ...(useWebSearch && { webSearch: true }),
     reasoning: PROMPT_REASONING,

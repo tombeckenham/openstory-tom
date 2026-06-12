@@ -1,6 +1,6 @@
 import type { Frame } from '@/lib/db/schema/frames';
 import type { Sequence } from '@/lib/db/schema/sequences';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   buildSequenceState as buildSequenceStateRaw,
   isTerminalSequenceState,
@@ -11,9 +11,11 @@ import {
 // under vitest, which bun-as-launcher fills from .env.local. A developer who
 // opted into remote R2 (the documented wrangler.jsonc workflow) would flip
 // the origin-fallback assertions below to their CDN domain; pin local
-// serving so the tests are environment-independent.
+// serving so the tests are environment-independent. (stubEnv with undefined
+// deletes the var — `delete process.env.X` fails typecheck since the env
+// typings mark it non-optional.)
 beforeAll(() => {
-  delete process.env.R2_PUBLIC_STORAGE_DOMAIN;
+  vi.stubEnv('R2_PUBLIC_STORAGE_DOMAIN', undefined);
 });
 
 const TEST_ORIGIN = 'https://api.example.com';

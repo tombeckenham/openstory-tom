@@ -6,6 +6,7 @@
 import type { TextModel } from '@/lib/ai/models';
 import type { ChatMessage } from '@/lib/prompts';
 import { chat, type DebugOption } from '@tanstack/ai';
+import type { ProviderPreferences } from '@tanstack/ai-openrouter';
 import { webSearchTool } from '@tanstack/ai-openrouter/tools';
 import { z } from 'zod';
 import { aiDebugLogger } from './ai-debug-logger';
@@ -29,13 +30,6 @@ export type StreamChunk<T = never> =
       parsed: T | undefined;
     };
 
-type ProviderPreference = {
-  order?: string[];
-  only?: string[];
-  ignore?: string[];
-  allow_fallbacks?: boolean;
-};
-
 export type LLMRequestParams<T = unknown> = {
   model: TextModel;
   messages: ChatMessage[];
@@ -45,7 +39,7 @@ export type LLMRequestParams<T = unknown> = {
   frequency_penalty?: number;
   presence_penalty?: number;
   stream?: boolean;
-  provider?: ProviderPreference;
+  provider?: ProviderPreferences;
   /** Observation name for Langfuse (forwarded via AI event bridge) */
   observationName?: string;
   /** Prompt reference for Langfuse trace linking */
@@ -178,12 +172,19 @@ function convertMessages(messages: ChatMessage[]): {
   return { systemPrompts, messages: chatMessages };
 }
 
+// Since @tanstack/ai 0.27, sampling options live in provider-native
+// modelOptions (camelCase, per the OpenRouter SDK) instead of the root of
+// chat(). The public LLMRequestParams surface keeps its OpenAI-style
+// snake_case names; this is the single mapping point.
 function buildModelOptions(params: LLMRequestParams) {
   return {
     ...(params.provider && { provider: params.provider }),
     ...(params.reasoning && { reasoning: params.reasoning }),
-    frequency_penalty: params.frequency_penalty,
-    presence_penalty: params.presence_penalty,
+    maxCompletionTokens: params.max_tokens,
+    temperature: params.temperature,
+    topP: params.top_p,
+    frequencyPenalty: params.frequency_penalty,
+    presencePenalty: params.presence_penalty,
   };
 }
 
@@ -231,9 +232,6 @@ function baseChatOptions(params: LLMRequestParams) {
     adapter: createAdapter(params.model, params.apiKey),
     messages,
     systemPrompts,
-    maxTokens: params.max_tokens,
-    temperature: params.temperature,
-    topP: params.top_p,
     modelOptions: buildModelOptions(params),
     ...(tools && { tools }),
     debug: params.debug ?? false,

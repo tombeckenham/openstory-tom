@@ -182,9 +182,13 @@ export async function durableLLMCallCf<TSchema extends z.ZodType>(
         messages: chatMessages,
         systemPrompts: systemPrompts,
         stream: false,
-        maxTokens: Math.floor(getContextWindow(config.modelId) * 0.5),
         abortController,
-        modelOptions: reasoningModelOptions(config.reasoning),
+        modelOptions: {
+          ...reasoningModelOptions(config.reasoning),
+          maxCompletionTokens: Math.floor(
+            getContextWindow(config.modelId) * 0.5
+          ),
+        },
         metadata: {
           observationName: logName,
           prompt: promptReference,
@@ -328,9 +332,13 @@ export async function durableStreamingLLMCallCf<TSchema extends z.ZodType>(
           messages: chatMessages,
           systemPrompts: systemPrompts,
           stream: true,
-          maxTokens: Math.floor(getContextWindow(config.modelId) * 0.5),
           abortController,
-          modelOptions: reasoningModelOptions(config.reasoning),
+          modelOptions: {
+            ...reasoningModelOptions(config.reasoning),
+            maxCompletionTokens: Math.floor(
+              getContextWindow(config.modelId) * 0.5
+            ),
+          },
           metadata: {
             observationName: logName,
             prompt: promptReference,

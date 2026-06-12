@@ -103,7 +103,7 @@ export async function describeElementImage(
     systemPrompts,
     messages: chatMessages,
     stream: false,
-    temperature: 0.3,
+    modelOptions: { temperature: 0.3 },
     outputSchema: responseSchema,
     debug: false,
   });

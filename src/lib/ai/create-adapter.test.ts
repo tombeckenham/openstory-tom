@@ -4,6 +4,10 @@
  * `Authorization: Key` rewrite fal requires (its OpenRouter endpoint rejects
  * the SDK's hardcoded `Bearer` with 401), aimock's OPENROUTER_BASE_URL
  * precedence for e2e hermeticity, and the platform-key fallback order.
+ *
+ * The metadata-stripping behavior of the WireSafe wrapper is covered
+ * separately in create-adapter.wire-metadata.test.ts (it needs the real
+ * @tanstack/ai-openrouter module, which is mocked out here).
  */
 
 import type { HTTPClient } from '@openrouter/sdk/lib/http';
@@ -31,23 +35,28 @@ vi.doMock('#env', () => ({
 }));
 
 type AdapterConfig = {
+  apiKey: string;
   httpReferer: string;
   xTitle: string;
   serverURL?: string;
   httpClient?: HTTPClient;
 };
 
-// Capture (model, key, config) instead of building real adapters. The real
-// HTTPClient stays unmocked so the beforeRequest hook is exercised for real.
-const createOpenRouterTextMock = vi.fn(
-  (_model: string, _key: string, _config: AdapterConfig) => 'adapter-with-key'
-);
-const openRouterTextMock = vi.fn(
-  (_model: string, _config: AdapterConfig) => 'adapter-keyless'
-);
+// Capture constructor args instead of building real adapters (createAdapter
+// instantiates a subclass of OpenRouterTextAdapter, so the constructor is the
+// single point every code path funnels through). The real HTTPClient stays
+// unmocked so the beforeRequest hook is exercised for real.
+const constructed: Array<{ config: AdapterConfig; model: string }> = [];
+class CaptureAdapter {
+  constructor(config: AdapterConfig, model: string) {
+    constructed.push({ config, model });
+  }
+}
+const getOpenRouterApiKeyFromEnvMock = vi.fn(() => 'env-fallback-key');
 vi.doMock('@tanstack/ai-openrouter', () => ({
-  createOpenRouterText: createOpenRouterTextMock,
-  openRouterText: openRouterTextMock,
+  OpenRouterTextAdapter: CaptureAdapter,
+  openRouterText: vi.fn(),
+  getOpenRouterApiKeyFromEnv: getOpenRouterApiKeyFromEnvMock,
 }));
 
 // Dynamic import so the mocks above apply — see CLAUDE.md module-mocking
@@ -57,14 +66,10 @@ const { createAdapter, getPlatformLlmKey } = await import('./create-adapter');
 const MODEL = 'x-ai/grok-4.3';
 const FAL_URL = 'https://fal.run/openrouter/router/openai/v1';
 
-function lastKeyedCall(): {
-  model: string;
-  key: string;
-  config: AdapterConfig;
-} {
-  const call = createOpenRouterTextMock.mock.calls.at(-1);
-  if (!call) throw new Error('createOpenRouterText was not called');
-  return { model: call[0], key: call[1], config: call[2] };
+function lastCall(): { model: string; config: AdapterConfig } {
+  const call = constructed.at(-1);
+  if (!call) throw new Error('the adapter was never constructed');
+  return call;
 }
 
 /**
@@ -93,8 +98,8 @@ beforeEach(() => {
   testEnv.FAL_KEY = undefined;
   testEnv.OPENROUTER_BASE_URL = undefined;
   testEnv.E2E_RECORD = undefined;
-  createOpenRouterTextMock.mockClear();
-  openRouterTextMock.mockClear();
+  constructed.length = 0;
+  getOpenRouterApiKeyFromEnvMock.mockClear();
 });
 
 afterEach(() => {
@@ -105,8 +110,8 @@ describe('createAdapter routing (issue #895)', () => {
   it('routes via:"fal" to fal’s OpenRouter endpoint and rewrites auth to "Key"', async () => {
     createAdapter(MODEL, { key: 'sk-fal-team', via: 'fal' });
 
-    const { key, config } = lastKeyedCall();
-    expect(key).toBe('sk-fal-team');
+    const { config } = lastCall();
+    expect(config.apiKey).toBe('sk-fal-team');
     expect(config.serverURL).toBe(FAL_URL);
     if (!config.httpClient) throw new Error('expected an httpClient');
 
@@ -121,8 +126,8 @@ describe('createAdapter routing (issue #895)', () => {
   it('routes via:"openrouter" directly: no serverURL override, no auth hook', () => {
     createAdapter(MODEL, { key: 'sk-or-team', via: 'openrouter' });
 
-    const { key, config } = lastKeyedCall();
-    expect(key).toBe('sk-or-team');
+    const { config } = lastCall();
+    expect(config.apiKey).toBe('sk-or-team');
     expect(config.serverURL).toBeUndefined();
     expect(config.httpClient).toBeUndefined();
   });
@@ -132,7 +137,7 @@ describe('createAdapter routing (issue #895)', () => {
     createAdapter(MODEL, { key: 'sk-fal-team', via: 'fal' });
 
     // E2E stays hermetic regardless of which key the team resolved.
-    expect(lastKeyedCall().config.serverURL).toBe('http://localhost:4010/v1');
+    expect(lastCall().config.serverURL).toBe('http://localhost:4010/v1');
   });
 
   it('falls back to the platform OpenRouter key when no keyInfo is passed', () => {
@@ -140,17 +145,18 @@ describe('createAdapter routing (issue #895)', () => {
     testEnv.FAL_KEY = 'platform-fal';
     createAdapter(MODEL);
 
-    const { key, config } = lastKeyedCall();
-    expect(key).toBe('platform-or');
+    const { config } = lastCall();
+    expect(config.apiKey).toBe('platform-or');
     expect(config.serverURL).toBeUndefined();
+    expect(getOpenRouterApiKeyFromEnvMock).not.toHaveBeenCalled();
   });
 
   it('falls back to the platform fal key (fal-routed) when only FAL_KEY is set', async () => {
     testEnv.FAL_KEY = 'platform-fal';
     createAdapter(MODEL);
 
-    const { key, config } = lastKeyedCall();
-    expect(key).toBe('platform-fal');
+    const { config } = lastCall();
+    expect(config.apiKey).toBe('platform-fal');
     expect(config.serverURL).toBe(FAL_URL);
     if (!config.httpClient) throw new Error('expected an httpClient');
     const sent = await sendThroughClient(config.httpClient, {
@@ -159,11 +165,14 @@ describe('createAdapter routing (issue #895)', () => {
     expect(sent.headers.get('Authorization')).toBe('Key platform-fal');
   });
 
-  it('builds a keyless adapter when nothing is configured', () => {
+  it('falls back to OPENROUTER_API_KEY via the SDK when nothing is configured', () => {
     createAdapter(MODEL);
 
-    expect(createOpenRouterTextMock).not.toHaveBeenCalled();
-    expect(openRouterTextMock).toHaveBeenCalledTimes(1);
+    const { config } = lastCall();
+    expect(getOpenRouterApiKeyFromEnvMock).toHaveBeenCalledTimes(1);
+    expect(config.apiKey).toBe('env-fallback-key');
+    expect(config.serverURL).toBeUndefined();
+    expect(config.httpClient).toBeUndefined();
   });
 });
 

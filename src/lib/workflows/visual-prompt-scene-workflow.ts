@@ -198,9 +198,13 @@ export class VisualPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Visua
             systemPrompts: systemPrompts,
             outputSchema: visualPromptResultSchema,
             stream: false,
-            maxTokens: Math.floor(getContextWindow(analysisModelId) * 0.5),
             abortController,
-            modelOptions: reasoningOptions,
+            modelOptions: {
+              ...reasoningOptions,
+              maxCompletionTokens: Math.floor(
+                getContextWindow(analysisModelId) * 0.5
+              ),
+            },
             metadata: {
               observationName: LOG_NAME,
               prompt: promptReference,
@@ -240,9 +244,13 @@ export class VisualPromptSceneWorkflow extends OpenStoryWorkflowEntrypoint<Visua
           messages: chatMessages,
           systemPrompts: systemPrompts,
           stream: true,
-          maxTokens: Math.floor(getContextWindow(analysisModelId) * 0.5),
           abortController,
-          modelOptions: reasoningOptions,
+          modelOptions: {
+            ...reasoningOptions,
+            maxCompletionTokens: Math.floor(
+              getContextWindow(analysisModelId) * 0.5
+            ),
+          },
           metadata: {
             observationName: LOG_NAME,
             prompt: promptReference,

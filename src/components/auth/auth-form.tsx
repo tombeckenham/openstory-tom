@@ -15,6 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { authClient } from '@/lib/auth/client';
+import { DEV_OTP_CODE } from '@/lib/auth/dev-otp';
 import { usePostHog } from '@posthog/react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
@@ -87,6 +88,23 @@ export function AuthForm({
         setError(result.error.message || 'Failed to send code');
         setIsLoading(false);
         return;
+      }
+
+      // Local dev: the server stamps a fixed OTP (see devFixedOtp in
+      // src/lib/auth/config.ts), so sign in straight away and skip the verify
+      // page — no code typed at all. Eliminated from production builds
+      // (`import.meta.env.DEV` define-replaced with false). Falls through to
+      // the normal verify page if the dev sign-in doesn't take.
+      if (import.meta.env.DEV) {
+        const signIn = await authClient.signIn.emailOtp({
+          email,
+          otp: DEV_OTP_CODE,
+        });
+        if (!signIn.error) {
+          posthog.capture('user_signed_in', { method: 'email_otp_dev' });
+          await navigate({ to: redirectTo });
+          return;
+        }
       }
 
       // Navigate to verify page with email in search params

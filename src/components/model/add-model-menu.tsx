@@ -62,7 +62,7 @@ export const AddModelMenuSection = ({
   const { data: style } = useStyle(sequence?.styleId ?? '');
   const aspectRatio = sequence?.aspectRatio ?? DEFAULT_ASPECT_RATIO;
   // Style-category gating (mirrors motion-model-selector): a model declaring a
-  // `requiredStyleCategory` (e.g. Seedance 2 → 'animation') is only offered when
+  // `requiredStyleCategory` (none currently declare one) is only offered when
   // the sequence's style matches — otherwise it isn't a valid choice here.
   const styleCategory = style?.category ?? undefined;
 

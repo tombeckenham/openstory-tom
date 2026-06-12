@@ -56,11 +56,10 @@ These models animate still images into video clips.
 | ------------------ | ---------- | --------- | ----------- | --------------------- |
 | **LTX 2.3 Pro**    | Lightricks | ~15s      | Open Source | Best quality ranking  |
 | Veo 3.1            | Google     | ~25s      | Proprietary | 20K max prompt length |
-| **Kling v3 Pro**   | Kling      | ~20s      | Proprietary | Default model         |
+| Kling v3 Pro       | Kling      | ~20s      | Proprietary |                       |
 | Grok Imagine Video | Grok       | ~20s      | Proprietary |                       |
 | MiniMax Hailuo 02  | MiniMax    | ~15s      | Proprietary |                       |
-| Seedance 1.5 Pro   | ByteDance  | ~12s      | Proprietary | 4K max prompt         |
-| Seedance 2         | ByteDance  | ~20s      | Proprietary | Animation styles only |
+| **Seedance 2.0**   | ByteDance  | ~15s      | Proprietary | Default; native audio |
 
 ### Aspect Ratio Compatibility
 

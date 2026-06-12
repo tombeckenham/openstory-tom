@@ -85,7 +85,11 @@ export class MotionBatchWorkflow extends OpenStoryWorkflowEntrypoint<BatchMotion
       // present so audio-capable models get dialogue/audio sections, falling
       // back to the pre-assembled `prompt` for manual single-model paths.
       const prompt = frame.motionPrompt
-        ? assembleMotionPrompt({ motionPrompt: frame.motionPrompt, model })
+        ? assembleMotionPrompt({
+            motionPrompt: frame.motionPrompt,
+            model,
+            characterTags: frame.characterTags,
+          })
         : frame.prompt;
 
       const motionBody: MotionWorkflowInput = {

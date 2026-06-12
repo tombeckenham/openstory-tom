@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { Seedance20ImageToVideoInputSchema } from './generated/schemas.gen';
+import { Seedance20EnterpriseV2ImageToVideoInputSchema } from './generated/schemas.gen';
 import { getDurationValues, numericOf, snapTo } from './motion-transform';
 
 describe('getDurationValues', () => {
   it('excludes non-numeric enum values like "auto"', () => {
-    const values = getDurationValues(Seedance20ImageToVideoInputSchema);
+    const values = getDurationValues(
+      Seedance20EnterpriseV2ImageToVideoInputSchema
+    );
     expect(values).not.toContain('auto');
     expect(values).toContain('4');
     expect(values).toContain('15');

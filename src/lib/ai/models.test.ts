@@ -34,7 +34,7 @@ describe('Model Validation', () => {
     it('returns true for valid model keys', () => {
       expect(isValidImageToVideoModel('kling_v3_pro')).toBe(true);
       expect(isValidImageToVideoModel('veo3_1')).toBe(true);
-      expect(isValidImageToVideoModel('seedance_v1_5_pro')).toBe(true);
+      expect(isValidImageToVideoModel('seedance_v2')).toBe(true);
     });
 
     it('returns false for invalid model keys', () => {

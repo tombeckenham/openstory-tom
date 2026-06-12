@@ -51,22 +51,22 @@ describe('Motion Service', () => {
       );
     });
 
-    it('should submit job with Seedance v1.5 Pro model options', async () => {
+    it('should submit job with Seedance 2 model options', async () => {
       mockGenerateVideo.mockResolvedValue({
         jobId: 'test-seedance-request-id',
-        model: 'fal-ai/bytedance/seedance/v1.5/pro/image-to-video',
+        model: 'bytedance/seedance-2.0/enterprise/v2/image-to-video',
       });
 
       const result = await submitMotionJob({
         imageUrl: 'https://example.com/image.jpg',
         prompt: 'Dynamic action sequence',
-        model: 'seedance_v1_5_pro',
+        model: 'seedance_v2',
         duration: 5,
         fps: 25,
       });
 
       expect(result.jobId).toBe('test-seedance-request-id');
-      expect(result.modelKey).toBe('seedance_v1_5_pro');
+      expect(result.modelKey).toBe('seedance_v2');
 
       expect(mockGenerateVideo).toHaveBeenCalledWith(
         expect.objectContaining({

@@ -208,7 +208,8 @@ export const visualPromptSchema = z.object({
 
 const motionPromptComponentsSchema = z.object({
   cameraMovement: z.string().meta({
-    description: 'Type of camera motion (pan, tilt, dolly, truck, zoom)',
+    description:
+      'The single primary camera motion for this shot (pan, tilt, dolly, truck, zoom) — exactly one move, never stacked',
   }),
   startPosition: z
     .string()
@@ -219,7 +220,10 @@ const motionPromptComponentsSchema = z.object({
   durationSeconds: z
     .number()
     .meta({ description: 'Shot duration in seconds (typically 3-15)' }),
-  speed: z.string().meta({ description: 'Movement speed: slow, medium, fast' }),
+  speed: z.string().meta({
+    description:
+      'Movement speed: slow, medium, or brisk — never "fast" (it triggers chaotic motion in video models)',
+  }),
   smoothness: z.string().meta({
     description: 'Motion quality: jerky, natural, smooth, ultra-smooth',
   }),

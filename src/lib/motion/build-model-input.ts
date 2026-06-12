@@ -20,7 +20,6 @@ const QUALITY_OVERRIDES: Partial<
   Record<ImageToVideoModel, Record<string, unknown>>
 > = {
   veo3_1: { resolution: '1080p' },
-  seedance_v1_5_pro: { resolution: '1080p' },
   seedance_v2: { resolution: '720p' },
 };
 

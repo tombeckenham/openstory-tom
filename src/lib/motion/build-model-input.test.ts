@@ -110,19 +110,7 @@ describe('buildModelInput', () => {
     });
   });
 
-  describe('Seedance v1.5 Pro', () => {
-    it('uses image_url', () => {
-      const result = build('seedance_v1_5_pro');
-      expect(result).toHaveProperty('image_url', baseOptions.imageUrl);
-    });
-
-    it('includes prompt', () => {
-      const result = build('seedance_v1_5_pro');
-      expect(result.prompt).toBe(baseOptions.prompt);
-    });
-  });
-
-  describe('Seedance v2', () => {
+  describe('Seedance 2.0', () => {
     it('uses image_url', () => {
       const result = build('seedance_v2');
       expect(result).toHaveProperty('image_url', baseOptions.imageUrl);
@@ -151,7 +139,6 @@ describe('buildModelInput', () => {
       ],
       veo3_1: ['4s', '6s', '8s'],
       ltx_2_3_pro: [6, 8, 10],
-      seedance_v1_5_pro: ['4', '5', '6', '7', '8', '9', '10', '11', '12'],
       seedance_v2: [
         '4',
         '5',
@@ -197,15 +184,13 @@ describe('buildModelInput', () => {
     });
 
     it('passes aspect_ratio from options', () => {
-      const result = build('seedance_v1_5_pro', { aspectRatio: '9:16' });
+      const result = build('seedance_v2', { aspectRatio: '9:16' });
       expect(result.aspect_ratio).toBe('9:16');
     });
 
-    it('applies the schema default aspect_ratio when not provided', () => {
-      // Seedance v1.5's generated schema bakes in a 16:9 default, so the
-      // transform fills it when no aspect ratio is passed.
-      const result = build('seedance_v1_5_pro', { aspectRatio: undefined });
-      expect(result.aspect_ratio).toBe('16:9');
+    it('falls back to the schema default for aspect_ratio when not provided', () => {
+      const result = build('seedance_v2', { aspectRatio: undefined });
+      expect(result.aspect_ratio).toBe('auto');
     });
   });
 });

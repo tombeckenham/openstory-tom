@@ -605,6 +605,8 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
           (f) => f.sceneId === scene.sceneId
         );
 
+        const characterTags = scene.continuity?.characterTags;
+
         return {
           frameId: matchedFrame?.frameId ?? '',
           imageUrl,
@@ -613,9 +615,11 @@ export class AnalyzeScriptWorkflow extends OpenStoryWorkflowEntrypoint<AnalyzeSc
           prompt: assembleMotionPrompt({
             motionPrompt: motionPromptData,
             model: primaryVideoModel,
+            characterTags,
           }),
           model: primaryVideoModel,
           motionPrompt: motionPromptData,
+          characterTags,
           duration: scene.metadata?.durationSeconds || 3,
           aspectRatio,
         };

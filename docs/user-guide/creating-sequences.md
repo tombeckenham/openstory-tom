@@ -99,13 +99,10 @@ The AI model for image-to-video animation. Toggle **Auto-generate motion** to au
 | ------------------ | ---------- | ---------------------------- |
 | LTX 2.3 Pro        | Lightricks | ~15s (open-source)           |
 | Veo 3.1            | Google     | ~25s                         |
-| Kling v3 Pro       | Kling      | ~20s (default)               |
+| Kling v3 Pro       | Kling      | ~20s                         |
 | Grok Imagine Video | Grok       | ~20s                         |
 | MiniMax Hailuo 02  | MiniMax    | ~15s                         |
-| Seedance 1.5 Pro   | ByteDance  | ~12s                         |
-| Seedance 2         | ByteDance  | ~20s (animation styles only) |
-
-Some motion models are restricted to specific style categories (e.g., Seedance 2 requires an animation style).
+| Seedance 2.0       | ByteDance  | ~15s (default; native audio) |
 
 ### Music Model
 

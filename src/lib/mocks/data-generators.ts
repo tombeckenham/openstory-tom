@@ -68,7 +68,7 @@ const generateMockFrame = (overrides?: Partial<Frame>): Frame => {
     motionModel: faker.helpers.arrayElement([
       'veo3_1',
       'kling_v3_pro',
-      'seedance_v1_5_pro',
+      'seedance_v2',
     ]),
     videoWorkflowRunId: faker.string.ulid(),
     videoGeneratedAt: faker.date.recent(),

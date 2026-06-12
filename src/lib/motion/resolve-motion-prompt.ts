@@ -16,7 +16,10 @@ import { assembleMotionPrompt } from './assemble-motion-prompt';
 
 type FramePromptData = {
   motionPrompt: string | null;
-  metadata: { prompts?: { motion?: MotionPrompt } } | null;
+  metadata: {
+    prompts?: { motion?: MotionPrompt };
+    continuity?: { characterTags?: readonly string[] };
+  } | null;
   description: string | null;
 };
 
@@ -33,6 +36,7 @@ export function resolveMotionPrompt(
   model: ImageToVideoModel
 ): string {
   const motionPromptData = frame.metadata?.prompts?.motion;
+  const characterTags = frame.metadata?.continuity?.characterTags;
 
   // User override: manually edited prompt string
   if (frame.motionPrompt) {
@@ -41,6 +45,7 @@ export function resolveMotionPrompt(
       return assembleMotionPrompt({
         motionPrompt: { ...motionPromptData, fullPrompt: frame.motionPrompt },
         model,
+        characterTags,
       });
     }
     return frame.motionPrompt;
@@ -51,6 +56,7 @@ export function resolveMotionPrompt(
     return assembleMotionPrompt({
       motionPrompt: motionPromptData,
       model,
+      characterTags,
     });
   }
 

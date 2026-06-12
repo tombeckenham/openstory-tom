@@ -216,22 +216,37 @@ describe('calculateVideoCost', () => {
     expect(cost).toBe(micros(850_000));
   });
 
-  test('Seedance v1.5 Pro 5s ($1.2/s)', () => {
+  test('Seedance 2.0 per_token at 720p ($0.014/1k tokens)', () => {
     const cost = calculateVideoCost({
-      endpointId: 'fal-ai/bytedance/seedance/v1.5/pro/image-to-video',
+      endpointId: 'bytedance/seedance-2.0/enterprise/v2/image-to-video',
       durationSeconds: 5,
+      resolution: '720p',
     });
-    // 1_200_000 * 5 = 6_000_000
-    expect(cost).toBe(micros(6_000_000));
+    // tokens = 1280*720*24*5/1024 = 108_000 → 0.108M * 1.05 overhead = 0.1134M
+    // 14_000_000 * 0.1134 = 1_587_600 (~$0.32/s, matches fal's quoted $0.3024/s + overhead)
+    expect(cost).toBe(micros(1_587_600));
   });
 
-  test('Seedance v1.5 Pro 10s ($1.2/s)', () => {
+  test('Seedance 2.0 per_token at 1080p ($0.014/1k tokens)', () => {
     const cost = calculateVideoCost({
-      endpointId: 'fal-ai/bytedance/seedance/v1.5/pro/image-to-video',
-      durationSeconds: 10,
+      endpointId: 'bytedance/seedance-2.0/enterprise/v2/image-to-video',
+      durationSeconds: 5,
+      resolution: '1080p',
     });
-    // 1_200_000 * 10 = 12_000_000
-    expect(cost).toBe(micros(12_000_000));
+    // tokens = 1920*1080*24*5/1024 = 243_000 → 0.243M * 1.05 = 0.25515M
+    // 14_000_000 * 0.25515 = 3_572_100 (~$0.71/s, matches fal's quoted $0.682/s + overhead)
+    expect(cost).toBe(micros(3_572_100));
+  });
+
+  test('per_token explicit dimensions take precedence over resolution', () => {
+    const cost = calculateVideoCost({
+      endpointId: 'bytedance/seedance-2.0/enterprise/v2/image-to-video',
+      durationSeconds: 5,
+      resolution: '720p',
+      widthPx: 1920,
+      heightPx: 1080,
+    });
+    expect(cost).toBe(micros(3_572_100));
   });
 
   test('unknown endpoint returns 0', () => {

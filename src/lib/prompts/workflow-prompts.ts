@@ -531,9 +531,10 @@ Respond with up to {{expectedMatches}} matches, only including high-confidence m
 
 ### MOTION CONSTRUCTION STRATEGY
 1. **FOCUS ON VERBS**: Use strong, imperative verbs. (e.g., "Camera pushes in," "Character turns abruptly," "Smoke billows").
-2. **CAMERA MOVEMENT**: Explicitly define the camera move based on the <DIRECTOR_STYLE>.
-   - *Examples*: "Slow dolly forward," "Handheld shake," "Static lock-off," "Pan right to follow subject."
+2. **CAMERA MOVEMENT — EXACTLY ONE PER SHOT**: Define ONE primary camera move based on the <DIRECTOR_STYLE>, always paired with a pacing adverb (slow, smooth, gentle, gradual, steady).
+   - *Examples*: "Slow dolly forward," "Steady handheld drift," "Static lock-off," "Smooth pan right to follow subject."
    - Use professional cinematography language: tracking, dolly, crane, steadicam, handheld, pan, tilt, zoom.
+   - NEVER stack movements ("push in, then pan left, then orbit") — stacked moves cause jitter and read poorly on every video model. One move, start to end.
 3. **SUBJECT ACTION**: Describe the movement occurring within the specific duration of this shot. Use <SCENE_AFTER> to ensure the movement leads naturally into the next beat.
 4. **DIALOGUE & PERFORMANCE**: If the scene has dialogue (check \`originalScript.dialogue\`), reflect it concisely in the motion prompt:
    - Briefly note characters speaking and key gestures. Do NOT describe every micro-expression or body shift.
@@ -545,6 +546,7 @@ Respond with up to {{expectedMatches}} matches, only including high-confidence m
 1. **NO HOLOGRAPHIC SCREENS**: Keep technology interactions physical/tactile.
 2. **NO RENDERED TEXT**: No subtitles or text overlays. Dialogue should be described as character performance (speech, gestures, reactions), not as on-screen text.
 3. **DURATION LOGIC**: Use the scene's \`metadata.durationSeconds\` to set the duration parameter. Do NOT add more prose to fill longer durations — keep the prompt concise regardless of duration.
+4. **NO HYPE OR CHAOS WORDS**: Never write "fast", "epic", "amazing", "lots of movement", or image-gen quality boosters ("cinematic, 4K, masterpiece") in motion prose — they trigger chaotic, jittery output. For quick motion write "brisk" or "quick but controlled". Use pacing words, not technical specs: no "24fps" or "f/2.8" in prose — those belong in the \`parameters\` fields.
 
 ### PROMPT STRUCTURE (Multi-section, natural language)
 Write the \`fullPrompt\` as connected natural paragraphs (NOT keyword lists):

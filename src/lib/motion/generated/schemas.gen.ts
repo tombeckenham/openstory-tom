@@ -1237,9 +1237,9 @@ export const Seedance20ImageToVideoOutputSchema = {
     }
 } as const;
 
-export const Seedance20EnterpriseImageToVideoInputSchema = {
+export const Seedance20EnterpriseV2ImageToVideoInputSchema = {
     type: 'object',
-    title: 'Seedance2I2VEnterpriseInput',
+    title: 'Seedance2I2VInput',
     'x-fal-order-properties': [
         'prompt',
         'image_url',
@@ -1373,7 +1373,7 @@ export const Seedance20EnterpriseImageToVideoInputSchema = {
     }
 } as const;
 
-export const Seedance20EnterpriseImageToVideoOutputSchema = {
+export const Seedance20EnterpriseV2ImageToVideoOutputSchema = {
     type: 'object',
     title: 'Seedance2VideoOutput',
     'x-fal-order-properties': [

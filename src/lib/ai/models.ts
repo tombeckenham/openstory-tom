@@ -89,7 +89,7 @@ export const IMAGE_TO_VIDEO_MODELS = {
     requiredStyleCategory: 'animation',
   },
   seedance_v2_enterprise: {
-    id: 'bytedance/seedance-2.0/enterprise/image-to-video',
+    id: 'bytedance/seedance-2.0/enterprise/v2/image-to-video',
     name: 'Seedance 2 Enterprise',
     provider: 'ByteDance',
     license: 'proprietary' as const,

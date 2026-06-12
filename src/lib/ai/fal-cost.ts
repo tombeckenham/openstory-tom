@@ -121,12 +121,25 @@ export function calculateVideoCost(params: VideoCostParams): Microdollars {
   return calculateSecondBasedVideoCost(pricing, params);
 }
 
+/** Assumed 16:9 output dimensions per resolution tier for token-priced models */
+const TOKEN_RESOLUTION_DIMENSIONS: Record<
+  string,
+  { width: number; height: number }
+> = {
+  '480p': { width: 854, height: 480 },
+  '720p': { width: 1280, height: 720 },
+  '1080p': { width: 1920, height: 1080 },
+};
+
 function calculateTokenBasedVideoCost(
   pricing: Extract<VideoPricing, { mode: 'per_token' }>,
   params: VideoCostParams
 ): Microdollars {
-  const w = params.widthPx ?? 1920;
-  const h = params.heightPx ?? 1080;
+  const dims = params.resolution
+    ? TOKEN_RESOLUTION_DIMENSIONS[params.resolution]
+    : undefined;
+  const w = params.widthPx ?? dims?.width ?? 1920;
+  const h = params.heightPx ?? dims?.height ?? 1080;
   const fps = params.fps ?? 24;
   const tokens = (w * h * fps * params.durationSeconds) / 1024;
   // Actual rendered frames slightly exceed nominal fps (~3% overhead)

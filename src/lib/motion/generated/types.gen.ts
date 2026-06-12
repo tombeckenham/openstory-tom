@@ -532,9 +532,9 @@ export type Seedance20ImageToVideoOutput = {
 };
 
 /**
- * Seedance2I2VEnterpriseInput
+ * Seedance2I2VInput
  */
-export type Seedance20EnterpriseImageToVideoInput = {
+export type Seedance20EnterpriseV2ImageToVideoInput = {
     /**
      * Resolution
      *
@@ -594,7 +594,7 @@ export type Seedance20EnterpriseImageToVideoInput = {
 /**
  * Seedance2VideoOutput
  */
-export type Seedance20EnterpriseImageToVideoOutput = {
+export type Seedance20EnterpriseV2ImageToVideoOutput = {
     /**
      * Seed
      *
@@ -1138,7 +1138,7 @@ export type GetBytedanceSeedance20ImageToVideoRequestsByRequestIdResponses = {
 
 export type GetBytedanceSeedance20ImageToVideoRequestsByRequestIdResponse = GetBytedanceSeedance20ImageToVideoRequestsByRequestIdResponses[keyof GetBytedanceSeedance20ImageToVideoRequestsByRequestIdResponses];
 
-export type GetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdStatusData = {
+export type GetBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdStatusData = {
     body?: never;
     path: {
         /**
@@ -1152,19 +1152,19 @@ export type GetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdStatu
          */
         logs?: number;
     };
-    url: '/bytedance/seedance-2.0/enterprise/image-to-video/requests/{request_id}/status';
+    url: '/bytedance/seedance-2.0/enterprise/v2/image-to-video/requests/{request_id}/status';
 };
 
-export type GetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdStatusResponses = {
+export type GetBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdStatusResponses = {
     /**
      * The request status.
      */
     200: QueueStatus;
 };
 
-export type GetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdStatusResponse = GetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdStatusResponses[keyof GetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdStatusResponses];
+export type GetBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdStatusResponse = GetBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdStatusResponses[keyof GetBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdStatusResponses];
 
-export type PutBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdCancelData = {
+export type PutBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdCancelData = {
     body?: never;
     path: {
         /**
@@ -1173,10 +1173,10 @@ export type PutBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdCance
         request_id: string;
     };
     query?: never;
-    url: '/bytedance/seedance-2.0/enterprise/image-to-video/requests/{request_id}/cancel';
+    url: '/bytedance/seedance-2.0/enterprise/v2/image-to-video/requests/{request_id}/cancel';
 };
 
-export type PutBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdCancelResponses = {
+export type PutBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdCancelResponses = {
     /**
      * The request was cancelled.
      */
@@ -1188,25 +1188,25 @@ export type PutBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdCance
     };
 };
 
-export type PutBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdCancelResponse = PutBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdCancelResponses[keyof PutBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdCancelResponses];
+export type PutBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdCancelResponse = PutBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdCancelResponses[keyof PutBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdCancelResponses];
 
-export type PostBytedanceSeedance20EnterpriseImageToVideoData = {
-    body: Seedance20EnterpriseImageToVideoInput;
+export type PostBytedanceSeedance20EnterpriseV2ImageToVideoData = {
+    body: Seedance20EnterpriseV2ImageToVideoInput;
     path?: never;
     query?: never;
-    url: '/bytedance/seedance-2.0/enterprise/image-to-video';
+    url: '/bytedance/seedance-2.0/enterprise/v2/image-to-video';
 };
 
-export type PostBytedanceSeedance20EnterpriseImageToVideoResponses = {
+export type PostBytedanceSeedance20EnterpriseV2ImageToVideoResponses = {
     /**
      * The request status.
      */
     200: QueueStatus;
 };
 
-export type PostBytedanceSeedance20EnterpriseImageToVideoResponse = PostBytedanceSeedance20EnterpriseImageToVideoResponses[keyof PostBytedanceSeedance20EnterpriseImageToVideoResponses];
+export type PostBytedanceSeedance20EnterpriseV2ImageToVideoResponse = PostBytedanceSeedance20EnterpriseV2ImageToVideoResponses[keyof PostBytedanceSeedance20EnterpriseV2ImageToVideoResponses];
 
-export type GetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdData = {
+export type GetBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdData = {
     body?: never;
     path: {
         /**
@@ -1215,14 +1215,14 @@ export type GetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdData 
         request_id: string;
     };
     query?: never;
-    url: '/bytedance/seedance-2.0/enterprise/image-to-video/requests/{request_id}';
+    url: '/bytedance/seedance-2.0/enterprise/v2/image-to-video/requests/{request_id}';
 };
 
-export type GetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdResponses = {
+export type GetBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdResponses = {
     /**
      * Result of the request.
      */
-    200: Seedance20EnterpriseImageToVideoOutput;
+    200: Seedance20EnterpriseV2ImageToVideoOutput;
 };
 
-export type GetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdResponse = GetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdResponses[keyof GetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdResponses];
+export type GetBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdResponse = GetBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdResponses[keyof GetBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdResponses];

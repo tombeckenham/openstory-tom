@@ -24,6 +24,12 @@ type MotionAudio = NonNullable<MotionPrompt['audio']>;
 type AssembleOptions = {
   motionPrompt: MotionPrompt;
   model: ImageToVideoModel;
+  /**
+   * Scene character tags (`continuity.characterTags`). Drives character-only
+   * guards for models that need them in-prompt (e.g. Seedance's
+   * "Avoid jitter and bent limbs.").
+   */
+  characterTags?: readonly string[];
 };
 
 /**
@@ -36,6 +42,7 @@ type AssembleOptions = {
 export function assembleMotionPrompt({
   motionPrompt,
   model,
+  characterTags,
 }: AssembleOptions): string {
   const { dialogue, audio, fullPrompt } = motionPrompt;
   const supportsAudio = videoModelSupportsAudio(model);
@@ -58,6 +65,14 @@ export function assembleMotionPrompt({
     switch (provider) {
       case 'Kling':
         assembled = buildKlingPrompt(fullPrompt, dialogueData, audioData);
+        break;
+      case 'ByteDance':
+        assembled = buildSeedancePrompt(
+          fullPrompt,
+          dialogueData,
+          audioData,
+          characterTags
+        );
         break;
       case 'Google':
       default:
@@ -108,6 +123,57 @@ function formatKlingDialogue(lines: DialogueLine[]): string {
       return `[${label}${tone}]: "${line.line}"`;
     })
     .join('\nImmediately, ');
+}
+
+// ---------------------------------------------------------------------------
+// ByteDance Seedance 2.0: sound as natural prose woven into the prompt — no
+// labeled sections. One ambient sentence, SFX tied to on-screen actions,
+// dialogue as `X says "…" in a [tone] voice` (lip-sync is weaker than
+// SFX/ambience, so dialogue stays concise). Seedance 2.0 has no
+// negative_prompt or camera_fixed parameters, so guards go in-prompt.
+// Guide: https://fal.ai/learn/devs/bytedance-seedance2-prompts
+// ---------------------------------------------------------------------------
+
+function buildSeedancePrompt(
+  fullPrompt: string,
+  dialogue: MotionDialogue | undefined,
+  audio: MotionAudio | undefined,
+  characterTags: readonly string[] | undefined
+): string {
+  const parts = [fullPrompt];
+
+  const soundProse: string[] = [];
+  if (audio?.ambientSound) soundProse.push(asSentence(audio.ambientSound));
+  if (audio && audio.soundEffects.length > 0) {
+    soundProse.push(asSentence(audio.soundEffects.join(', ')));
+  }
+  if (soundProse.length > 0) parts.push(soundProse.join(' '));
+
+  if (dialogue) {
+    const dialogueProse = dialogue.lines
+      .map((line) => {
+        const subject = line.character || 'A voice';
+        const tone = line.tone ? ` in a ${line.tone} voice` : '';
+        return `${subject} says "${line.line}"${tone}.`;
+      })
+      .join(' ');
+    parts.push(dialogueProse);
+  }
+
+  // Seedance invents edits otherwise, conflicting with one-scene-one-take.
+  const guards = ['Single continuous shot, no cuts.'];
+  // Standard guard from the ByteDance prompt guide for scenes with characters
+  if (characterTags && characterTags.length > 0) {
+    guards.push('Avoid jitter and bent limbs.');
+  }
+  parts.push(guards.join(' '));
+
+  return parts.join('\n\n');
+}
+
+function asSentence(text: string): string {
+  const trimmed = text.trim();
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
 }
 
 // ---------------------------------------------------------------------------

@@ -552,6 +552,7 @@ export const addModelToSequenceFn = createServerFn({ method: 'POST' })
           prompt: resolveMotionPrompt(f, model),
           model,
           motionPrompt: f.metadata?.prompts?.motion,
+          characterTags: f.metadata?.continuity?.characterTags,
           duration: f.durationMs
             ? f.durationMs / 1000
             : (f.metadata?.metadata?.durationSeconds ?? 3),

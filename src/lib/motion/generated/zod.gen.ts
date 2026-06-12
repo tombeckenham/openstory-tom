@@ -453,9 +453,9 @@ export const zSeedance20ImageToVideoOutput = z.object({
 });
 
 /**
- * Seedance2I2VEnterpriseInput
+ * Seedance2I2VInput
  */
-export const zSeedance20EnterpriseImageToVideoInput = z.object({
+export const zSeedance20EnterpriseV2ImageToVideoInput = z.object({
     resolution: z.enum([
         '480p',
         '720p',
@@ -518,7 +518,7 @@ export const zSeedance20EnterpriseImageToVideoInput = z.object({
 /**
  * Seedance2VideoOutput
  */
-export const zSeedance20EnterpriseImageToVideoOutput = z.object({
+export const zSeedance20EnterpriseV2ImageToVideoOutput = z.object({
     seed: z.int().register(z.globalRegistry, {
         description: 'The seed used for generation.'
     }),
@@ -837,13 +837,13 @@ export const zGetBytedanceSeedance20ImageToVideoRequestsByRequestIdPath = z.obje
  */
 export const zGetBytedanceSeedance20ImageToVideoRequestsByRequestIdResponse = zSeedance20ImageToVideoOutput;
 
-export const zGetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdStatusPath = z.object({
+export const zGetBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdStatusPath = z.object({
     request_id: z.string().register(z.globalRegistry, {
         description: 'Request ID'
     })
 });
 
-export const zGetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdStatusQuery = z.object({
+export const zGetBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdStatusQuery = z.object({
     logs: z.number().register(z.globalRegistry, {
         description: 'Whether to include logs (`1`) in the response or not (`0`).'
     }).optional()
@@ -852,9 +852,9 @@ export const zGetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdSta
 /**
  * The request status.
  */
-export const zGetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdStatusResponse = zQueueStatus;
+export const zGetBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdStatusResponse = zQueueStatus;
 
-export const zPutBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdCancelPath = z.object({
+export const zPutBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdCancelPath = z.object({
     request_id: z.string().register(z.globalRegistry, {
         description: 'Request ID'
     })
@@ -863,7 +863,7 @@ export const zPutBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdCan
 /**
  * The request was cancelled.
  */
-export const zPutBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdCancelResponse = z.object({
+export const zPutBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdCancelResponse = z.object({
     success: z.boolean().register(z.globalRegistry, {
         description: 'Whether the request was cancelled successfully.'
     }).optional()
@@ -871,14 +871,14 @@ export const zPutBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdCan
     description: 'The request was cancelled.'
 });
 
-export const zPostBytedanceSeedance20EnterpriseImageToVideoBody = zSeedance20EnterpriseImageToVideoInput;
+export const zPostBytedanceSeedance20EnterpriseV2ImageToVideoBody = zSeedance20EnterpriseV2ImageToVideoInput;
 
 /**
  * The request status.
  */
-export const zPostBytedanceSeedance20EnterpriseImageToVideoResponse = zQueueStatus;
+export const zPostBytedanceSeedance20EnterpriseV2ImageToVideoResponse = zQueueStatus;
 
-export const zGetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdPath = z.object({
+export const zGetBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdPath = z.object({
     request_id: z.string().register(z.globalRegistry, {
         description: 'Request ID'
     })
@@ -887,4 +887,4 @@ export const zGetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdPat
 /**
  * Result of the request.
  */
-export const zGetBytedanceSeedance20EnterpriseImageToVideoRequestsByRequestIdResponse = zSeedance20EnterpriseImageToVideoOutput;
+export const zGetBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdResponse = zSeedance20EnterpriseV2ImageToVideoOutput;

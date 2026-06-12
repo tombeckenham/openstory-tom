@@ -38,38 +38,6 @@ async function fetchOpenApiSpec(endpointId: string): Promise<OpenAPISpec> {
   return response.json();
 }
 
-// fal serves no public OpenAPI spec for unlisted enterprise endpoints (the
-// endpoint itself works, but the spec URL 404s). Their schema is identical to
-// the base endpoint's, so derive the spec from it via string renames of the
-// endpoint path and component schema names.
-const DERIVED_SPECS: Record<
-  string,
-  { baseId: string; renames: Array<[from: string, to: string]> }
-> = {
-  'bytedance/seedance-2.0/enterprise/image-to-video': {
-    baseId: 'bytedance/seedance-2.0/image-to-video',
-    renames: [
-      [
-        'bytedance/seedance-2.0/image-to-video',
-        'bytedance/seedance-2.0/enterprise/image-to-video',
-      ],
-      ['Seedance20ImageToVideo', 'Seedance20EnterpriseImageToVideo'],
-      ['Seedance2I2V', 'Seedance2I2VEnterprise'],
-    ],
-  },
-};
-
-function deriveSpec(
-  baseSpec: OpenAPISpec,
-  renames: Array<[from: string, to: string]>
-): OpenAPISpec {
-  let text = JSON.stringify(baseSpec);
-  for (const [from, to] of renames) {
-    text = text.replaceAll(from, to);
-  }
-  return JSON.parse(text);
-}
-
 async function main() {
   // Deduplicate endpoint IDs (kling_v3_pro and kling_v3_pro_no_audio share one)
   const endpointIds = [
@@ -81,21 +49,10 @@ async function main() {
   );
 
   const models = [];
-  const fetched = new Map<string, OpenAPISpec>();
 
   for (const id of endpointIds) {
     process.stdout.write(`  ${id} ... `);
-    const derived = DERIVED_SPECS[id];
-    let spec: OpenAPISpec;
-    if (derived) {
-      const baseSpec =
-        fetched.get(derived.baseId) ?? (await fetchOpenApiSpec(derived.baseId));
-      fetched.set(derived.baseId, baseSpec);
-      spec = deriveSpec(baseSpec, derived.renames);
-    } else {
-      spec = await fetchOpenApiSpec(id);
-      fetched.set(id, spec);
-    }
+    const spec = await fetchOpenApiSpec(id);
 
     // Add endpoint metadata (same format as fetch-openapi-models.ts)
     if (!spec.info) spec.info = {};
@@ -105,7 +62,7 @@ async function main() {
       endpoint_id: id,
       openapi: spec,
     });
-    console.log(derived ? `derived from ${derived.baseId}` : 'ok');
+    console.log('ok');
   }
 
   // Save in the same format fetch-openapi-models.ts uses

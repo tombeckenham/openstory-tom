@@ -198,6 +198,99 @@ describe('assembleMotionPrompt', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // ByteDance Seedance 2.0 (audio-capable — prose-woven sound + in-prompt guards)
+  // ---------------------------------------------------------------------------
+
+  describe('ByteDance Seedance 2.0 (audio)', () => {
+    const model = 'seedance_v2';
+
+    it('starts with fullPrompt as the base', () => {
+      const result = assembleMotionPrompt({
+        motionPrompt: makeMotionPrompt(),
+        model,
+      });
+
+      expect(result.startsWith(fullPromptText)).toBe(true);
+    });
+
+    it('weaves sound as prose without labeled sections', () => {
+      const result = assembleMotionPrompt({
+        motionPrompt: makeMotionPrompt(),
+        model,
+      });
+
+      expect(result).toContain('quiet office hum with keyboard clicks.');
+      expect(result).toContain('chair scrape, paper rustling.');
+      expect(result).not.toContain('Audio:');
+      expect(result).not.toContain('Ambient sounds:');
+    });
+
+    it('formats dialogue as X says "…" in a [tone] voice', () => {
+      const result = assembleMotionPrompt({
+        motionPrompt: makeMotionPrompt(),
+        model,
+      });
+
+      expect(result).toContain(
+        'Sarah says "We need to reconsider the entire approach." in a firm commanding voice.'
+      );
+      expect(result).toContain(
+        'James says "I couldn\'t agree more." in a soft resigned voice.'
+      );
+    });
+
+    it('always appends the single-continuous-shot guard', () => {
+      const result = assembleMotionPrompt({
+        motionPrompt: makeMotionPrompt(),
+        model,
+      });
+
+      expect(result).toContain('Single continuous shot, no cuts.');
+    });
+
+    it('adds the jitter guard only when the scene has characters', () => {
+      const withCharacters = assembleMotionPrompt({
+        motionPrompt: makeMotionPrompt(),
+        model,
+        characterTags: ['sarah', 'james'],
+      });
+      const withoutCharacters = assembleMotionPrompt({
+        motionPrompt: makeMotionPrompt(),
+        model,
+        characterTags: [],
+      });
+
+      expect(withCharacters).toContain('Avoid jitter and bent limbs.');
+      expect(withoutCharacters).not.toContain('Avoid jitter and bent limbs.');
+    });
+
+    it('applies guards for the enterprise model too', () => {
+      const result = assembleMotionPrompt({
+        motionPrompt: makeMotionPrompt(),
+        model: 'seedance_v2_enterprise',
+        characterTags: ['sarah'],
+      });
+
+      expect(result).toContain('Single continuous shot, no cuts.');
+      expect(result).toContain('Avoid jitter and bent limbs.');
+    });
+
+    it('omits dialogue and sound prose when absent, keeps guards', () => {
+      const result = assembleMotionPrompt({
+        motionPrompt: makeMotionPrompt({
+          dialogue: { presence: false, lines: [] },
+          audio: undefined,
+        }),
+        model,
+      });
+
+      expect(result).toBe(
+        `${fullPromptText}\n\nSingle continuous shot, no cuts.`
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Non-audio models (Grok, MiniMax)
   // ---------------------------------------------------------------------------
 

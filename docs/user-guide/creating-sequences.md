@@ -95,17 +95,14 @@ The AI model for generating scene images. You can select **multiple image models
 
 The AI model for image-to-video animation. Toggle **Auto-generate motion** to automatically create video clips for each scene after images are generated.
 
-| Model                 | Provider   | Est. Time                    |
-| --------------------- | ---------- | ---------------------------- |
-| LTX 2.3 Pro           | Lightricks | ~15s (open-source)           |
-| Veo 3.1               | Google     | ~25s                         |
-| Kling v3 Pro          | Kling      | ~20s (default)               |
-| Grok Imagine Video    | Grok       | ~20s                         |
-| MiniMax Hailuo 02     | MiniMax    | ~15s                         |
-| Seedance 2            | ByteDance  | ~20s (animation styles only) |
-| Seedance 2 Enterprise | ByteDance  | ~15s (all styles)            |
-
-Some motion models are restricted to specific style categories (e.g., Seedance 2 requires an animation style).
+| Model              | Provider   | Est. Time                    |
+| ------------------ | ---------- | ---------------------------- |
+| LTX 2.3 Pro        | Lightricks | ~15s (open-source)           |
+| Veo 3.1            | Google     | ~25s                         |
+| Kling v3 Pro       | Kling      | ~20s                         |
+| Grok Imagine Video | Grok       | ~20s                         |
+| MiniMax Hailuo 02  | MiniMax    | ~15s                         |
+| Seedance 2.0       | ByteDance  | ~15s (default; native audio) |
 
 ### Music Model
 

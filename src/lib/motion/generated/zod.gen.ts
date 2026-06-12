@@ -382,79 +382,6 @@ export const zMinimaxHailuo02ProImageToVideoOutput = z.object({
 /**
  * Seedance2I2VInput
  */
-export const zSeedance20ImageToVideoInput = z.object({
-    resolution: z.enum([
-        '480p',
-        '720p',
-        '1080p'
-    ]).register(z.globalRegistry, {
-        description: 'Video resolution - 480p for faster generation, 720p for balance, 1080p for highest quality.'
-    }).optional().default('720p'),
-    duration: z.enum([
-        'auto',
-        '4',
-        '5',
-        '6',
-        '7',
-        '8',
-        '9',
-        '10',
-        '11',
-        '12',
-        '13',
-        '14',
-        '15'
-    ]).register(z.globalRegistry, {
-        description: 'Duration of the video in seconds. Supports 4 to 15 seconds, or auto to let the model decide based on the prompt.'
-    }).optional().default('auto'),
-    prompt: z.string().register(z.globalRegistry, {
-        description: 'The text prompt describing the desired motion and action for the video.'
-    }),
-    end_user_id: z.union([
-        z.string(),
-        z.unknown()
-    ]).optional(),
-    aspect_ratio: z.enum([
-        'auto',
-        '21:9',
-        '16:9',
-        '4:3',
-        '1:1',
-        '3:4',
-        '9:16'
-    ]).register(z.globalRegistry, {
-        description: 'The aspect ratio of the generated video. Use 16:9 for landscape, 9:16 for portrait/vertical, 1:1 for square, 21:9 for ultrawide cinematic, or auto to infer from the input image.'
-    }).optional().default('auto'),
-    seed: z.union([
-        z.int(),
-        z.unknown()
-    ]).optional(),
-    end_image_url: z.union([
-        z.string(),
-        z.unknown()
-    ]).optional(),
-    generate_audio: z.boolean().register(z.globalRegistry, {
-        description: 'Whether to generate synchronized audio for the video, including sound effects, ambient sounds, and lip-synced speech. The cost of video generation is the same regardless of whether audio is generated or not.'
-    }).optional().default(true),
-    image_url: z.union([
-        z.string(),
-        z.string()
-    ])
-});
-
-/**
- * Seedance2VideoOutput
- */
-export const zSeedance20ImageToVideoOutput = z.object({
-    seed: z.int().register(z.globalRegistry, {
-        description: 'The seed used for generation.'
-    }),
-    video: zFile
-});
-
-/**
- * Seedance2I2VInput
- */
 export const zSeedance20EnterpriseV2ImageToVideoInput = z.object({
     resolution: z.enum([
         '480p',
@@ -784,58 +711,6 @@ export const zGetFalAiMinimaxHailuo02ProImageToVideoRequestsByRequestIdPath = z.
  * Result of the request.
  */
 export const zGetFalAiMinimaxHailuo02ProImageToVideoRequestsByRequestIdResponse = zMinimaxHailuo02ProImageToVideoOutput;
-
-export const zGetBytedanceSeedance20ImageToVideoRequestsByRequestIdStatusPath = z.object({
-    request_id: z.string().register(z.globalRegistry, {
-        description: 'Request ID'
-    })
-});
-
-export const zGetBytedanceSeedance20ImageToVideoRequestsByRequestIdStatusQuery = z.object({
-    logs: z.number().register(z.globalRegistry, {
-        description: 'Whether to include logs (`1`) in the response or not (`0`).'
-    }).optional()
-});
-
-/**
- * The request status.
- */
-export const zGetBytedanceSeedance20ImageToVideoRequestsByRequestIdStatusResponse = zQueueStatus;
-
-export const zPutBytedanceSeedance20ImageToVideoRequestsByRequestIdCancelPath = z.object({
-    request_id: z.string().register(z.globalRegistry, {
-        description: 'Request ID'
-    })
-});
-
-/**
- * The request was cancelled.
- */
-export const zPutBytedanceSeedance20ImageToVideoRequestsByRequestIdCancelResponse = z.object({
-    success: z.boolean().register(z.globalRegistry, {
-        description: 'Whether the request was cancelled successfully.'
-    }).optional()
-}).register(z.globalRegistry, {
-    description: 'The request was cancelled.'
-});
-
-export const zPostBytedanceSeedance20ImageToVideoBody = zSeedance20ImageToVideoInput;
-
-/**
- * The request status.
- */
-export const zPostBytedanceSeedance20ImageToVideoResponse = zQueueStatus;
-
-export const zGetBytedanceSeedance20ImageToVideoRequestsByRequestIdPath = z.object({
-    request_id: z.string().register(z.globalRegistry, {
-        description: 'Request ID'
-    })
-});
-
-/**
- * Result of the request.
- */
-export const zGetBytedanceSeedance20ImageToVideoRequestsByRequestIdResponse = zSeedance20ImageToVideoOutput;
 
 export const zGetBytedanceSeedance20EnterpriseV2ImageToVideoRequestsByRequestIdStatusPath = z.object({
     request_id: z.string().register(z.globalRegistry, {

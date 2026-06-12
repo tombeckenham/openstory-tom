@@ -216,9 +216,9 @@ describe('calculateVideoCost', () => {
     expect(cost).toBe(micros(850_000));
   });
 
-  test('Seedance 2 per_token at 720p ($0.014/1k tokens)', () => {
+  test('Seedance 2.0 per_token at 720p ($0.014/1k tokens)', () => {
     const cost = calculateVideoCost({
-      endpointId: 'bytedance/seedance-2.0/image-to-video',
+      endpointId: 'bytedance/seedance-2.0/enterprise/v2/image-to-video',
       durationSeconds: 5,
       resolution: '720p',
     });
@@ -227,9 +227,9 @@ describe('calculateVideoCost', () => {
     expect(cost).toBe(micros(1_587_600));
   });
 
-  test('Seedance 2 per_token at 1080p ($0.014/1k tokens)', () => {
+  test('Seedance 2.0 per_token at 1080p ($0.014/1k tokens)', () => {
     const cost = calculateVideoCost({
-      endpointId: 'bytedance/seedance-2.0/image-to-video',
+      endpointId: 'bytedance/seedance-2.0/enterprise/v2/image-to-video',
       durationSeconds: 5,
       resolution: '1080p',
     });
@@ -238,18 +238,9 @@ describe('calculateVideoCost', () => {
     expect(cost).toBe(micros(3_572_100));
   });
 
-  test('Seedance 2 Enterprise v2 per_token at 720p', () => {
-    const cost = calculateVideoCost({
-      endpointId: 'bytedance/seedance-2.0/enterprise/v2/image-to-video',
-      durationSeconds: 5,
-      resolution: '720p',
-    });
-    expect(cost).toBe(micros(1_587_600));
-  });
-
   test('per_token explicit dimensions take precedence over resolution', () => {
     const cost = calculateVideoCost({
-      endpointId: 'bytedance/seedance-2.0/image-to-video',
+      endpointId: 'bytedance/seedance-2.0/enterprise/v2/image-to-video',
       durationSeconds: 5,
       resolution: '720p',
       widthPx: 1920,

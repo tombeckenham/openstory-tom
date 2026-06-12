@@ -52,15 +52,14 @@ Most image models support **reference image editing** via dedicated edit endpoin
 
 These models animate still images into video clips.
 
-| Model                 | Provider   | Est. Time | License     | Notes                 |
-| --------------------- | ---------- | --------- | ----------- | --------------------- |
-| **LTX 2.3 Pro**       | Lightricks | ~15s      | Open Source | Best quality ranking  |
-| Veo 3.1               | Google     | ~25s      | Proprietary | 20K max prompt length |
-| **Kling v3 Pro**      | Kling      | ~20s      | Proprietary | Default model         |
-| Grok Imagine Video    | Grok       | ~20s      | Proprietary |                       |
-| MiniMax Hailuo 02     | MiniMax    | ~15s      | Proprietary |                       |
-| Seedance 2            | ByteDance  | ~20s      | Proprietary | Animation styles only |
-| Seedance 2 Enterprise | ByteDance  | ~15s      | Proprietary | All styles            |
+| Model              | Provider   | Est. Time | License     | Notes                 |
+| ------------------ | ---------- | --------- | ----------- | --------------------- |
+| **LTX 2.3 Pro**    | Lightricks | ~15s      | Open Source | Best quality ranking  |
+| Veo 3.1            | Google     | ~25s      | Proprietary | 20K max prompt length |
+| Kling v3 Pro       | Kling      | ~20s      | Proprietary |                       |
+| Grok Imagine Video | Grok       | ~20s      | Proprietary |                       |
+| MiniMax Hailuo 02  | MiniMax    | ~15s      | Proprietary |                       |
+| **Seedance 2.0**   | ByteDance  | ~15s      | Proprietary | Default; native audio |
 
 ### Aspect Ratio Compatibility
 

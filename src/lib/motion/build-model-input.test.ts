@@ -110,16 +110,9 @@ describe('buildModelInput', () => {
     });
   });
 
-  describe('Seedance v2', () => {
+  describe('Seedance 2.0', () => {
     it('uses image_url', () => {
       const result = build('seedance_v2');
-      expect(result).toHaveProperty('image_url', baseOptions.imageUrl);
-    });
-  });
-
-  describe('Seedance 2 Enterprise', () => {
-    it('uses image_url', () => {
-      const result = build('seedance_v2_enterprise');
       expect(result).toHaveProperty('image_url', baseOptions.imageUrl);
     });
   });
@@ -147,20 +140,6 @@ describe('buildModelInput', () => {
       veo3_1: ['4s', '6s', '8s'],
       ltx_2_3_pro: [6, 8, 10],
       seedance_v2: [
-        '4',
-        '5',
-        '6',
-        '7',
-        '8',
-        '9',
-        '10',
-        '11',
-        '12',
-        '13',
-        '14',
-        '15',
-      ],
-      seedance_v2_enterprise: [
         '4',
         '5',
         '6',

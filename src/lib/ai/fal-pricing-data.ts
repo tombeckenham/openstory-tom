@@ -192,12 +192,6 @@ export const VIDEO_PRICING: Record<string, VideoPricing> = {
     pricingNotes:
       'Your request will cost **$0.014 per 1000 tokens**. The number of tokens is given by (height of output video * width of output video * duration * 24) / 1024 — about **$0.30/second** at 720p. Audio generation does not change the price.\n\nFor more details, see [fal.ai pricing](https://fal.ai/pricing).',
   },
-  'bytedance/seedance-2.0/image-to-video': {
-    mode: 'per_token',
-    pricePerMillionTokens: micros(14_000_000),
-    pricingNotes:
-      'Your request will cost **$0.014 per 1000 tokens**. The number of tokens is given by (height of output video * width of output video * duration * 24) / 1024 — about **$0.30/second** at 720p, **$0.68/second** at 1080p. Audio generation does not change the price.\n\nFor more details, see [fal.ai pricing](https://fal.ai/pricing).',
-  },
   'fal-ai/kling-video/v3/pro/image-to-video': {
     mode: 'per_second',
     basePrice: micros(140_000),

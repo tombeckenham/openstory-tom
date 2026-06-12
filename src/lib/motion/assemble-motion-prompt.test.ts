@@ -264,17 +264,6 @@ describe('assembleMotionPrompt', () => {
       expect(withoutCharacters).not.toContain('Avoid jitter and bent limbs.');
     });
 
-    it('applies guards for the enterprise model too', () => {
-      const result = assembleMotionPrompt({
-        motionPrompt: makeMotionPrompt(),
-        model: 'seedance_v2_enterprise',
-        characterTags: ['sarah'],
-      });
-
-      expect(result).toContain('Single continuous shot, no cuts.');
-      expect(result).toContain('Avoid jitter and bent limbs.');
-    });
-
     it('omits dialogue and sound prose when absent, keeps guards', () => {
       const result = assembleMotionPrompt({
         motionPrompt: makeMotionPrompt({

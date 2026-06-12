@@ -79,18 +79,8 @@ export const IMAGE_TO_VIDEO_MODELS = {
     performance: { estimatedGenerationTime: 15, quality: 'best' as const },
   },
   seedance_v2: {
-    id: 'bytedance/seedance-2.0/image-to-video',
-    name: 'Seedance 2',
-    provider: 'ByteDance',
-    license: 'proprietary' as const,
-    qualityRank: 2,
-    maxPromptLength: 4096,
-    performance: { estimatedGenerationTime: 20, quality: 'best' as const },
-    requiredStyleCategory: 'animation',
-  },
-  seedance_v2_enterprise: {
     id: 'bytedance/seedance-2.0/enterprise/v2/image-to-video',
-    name: 'Seedance 2 Enterprise',
+    name: 'Seedance 2.0',
     provider: 'ByteDance',
     license: 'proprietary' as const,
     qualityRank: 2,
@@ -239,7 +229,7 @@ export function getImageModelById(id: string): ImageModelConfig | undefined {
 // Image to video model types
 export type ImageToVideoModel = keyof typeof IMAGE_TO_VIDEO_MODELS;
 
-export const DEFAULT_VIDEO_MODEL: ImageToVideoModel = 'grok_imagine_video_1_5';
+export const DEFAULT_VIDEO_MODEL: ImageToVideoModel = 'seedance_v2';
 
 function schemaOf(modelKey: ImageToVideoModel) {
   return MOTION_INPUT_SCHEMAS[IMAGE_TO_VIDEO_MODELS[modelKey].id];

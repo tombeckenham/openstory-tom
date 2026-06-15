@@ -208,14 +208,35 @@ export function createFramesMethods(db: Database) {
       frameOrders: Array<{ id: string; order_index: number }>
     ): Promise<void> => {
       if (frameOrders.length === 0) return;
-      const [first, ...rest] = frameOrders.map((frameOrder) =>
-        db
-          .update(frames)
-          .set({ orderIndex: frameOrder.order_index, updatedAt: new Date() })
-          .where(eq(frames.id, frameOrder.id))
+      // Two-phase update to avoid tripping the (sequence_id, order_index)
+      // unique index. SQLite checks UNIQUE constraints immediately (per
+      // statement), so updating a frame to an index another not-yet-moved
+      // frame still holds — unavoidable in any non-trivial reorder — would
+      // collide. Phase 1 parks every frame in a distinct negative slot (which
+      // can't collide with the non-negative final values), phase 2 assigns the
+      // real indices. Callers MUST pass the full set of frames for the
+      // sequence so no row is left holding a final value during phase 2.
+      const buildBatch = (
+        updates: Array<{ id: string; orderIndex: number }>
+      ) => {
+        const [first, ...rest] = updates.map((u) =>
+          db
+            .update(frames)
+            .set({ orderIndex: u.orderIndex, updatedAt: new Date() })
+            .where(eq(frames.id, u.id))
+        );
+        return first ? ([first, ...rest] as const) : null;
+      };
+
+      const tempBatch = buildBatch(
+        frameOrders.map((f, i) => ({ id: f.id, orderIndex: -(i + 1) }))
       );
-      if (!first) return;
-      await db.batch([first, ...rest]);
+      const finalBatch = buildBatch(
+        frameOrders.map((f) => ({ id: f.id, orderIndex: f.order_index }))
+      );
+      if (!tempBatch || !finalBatch) return;
+      await db.batch(tempBatch);
+      await db.batch(finalBatch);
     },
 
     getByIds: async (frameIds: string[]): Promise<Frame[]> => {

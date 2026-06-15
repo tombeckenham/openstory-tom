@@ -12,9 +12,26 @@ import {
 } from '@/lib/ai/models';
 import type { AspectRatio } from '@/lib/constants/aspect-ratios';
 import type { Frame, FrameVariant } from '@/lib/db/schema';
+import { useReorderFrames } from '@/hooks/use-frames';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { Loader2, Video } from 'lucide-react';
 import { memo, useMemo, useRef, useState } from 'react';
 import { SceneListItem } from './scene-list-item';
+import { SortableSceneItem } from './sortable-scene-item';
 
 export type BatchGenerateMotionArgs = {
   includeMusic: boolean;
@@ -27,6 +44,8 @@ export type BatchGenerateMotionArgs = {
 
 type SceneListProps = {
   frames?: Frame[] | undefined;
+  /** Sequence the frames belong to — required for drag-to-reorder. */
+  sequenceId: string;
   selectedFrameId?: string;
   aspectRatio: AspectRatio;
   onSelectFrame: (frameId: string) => void;
@@ -63,6 +82,7 @@ const isCompleted = (frame: Frame) => {
 
 const SceneListComponent: React.FC<SceneListProps> = ({
   frames,
+  sequenceId,
   selectedFrameId,
   aspectRatio,
   onSelectFrame,
@@ -89,6 +109,29 @@ const SceneListComponent: React.FC<SceneListProps> = ({
     }
     return map;
   }, [divergentVariants]);
+
+  const reorderFrames = useReorderFrames();
+  const sensors = useSensors(
+    // Small activation distance so a click on the grip that doesn't move still
+    // behaves like a click rather than starting a drag.
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const frameIds = useMemo(() => (frames ?? []).map((f) => f.id), [frames]);
+  const canReorder = (frames?.length ?? 0) > 1;
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = frameIds.indexOf(String(active.id));
+    const newIndex = frameIds.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const orderedFrameIds = arrayMove(frameIds, oldIndex, newIndex);
+    reorderFrames.mutate({ sequenceId, orderedFrameIds });
+  };
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [includeMusic, setIncludeMusic] = useState(true);
@@ -193,33 +236,50 @@ const SceneListComponent: React.FC<SceneListProps> = ({
               />
             ))}
 
-          {frames &&
-            frames.map((frame) => {
-              const divergent = divergentByFrameId.get(frame.id);
-              return (
-                <SceneListItem
-                  key={frame.id}
-                  frame={frame}
-                  aspectRatio={aspectRatio}
-                  isActive={frame.id === selectedFrameId}
-                  isCompleted={isCompleted(frame)}
-                  onSelect={() => onSelectFrame(frame.id)}
-                  isRegeneratingImage={regeneratingImages.has(frame.id)}
-                  isRegeneratingMotion={regeneratingMotion.has(frame.id)}
-                  divergentVariantId={divergent?.id}
-                  onCompareDivergent={
-                    divergent
-                      ? () => onCompareDivergent?.(divergent)
-                      : undefined
-                  }
-                  modelMissing={
-                    !!modelMissingLabel &&
-                    (modelMissingFrameIds?.has(frame.id) ?? false)
-                  }
-                  modelMissingLabel={modelMissingLabel}
-                />
-              );
-            })}
+          {frames && (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={frameIds}
+                strategy={verticalListSortingStrategy}
+              >
+                {frames.map((frame) => {
+                  const divergent = divergentByFrameId.get(frame.id);
+                  return (
+                    <SortableSceneItem
+                      key={frame.id}
+                      id={frame.id}
+                      disabled={!canReorder}
+                    >
+                      <SceneListItem
+                        frame={frame}
+                        aspectRatio={aspectRatio}
+                        isActive={frame.id === selectedFrameId}
+                        isCompleted={isCompleted(frame)}
+                        onSelect={() => onSelectFrame(frame.id)}
+                        isRegeneratingImage={regeneratingImages.has(frame.id)}
+                        isRegeneratingMotion={regeneratingMotion.has(frame.id)}
+                        divergentVariantId={divergent?.id}
+                        onCompareDivergent={
+                          divergent
+                            ? () => onCompareDivergent?.(divergent)
+                            : undefined
+                        }
+                        modelMissing={
+                          !!modelMissingLabel &&
+                          (modelMissingFrameIds?.has(frame.id) ?? false)
+                        }
+                        modelMissingLabel={modelMissingLabel}
+                      />
+                    </SortableSceneItem>
+                  );
+                })}
+              </SortableContext>
+            </DndContext>
+          )}
         </div>
       </ScrollArea>
 
@@ -318,6 +378,7 @@ const areEqual = (
 ): boolean => {
   // Compare primitive props
   if (
+    prevProps.sequenceId !== nextProps.sequenceId ||
     prevProps.selectedFrameId !== nextProps.selectedFrameId ||
     prevProps.aspectRatio !== nextProps.aspectRatio ||
     prevProps.musicPromptsReady !== nextProps.musicPromptsReady ||

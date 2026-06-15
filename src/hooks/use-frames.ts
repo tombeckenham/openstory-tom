@@ -11,6 +11,7 @@ import {
   getSequenceImageVariantsFn,
   getSequenceVideoModelsFn,
   getSequenceVideoVariantsFn,
+  reorderFramesFn,
 } from '@/functions/frames';
 import {
   generateFrameVariantsFn,
@@ -206,6 +207,68 @@ export function useFramesBySequence(
     refetchOnMount: 'always', // Always refetch on mount to ensure fresh data
     refetchOnWindowFocus: true, // Refetch when window regains focus
     enabled: !!sequenceId,
+  });
+}
+
+// Hook for reordering frames via drag-and-drop. Optimistically reorders the
+// cached list (and reassigns sequential orderIndex) so the UI updates instantly,
+// rolling back on error. `orderedFrameIds` must list ALL frames in the sequence
+// in their new order — the server reassigns indices 0..n-1 from this order.
+export function useReorderFrames() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    { success: true },
+    Error,
+    { sequenceId: string; orderedFrameIds: string[] },
+    { previousFrames?: Frame[] }
+  >({
+    mutationFn: async ({ sequenceId, orderedFrameIds }) => {
+      const frameOrders = orderedFrameIds.map((id, index) => ({
+        id,
+        orderIndex: index,
+      }));
+      return reorderFramesFn({ data: { sequenceId, frameOrders } });
+    },
+    onMutate: async ({ sequenceId, orderedFrameIds }) => {
+      await queryClient.cancelQueries({ queryKey: frameKeys.list(sequenceId) });
+
+      const previousFrames = queryClient.getQueryData<Frame[]>(
+        frameKeys.list(sequenceId)
+      );
+
+      queryClient.setQueryData<Frame[]>(
+        frameKeys.list(sequenceId),
+        (oldFrames) => {
+          if (!oldFrames) return oldFrames;
+          const byId = new Map(oldFrames.map((f) => [f.id, f]));
+          const reordered = orderedFrameIds
+            .map((id, index) => {
+              const frame = byId.get(id);
+              return frame ? { ...frame, orderIndex: index } : undefined;
+            })
+            .filter((f): f is Frame => f !== undefined);
+          // Guard against a stale id set: fall back to the existing order if
+          // the optimistic result would drop frames.
+          return reordered.length === oldFrames.length ? reordered : oldFrames;
+        }
+      );
+
+      return { previousFrames };
+    },
+    onError: (_error, { sequenceId }, ctx) => {
+      if (ctx?.previousFrames) {
+        queryClient.setQueryData(
+          frameKeys.list(sequenceId),
+          ctx.previousFrames
+        );
+      }
+    },
+    onSettled: async (_data, _error, { sequenceId }) => {
+      await queryClient.invalidateQueries({
+        queryKey: frameKeys.list(sequenceId),
+      });
+    },
   });
 }
 

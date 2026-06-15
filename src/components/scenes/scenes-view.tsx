@@ -937,6 +937,7 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
         <div className="hidden md:block pl-4 py-4">
           <SceneList
             frames={frames}
+            sequenceId={sequenceId}
             selectedFrameId={curSelectedFrameId}
             aspectRatio={aspectRatio}
             onSelectFrame={setSelectedFrameId}

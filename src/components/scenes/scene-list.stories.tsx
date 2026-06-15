@@ -18,6 +18,7 @@ const meta: Meta<typeof SceneList> = {
   },
   args: {
     frames: [],
+    sequenceId: 'mock-sequence-id',
     selectedFrameId: undefined,
     aspectRatio: DEFAULT_ASPECT_RATIO,
     onSelectFrame: () => console.log('onSelectFrame'),

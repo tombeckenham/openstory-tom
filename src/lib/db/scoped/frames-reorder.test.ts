@@ -103,7 +103,9 @@ beforeEach(async () => {
 describe('frames.reorder', () => {
   it('swaps two adjacent frames without tripping the unique index', async () => {
     // Swap indices 0 and 1 — the case a naive single-pass batch collides on.
-    const next = [frameIds[1]!, frameIds[0]!, frameIds[2]!, frameIds[3]!];
+    const [f0, f1, f2, f3] = frameIds;
+    if (!f0 || !f1 || !f2 || !f3) throw new Error('expected 4 seeded frames');
+    const next = [f1, f0, f2, f3];
     await methods.reorder(
       sequenceId,
       next.map((id, index) => ({ id, order_index: index }))
@@ -121,7 +123,7 @@ describe('frames.reorder', () => {
   });
 
   it('moves the first frame to the end (rotation)', async () => {
-    const next = [frameIds[1]!, frameIds[2]!, frameIds[3]!, frameIds[0]!];
+    const next = [...frameIds.slice(1), ...frameIds.slice(0, 1)];
     await methods.reorder(
       sequenceId,
       next.map((id, index) => ({ id, order_index: index }))

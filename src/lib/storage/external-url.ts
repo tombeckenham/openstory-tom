@@ -53,9 +53,14 @@ async function readStoredBytes(
  * absolutize; local `/r2/` URLs are uploaded to fal storage (short-lived
  * scratch space — these are model inputs, not user content); everything else
  * passes through.
+ *
+ * `falApiKey` credentials the storage client — pass the caller's resolved fal
+ * key (BYOK when present) so the upload authenticates on deployments with no
+ * platform `FAL_KEY`; falls back to the platform key (#924).
  */
 export async function ensureExternallyFetchableUrl(
-  url: string
+  url: string,
+  falApiKey?: string
 ): Promise<string> {
   const key = r2KeyFromUrl(url);
   if (key === null) return url;
@@ -63,16 +68,19 @@ export async function ensureExternallyFetchableUrl(
   if (cdnUrl) return cdnUrl;
   if (isReplayMode()) return url;
   const { bytes, contentType } = await readStoredBytes(key);
-  const fal = createFalClient({ credentials: getEnv().FAL_KEY });
+  const fal = createFalClient({ credentials: falApiKey ?? getEnv().FAL_KEY });
   const filename = key.split('/').pop() || 'upload';
   const file = new File([bytes], filename, { type: contentType });
   return fal.storage.upload(file);
 }
 
 export async function ensureExternallyFetchableUrls(
-  urls: string[]
+  urls: string[],
+  falApiKey?: string
 ): Promise<string[]> {
-  return Promise.all(urls.map((url) => ensureExternallyFetchableUrl(url)));
+  return Promise.all(
+    urls.map((url) => ensureExternallyFetchableUrl(url, falApiKey))
+  );
 }
 
 /**

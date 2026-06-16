@@ -9,9 +9,8 @@ const readStorageObject = vi.fn();
 vi.doMock('#storage', () => ({ readStorageObject }));
 
 const falUpload = vi.fn<(file: File) => Promise<string>>();
-vi.doMock('@fal-ai/client', () => ({
-  createFalClient: () => ({ storage: { upload: falUpload } }),
-}));
+const createFalClient = vi.fn(() => ({ storage: { upload: falUpload } }));
+vi.doMock('@fal-ai/client', () => ({ createFalClient }));
 
 // Dynamic import so the mocks apply (vi.doMock is not hoisted).
 const {
@@ -29,6 +28,7 @@ beforeEach(() => {
   setEnv({});
   readStorageObject.mockReset();
   falUpload.mockReset();
+  createFalClient.mockClear();
 });
 
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
@@ -93,6 +93,42 @@ describe('ensureExternallyFetchableUrl', () => {
     expect(uploaded?.type).toBe('image/png');
   });
 
+  it('uploads with the caller-supplied BYOK key when no platform FAL_KEY is set (#924)', async () => {
+    // BYOK-only deployment: no platform FAL_KEY in env.
+    setEnv({});
+    readStorageObject.mockResolvedValue({
+      bytes: PNG_BYTES,
+      contentType: 'image/png',
+    });
+    falUpload.mockResolvedValue('https://v3.fal.media/files/b/abc/frame.png');
+
+    await expect(
+      ensureExternallyFetchableUrl(
+        '/r2/thumbnails/team/frame.png',
+        'byok-team-key'
+      )
+    ).resolves.toBe('https://v3.fal.media/files/b/abc/frame.png');
+
+    expect(createFalClient).toHaveBeenCalledWith({
+      credentials: 'byok-team-key',
+    });
+  });
+
+  it('falls back to the platform FAL_KEY when no key is supplied', async () => {
+    setEnv({ FAL_KEY: 'platform-key' });
+    readStorageObject.mockResolvedValue({
+      bytes: PNG_BYTES,
+      contentType: 'image/png',
+    });
+    falUpload.mockResolvedValue('https://v3.fal.media/files/b/abc/frame.png');
+
+    await ensureExternallyFetchableUrl('/r2/thumbnails/team/frame.png');
+
+    expect(createFalClient).toHaveBeenCalledWith({
+      credentials: 'platform-key',
+    });
+  });
+
   it('throws on a missing stored object instead of sending a broken URL', async () => {
     readStorageObject.mockResolvedValue(null);
 
@@ -117,6 +153,24 @@ describe('ensureExternallyFetchableUrls', () => {
       'https://storage.example.com/talent/team/ref.png',
       'https://v3.fal.media/files/b/abc/out.png',
     ]);
+  });
+
+  it('threads the supplied fal key into each upload (#924)', async () => {
+    setEnv({});
+    readStorageObject.mockResolvedValue({
+      bytes: PNG_BYTES,
+      contentType: 'image/png',
+    });
+    falUpload.mockResolvedValue('https://v3.fal.media/files/b/abc/ref.png');
+
+    await ensureExternallyFetchableUrls(
+      ['/r2/talent/team/ref.png'],
+      'byok-team-key'
+    );
+
+    expect(createFalClient).toHaveBeenCalledWith({
+      credentials: 'byok-team-key',
+    });
   });
 });
 

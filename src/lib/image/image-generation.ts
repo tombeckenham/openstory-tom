@@ -159,23 +159,28 @@ async function generateImageInternal(
   modelId: string,
   options?: ImageGenerationOptions
 ): Promise<ImageGenerationResult> {
+  // Get the fal API key - byok or global. Resolved BEFORE normalizing
+  // reference URLs: the fal-storage upload below authenticates with this key,
+  // so on a BYOK-only deployment (no platform FAL_KEY) the platform key would
+  // be empty and the upload would fail with "Authorization header is required"
+  // before we ever reach generation (#924).
+  const falApiKeyInfo = options?.scopedDb
+    ? await options.scopedDb.apiKeys.resolveKey('fal')
+    : { key: getEnv().FAL_KEY, source: 'platform' as const };
+
   // Locally-served /r2/ reference URLs aren't reachable by real fal — swap
   // them for fal-storage uploads first (no-op in prod and e2e replay).
   const params: ImageGenerationParams = rawParams.referenceImageUrls?.length
     ? {
         ...rawParams,
         referenceImageUrls: await ensureExternallyFetchableUrls(
-          rawParams.referenceImageUrls
+          rawParams.referenceImageUrls,
+          falApiKeyInfo.key
         ),
       }
     : rawParams;
   const prompt = truncatePromptForModel(params.prompt, params.model);
   const startTime = Date.now();
-
-  // Get the fal API key - byok or global
-  const falApiKeyInfo = options?.scopedDb
-    ? await options.scopedDb.apiKeys.resolveKey('fal')
-    : { key: getEnv().FAL_KEY, source: 'platform' as const };
 
   const modelOptions = buildFalModelOptions(params);
 

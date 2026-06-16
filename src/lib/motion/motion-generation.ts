@@ -74,9 +74,21 @@ export async function submitMotionJob(
   const modelKey = options.model || DEFAULT_VIDEO_MODEL;
   const modelConfig = IMAGE_TO_VIDEO_MODELS[modelKey];
 
+  // Resolve the API key for the motion generation with BYOK if available.
+  // Resolved BEFORE normalizing the image URL: the fal-storage upload below
+  // authenticates with this key, so on a BYOK-only deployment (no platform
+  // FAL_KEY) the platform key would be empty and the upload would fail with
+  // "Authorization header is required" before submission (#924).
+  const falApiKeyInfo = options.scopedDb
+    ? await options.scopedDb.apiKeys.resolveKey('fal')
+    : { key: getEnv().FAL_KEY, source: 'platform' as const };
+
   // Locally-served /r2/ image URLs aren't reachable by real fal — swap them
   // for a fal-storage upload first (no-op in prod and e2e replay).
-  const imageUrl = await ensureExternallyFetchableUrl(options.imageUrl);
+  const imageUrl = await ensureExternallyFetchableUrl(
+    options.imageUrl,
+    falApiKeyInfo.key
+  );
 
   // Prepare the model input
   const modelInput = buildModelInput(
@@ -96,11 +108,6 @@ export async function submitMotionJob(
     promptLength: optimisedPrompt.length,
     modelOptions,
   });
-
-  // Resolve the API key for the motion generation with BYOK if available
-  const falApiKeyInfo = options.scopedDb
-    ? await options.scopedDb.apiKeys.resolveKey('fal')
-    : { key: getEnv().FAL_KEY, source: 'platform' as const };
 
   // Create the Tanstack AI adapter and submit the job
   // Note this is typesafe - only options compatible with modelConfig.id are allowed

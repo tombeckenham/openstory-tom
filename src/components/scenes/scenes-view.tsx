@@ -19,6 +19,7 @@ import {
   useDivergentVariants,
   useFramesBySequence,
   usePromoteVariantToPrimary,
+  useReorderFrames,
   useSequenceVideoVariants,
   useUndiscardVariant,
 } from '@/hooks/use-frames';
@@ -322,6 +323,13 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
   const promoteVariant = usePromoteVariantToPrimary();
   const discardVariant = useDiscardVariant();
   const undiscardVariant = useUndiscardVariant();
+  const { mutate: reorderFrames } = useReorderFrames();
+  const handleReorderScenes = useCallback(
+    (orderedFrameIds: string[]) => {
+      reorderFrames({ sequenceId, orderedFrameIds });
+    },
+    [reorderFrames, sequenceId]
+  );
   const [compareVariant, setCompareVariant] = useState<FrameVariant | null>(
     null
   );
@@ -954,6 +962,7 @@ export const ScenesView: React.FC<ScenesViewProps> = ({ sequenceId }) => {
             styleCategory={styleCategory}
             modelMissingFrameIds={framesMissingActiveImage}
             modelMissingLabel={activeImageModelLabel}
+            onReorder={handleReorderScenes}
           />
         </div>
 

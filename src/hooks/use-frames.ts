@@ -11,7 +11,9 @@ import {
   getSequenceImageVariantsFn,
   getSequenceVideoModelsFn,
   getSequenceVideoVariantsFn,
+  reorderFramesFn,
 } from '@/functions/frames';
+import { toast } from 'sonner';
 import {
   generateFrameVariantsFn,
   selectFrameVariantFn,
@@ -206,6 +208,60 @@ export function useFramesBySequence(
     refetchOnMount: 'always', // Always refetch on mount to ensure fresh data
     refetchOnWindowFocus: true, // Refetch when window regains focus
     enabled: !!sequenceId,
+  });
+}
+
+// Reorder the scenes of a sequence. Optimistically reorders the cached frame
+// list (and renumbers metadata.sceneNumber to match position) so the UI snaps
+// immediately, then rolls back on error. The server is the source of truth for
+// orderIndex and re-renumbers on its side too.
+export function useReorderFrames() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    { success: boolean },
+    Error,
+    { sequenceId: string; orderedFrameIds: string[] },
+    { previous: Frame[] | undefined }
+  >({
+    mutationFn: async ({ sequenceId, orderedFrameIds }) =>
+      reorderFramesFn({ data: { sequenceId, orderedFrameIds } }),
+    onMutate: async ({ sequenceId, orderedFrameIds }) => {
+      await queryClient.cancelQueries({ queryKey: frameKeys.list(sequenceId) });
+      const previous = queryClient.getQueryData<Frame[]>(
+        frameKeys.list(sequenceId)
+      );
+      queryClient.setQueryData<Frame[]>(frameKeys.list(sequenceId), (old) => {
+        if (!old) return old;
+        const byId = new Map(old.map((f) => [f.id, f]));
+        const reordered = orderedFrameIds
+          .map((id, index) => {
+            const frame = byId.get(id);
+            if (!frame) return undefined;
+            return {
+              ...frame,
+              orderIndex: index,
+              metadata: frame.metadata
+                ? { ...frame.metadata, sceneNumber: index + 1 }
+                : frame.metadata,
+            };
+          })
+          .filter((f): f is Frame => f !== undefined);
+        // Guard against a partial map (id mismatch): fall back to the original.
+        return reordered.length === old.length ? reordered : old;
+      });
+      return { previous };
+    },
+    onError: (_err, { sequenceId }, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(frameKeys.list(sequenceId), ctx.previous);
+      }
+      toast.error('Failed to reorder scenes. Please try again.');
+    },
+    onSettled: (_data, _err, { sequenceId }) => {
+      void queryClient.invalidateQueries({
+        queryKey: frameKeys.list(sequenceId),
+      });
+    },
   });
 }
 

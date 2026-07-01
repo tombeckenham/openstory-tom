@@ -18,6 +18,7 @@ import {
   updateFrameSchema,
 } from '@/lib/schemas/frame.schemas';
 import { ulidSchema } from '@/lib/schemas/id.schemas';
+import { buildFrameReorder } from '@/lib/scenes/reorder-frames';
 import { rescanContinuityFromPrompt } from '@/lib/scenes/rescan-continuity-from-prompt';
 import { buildRegenerateFrameSnapshot } from '@/lib/workflows/regenerate-frames-snapshot';
 import { createServerFn } from '@tanstack/react-start';
@@ -536,18 +537,28 @@ export const reorderFramesFn = createServerFn({ method: 'POST' })
     zodValidator(
       z.object({
         sequenceId: ulidSchema,
-        frameOrders: z
-          .array(z.object({ id: ulidSchema, orderIndex: z.number().int() }))
-          .min(1),
+        // Full top-to-bottom order of the sequence's frame ids.
+        orderedFrameIds: z.array(ulidSchema).min(1),
       })
     )
   )
   .handler(async ({ data, context }) => {
-    const frameOrders = data.frameOrders.map((f) => ({
-      id: f.id,
-      order_index: f.orderIndex,
-    }));
-    await context.scopedDb.frames.reorder(data.sequenceId, frameOrders);
+    const existing = await context.scopedDb.frames.listBySequence(
+      context.sequence.id
+    );
+    // Validates the id set + renumbers metadata.sceneNumber to match position.
+    const updates = buildFrameReorder(
+      existing.map((f) => ({ id: f.id, metadata: f.metadata })),
+      data.orderedFrameIds
+    );
+    await context.scopedDb.frames.reorder(
+      context.sequence.id,
+      updates.map((u) => ({
+        id: u.id,
+        order_index: u.orderIndex,
+        metadata: u.metadata,
+      }))
+    );
     return { success: true };
   });
 

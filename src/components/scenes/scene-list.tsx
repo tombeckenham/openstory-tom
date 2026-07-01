@@ -12,7 +12,25 @@ import {
 } from '@/lib/ai/models';
 import type { AspectRatio } from '@/lib/constants/aspect-ratios';
 import type { Frame, FrameVariant } from '@/lib/db/schema';
-import { Loader2, Video } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical, Loader2, Video } from 'lucide-react';
 import { memo, useMemo, useRef, useState } from 'react';
 import { SceneListItem } from './scene-list-item';
 
@@ -53,12 +71,75 @@ type SceneListProps = {
   modelMissingFrameIds?: Set<string>;
   /** Name of the pinned image model, for the per-card "No {model}" badge. */
   modelMissingLabel?: string | null;
+  /**
+   * Commit a new top-to-bottom scene order. Receives the full ordered list of
+   * frame ids. When provided (and there is more than one frame), each card gets
+   * a drag handle and the list becomes sortable.
+   */
+  onReorder?: (orderedFrameIds: string[]) => void;
 };
 
 const isCompleted = (frame: Frame) => {
   const isFullyGenerated =
     frame.thumbnailStatus === 'completed' && frame.videoStatus === 'completed';
   return isFullyGenerated;
+};
+
+const sceneLabel = (frame: Frame): string =>
+  frame.metadata?.metadata?.title ??
+  `Scene ${frame.metadata?.sceneNumber ?? frame.orderIndex + 1}`;
+
+// Wraps a scene card so it can be dragged to a new position. The drag handle is
+// an overlaid grip button (keyboard-activatable via the dnd-kit KeyboardSensor)
+// so the card body stays a plain click target for selection.
+const SortableSceneRow: React.FC<{
+  id: string;
+  label: string;
+  children: React.ReactNode;
+}> = ({ id, label, children }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    position: 'relative',
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn('group/sortable', isDragging && 'opacity-80')}
+    >
+      <button
+        type="button"
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        onClick={(e) => e.stopPropagation()}
+        aria-label={`Drag to reorder ${label}`}
+        className={cn(
+          'absolute left-1.5 top-1.5 z-20 flex h-6 w-6 touch-none items-center justify-center',
+          'rounded-md bg-background/80 text-muted-foreground opacity-60 shadow-sm',
+          'transition-opacity hover:bg-muted hover:text-foreground',
+          'cursor-grab active:cursor-grabbing',
+          'focus-visible:opacity-100 group-hover/sortable:opacity-100'
+        )}
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+      {children}
+    </div>
+  );
 };
 
 const SceneListComponent: React.FC<SceneListProps> = ({
@@ -78,7 +159,31 @@ const SceneListComponent: React.FC<SceneListProps> = ({
   styleCategory,
   modelMissingFrameIds,
   modelMissingLabel,
+  onReorder,
 }) => {
+  const sensors = useSensors(
+    // Small activation distance so a click still selects the card; a real drag
+    // only starts once the pointer moves.
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const frameIds = useMemo(() => frames?.map((f) => f.id) ?? [], [frames]);
+
+  const reorderEnabled = !!onReorder && (frames?.length ?? 0) > 1;
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !frames) return;
+    const oldIndex = frames.findIndex((f) => f.id === active.id);
+    const newIndex = frames.findIndex((f) => f.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const newOrder = arrayMove(frames, oldIndex, newIndex).map((f) => f.id);
+    onReorder?.(newOrder);
+  };
+
   const divergentByFrameId = useMemo(() => {
     const map = new Map<string, FrameVariant>();
     for (const v of divergentVariants ?? []) {
@@ -170,6 +275,50 @@ const SceneListComponent: React.FC<SceneListProps> = ({
     !motionPromptsReady ||
     (includeMusic && !musicPromptsReady);
 
+  const renderSceneItem = (frame: Frame) => {
+    const divergent = divergentByFrameId.get(frame.id);
+    return (
+      <SceneListItem
+        key={frame.id}
+        frame={frame}
+        aspectRatio={aspectRatio}
+        isActive={frame.id === selectedFrameId}
+        isCompleted={isCompleted(frame)}
+        onSelect={() => onSelectFrame(frame.id)}
+        isRegeneratingImage={regeneratingImages.has(frame.id)}
+        isRegeneratingMotion={regeneratingMotion.has(frame.id)}
+        divergentVariantId={divergent?.id}
+        onCompareDivergent={
+          divergent ? () => onCompareDivergent?.(divergent) : undefined
+        }
+        modelMissing={
+          !!modelMissingLabel && (modelMissingFrameIds?.has(frame.id) ?? false)
+        }
+        modelMissingLabel={modelMissingLabel}
+      />
+    );
+  };
+
+  const renderDndList = () => (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+    >
+      <SortableContext items={frameIds} strategy={verticalListSortingStrategy}>
+        {frames?.map((frame) => (
+          <SortableSceneRow
+            key={frame.id}
+            id={frame.id}
+            label={sceneLabel(frame)}
+          >
+            {renderSceneItem(frame)}
+          </SortableSceneRow>
+        ))}
+      </SortableContext>
+    </DndContext>
+  );
+
   return (
     <div className="flex h-full w-[280px] lg:w-[480px] flex-col rounded-lg border bg-background">
       {/* Header */}
@@ -193,33 +342,9 @@ const SceneListComponent: React.FC<SceneListProps> = ({
               />
             ))}
 
-          {frames &&
-            frames.map((frame) => {
-              const divergent = divergentByFrameId.get(frame.id);
-              return (
-                <SceneListItem
-                  key={frame.id}
-                  frame={frame}
-                  aspectRatio={aspectRatio}
-                  isActive={frame.id === selectedFrameId}
-                  isCompleted={isCompleted(frame)}
-                  onSelect={() => onSelectFrame(frame.id)}
-                  isRegeneratingImage={regeneratingImages.has(frame.id)}
-                  isRegeneratingMotion={regeneratingMotion.has(frame.id)}
-                  divergentVariantId={divergent?.id}
-                  onCompareDivergent={
-                    divergent
-                      ? () => onCompareDivergent?.(divergent)
-                      : undefined
-                  }
-                  modelMissing={
-                    !!modelMissingLabel &&
-                    (modelMissingFrameIds?.has(frame.id) ?? false)
-                  }
-                  modelMissingLabel={modelMissingLabel}
-                />
-              );
-            })}
+          {frames && reorderEnabled
+            ? renderDndList()
+            : frames?.map((frame) => renderSceneItem(frame))}
         </div>
       </ScrollArea>
 
@@ -341,7 +466,8 @@ const areEqual = (
   // Compare callback references
   if (
     prevProps.onBatchGenerateMotion !== nextProps.onBatchGenerateMotion ||
-    prevProps.onCompareDivergent !== nextProps.onCompareDivergent
+    prevProps.onCompareDivergent !== nextProps.onCompareDivergent ||
+    prevProps.onReorder !== nextProps.onReorder
   ) {
     return false;
   }

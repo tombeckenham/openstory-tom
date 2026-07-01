@@ -6,6 +6,7 @@
 import type { Database } from '@/lib/db/client';
 import { frames } from '@/lib/db/schema';
 import type { Frame, NewFrame } from '@/lib/db/schema';
+import type { Scene } from '@/lib/ai/scene-analysis.schema';
 import type { Sequence } from '@/lib/db/schema/sequences';
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 
@@ -205,15 +206,42 @@ export function createFramesMethods(db: Database) {
 
     reorder: async (
       _sequenceId: string,
-      frameOrders: Array<{ id: string; order_index: number }>
+      frameOrders: Array<{
+        id: string;
+        order_index: number;
+        metadata?: Scene | null;
+      }>
     ): Promise<void> => {
       if (frameOrders.length === 0) return;
-      const [first, ...rest] = frameOrders.map((frameOrder) =>
+      const now = new Date();
+
+      // Two-phase write to avoid violating the unique (sequenceId, orderIndex)
+      // index. D1 wraps a batch in a transaction and SQLite checks UNIQUE
+      // constraints immediately at each statement boundary, so reassigning
+      // indices directly would collide whenever a frame moves into a slot still
+      // held by another row. We first park every row at a distinct negative
+      // index (never collides with the >= 0 live values or with each other),
+      // then assign the final indices once the slots are clear.
+      const parking = frameOrders.map((frameOrder) =>
         db
           .update(frames)
-          .set({ orderIndex: frameOrder.order_index, updatedAt: new Date() })
+          .set({ orderIndex: -1 - frameOrder.order_index })
           .where(eq(frames.id, frameOrder.id))
       );
+      const finals = frameOrders.map((frameOrder) =>
+        db
+          .update(frames)
+          .set({
+            orderIndex: frameOrder.order_index,
+            ...(frameOrder.metadata !== undefined
+              ? { metadata: frameOrder.metadata }
+              : {}),
+            updatedAt: now,
+          })
+          .where(eq(frames.id, frameOrder.id))
+      );
+
+      const [first, ...rest] = [...parking, ...finals];
       if (!first) return;
       await db.batch([first, ...rest]);
     },
